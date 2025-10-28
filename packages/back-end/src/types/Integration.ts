@@ -64,19 +64,45 @@ export type FactMetricAggregationType =
   | "userCountAggregateFilter";
 
 export type FactMetricAggregationMetadata = {
-  dataType: DataType;
+  // Data type of the intermediate value produced by the aggregation function
+  intermediateDataType: DataType; // Should match output of aggregationFunction
   // takes the processed column from the fact table (e.g. 1 for binomial, or `column` for a selected column)
   // and produces an aggregated value that can be stored at the user-date level
   aggregationFunction: (column: string) => string;
   // takes user-date aggregation and re-aggregates it to the user level for producing
   // the final metric value in the`capCoalesceValue function
   reAggregateFunction: (column: string, quantileColumn?: string) => string;
+
+  // CUPED data
+  // Data type of the final value produced by the covariateAggregationFunction (should
+  // be the same as the datatype produced by reaggregateFunction, but we don't store
+  // the result of re-aggregation in the database except for CUPED data).
+  finalDataType: DataType; // Should match output of covariateAggregationFunction
+  // Takes processed column from the fact table and produces the final metric value for
+  // the cuped/covariate capCoalesceValue function, skipping re-aggregation
+  covariateAggregationFunction: (column: string) => string;
+};
+
+// "exposure" builds a window before the first exposure date for the user
+// "phaseStart" builds a window before the phase start date for all users
+export type CovariateWindowType = "firstExposure" | "phaseStart";
+
+export type FactMetricRegressionAdjustmentSettings = {
+  // used only for "firstExposure" window type
+  // TODO(luke) figure out how to handle these at org level
+  hours: number;
+  minDelay: number;
+  alias: string;
+  // used only for "phaseStart" window type
+  covariateStartDate: Date;
+  covariateEndDate: Date;
 };
 
 export type FactMetricData = {
   alias: string;
   id: string;
   metric: FactMetricInterface;
+  metricIndex: number;
   ratioMetric: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
@@ -92,14 +118,24 @@ export type FactMetricData = {
   capCoalesceCovariate: string;
   capCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
-  raMetricSettings: {
-    hours: number;
-    minDelay: number;
-    alias: string;
-  };
+  raMetricSettings: FactMetricRegressionAdjustmentSettings;
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
+};
+
+export type FactMetricSourceData = {
+  factTable: FactTableInterface;
+  index: number;
+  metricData: FactMetricData[];
+  percentileData: FactMetricPercentileData[];
+  eventQuantileData: FactMetricQuantileData[];
+  regressionAdjustedMetrics: FactMetricData[];
+  metricStart: Date;
+  metricEnd: Date;
+  maxHoursToConvert: number;
+  activationMetric: ExperimentMetricInterface | null;
+  bindingLastMaxTimestamp: boolean;
 };
 
 export type FactMetricQuantileData = {
@@ -243,6 +279,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
 export interface UpdateExperimentIncrementalUnitsQueryParams
   extends CreateExperimentIncrementalUnitsQueryParams {
   segment: SegmentInterface | null;
+  incrementalRefreshStartTime: Date;
   lastMaxTimestamp: Date;
   unitsTempTableFullName: string;
 }
@@ -282,8 +319,34 @@ export interface InsertMetricSourceDataQueryParams {
   lastMaxTimestamp?: Date;
 }
 
-export interface IncrementalRefreshStatisticsQueryParams
-  extends InsertMetricSourceDataQueryParams {}
+// TODO(luke): fix unused param
+export interface CreateMetricSourceCovariateTableQueryParams {
+  settings: ExperimentSnapshotSettings;
+  metrics: FactMetricInterface[];
+  factTableMap: FactTableMap;
+  metricSourceCovariateTableFullName: string;
+}
+export interface InsertMetricSourceCovariateDataQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  dimensions: Dimension[];
+  factTableMap: FactTableMap;
+  metricSourceCovariateTableFullName: string;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+  incrementalRefreshStartTime: Date;
+}
+
+export interface IncrementalRefreshStatisticsQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  dimensions: Dimension[];
+  factTableMap: FactTableMap;
+  metricSourceTableFullName: string;
+  metricSourceCovariateTableFullName: string;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+}
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
@@ -795,6 +858,12 @@ export interface SourceIntegrationInterface {
   ): string;
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
+  ): string;
+  getCreateMetricSourceCovariateTableQuery(
+    params: CreateMetricSourceCovariateTableQueryParams,
+  ): string;
+  getInsertMetricSourceCovariateDataQuery(
+    params: InsertMetricSourceCovariateDataQueryParams,
   ): string;
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,

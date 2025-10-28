@@ -383,8 +383,8 @@ export default class BigQuery extends SqlIntegration {
         .map(
           (
             m,
-          ) => `, ${m.metric.id}_value ${this.getDataType(m.numeratorMetadata.dataType)}
-          ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getDataType(m.denominatorMetadata.dataType)}` : ""}
+          ) => `, ${m.metric.id}_value ${this.getDataType(m.numeratorMetadata.intermediateDataType)}
+          ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getDataType(m.denominatorMetadata.intermediateDataType)}` : ""}
           `,
         )
         .join("\n")}

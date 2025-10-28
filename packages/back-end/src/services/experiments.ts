@@ -694,6 +694,8 @@ export function getSnapshotSettings({
         }
       : undefined;
 
+  console.log("metricSettings", metricSettings);
+  console.log("regressionAdjustmentEnabled", regressionAdjustmentEnabled);
   return {
     manual: !experiment.datasource,
     activationMetric: experiment.activationMetric || null,
@@ -1278,6 +1280,7 @@ export async function createSnapshot({
         experiment.id,
       ))
   ) {
+    const incrementalRefreshStartTime = new Date();
     const queryRunner = new ExperimentIncrementalRefreshQueryRunner(
       context,
       snapshot,
@@ -1288,6 +1291,7 @@ export async function createSnapshot({
       snapshotSettings: data.settings,
       variationNames: experiment.variations.map((v) => v.name),
       metricMap,
+      incrementalRefreshStartTime,
       // experiment ID used for table name
       queryParentId: experiment.id,
       factTableMap,

@@ -45,6 +45,8 @@ export type QueryType =
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshCreateMetricsSourceTable"
   | "experimentIncrementalRefreshInsertMetricsSourceData"
+  | "experimentIncrementalRefreshCreateMetricsCovariateTable"
+  | "experimentIncrementalRefreshInsertMetricsCovariateData"
   | "experimentIncrementalRefreshHealth";
 
 export interface QueryInterface {

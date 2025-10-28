@@ -116,16 +116,6 @@ export default function AnalysisSettingsBar({
   const isBandit = experiment?.type === "multi-armed-bandit";
   const isHoldout = experiment?.type === "holdout";
 
-  const isPipelineIncrementalEnabledForDatasource =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
-  const isExperimentIncludedInIncrementalRefresh =
-    isPipelineIncrementalEnabledForDatasource &&
-    (experiment
-      ? (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
-          experiment?.id,
-        ) ?? true)
-      : true);
-
   return (
     <div>
       {modalOpen && experiment && (
@@ -252,8 +242,7 @@ export default function AnalysisSettingsBar({
                   <label
                     htmlFor={"toggle-experiment-regression-adjustment"}
                     className={`d-flex btn btn-outline-${
-                      !hasRegressionAdjustmentFeature ||
-                      isExperimentIncludedInIncrementalRefresh
+                      !hasRegressionAdjustmentFeature
                         ? "teal-disabled"
                         : regressionAdjustmentEnabled
                           ? "teal"
@@ -265,15 +254,8 @@ export default function AnalysisSettingsBar({
                     <Switch
                       color="teal"
                       id="toggle-experiment-regression-adjustment"
-                      value={
-                        isExperimentIncludedInIncrementalRefresh
-                          ? false
-                          : !!regressionAdjustmentEnabled
-                      }
+                      value={!!regressionAdjustmentEnabled}
                       onChange={(value) => {
-                        if (isExperimentIncludedInIncrementalRefresh) {
-                          return;
-                        }
                         if (
                           onRegressionAdjustmentChange &&
                           hasRegressionAdjustmentFeature
@@ -285,30 +267,9 @@ export default function AnalysisSettingsBar({
                       }}
                       disabled={
                         !hasRegressionAdjustmentFeature ||
-                        !canEditAnalysisSettings ||
-                        isExperimentIncludedInIncrementalRefresh
+                        !canEditAnalysisSettings
                       }
                     />
-                    {isExperimentIncludedInIncrementalRefresh && (
-                      <Tooltip
-                        popperClassName="text-left"
-                        body={
-                          <>
-                            <p className="mb-0">
-                              CUPED is not supported with Incremental Refresh at
-                              the moment.
-                            </p>
-                          </>
-                        }
-                      >
-                        <div
-                          className="text-warning-orange position-absolute p-1"
-                          style={{ top: -11, right: 2 }}
-                        >
-                          <FaExclamationCircle />
-                        </div>
-                      </Tooltip>
-                    )}
                     {!regressionAdjustmentHasValidMetrics && (
                       <Tooltip
                         popperClassName="text-left"
