@@ -137,6 +137,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/product-analytics/dashboards",
     path: /^(product-analytics\/dashboards)/,
     Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
   },
   {
     name: "Insights",
