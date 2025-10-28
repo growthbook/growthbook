@@ -519,7 +519,7 @@ export default function FeaturesOverview({
               {ago(revision.dateUpdated)}
             </Box>
           )}
-          <Box>
+          <Flex align="center" gap="2">
             {renderStatusCopy()}
             <Button
               title="View log"
@@ -530,7 +530,7 @@ export default function FeaturesOverview({
             >
               <RxListBullet />
             </Button>
-          </Box>
+          </Flex>
         </Flex>
       </Flex>
     );
@@ -700,19 +700,17 @@ export default function FeaturesOverview({
                       Kill Switch
                     </td>
                     {envs.map((env) => (
-                      <td
-                        key={env}
-                        className="text-center align-bottom pb-2"
-                        style={{ minWidth: 120 }}
-                      >
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={env}
-                          mutate={() => {
-                            mutate();
-                          }}
-                          id={`${env}_toggle`}
-                        />
+                      <td key={env} style={{ minWidth: 120 }}>
+                        <Flex align="center" justify="center">
+                          <EnvironmentToggle
+                            feature={feature}
+                            environment={env}
+                            mutate={() => {
+                              mutate();
+                            }}
+                            id={`${env}_toggle`}
+                          />
+                        </Flex>
                       </td>
                     ))}
                     <td className="w-100" />
@@ -761,7 +759,7 @@ export default function FeaturesOverview({
                       direction="row"
                       gap="2"
                       key={en.id}
-                      mr="3"
+                      mr="4"
                     >
                       <label
                         className="font-weight-bold mb-0"
@@ -1020,9 +1018,9 @@ export default function FeaturesOverview({
 
               {renderRevisionInfo()}
 
-              <Box className="appbox" mt="4" p="5" pl="6" pr="5">
+              <Box className="appbox" mt="4" p="4" pl="6" pr="5">
                 <Flex align="center" justify="between">
-                  <Heading as="h3" size="4" mb="0">
+                  <Heading as="h3" size="4" mb="3">
                     Default Value
                   </Heading>
                   {canEdit && !isLocked && canEditDrafts && (

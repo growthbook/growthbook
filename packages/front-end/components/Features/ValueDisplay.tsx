@@ -3,12 +3,15 @@ import {
   FeatureTestResult,
   FeatureValueType,
 } from "back-end/types/feature";
-import React, { CSSProperties, useMemo } from "react";
+import React, { CSSProperties, useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiCornersOutBold } from "react-icons/pi";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { parseFeatureResult } from "@/hooks/useArchetype";
+import Modal from "@/components/Modal";
 
 export default function ValueDisplay({
   value,
@@ -17,6 +20,7 @@ export default function ValueDisplay({
   additionalStyle = {},
   fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" },
   fullClassName = "",
+  showFullscreenButton: _showFullscreenButton = false,
 }: {
   value: string;
   type: FeatureValueType;
@@ -24,7 +28,9 @@ export default function ValueDisplay({
   additionalStyle?: CSSProperties;
   fullStyle?: CSSProperties;
   fullClassName?: string;
+  showFullscreenButton?: boolean;
 }) {
+  const [modalOpen, setModalOpen] = useState(false);
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
     if (type === "number") return value || "null";
@@ -35,6 +41,11 @@ export default function ValueDisplay({
       return value;
     }
   }, [value, type]);
+
+  const showFullscreenButton =
+    _showFullscreenButton &&
+    type === "json" &&
+    formatted.split("\n").length > 6;
 
   if (type === "boolean") {
     const on = !(value === "false" || value === "null" || !value);
@@ -73,9 +84,42 @@ export default function ValueDisplay({
   }
 
   return (
-    <div style={fullStyle} className={fullClassName}>
-      <InlineCode language="json" code={formatted} />
-    </div>
+    <>
+      <Flex align="end" gap="2">
+        <Box flexGrow="1" style={fullStyle} className={fullClassName}>
+          <InlineCode language="json" code={formatted} />
+        </Box>
+        {showFullscreenButton && type === "json" && (
+          <Flex align="end">
+            <Tooltip body="View in full screen" style={{ marginBottom: -6 }}>
+              <IconButton
+                radius="full"
+                variant="ghost"
+                onClick={() => setModalOpen(true)}
+              >
+                <PiCornersOutBold size={15} />
+              </IconButton>
+            </Tooltip>
+          </Flex>
+        )}
+      </Flex>
+      {modalOpen && (
+        <Modal
+          header="Feature Value"
+          open={modalOpen}
+          close={() => setModalOpen(false)}
+          trackingEventModalType=""
+          size="max"
+        >
+          <ValueDisplay
+            value={value}
+            type={type}
+            full={true}
+            fullStyle={{ maxHeight: 400, maxWidth: "100%" }}
+          />
+        </Modal>
+      )}
+    </>
   );
 }
 
