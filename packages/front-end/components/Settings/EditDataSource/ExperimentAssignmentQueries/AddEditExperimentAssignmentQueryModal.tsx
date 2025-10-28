@@ -23,19 +23,11 @@ type EditExperimentAssignmentQueryProps = {
   mode: "add" | "edit";
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
-  extraRequiredColumns?: string[]; // optional additional required columns to append (e.g., pipeline partition columns)
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
-> = ({
-  exposureQuery,
-  dataSource,
-  mode,
-  onSave,
-  onCancel,
-  extraRequiredColumns = [],
-}) => {
+> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -91,30 +83,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     });
   });
 
-  const pipelineSettings = dataSource?.settings?.pipelineSettings;
-
   const requiredColumns = useMemo(() => {
-    const base = new Set<string>(
-      [
-        "experiment_id",
-        "variation_id",
-        "timestamp",
-        userEnteredUserIdType,
-        ...(userEnteredDimensions || []),
-        ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
-      ].filter(Boolean),
-    );
-
-    // Include extra required columns if provided (e.g., from a wizard flow)
-    for (const col of extraRequiredColumns.filter(Boolean)) base.add(col);
-
-    return base;
-  }, [
-    userEnteredUserIdType,
-    userEnteredDimensions,
-    userEnteredHasNameCol,
-    extraRequiredColumns,
-  ]);
+    return new Set([
+      "experiment_id",
+      "variation_id",
+      "timestamp",
+      userEnteredUserIdType,
+      ...(userEnteredDimensions || []),
+      ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
+    ]);
+  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],

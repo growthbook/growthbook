@@ -100,4 +100,5 @@ export type AppFeatures = {
   holdouts_feature: boolean;
   "metric-slices": boolean;
   "general-dashboards": boolean;
+  "incremental-refresh": boolean;
 };

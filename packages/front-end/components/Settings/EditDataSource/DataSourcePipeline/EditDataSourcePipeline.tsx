@@ -10,18 +10,14 @@ import {
   UNITS_TABLE_RETENTION_HOURS_DEFAULT,
   type PipelineValidationResults,
 } from "shared/enterprise";
-import { PiArrowLeft, PiCaretRight } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
-import HelperText from "@/ui/HelperText";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useExperiments } from "@/hooks/useExperiments";
 import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/PipelineValidationResults";
 import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components/DataPipeline/useDataSourcePipelineSettingsValidation";
 import Modal from "@/components/Modal";
-import PipelineQueriesValidationStep from "@/components/Settings/EditDataSource/DataSourcePipeline/PipelineQueriesValidationStep";
 import RadioGroup from "@/ui/RadioGroup";
-import Link from "@/ui/Link";
 import PipelineModeSelector from "./PipelineModeSelector";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
@@ -72,7 +68,7 @@ export const EditDataSourcePipeline = ({
   const form = useForm<FormValues>({
     defaultValues: {
       mode:
-        initialPipelineSettings?.allowWriting === false
+        initialPipelineSettings?.allowWriting !== true
           ? "disabled"
           : (initialPipelineSettings?.mode ?? "ephemeral"),
       writeDatabase: initialPipelineSettings?.writeDatabase ?? "",
@@ -86,11 +82,6 @@ export const EditDataSourcePipeline = ({
         initialPipelineSettings?.includedExperimentIds === undefined,
     },
   });
-
-  const [currentPage, setCurrentPage] = useState(
-    // initialPipelineSettings?.allowWriting ? 1 : 0,
-    0,
-  );
 
   const validatePipelinePermissions = async (): Promise<boolean> => {
     const formValues = form.getValues();
@@ -116,45 +107,42 @@ export const EditDataSourcePipeline = ({
     return isValid;
   };
 
-  const has2Pages = form.watch("mode") === "incremental";
-
   const handleSubmit = async () => {
-    if (currentPage === 0) {
-      const validPermissions = await validatePipelinePermissions();
-      if (!validPermissions) {
-        throw new Error(validationError || "Validation failed");
-      }
-
-      await form.handleSubmit(async (formValues) => {
-        const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-        copy.settings.pipelineSettings = {
-          allowWriting: formValues.mode !== "disabled",
-          mode: formValues.mode === "disabled" ? "ephemeral" : formValues.mode,
-          writeDatabase: formValues.writeDatabase,
-          writeDataset: formValues.writeDataset,
-          unitsTableRetentionHours: formValues.unitsTableRetentionHours,
-          unitsTableDeletion: formValues.unitsTableDeletion,
-          includedExperimentIds: formValues.applyToAllExperiments
-            ? undefined
-            : formValues.includedExperimentIds,
-        };
-        await onSave(copy);
-      })();
-    }
-
-    if (has2Pages && currentPage === 0) {
-      setCurrentPage(1);
+    const validPermissions = await validatePipelinePermissions();
+    if (!validPermissions) {
       return;
-    } else {
-      // Closes the modal
-      onCancel();
     }
+
+    await form.handleSubmit(async (formValues) => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      copy.settings.pipelineSettings = {
+        allowWriting: formValues.mode !== "disabled",
+        mode: formValues.mode === "disabled" ? "ephemeral" : formValues.mode,
+        writeDatabase: formValues.writeDatabase,
+        writeDataset: formValues.writeDataset,
+        unitsTableRetentionHours: formValues.unitsTableRetentionHours,
+        unitsTableDeletion: formValues.unitsTableDeletion,
+        includedExperimentIds: formValues.applyToAllExperiments
+          ? undefined
+          : formValues.includedExperimentIds,
+      };
+      await onSave(copy);
+      onCancel();
+    })();
   };
 
   return (
     <Modal
       open={true}
-      header={null}
+      header={
+        <Text
+          size="5"
+          weight="bold"
+          style={{ color: "var(--color-text-high)" }}
+        >
+          Edit Pipeline Settings
+        </Text>
+      }
       showHeaderCloseButton={false}
       bodyClassName="p-0 pb-2 pr-4 ml-0 mx-0"
       trackingEventModalType="edit-data-source-pipeline"
@@ -163,131 +151,62 @@ export const EditDataSourcePipeline = ({
       autoCloseOnSubmit={false}
       borderlessHeader={true}
       useRadixButton={true}
-      cta={
-        has2Pages && currentPage === 0 ? (
-          <>
-            {validateBeforeSaving ? "Validate & " : ""}
-            Advance <PiCaretRight />
-          </>
-        ) : validateBeforeSaving ? (
-          "Validate & Save"
-        ) : (
-          "Save"
-        )
-      }
+      cta={validateBeforeSaving ? "Validate & Save" : "Save"}
       size="lg"
       includeCloseCta={true}
       closeCta="Cancel"
-      backCTA={
-        has2Pages && currentPage === 1 ? (
-          <Link
-            weight="medium"
-            underline="none"
-            onClick={(e) => {
-              e.preventDefault();
-              setCurrentPage(currentPage - 1);
-            }}
-          >
-            <PiArrowLeft /> Back
-          </Link>
-        ) : null
-      }
     >
-      {form.watch("mode") !== "disabled" &&
-        validationResults &&
-        !allValidationsSucceeded && (
-          <ValidationResultsSection
-            validationResults={validationResults}
-            validationTableName={validationTableName}
-          />
-        )}
-
-      <Box mt="5" mb="4" mx="4">
-        {currentPage === 0 ? (
-          <Flex direction="column" gap="6">
-            <Text
-              size="5"
-              weight="bold"
-              style={{ color: "var(--color-text-high)" }}
-            >
-              Edit Pipeline Settings
+      <Box mt="4" mb="4" mx="4">
+        <Flex direction="column" gap="6">
+          <Flex direction="column" gap="3">
+            <Text size="3" style={{ color: "var(--color-text-mid)" }}>
+              Configure write permissions for GrowthBook in order to improve the
+              performance of experiment queries, including incremental refresh.
             </Text>
+            <PipelineModeSelector
+              value={form.watch("mode")}
+              setValue={(value) => form.setValue("mode", value)}
+              dataSourceType={dataSource.type}
+            />
+          </Flex>
 
-            <Flex direction="column" gap="3">
-              <Text size="3" style={{ color: "var(--color-text-mid)" }}>
-                Configure write permissions for GrowthBook in order to improve
-                the performance of experiment queries, including incremental
-                refresh.
-              </Text>
-              <PipelineModeSelector
-                value={form.watch("mode")}
-                setValue={(value) => form.setValue("mode", value)}
-                dataSourceType={dataSource.type}
+          {form.watch("mode") !== "disabled" ? (
+            <>
+              <Separator size="4" />
+              <DestinationInputs form={form} pathNames={pathNames} />
+            </>
+          ) : null}
+
+          {form.watch("mode") === "ephemeral" ? (
+            <EphemeralRetentionInputs form={form} />
+          ) : null}
+
+          {form.watch("mode") === "incremental" ? (
+            <>
+              <IncrementalScopeSelector
+                form={form}
+                experimentOptions={experimentOptions}
               />
-            </Flex>
+            </>
+          ) : null}
 
-            {form.watch("mode") !== "disabled" ? (
-              <>
-                <Separator size="4" />
-                <DestinationInputs form={form} pathNames={pathNames} />
-                <ValidatePermissionsCheckbox
-                  value={validateBeforeSaving}
-                  setValue={setValidateBeforeSaving}
-                />
-              </>
-            ) : null}
-
-            {form.watch("mode") === "ephemeral" ? (
-              <EphemeralRetentionInputs form={form} />
-            ) : null}
-
-            {form.watch("mode") === "incremental" ? (
-              <>
-                <IncrementalScopeSelector
-                  form={form}
-                  experimentOptions={experimentOptions}
-                />
-                {/* <PartitionTypeSelect form={form} /> */}
-              </>
-            ) : null}
-          </Flex>
-        ) : null}
-
-        {currentPage === 1 ? (
-          <Flex direction="column" gap="6">
-            <Text
-              size="5"
-              weight="bold"
-              style={{ color: "var(--color-text-high)" }}
-            >
-              Edit Pipeline Settings
-            </Text>
-
-            <Flex direction="column" gap="3">
-              <Text size="3" style={{ color: "var(--color-text-mid)" }}>
-                As you specified a partition type, we need to ensure the
-                partition columns have been added to all Exposure Queries and
-                Fact Tables.
-              </Text>
-              <PipelineQueriesValidationStep
-                dataSource={dataSource}
-                onSaveDataSource={onSave}
+          {form.watch("mode") !== "disabled" && (
+            <>
+              <ValidatePermissionsCheckbox
+                value={validateBeforeSaving}
+                setValue={setValidateBeforeSaving}
               />
-            </Flex>
-          </Flex>
-        ) : null}
 
-        {currentPage === 1 ? (
-          <Flex direction="column" gap="6">
-            <Text
-              size="5"
-              weight="bold"
-              style={{ color: "var(--color-text-high)" }}
-            >
-              Validate settings
-            </Text>
-          </Flex>
-        ) : null}
+              {validationResults && !allValidationsSucceeded && (
+                <ValidationResultsSection
+                  validationError={validationError}
+                  validationResults={validationResults}
+                  validationTableName={validationTableName}
+                />
+              )}
+            </>
+          )}
+        </Flex>
       </Box>
     </Modal>
   );
@@ -363,7 +282,7 @@ function EphemeralRetentionInputs({
     <Box>
       <Flex direction="column" gap="2">
         <Text size="3" weight="bold">
-          Retention of temporary units table
+          Retention of temporary units table (hours)
         </Text>
         <Flex direction="column" gap="2">
           <TextField.Root
@@ -379,9 +298,6 @@ function EphemeralRetentionInputs({
             min={1}
             required
           />
-          <Flex justify="end">
-            <HelperText status="info">hour(s)</HelperText>
-          </Flex>
         </Flex>
       </Flex>
     </Box>
@@ -424,9 +340,11 @@ function IncrementalScopeSelector({
 }
 
 function ValidationResultsSection({
+  validationError,
   validationResults,
   validationTableName,
 }: {
+  validationError: string | undefined;
   validationResults: PipelineValidationResults;
   validationTableName: string | undefined;
 }) {
@@ -436,8 +354,9 @@ function ValidationResultsSection({
   }, []);
 
   return (
-    <Box mt="4" ref={sectionRef}>
+    <Box ref={sectionRef}>
       <PipelineValidationResultsView
+        validationError={validationError}
         results={validationResults}
         tableName={validationTableName}
       />

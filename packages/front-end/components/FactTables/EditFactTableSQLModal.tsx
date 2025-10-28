@@ -8,22 +8,18 @@ export interface Props {
     FactTableInterface,
     "datasource" | "sql" | "eventName" | "userIdTypes"
   >;
-  requiredColumns?: Set<string>;
   close: () => void;
   save: (data: {
     sql: string;
     eventName: string;
     userIdTypes: string[];
   }) => Promise<void>;
-  disableTestQueryBeforeSaving?: boolean;
 }
 
 export default function EditFactTableSQLModal({
   factTable,
   close,
   save,
-  requiredColumns,
-  disableTestQueryBeforeSaving,
 }: Props) {
   const { getDatasourceById } = useDefinitions();
   const [eventName, setEventName] = useState(factTable.eventName);
@@ -34,13 +30,12 @@ export default function EditFactTableSQLModal({
 
   return (
     <EditSqlModal
-      disableTestQueryBeforeSaving={disableTestQueryBeforeSaving}
       close={close}
       datasourceId={factTable.datasource}
       placeholder={
         "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
       }
-      requiredColumns={new Set(["timestamp", ...(requiredColumns || [])])}
+      requiredColumns={new Set(["timestamp"])}
       value={factTable.sql}
       save={async (sql) => {
         await save({
