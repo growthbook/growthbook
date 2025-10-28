@@ -145,8 +145,16 @@ const CompactResults: FC<{
   setSortDirection,
   analysisBarSettings,
 }) => {
-  const { getExperimentMetricById, getFactTableById, metricGroups } =
-    useDefinitions();
+  const {
+    getExperimentMetricById: _getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+    metricGroups: _metricGroups,
+  } = useDefinitions();
+
+  const getExperimentMetricById =
+    ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
