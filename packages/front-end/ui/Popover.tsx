@@ -1,8 +1,8 @@
+import React from "react";
 import * as RadixPopover from "@radix-ui/react-popover";
 import { IconButton } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { FaX } from "react-icons/fa6";
-import React, { ReactNode } from "react";
+import { PiX } from "react-icons/pi";
 import { RadixTheme } from "@/services/RadixTheme";
 import styles from "./Popover.module.scss";
 
@@ -83,7 +83,7 @@ export function Popover({
                 }}
               >
                 <IconButton variant="ghost" color="gray" size="1" radius="full">
-                  <FaX />
+                  <PiX />
                 </IconButton>
               </RadixPopover.Close>
             )}
@@ -94,59 +94,4 @@ export function Popover({
       </RadixPopover.Portal>
     </RadixPopover.Root>
   );
-}
-
-export function PopoverTrigger({ children }: { children: ReactNode }) {
-  return <RadixPopover.Trigger>{children}</RadixPopover.Trigger>;
-}
-
-export function PopoverContent({
-  children,
-  side = "bottom",
-  align = "center",
-  showCloseButton = false,
-  showArrow = true,
-}: {
-  children: ReactNode;
-  side?: "top" | "right" | "bottom" | "left";
-  align?: "start" | "center" | "end";
-  showCloseButton?: boolean;
-  showArrow?: boolean;
-}) {
-  return (
-    <RadixPopover.Portal>
-      <RadixTheme>
-        <RadixPopover.Content
-          side={side}
-          align={align}
-          className={styles.Content}
-        >
-          {showCloseButton && (
-            <RadixPopover.Close
-              asChild
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-              }}
-            >
-              <IconButton variant="ghost" color="gray" size="1" radius="full">
-                <FaX />
-              </IconButton>
-            </RadixPopover.Close>
-          )}
-          {children}
-          {showArrow && <RadixPopover.Arrow className={styles.Arrow} />}
-        </RadixPopover.Content>
-      </RadixTheme>
-    </RadixPopover.Portal>
-  );
-}
-
-export function PopoverClose({ children }: { children: ReactNode }) {
-  return <RadixPopover.Close asChild>{children}</RadixPopover.Close>;
-}
-
-export function PopoverArrow({ className }: { className?: string }) {
-  return <RadixPopover.Arrow className={className || styles.Arrow} />;
 }

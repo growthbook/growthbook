@@ -15,8 +15,9 @@ export default function PopoverStories() {
         </Box>
         <Popover
           trigger={<Button>Open Popover</Button>}
+          showCloseButton={true}
           content={
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="2" p="2">
               <Text>
                 This is a simple popover. Click outside or press ESC to close.
               </Text>
