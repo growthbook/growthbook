@@ -22,6 +22,7 @@ type UncontrolledPopoverProps = {
 
 type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   trigger: React.ReactNode;
+  triggerAsChild?: boolean;
   content: AllowedChildren;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
@@ -33,6 +34,7 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
 
 export function Popover({
   trigger,
+  triggerAsChild = true,
   content,
   side = "bottom",
   align = "center",
@@ -53,9 +55,19 @@ export function Popover({
   return (
     <RadixPopover.Root {...props}>
       {anchorOnly ? (
-        <RadixPopover.Anchor asChild>{clonedTrigger}</RadixPopover.Anchor>
+        <RadixPopover.Anchor
+          asChild={triggerAsChild}
+          className={styles.UnstyledTrigger}
+        >
+          {clonedTrigger}
+        </RadixPopover.Anchor>
       ) : (
-        <RadixPopover.Trigger asChild>{clonedTrigger}</RadixPopover.Trigger>
+        <RadixPopover.Trigger
+          asChild={triggerAsChild}
+          className={styles.UnstyledTrigger}
+        >
+          {clonedTrigger}
+        </RadixPopover.Trigger>
       )}
       <RadixPopover.Portal>
         <RadixTheme>

@@ -1,12 +1,13 @@
 import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
 import React, { useEffect, useState } from "react";
-import { BsXCircle } from "react-icons/bs";
 import { FaX } from "react-icons/fa6";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text, Box } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Checkbox from "@/ui/Checkbox";
+import { Popover } from "@/ui/Popover";
+import Button from "@/ui/Button";
 
 export default function ResultsMetricFilter({
   metricTags = [],
@@ -39,61 +40,46 @@ export default function ResultsMetricFilter({
       className="col position-relative d-flex align-items-end px-0 font-weight-normal"
       style={{ maxWidth: 20 }}
     >
-      <Tooltip
-        body={
-          filteringApplied
-            ? "Metric filters applied"
-            : "No metric filters applied"
-        }
-        usePortal={true}
-        shouldDisplay={!showMetricFilter}
-      >
-        <a
-          role="button"
-          onClick={() => setShowMetricFilter(!showMetricFilter)}
-          className={`d-inline-block px-1 ${
-            filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
-          }`}
-          style={{ transform: "scale(1.1)", marginRight: -4 }}
-        >
-          {filteringApplied ? (
-            <MdFilterAlt className="position-relative" style={{ bottom: 1 }} />
-          ) : (
-            <MdOutlineFilterAltOff
-              className="position-relative"
-              style={{ bottom: 1 }}
-            />
-          )}
-        </a>
-      </Tooltip>
-      <Tooltip
-        tipPosition="bottom"
-        usePortal={true}
-        style={{ position: "absolute" }}
-        popperStyle={{ marginLeft: 17, marginTop: -2 }}
-        state={showMetricFilter}
-        flipTheme={false}
-        body={
-          <div style={{ width: 280 }}>
+      <Popover
+        trigger={
+          <Tooltip
+            body={
+              filteringApplied
+                ? "Metric filters applied"
+                : "No metric filters applied"
+            }
+            usePortal={true}
+            shouldDisplay={!showMetricFilter}
+          >
             <a
               role="button"
-              style={{
-                top: 3,
-                right: 5,
-              }}
-              className="position-absolute cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowMetricFilter(false);
-              }}
+              onClick={() => setShowMetricFilter(!showMetricFilter)}
+              className={`d-inline-block px-1 ${
+                filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
+              }`}
+              style={{ transform: "scale(1.1)", marginRight: -4 }}
             >
-              <BsXCircle size={16} />
+              {filteringApplied ? (
+                <MdFilterAlt
+                  className="position-relative"
+                  style={{ bottom: 1 }}
+                />
+              ) : (
+                <MdOutlineFilterAltOff
+                  className="position-relative"
+                  style={{ bottom: 1 }}
+                />
+              )}
             </a>
-
+          </Tooltip>
+        }
+        triggerAsChild={false}
+        content={
+          <Box style={{ width: 280 }}>
             <div>
-              <label className="my-2">
-                <h5 className="mb-0">Order metrics by tag</h5>
-              </label>
+              <Text as="label" size="3" weight="bold" className="my-2">
+                Order metrics by tag
+              </Text>
               <MultiSelectField
                 customClassName="multiselect-unfixed"
                 value={_metricFilter?.tagOrder || []}
@@ -108,7 +94,9 @@ export default function ResultsMetricFilter({
                   return;
                 }}
               />
-              <small>Drag &amp; drop tags to change display order</small>
+              <Text size="1" color="gray">
+                Drag &amp; drop tags to change display order
+              </Text>
             </div>
 
             <Flex mt="3" align="center" gap="3">
@@ -129,27 +117,29 @@ export default function ResultsMetricFilter({
                 disabled={!_metricFilter?.tagOrder?.length}
               />
               {!_metricFilter?.tagOrder?.length ? (
-                <small className="text-muted ml-2">No tags selected</small>
+                <Text size="1" color="gray" ml="2">
+                  No tags selected
+                </Text>
               ) : null}
             </Flex>
             <div className="d-flex mt-3">
               {_filteringApplied ? (
-                <button
-                  className="btn btn-sm btn-link px-0"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  color="gray"
+                  icon={<FaX />}
+                  onClick={async () => {
                     _setMetricFilter({});
                   }}
                 >
-                  <FaX className="mr-1" />
                   Clear filters
-                </button>
+                </Button>
               ) : null}
               <div className="flex-1" />
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
+              <Button
+                size="xs"
+                onClick={async () => {
                   setMetricFilter(_metricFilter);
                   setShowMetricFilter(false);
                 }}
@@ -158,13 +148,16 @@ export default function ResultsMetricFilter({
                 }
               >
                 Apply
-              </button>
+              </Button>
             </div>
-          </div>
+          </Box>
         }
-      >
-        <></>
-      </Tooltip>
+        side="bottom"
+        align="start"
+        showCloseButton
+        open={showMetricFilter}
+        onOpenChange={setShowMetricFilter}
+      />
     </div>
   );
 }

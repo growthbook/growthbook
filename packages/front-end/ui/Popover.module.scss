@@ -3,6 +3,7 @@
   padding: 16px;
   background-color: var(--color-panel);
   box-shadow:
+    hsl(206 22% 7% / 5%) 0px 0px 0px 1px,
     hsl(206 22% 7% / 35%) 0px 10px 38px -10px,
     hsl(206 22% 7% / 20%) 0px 10px 20px -15px;
   animation-duration: 400ms;
@@ -24,6 +25,16 @@
 
 .Arrow {
   fill: var(--color-panel);
+}
+
+.UnstyledTrigger {
+  all: unset;
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
 }
 
 @keyframes slideUpAndFade {
