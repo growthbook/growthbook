@@ -565,8 +565,6 @@ export const startExperimentIncrementalRefreshQueries = async (
         "Unable to generate table; table path generator not specified.",
       );
     }
-
-    // if one metric has cuped
     const anyMetricHasCuped = group.metrics.some((m) => {
       const metric = cloneDeep(m);
       applyMetricOverrides(metric, snapshotSettings);
