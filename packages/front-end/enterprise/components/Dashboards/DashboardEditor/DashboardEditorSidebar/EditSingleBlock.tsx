@@ -522,8 +522,6 @@ export default function EditSingleBlock({
     });
   };
 
-  console.log("block", block);
-
   return (
     <>
       {showSqlExplorerModal && (
