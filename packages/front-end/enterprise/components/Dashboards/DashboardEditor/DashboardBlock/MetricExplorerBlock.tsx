@@ -85,15 +85,6 @@ export default function MetricExplorerBlock({
     }
 
     const option = {
-      title: {
-        text: `${factMetric.name}`,
-        left: "center",
-        textStyle: {
-          color: textColor,
-          fontSize: 20,
-          fontWeight: "bold",
-        },
-      },
       tooltip: {
         appendTo: "body",
         trigger: "axis",
@@ -184,7 +175,6 @@ export default function MetricExplorerBlock({
       ) : visualizationType === "bigNumber" ? (
         <BigValueChart
           value={(chartData && "value" in chartData && chartData.value) || 0}
-          label={"Value"}
           formatter={
             (chartData as { formatter: (value: number) => string }).formatter
           }

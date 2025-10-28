@@ -700,7 +700,13 @@ export default function EditSingleBlock({
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
-                  setBlock({ ...block, factMetricId: value });
+                  setBlock({
+                    ...block,
+                    title:
+                      factMetricOptions.find((option) => option.value === value)
+                        ?.label || "Metric",
+                    factMetricId: value,
+                  });
                 }}
                 options={factMetricOptions}
                 formatOptionLabel={({ value }, { context }) => (
@@ -1184,13 +1190,17 @@ export default function EditSingleBlock({
                         </Flex>
                       }
                       options={savedQueryOptions}
-                      onChange={(val) =>
+                      onChange={(val) => {
                         setBlock({
                           ...block,
+                          title:
+                            savedQueryOptions.find(
+                              (option) => option.value === val,
+                            )?.label || "SQL Query",
                           savedQueryId: val,
                           blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
-                        })
-                      }
+                        });
+                      }}
                       isClearable
                     />
                   </>

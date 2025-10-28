@@ -38,9 +38,6 @@ export default function SqlExplorerBlock({
       // Render results table
       return (
         <div key={`${configId}-${index}`}>
-          <h2 style={{ width: "100%", textAlign: "center" }}>
-            {savedQuery.name}
-          </h2>
           <Box
             style={{
               height: 500,
