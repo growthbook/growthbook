@@ -11,9 +11,9 @@ GrowthBook consists of a NextJS front-end, an ExpressJS API, and a Python stats 
 
 In addition to the app itself, you will also need a MongoDB instance (or MongoDB compatible database) to store login credentials, cached experiment results, and metadata.
 
-:::tip
-Don't want to install or host the app yourself? <a href="https://app.growthbook.io">GrowthBook Cloud</a> is a fully managed
-version that's free to get started.
+:::tip Don't want to install or host the app yourself?
+
+<a href="https://app.growthbook.io">GrowthBook Cloud</a> is a fully managed version that's free to get started with.
 :::
 
 ## Quick Start
@@ -48,7 +48,7 @@ volumes:
 
 Then, just run `docker compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
 
-:::caution
+:::caution Use of mongo image
 The use of the mongo image within the docker-compose.yml is meant to quickly get a dev or staging environment up and running.
 For production you may want to use a more scalable and stable solution (ie. AWS DocumentDB, Google Cloud MongoDB Atlas, Azure Cosmos DB for Mongo, etc.)
 :::

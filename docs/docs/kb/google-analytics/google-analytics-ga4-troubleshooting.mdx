@@ -13,8 +13,6 @@ Please watch the [How GrowthBook Works with Your Data](https://youtu.be/hboLeUbp
 
 If you are using Google Tag Manager (GTM) in combination with GA4, please review our [Google Tag Manager Setup Guide](/guide/google-tag-manager-and-growthbook) and accompanying [Google Tag Manager (GTM) Troubleshooting Guide](/kb/google-analytics/google-tag-manager-gtm-troubleshooting).
 
-:::note
-
 ## Special note for the HTML and JavaScript SDKs
 
 ### GA4 and GrowthBook's HTML Script Tag SDK
@@ -30,8 +28,6 @@ If you need to define a custom `trackingCallback` you can do so with the `window
 ### GA4 and GrowthBook's JavaScript SDK
 
 Similar to the details above regarding the HTML SDK, the JavaScript SDK can accommodate [an optional plugin](/lib/js#third-party-tracking) that will automatically send `experiment_viewed` events to GTM and/or GA4 if configured. The plugin is **not** enabled by default and must be imported and then added to the `plugins` array when constructing the `growthbook` instance.
-
-:::
 
 ## Common issues when integrating GA4 with GrowthBook
 
