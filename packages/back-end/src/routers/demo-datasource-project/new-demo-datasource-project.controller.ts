@@ -398,7 +398,7 @@ spacing and headings.`,
           name: "Control",
           screenshots: [
             {
-              path: "/images/demo-datasource/current.png",
+              path: "/images/demo-datasource/add-to-cart-control.png",
             },
           ],
         },
@@ -408,7 +408,7 @@ spacing and headings.`,
           name: "Treatment",
           screenshots: [
             {
-              path: "/images/demo-datasource/dev-compact.png",
+              path: "/images/demo-datasource/add-to-cart-treatment.png",
             },
           ],
         },
