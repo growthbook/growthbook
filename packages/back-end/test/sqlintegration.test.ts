@@ -88,6 +88,8 @@ describe("bigquery integration", () => {
         metric: normalSqlMetric,
         overrideConversionWindows: false,
         endDate: new Date(),
+        metricTimestampCol: "m.timestamp",
+        exposureTimestampCol: "d.timestamp",
       }).replace(/\s+/g, " "),
     ).toEqual(
       "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)",
@@ -103,6 +105,8 @@ describe("bigquery integration", () => {
         metric: normalSqlMetric,
         overrideConversionWindows: true,
         endDate: date,
+        metricTimestampCol: "m.timestamp",
+        exposureTimestampCol: "d.timestamp",
       }).replace(/\s+/g, " "),
     ).toEqual(
       `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`,
