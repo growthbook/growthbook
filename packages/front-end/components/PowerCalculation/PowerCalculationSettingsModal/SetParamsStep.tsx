@@ -219,6 +219,7 @@ const PopulationDataQueryInput = ({
       {queryModalOpen ? (
         <AsyncQueriesModal
           queries={populationData?.queries?.map((q) => q.query) ?? []}
+          savedQueries={[]}
           error={populationData?.error}
           close={() => setQueryModalOpen(false)}
         />

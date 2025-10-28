@@ -11,7 +11,7 @@ import Anchor from '@site/src/components/Anchor'
 
 Metrics are what your experiments are trying to improve (or at least not hurt). GrowthBook has a very flexible and powerful way to define metrics.
 
-:::info
+:::warning Legacy Metrics
 This page describes Legacy Metrics. We highly recommend using **Fact Tables** to define metrics instead. [Check out the docs](/app/metrics)
 :::
 
@@ -28,7 +28,7 @@ Metrics can have different units and statistical distributions. Below are the on
 
 For experiment analysis, each of these metric types uses some aggregation (often defaulting to `SUM`) per user and then takes an average with respect to the total number of users. In the case of SQL metrics, the only meaningful difference between count, duration, and revenue is how we render the units in the metric and experiment results pages.
 
-:::note
+:::info USD by default
 Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** → **General** → **Metric Settings**
 :::
 
@@ -313,7 +313,7 @@ When using GrowthBook with certain event trackers, we may be able to generate me
 
 If you are using one of the supported event trackers and would like to see what metrics we can create for you, head to the `Metrics` page in GrowthBook and select the `Discover Metrics` button.
 
-:::note
+:::info Auto Generate Metrics limitations
 When querying your datasource to identify unique events, we're currently only looking at events in the last 7 days.
 :::
 
