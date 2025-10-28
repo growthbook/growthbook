@@ -694,8 +694,6 @@ export function getSnapshotSettings({
         }
       : undefined;
 
-  console.log("metricSettings", metricSettings);
-  console.log("regressionAdjustmentEnabled", regressionAdjustmentEnabled);
   return {
     manual: !experiment.datasource,
     activationMetric: experiment.activationMetric || null,

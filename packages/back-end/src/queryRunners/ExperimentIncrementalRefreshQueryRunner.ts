@@ -577,7 +577,6 @@ export const startExperimentIncrementalRefreshQueries = async (
           query: integration.getCreateMetricSourceCovariateTableQuery({
             settings: snapshotSettings,
             metrics: group.metrics,
-            factTableMap: params.factTableMap,
             metricSourceCovariateTableFullName,
           }),
           dependencies: [alterUnitsTableQuery.query],

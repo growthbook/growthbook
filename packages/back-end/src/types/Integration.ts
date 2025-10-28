@@ -89,7 +89,6 @@ export type CovariateWindowType = "firstExposure" | "phaseStart";
 
 export type FactMetricRegressionAdjustmentSettings = {
   // used only for "firstExposure" window type
-  // TODO(luke) figure out how to handle these at org level
   hours: number;
   minDelay: number;
   alias: string;
@@ -319,11 +318,9 @@ export interface InsertMetricSourceDataQueryParams {
   lastMaxTimestamp?: Date;
 }
 
-// TODO(luke): fix unused param
 export interface CreateMetricSourceCovariateTableQueryParams {
   settings: ExperimentSnapshotSettings;
   metrics: FactMetricInterface[];
-  factTableMap: FactTableMap;
   metricSourceCovariateTableFullName: string;
 }
 export interface InsertMetricSourceCovariateDataQueryParams {

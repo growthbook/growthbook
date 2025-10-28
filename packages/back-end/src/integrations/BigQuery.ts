@@ -341,7 +341,7 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
-  createUnitsTablePartitions(columns: string[]): string {
+  createTablePartitions(columns: string[]): string {
     return bigQueryCreateTablePartitions(columns);
   }
 
@@ -392,7 +392,7 @@ export default class BigQuery extends SqlIntegration {
         , max_timestamp ${this.getDataType("timestamp")}
         , metric_date ${this.getDataType("date")}
         )
-        ${this.createUnitsTablePartitions(["max_timestamp", "metric_date"])}
+        ${this.createTablePartitions(["max_timestamp", "metric_date"])}
         ${this.createUnitsTableOptions()}
     `,
       this.getFormatDialect(),

@@ -46,6 +46,8 @@ import {
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
+  CreateMetricSourceCovariateTableQueryParams,
+  InsertMetricSourceCovariateDataQueryParams,
 } from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
@@ -167,6 +169,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getInsertMetricSourceDataQuery(
     _params: InsertMetricSourceDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getCreateMetricSourceCovariateTableQuery(
+    _params: CreateMetricSourceCovariateTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertMetricSourceCovariateDataQuery(
+    _params: InsertMetricSourceCovariateDataQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }

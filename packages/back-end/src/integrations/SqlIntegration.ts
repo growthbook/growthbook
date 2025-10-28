@@ -145,7 +145,6 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
 import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { IncrementalRefreshMetricSourceInterface } from "back-end/src/validators/incremental-refresh";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -1885,7 +1884,7 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  createUnitsTablePartitions(_columns: string[]) {
+  createTablePartitions(_columns: string[]) {
     return "";
   }
 
@@ -1896,7 +1895,7 @@ export default abstract class SqlIntegration
     // TODO: How to ensure the partition matches the CTE? same with table name
     return format(
       `CREATE TABLE ${unitsTableFullName}
-      ${this.createUnitsTablePartitions(["first_exposure_timestamp"])}
+      ${this.createTablePartitions(["first_exposure_timestamp"])}
       ${this.createUnitsTableOptions()}
       AS (
         WITH ${cteSql}
@@ -5385,7 +5384,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     addFiltersToWhere,
     exclusiveStartDateFilter,
     exclusiveEndDateFilter,
-    additionalPartitionFilters,
     phase,
     customFields,
   }: {
@@ -5403,10 +5401,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // new data from AFTER the last seen max timestamp
     exclusiveStartDateFilter?: boolean;
     exclusiveEndDateFilter?: boolean;
-    // Additional filter to ensure we only get the right
-    // set of partitions (e.g. on or after last max timestamp)
-    // and on or before end date, if end date exists
-    additionalPartitionFilters?: string;
     castIdToString?: boolean;
   }) {
     // Determine if a join is required to match up id types
@@ -5437,10 +5431,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     if (startDate) {
       const operator = exclusiveStartDateFilter ? ">" : ">=";
       where.push(`m.timestamp ${operator} ${this.toTimestamp(startDate)}`);
-      // TODO(adriel): Should we keep this here? Or can we remove if we are supporting only timestamp/date partition?
-      if (additionalPartitionFilters) {
-        where.push(additionalPartitionFilters);
-      }
     }
     if (endDate) {
       const operator = exclusiveEndDateFilter ? "<" : "<=";
@@ -6657,19 +6647,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , update_timestamp ${this.getDataType("timestamp")}
       , max_timestamp ${this.getDataType("timestamp")}
     )
-    ${this.createUnitsTablePartitions(["update_timestamp", "max_timestamp"])}
+    ${this.createTablePartitions(["update_timestamp", "max_timestamp"])}
     `,
       this.getFormatDialect(),
     );
-  }
-
-  getPartitionWhereClause(): string {
-    // TODO(incremental-refresh): this works for "timestamp" type
-    // because we always pair the result of this partition clause
-    // with a timestamp filter; but we should probably combine the logic to
-    // get both filters at once, the timestmap (which we always need for data accuracy)
-    // and the partition filter (for data efficiency).
-    return "";
   }
 
   getUpdateExperimentIncrementalUnitsQuery(
@@ -6678,8 +6659,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { settings, segment, factTableMap } = params;
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
-
-    const partitionWhereClause = this.getPartitionWhereClause();
 
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
       objects: [
@@ -6704,15 +6683,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // Does the conversionWindowsHour need to be set different?
     const endDate = this.getExperimentEndDate(settings, 0);
 
-    const endDatePartitionFilter = endDate
-      ? this.getPartitionWhereClause()
-      : "";
-
     // Segment and SQL filter only check against new exposures
     return format(
       `
       CREATE TABLE ${params.unitsTempTableFullName} 
-      ${this.createUnitsTablePartitions(["update_timestamp", "max_timestamp"])}
+      ${this.createTablePartitions(["update_timestamp", "max_timestamp"])}
         AS (
         WITH ${idJoinSQL}
         __existingUnits AS (
@@ -6767,9 +6742,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           WHERE 
             experiment_id = '${settings.experimentId}'
             AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
-            ${partitionWhereClause ? `AND (${partitionWhereClause})` : ""}
             ${endDate ? `AND timestamp <= ${this.toTimestamp(endDate)}` : ""}
-            ${endDate && endDatePartitionFilter ? `AND (${endDatePartitionFilter})` : ""}
             
         )
         , __jointExposures AS (
@@ -6947,12 +6920,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           : {}),
       }));
 
-    // TODO consider whether adding first exposure timestamp
-
     // TODO(incremental-refresh)
     // Compute data types and columns elsewhere and store in metadata to govern this query
     // and for validating queries match going forward
-    // TODO(luke): fix expiration logic
     return format(
       `
     CREATE TABLE ${params.metricSourceCovariateTableFullName}
@@ -6969,7 +6939,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         .join("\n")}
       , update_timestamp ${this.getDataType("timestamp")}
     )
-    ${this.createUnitsTablePartitions(["update_timestamp"])}
+    ${this.createTablePartitions(["update_timestamp"])}
     `,
       this.getFormatDialect(),
     );
@@ -6983,30 +6953,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       undefined,
     );
 
-    const factTableMap = params.factTableMap;
-    const factTable = factTableMap.get(
-      params.metrics[0].numerator?.factTableId,
-    );
-    if (!factTable) {
-      throw new Error("Could not find fact table");
-    }
-
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
-      // TODO(incremental-refresh): this gets all identities from history
-      // of experiment, which we think is right, but could be improved
-      from: params.settings.startDate,
-      to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: params.settings.experimentId,
-    });
-
     // sort metrics and add indices for tracking across sub-queries
     const sortedMetrics = cloneDeep(params.metrics)
       .map((m) => ({
         ...m,
         // turn off capping for covariate value creation
-        cappingSettings: { type: "none" },
+        cappingSettings: { type: "" as const, value: 0 },
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
     const paramsMetricsSorted: {
@@ -7024,9 +6976,27 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // TODO(incremental-refresh): use max hours to convert from here
     // for eventual "skipPartialData" feature
-    // TODO(luke): partial timestamp
-    const { factTablesWithMetricData, metricData } =
+    const { factTablesWithMetricData } =
       this.parseExperimentFactMetricsParams(paramsMetricsSorted);
+
+    if (factTablesWithMetricData.length !== 1) {
+      throw new Error("Expected exactly one fact table with metric data");
+    }
+    const factTableWithMetricData = factTablesWithMetricData[0];
+    const metricData = factTableWithMetricData.metricData;
+
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
+        [exposureQuery.userIdType],
+        factTableWithMetricData.factTable?.userIdTypes || [],
+      ],
+      // TODO(incremental-refresh): this gets all identities from history
+      // of experiment, which we think is right, but could be improved
+      from: params.settings.startDate,
+      to: params.settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: params.settings.experimentId,
+    });
 
     return format(
       `
@@ -7034,30 +7004,26 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     SELECT * FROM (
       WITH 
         ${idJoinSQL}
-        ${factTablesWithMetricData
-          .map(
-            (f) => `
-          __factTable${f.index} AS (${this.getFactMetricCTE({
-            baseIdType,
-            idJoinMap,
-            factTable: f.factTable,
-            startDate: f.metricStart,
-            endDate: f.metricEnd,
-            metricsWithIndices: f.metricData.map((m, i) => ({
-              metric: m.metric,
-              index: i,
-            })),
-            addFiltersToWhere: true,
-            // Need to do < the end date to exclude the end date itself
-            exclusiveEndDateFilter: true,
-            castIdToString: true,
-          })})
-          , __newCovariateValues${f.index} AS (
+        __factTable AS (${this.getFactMetricCTE({
+          baseIdType,
+          idJoinMap,
+          factTable: factTableWithMetricData.factTable,
+          startDate: factTableWithMetricData.metricStart,
+          endDate: factTableWithMetricData.metricEnd,
+          metricsWithIndices: metricData.map((m, i) => ({
+            metric: m.metric,
+            index: i,
+          })),
+          addFiltersToWhere: true,
+          // Need to do < the end date to exclude the end date itself
+          exclusiveEndDateFilter: true,
+          castIdToString: true,
+        })})
+          , __newCovariateValues AS (
           SELECT
             m.${baseIdType} AS ${baseIdType}
-            ${f.metricData
+            ${metricData
               .map((m) => {
-                // custom lookback windows
                 const aggfunction = this.getAggregationMetadata({
                   metric: m.metric,
                 }).covariateAggregationFunction;
@@ -7067,7 +7033,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 })?.covariateAggregationFunction;
                 return `
                 ${
-                  m.numeratorSourceIndex === f.index
+                  m.numeratorSourceIndex === factTableWithMetricData.index
                     ? `, ${aggfunction(
                         this.ifElse(
                           `m.timestamp >= ${this.toTimestamp(m.raMetricSettings.covariateStartDate)} AND m.timestamp < ${this.toTimestamp(m.raMetricSettings.covariateEndDate)}`,
@@ -7080,7 +7046,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 ${
                   !!denomAggFunction &&
                   isRatioMetric(m.metric) &&
-                  m.denominatorSourceIndex === f.index
+                  m.denominatorSourceIndex === factTableWithMetricData.index
                     ? `, ${denomAggFunction(
                         this.ifElse(
                           `m.timestamp >= ${this.toTimestamp(m.raMetricSettings.covariateStartDate)} AND m.timestamp < ${this.toTimestamp(m.raMetricSettings.covariateEndDate)}`,
@@ -7093,7 +7059,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               `;
               })
               .join("\n")}
-          FROM __factTable${f.index} m
+          FROM __factTable m
           INNER JOIN (
             SELECT ${baseIdType}
             FROM ${params.unitsSourceTableFullName}
@@ -7103,9 +7069,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           GROUP BY
             ${baseIdType}
            
-          )`,
           )
-          .join("\n")}
       SELECT
         ${baseIdType}
         ${metricData
@@ -7119,15 +7083,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           )
           .join("\n")}
         , ${this.castToTimestamp(this.toTimestamp(params.incrementalRefreshStartTime))} AS update_timestamp
-      FROM __newCovariateValues0 c
-      ${factTablesWithMetricData
-        .map((f) => {
-          if (f.index === 0) {
-            return "";
-          }
-          return `LEFT JOIN __newCovariateValues${f.index} c${f.index} ON (c0.${baseIdType} = c${f.index}.${baseIdType})`;
-        })
-        .join("\n")}
+      FROM __newCovariateValues c
       )
       `,
       this.getFormatDialect(),
@@ -7182,7 +7138,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , max_timestamp ${this.getDataType("timestamp")}
       , metric_date ${this.getDataType("date")}
     )
-    ${this.createUnitsTablePartitions(["max_timestamp", "metric_date"])}
+    ${this.createTablePartitions(["max_timestamp", "metric_date"])}
     `,
       this.getFormatDialect(),
     );
@@ -7444,7 +7400,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           : ""
       }
       ${
-        regressionAdjustedMetrics.length > 0 // TODO(luke): ensure only one row per user to not break this query?
+        // TODO(incremental-refresh): GROUP BY is not necessary but is a failsafe
+        // against bad insertions into covariate table
+        regressionAdjustedMetrics.length > 0
           ? `
         , __userCovariateMetric AS (
           SELECT 
@@ -7452,11 +7410,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${regressionAdjustedMetrics
               .map(
                 (data) =>
-                  `, ${data.id}_value AS ${data.alias}_value
-                ${data.ratioMetric ? `\n, ${data.id}_denominator_value AS ${data.alias}_denominator` : ""}`,
+                  `, MAX(${data.id}_value) AS ${data.alias}_value
+                ${data.ratioMetric ? `\n, MAX(${data.id}_denominator_value) AS ${data.alias}_denominator` : ""}`,
               )
               .join("\n")}
           FROM ${params.metricSourceCovariateTableFullName}
+          GROUP BY ${baseIdType}
         )
         `
           : ""
