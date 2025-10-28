@@ -56,6 +56,10 @@ const config = {
       src: "https://w.appzi.io/w.js?token=jZ31J",
       async: true,
     },
+    {
+      src: "/scripts/reo.js",
+      async: true,
+    },
   ],
   presets: [
     [
