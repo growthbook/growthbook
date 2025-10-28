@@ -10,12 +10,13 @@ import {
   isDifferenceType,
   isMetricSelector,
   metricSelectors,
+  BLOCK_CONFIG_ITEM_TYPES,
   pinSources,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { PiPencilSimpleFill, PiPlus, PiPushPinFill } from "react-icons/pi";
+import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
@@ -24,7 +25,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
-import Callout from "@/ui/Callout";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
@@ -32,11 +32,14 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
 import Avatar from "@/ui/Avatar";
 import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import { BLOCK_TYPE_INFO } from "..";
 import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "../../DashboardSnapshotProvider";
+import MetricExplorerSettings from "./MetricExplorerSettings";
 import {
   ExperimentMetricBlockContext,
   ExperimentTimeSeriesBlockContext,
@@ -68,10 +71,6 @@ const REQUIRED_FIELDS: {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
     },
-    {
-      field: "dataVizConfigIndex",
-      validation: (idx) => typeof idx === "number" && idx >= 0,
-    },
   ],
 };
 
@@ -85,7 +84,8 @@ const metricSelectorLabels: {
 };
 
 interface Props {
-  experiment: ExperimentInterfaceStringDates;
+  dashboardId: string;
+  experiment: ExperimentInterfaceStringDates | null;
   cancel: () => void;
   submit: () => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
@@ -93,7 +93,51 @@ interface Props {
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
   >;
 }
+
+function isBlockConfigItemSelected(
+  blockConfig: string[] | undefined,
+  itemId: string,
+): boolean {
+  return !!blockConfig?.includes(itemId);
+}
+
+function toggleBlockConfigItem(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >,
+  itemId: string,
+  value: boolean,
+) {
+  // Only handle blockConfig for sql-explorer blocks
+  if (block.type !== "sql-explorer") return;
+
+  // Type guard to ensure we have a sql-explorer block with blockConfig
+  if (!("blockConfig" in block)) return;
+
+  const currentBlockConfig = block.blockConfig || [];
+
+  if (value) {
+    // Add item to blockConfig
+    const newBlockConfig = [...currentBlockConfig, itemId];
+    setBlock({
+      ...block,
+      blockConfig: newBlockConfig,
+    });
+  } else {
+    // Remove item from blockConfig
+    const filteredBlockConfig = currentBlockConfig.filter(
+      (id: string) => id !== itemId,
+    );
+    setBlock({
+      ...block,
+      blockConfig: filteredBlockConfig,
+    });
+  }
+}
+
 export default function EditSingleBlock({
+  dashboardId,
   experiment,
   cancel,
   submit,
@@ -105,6 +149,7 @@ export default function EditSingleBlock({
     metricGroups,
     getExperimentMetricById,
     getDatasourceById,
+    factMetrics,
   } = useDefinitions();
   const {
     data: savedQueriesData,
@@ -114,6 +159,9 @@ export default function EditSingleBlock({
     status: number;
     savedQueries: SavedQuery[];
   }>(`/saved-queries/`);
+  const [sqlExplorerType, setSqlExplorerType] = useState<"existing" | "create">(
+    "existing",
+  );
 
   const metricGroupMap = useMemo(
     () => new Map(metricGroups.map((group) => [group.id, group])),
@@ -125,15 +173,29 @@ export default function EditSingleBlock({
     useState<string>("");
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
-  const { defaultSnapshot, dimensionless } = useContext(
-    DashboardSnapshotContext,
-  );
+  const {
+    defaultSnapshot,
+    dimensionless,
+    updateAllSnapshots,
+    savedQueriesMap,
+  } = useContext(DashboardSnapshotContext);
 
   // Get block context from workspace level
   const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
   const blockContext = useBlockContext(blockId);
 
+  // TODO: does this need to handle metric groups
+  const factMetricOptions = useMemo(
+    () => factMetrics.map((m) => ({ label: m.name, value: m.id })),
+    [factMetrics],
+  );
+
   const metricOptions = useMemo(() => {
+    // For general dashboards without experiment, return empty options
+    if (!experiment) {
+      return [];
+    }
+
     const getMetrics = (metricOrGroupIds: string[]) => {
       const metricIds = expandMetricGroups(metricOrGroupIds, metricGroups);
       return metricIds.map(getExperimentMetricById).filter(isDefined);
@@ -247,26 +309,28 @@ export default function EditSingleBlock({
     let isAllowed = false;
 
     // Check if the selected metric is allowed by the current selector
-    if (selector === "custom") {
-      isAllowed = expandMetricGroups(
-        block.metricIds ?? [],
-        metricGroups,
-      ).includes(selectedMetricIdForPinning);
-    } else if (selector === "experiment-goal") {
-      isAllowed = expandMetricGroups(
-        experiment.goalMetrics,
-        metricGroups,
-      ).includes(selectedMetricIdForPinning);
-    } else if (selector === "experiment-secondary") {
-      isAllowed = expandMetricGroups(
-        experiment.secondaryMetrics,
-        metricGroups,
-      ).includes(selectedMetricIdForPinning);
-    } else if (selector === "experiment-guardrail") {
-      isAllowed = expandMetricGroups(
-        experiment.guardrailMetrics,
-        metricGroups,
-      ).includes(selectedMetricIdForPinning);
+    if (experiment) {
+      if (selector === "custom") {
+        isAllowed = expandMetricGroups(
+          block.metricIds ?? [],
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      } else if (selector === "experiment-goal") {
+        isAllowed = expandMetricGroups(
+          experiment.goalMetrics,
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      } else if (selector === "experiment-secondary") {
+        isAllowed = expandMetricGroups(
+          experiment.secondaryMetrics,
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      } else if (selector === "experiment-guardrail") {
+        isAllowed = expandMetricGroups(
+          experiment.guardrailMetrics,
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      }
     }
 
     if (!isAllowed) {
@@ -361,6 +425,11 @@ export default function EditSingleBlock({
   };
 
   const dimensionOptions = useMemo(() => {
+    // For general dashboards without experiment, return empty options
+    if (!experiment) {
+      return [];
+    }
+
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
       precomputedDimensions: getPrecomputedDimensions(
@@ -387,17 +456,30 @@ export default function EditSingleBlock({
     dimensionless,
   ]);
 
+  const savedQueryOptions = useMemo(
+    () =>
+      savedQueriesData?.savedQueries
+        ?.filter((savedQuery) => {
+          return savedQuery.linkedDashboardIds?.includes(dashboardId);
+        })
+        .map(({ id, name }) => ({
+          value: id,
+          label: name,
+        })) || [],
+    [savedQueriesData?.savedQueries, dashboardId],
+  );
+
+  useEffect(() => {
+    if (sqlExplorerType === "existing" && !savedQueryOptions.length) {
+      setSqlExplorerType("create");
+    }
+  }, [savedQueryOptions.length, sqlExplorerType]);
   const dimensionValueOptions = analysis?.results
     ? analysis.results.map(({ name }) => ({ value: name, label: name }))
     : [];
 
   if (isLoading) return <LoadingSpinner />;
 
-  const savedQueryOptions =
-    savedQueriesData?.savedQueries?.map(({ id, name }) => ({
-      value: id,
-      label: name,
-    })) || [];
   const savedQuery = blockHasFieldOfType(block, "savedQueryId", isString)
     ? savedQueriesData?.savedQueries?.find(
         (q: SavedQuery) => q.id === block.savedQueryId,
@@ -412,17 +494,18 @@ export default function EditSingleBlock({
   const baselineIndex = blockHasFieldOfType(block, "baselineRow", isNumber)
     ? block.baselineRow
     : 0;
-  const baselineVariation =
-    experiment.variations.find((_, i) => i === baselineIndex) ||
-    experiment.variations[0];
-  const variationOptions = (
-    requireBaselineVariation
-      ? experiment.variations.filter((_, i) => i !== baselineIndex)
-      : experiment.variations
-  ).map((variation) => ({
-    label: variation.name,
-    value: variation.id,
-  }));
+  // Only compute baseline/variation options when the block type depends on an experiment
+  const hasExperimentContext = !!experiment && requireBaselineVariation;
+  const baselineVariation = hasExperimentContext
+    ? experiment.variations.find((_, i) => i === baselineIndex) ||
+      experiment.variations[0]
+    : null;
+  const variationOptions = hasExperimentContext
+    ? (requireBaselineVariation
+        ? experiment.variations.filter((_, i) => i !== baselineIndex)
+        : experiment.variations
+      ).map((variation) => ({ label: variation.name, value: variation.id }))
+    : [];
   const setVariations = (
     block: Extract<
       DashboardBlockInterfaceOrData<DashboardBlockInterface>,
@@ -433,7 +516,7 @@ export default function EditSingleBlock({
     setBlock({
       ...block,
       variationIds:
-        requireBaselineVariation && value.length > 0
+        requireBaselineVariation && value.length > 0 && baselineVariation?.id
           ? [...value, baselineVariation.id]
           : value,
     });
@@ -449,6 +532,60 @@ export default function EditSingleBlock({
           mutate={mutateQuery}
           initial={savedQuery}
           id={savedQuery?.id}
+          dashboardId={dashboardId}
+          onSave={async (
+            savedQueryId: string | undefined,
+            name: string | undefined,
+          ) => {
+            if (!block || block.type !== "sql-explorer" || !savedQueryId)
+              return;
+
+            const isNewQuery = !blockHasFieldOfType(
+              block,
+              "savedQueryId",
+              isString,
+            );
+
+            // Update block with saved query ID
+            setBlock({
+              ...block,
+              savedQueryId,
+              title: name || "SQL Query",
+            });
+            setSqlExplorerType("existing");
+
+            // Refresh dashboard data to get latest saved query info
+            await updateAllSnapshots();
+
+            // Update blockConfig based on saved query visualizations
+            const updatedSavedQuery = savedQueriesMap.get(savedQueryId);
+            if (updatedSavedQuery?.dataVizConfig) {
+              const visualizationIds = updatedSavedQuery.dataVizConfig
+                .map((viz) => viz.id)
+                .filter((id): id is string => Boolean(id));
+
+              let newBlockConfig: string[];
+
+              if (isNewQuery) {
+                // New query: enable results table and all visualizations
+                newBlockConfig = [
+                  BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                  ...visualizationIds,
+                ];
+              } else {
+                // Existing query: preserve existing config and add new visualizations
+                const existingConfig = block.blockConfig || [];
+                newBlockConfig = [...existingConfig];
+              }
+
+              setBlock({
+                ...block,
+                blockConfig: newBlockConfig,
+              });
+            }
+
+            mutateQuery();
+          }}
         />
       )}
       {block && (
@@ -554,20 +691,26 @@ export default function EditSingleBlock({
                 </Grid>
               </>
             )}
-            {/* Unused since no blocks currently allow a single metric */}
-            {/* {blockHasFieldOfType(block, "metricId", isString) && (
+            {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
-                label="Metric"
-                labelClassName="font-weight-bold"
-                value={block.metricId}
+                label={
+                  <Text as="label" size="3" weight="medium">
+                    Metric
+                  </Text>
+                }
+                labelClassName="mb-0"
+                value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
-                  setBlock({ ...block, metricId: value });
+                  setBlock({
+                    ...block,
+                    title:
+                      factMetricOptions.find((option) => option.value === value)
+                        ?.label || "Metric",
+                    factMetricId: value,
+                  });
                 }}
-                // Can't select metric groups for a single metric block
-                options={metricOptions.filter(
-                  ({ label }) => label !== "Metric Groups",
-                )}
+                options={factMetricOptions}
                 formatOptionLabel={({ value }, { context }) => (
                   <MetricName
                     id={value}
@@ -576,7 +719,7 @@ export default function EditSingleBlock({
                   />
                 )}
               />
-            )} */}
+            )}
             {blockHasFieldOfType(block, "metricSelector", isMetricSelector) && (
               <>
                 <SelectField
@@ -688,10 +831,14 @@ export default function EditSingleBlock({
                 onChange={(value) =>
                   setBlock({ ...block, baselineRow: parseInt(value) })
                 }
-                options={experiment.variations.map((variation, i) => ({
-                  label: variation.name,
-                  value: i.toString(),
-                }))}
+                options={
+                  experiment
+                    ? experiment.variations.map((variation, i) => ({
+                        label: variation.name,
+                        value: i.toString(),
+                      }))
+                    : []
+                }
                 formatOptionLabel={({ value, label }) => (
                   <div
                     className={`variation variation${value} with-variation-label d-flex align-items-center`}
@@ -726,9 +873,9 @@ export default function EditSingleBlock({
                 disabled={variationOptions.length < 2}
                 options={variationOptions}
                 formatOptionLabel={({ value, label }) => {
-                  const varIndex = experiment.variations.findIndex(
-                    ({ id }) => id === value,
-                  );
+                  const varIndex = experiment
+                    ? experiment.variations.findIndex(({ id }) => id === value)
+                    : -1;
                   return (
                     <div
                       className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
@@ -987,75 +1134,151 @@ export default function EditSingleBlock({
                 />
               </div>
             )}
-            {block.type === "sql-explorer" &&
-              (!savedQueriesData?.savedQueries ? (
-                <Callout status="error">
-                  Failed to load saved queries, try again later
-                </Callout>
-              ) : (
-                <>
-                  <SelectField
-                    required
-                    label={
-                      <Flex justify="between" align="center">
-                        <Text weight="bold">
-                          Saved Query
-                          <span className="text-danger ml-1">*</span>
-                        </Text>
-                        <IconButton
-                          onClick={() => setShowSqlExplorerModal(true)}
-                          variant="soft"
-                          size="1"
-                        >
-                          {savedQuery ? <PiPencilSimpleFill /> : <PiPlus />}
-                        </IconButton>
-                      </Flex>
-                    }
-                    labelClassName="flex-grow-1"
-                    containerClassName="mb-0"
-                    value={block.savedQueryId}
-                    placeholder="Choose a saved query"
-                    options={savedQueryOptions}
-                    onChange={(val) =>
+            {block.type === "sql-explorer" && (
+              <Flex direction="column" gap="2" width="100%" my="3">
+                {!block.savedQueryId ? (
+                  <RadioGroup
+                    value={sqlExplorerType}
+                    setValue={(value: "create" | "existing") => {
+                      // Reset the saved query id if the type changes
                       setBlock({
                         ...block,
-                        savedQueryId: val,
-                        dataVizConfigIndex: -1,
-                      })
-                    }
-                    isClearable
-                    autoFocus
+                        savedQueryId: "",
+                      });
+                      setSqlExplorerType(value);
+                    }}
+                    options={[
+                      {
+                        label: "Select existing query",
+                        value: "existing",
+                        disabled: !savedQueryOptions.length,
+                      },
+                      {
+                        label: "Create new query",
+                        value: "create",
+                      },
+                    ]}
                   />
+                ) : null}
 
-                  <SelectField
-                    required
-                    markRequired
-                    label="Data Visualization"
-                    labelClassName="font-weight-bold"
-                    containerClassName="mb-0"
-                    forceUndefinedValueToNull
-                    value={block.dataVizConfigIndex.toString()}
-                    placeholder={
-                      (savedQuery?.dataVizConfig || []).length === 0
-                        ? "No data visualizations"
-                        : "Choose a data visualization to display"
-                    }
-                    disabled={(savedQuery?.dataVizConfig?.length || 0) === 0}
-                    options={(savedQuery?.dataVizConfig || []).map(
-                      ({ title }, i) => ({
-                        label: title || `Visualization ${i}`,
-                        value: i.toString(),
-                      }),
+                {sqlExplorerType === "create" ? (
+                  <Button
+                    variant="soft"
+                    onClick={() => setShowSqlExplorerModal(true)}
+                  >
+                    <span className="w-100">
+                      <PiPencilSimpleFill /> Edit query
+                    </span>
+                  </Button>
+                ) : (
+                  <>
+                    <SelectField
+                      required
+                      labelClassName="flex-grow-1"
+                      containerClassName="mb-0"
+                      value={savedQuery?.id || ""}
+                      placeholder="Choose a saved query"
+                      label={
+                        <Flex justify="between" align="center">
+                          <Text weight="bold">Saved Query</Text>
+                          <IconButton
+                            disabled={!block.savedQueryId}
+                            variant="soft"
+                            size="1"
+                            onClick={() => setShowSqlExplorerModal(true)}
+                          >
+                            <PiPencilSimpleFill />
+                          </IconButton>
+                        </Flex>
+                      }
+                      options={savedQueryOptions}
+                      onChange={(val) => {
+                        setBlock({
+                          ...block,
+                          title:
+                            savedQueryOptions.find(
+                              (option) => option.value === val,
+                            )?.label || "SQL Query",
+                          savedQueryId: val,
+                          blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+                        });
+                      }}
+                      isClearable
+                    />
+                  </>
+                )}
+                {savedQuery ? (
+                  <>
+                    {savedQuery?.results.error ? (
+                      <Callout status="error">
+                        <p>
+                          There is an error with your query. Click the pencil
+                          icon to edit.
+                        </p>
+                        <strong>Error:</strong> {savedQuery?.results.error}
+                      </Callout>
+                    ) : (
+                      <>
+                        <Separator size="4" my="4" />
+                        <Flex direction="column" gap="2">
+                          <Text
+                            size="1"
+                            style={{ color: "var(--color-text-mid)" }}
+                            weight="medium"
+                            className="text-uppercase"
+                          >
+                            Customize Display
+                          </Text>
+                          <Checkbox
+                            label="Query results table"
+                            size="md"
+                            value={isBlockConfigItemSelected(
+                              block.blockConfig,
+                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                            )}
+                            setValue={(value) =>
+                              toggleBlockConfigItem(
+                                block,
+                                setBlock,
+                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                                value,
+                              )
+                            }
+                          />
+                          {savedQuery?.dataVizConfig?.map((config, index) => {
+                            const title =
+                              config.title || `Visualization ${index + 1}`;
+                            const configId = config.id || title; // Fallback to title for backward compatibility
+                            return (
+                              <Checkbox
+                                key={index}
+                                label={title}
+                                size="md"
+                                value={isBlockConfigItemSelected(
+                                  block.blockConfig,
+                                  configId,
+                                )}
+                                setValue={(value) =>
+                                  toggleBlockConfigItem(
+                                    block,
+                                    setBlock,
+                                    configId,
+                                    value,
+                                  )
+                                }
+                              />
+                            );
+                          })}
+                        </Flex>
+                      </>
                     )}
-                    onChange={(value) =>
-                      setBlock({
-                        ...block,
-                        dataVizConfigIndex: parseInt(value),
-                      })
-                    }
-                  />
-                </>
-              ))}
+                  </>
+                ) : null}
+              </Flex>
+            )}
+            {block.type === "metric-explorer" && (
+              <MetricExplorerSettings block={block} setBlock={setBlock} />
+            )}
           </Flex>
           <Flex gap="3" align="center" justify="center">
             <Button

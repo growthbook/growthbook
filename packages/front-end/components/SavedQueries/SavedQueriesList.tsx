@@ -4,6 +4,8 @@ import { SavedQuery } from "back-end/src/validators/saved-queries";
 import Link from "next/link";
 import { BiHide, BiShow } from "react-icons/bi";
 import { BsXCircle } from "react-icons/bs";
+import { blockHasFieldOfType } from "shared/enterprise";
+import { isString } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -33,14 +35,13 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   >();
   const [showReferences, setShowReferences] = useState<number | null>(null);
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
-    useSearch({
-      items: savedQueries,
-      defaultSortField: "dateUpdated",
-      localStorageKey: "savedqueries",
-      searchFields: ["name^3", "sql"],
-      pageSize: 20,
-    });
+  const { items, isFiltered, SortableTH, clear, pagination } = useSearch({
+    items: savedQueries,
+    defaultSortField: "dateUpdated",
+    localStorageKey: "savedqueries",
+    searchFields: ["name^3", "sql"],
+    pageSize: 20,
+  });
 
   const handleDelete = useCallback(
     async (query: SavedQuery) => {
@@ -54,14 +55,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
   const handleEdit = useCallback((query: SavedQuery) => {
     setSelectedSavedQuery(query);
-  }, []);
-
-  const handleDuplicate = useCallback((query: SavedQuery) => {
-    setSelectedSavedQuery({
-      ...query,
-      id: "",
-      name: `${query.name}-copy`,
-    });
   }, []);
 
   const canEdit = useCallback(
@@ -98,17 +91,8 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
         />
       )}
 
-      <div className="mb-3">
-        <input
-          type="search"
-          className="form-control"
-          placeholder="Search saved queries..."
-          {...searchInputProps}
-        />
-      </div>
-
       {items.length > 0 ? (
-        <>
+        <div className="mt-3">
           <table className="table appbox gbtable">
             <thead>
               <tr>
@@ -128,7 +112,17 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
                 const linkedDashboardIds = query.linkedDashboardIds || [];
-                const numReferences = linkedDashboardIds.length;
+                const activeReferences = linkedDashboardIds.filter((dashId) =>
+                  dashboardsMap
+                    .get(dashId)
+                    // Check that the link is still active for each dashboard
+                    ?.blocks?.some(
+                      (block) =>
+                        blockHasFieldOfType(block, "savedQueryId", isString) &&
+                        block.savedQueryId === query.id,
+                    ),
+                );
+                const numReferences = activeReferences.length;
 
                 return (
                   <tr key={query.id}>
@@ -180,14 +174,14 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               <div
                                 style={{ maxHeight: 300, overflowY: "auto" }}
                               >
-                                {linkedDashboardIds.length > 0 && (
+                                {activeReferences.length > 0 && (
                                   <>
                                     <div className="mt-1 text-muted font-weight-bold">
                                       Dashboards:
                                     </div>
                                     <div className="mb-2">
                                       <ul className="pl-3 mb-0">
-                                        {linkedDashboardIds.map(
+                                        {activeReferences.map(
                                           (dashboardId, j) => {
                                             const dashboard =
                                               dashboardsMap.get(dashboardId);
@@ -201,7 +195,11 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                     style={{ maxWidth: 320 }}
                                                   >
                                                     <Link
-                                                      href={`/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`}
+                                                      href={
+                                                        dashboard.experimentId
+                                                          ? `/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`
+                                                          : `/product-analytics/dashboards/${dashboard.id}`
+                                                      }
                                                     >
                                                       {dashboard.title}
                                                     </Link>
@@ -212,7 +210,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                     className="my-1"
                                                   >
                                                     <em>
-                                                      {linkedDashboardIds.length -
+                                                      {activeReferences.length -
                                                         j}{" "}
                                                       more...
                                                     </em>
@@ -270,14 +268,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                             Edit
                           </button>
                         )}
-                        {canEdit(query) && (
-                          <button
-                            className="dropdown-item"
-                            onClick={() => handleDuplicate(query)}
-                          >
-                            Duplicate
-                          </button>
-                        )}
                         {canDelete(query) && (
                           <>
                             {canEdit(query) && (
@@ -290,34 +280,30 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               className="dropdown-item text-danger"
                               text="Delete"
                               getConfirmationContent={async () => {
-                                const dashboardIds =
-                                  query.linkedDashboardIds || [];
-                                if (dashboardIds.length === 0) return null;
+                                if (activeReferences.length === 0) return null;
                                 return (
                                   <div>
                                     <Callout
                                       status="warning"
                                       mb="2"
                                     >{`This saved query is in use by ${
-                                      dashboardIds.length
+                                      activeReferences.length
                                     } dashboard${
-                                      dashboardIds.length === 1 ? "" : "s"
+                                      activeReferences.length === 1 ? "" : "s"
                                     }. If deleted, linked SQL Explorer blocks will lose their visualizations.`}</Callout>
                                     <ul>
-                                      {dashboardIds.map((dashId) => {
+                                      {activeReferences.map((dashId) => {
                                         const dashboard =
                                           dashboardsMap.get(dashId);
                                         if (!dashboard) return null;
-                                        if (!dashboard.experimentId)
-                                          return (
-                                            <li key={dashId}>
-                                              <span>{dashboard.title}</span>
-                                            </li>
-                                          );
                                         return (
                                           <li key={dashId}>
                                             <Link
-                                              href={`/experiment/${dashboard.experimentId}#dashboards/${dashId}`}
+                                              href={
+                                                dashboard.experimentId
+                                                  ? `/experiment/${dashboard.experimentId}#dashboards/${dashId}`
+                                                  : `/product-analytics/dashboards/${dashId}`
+                                              }
                                             >
                                               {dashboard.title}
                                             </Link>
@@ -339,7 +325,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
             </tbody>
           </table>
           {pagination}
-        </>
+        </div>
       ) : isFiltered ? (
         <div className="appbox p-4 text-center">
           <p>No saved queries match your search.</p>
