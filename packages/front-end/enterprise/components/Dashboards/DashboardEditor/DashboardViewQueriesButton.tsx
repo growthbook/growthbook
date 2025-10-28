@@ -21,9 +21,8 @@ export default function DashboardViewQueriesButton({
   buttonProps = {},
   hideQueryCount = false,
 }: Props) {
-  const { allQueries, snapshotError, refreshStatus } = useContext(
-    DashboardSnapshotContext,
-  );
+  const { allQueries, savedQueriesMap, snapshotError, refreshStatus } =
+    useContext(DashboardSnapshotContext);
   const count = (allQueries ?? []).length;
   return (
     <ViewAsyncQueriesButton
@@ -57,6 +56,7 @@ export default function DashboardViewQueriesButton({
       )}
       error={snapshotError}
       queries={allQueries.map((q) => q.query) ?? []}
+      savedQueries={[...savedQueriesMap.keys()]}
       icon={null}
       status={refreshStatus}
       hideQueryCount
