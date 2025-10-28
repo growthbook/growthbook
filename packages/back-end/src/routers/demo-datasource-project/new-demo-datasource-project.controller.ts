@@ -378,10 +378,9 @@ export const postDemoDatasourceProject = async (
       trackingKey: DEMO_DATA_FEATURE_ID,
       description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
 
-Experiment to test impact of checkout cart design.
-Both variations move the "Proceed to checkout" button to a single table, but with different
-spacing and headings.`,
-      hypothesis: `We predict new variations will increase Purchase metrics and have uncertain effects on Retention.`,
+Experiment to test impact of a different 'Add to Cart' CTA design.
+Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
+      hypothesis: `We predict the treatment will increase Purchase metrics and have uncertain effects on Retention.`,
       owner: ASSET_OWNER,
       datasource: datasource.id,
       project: project.id,
@@ -440,7 +439,7 @@ spacing and headings.`,
       dateCreated: new Date(),
       dateUpdated: new Date(),
       description:
-        "Controls checkout layout UI. Employees forced to see new UI, other users randomly to either the control or treatment.",
+        "Controls add to cart CTA. Employees forced to see new CTA, other users randomly assigned to either the control or treatment.",
       owner: ASSET_OWNER,
       valueType: "boolean",
       defaultValue: "false",
