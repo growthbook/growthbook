@@ -3,8 +3,10 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   isFactMetric,
+  isRegressionAdjusted,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
+import cloneDeep from "lodash/cloneDeep";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -40,6 +42,7 @@ import {
   getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/services/experimentTimeSeries";
 import { SegmentInterface } from "back-end/types/segment";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   getFactMetricGroup,
   MAX_METRICS_PER_QUERY,
@@ -63,6 +66,7 @@ export type ExperimentIncrementalRefreshQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  incrementalRefreshStartTime: Date;
   factTableMap: FactTableMap;
   queryParentId: string;
   fullRefresh: boolean;
@@ -151,11 +155,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
-  const snapshotSettings: ExperimentSnapshotSettings = {
-    ...params.snapshotSettings,
-    // TODO(incremental-refresh): enable CUPED
-    regressionAdjustmentEnabled: false,
-  };
+  const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
@@ -331,6 +331,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     activationMetric: null, // TODO(incremental-refresh): activation metric
     dimensions: experimentDimensions, // TODO(incremental-refresh): validate experiment dimensions are available
     segment: segmentObj,
+    incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp,
   };
@@ -542,6 +543,70 @@ export const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(insertMetricsSourceDataQuery);
 
+    // CUPED tables
+    const metricSourceCovariateTableFullName: string | undefined =
+      integration.generateTablePath &&
+      integration.generateTablePath(
+        `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}_covariate`,
+        settings.pipelineSettings?.writeDataset,
+        settings.pipelineSettings?.writeDatabase,
+        true,
+      );
+    if (!metricSourceCovariateTableFullName) {
+      throw new Error(
+        "Unable to generate table; table path generator not specified.",
+      );
+    }
+
+    // if one metric has cuped
+    const anyMetricHasCuped = group.metrics.some((m) => {
+      const metric = cloneDeep(m);
+      applyMetricOverrides(metric, snapshotSettings);
+      return (
+        snapshotSettings.regressionAdjustmentEnabled &&
+        isRegressionAdjusted(metric)
+      );
+    });
+    let createMetricCovariateTableQuery: QueryPointer | null = null;
+    let insertMetricCovariateDataQuery: QueryPointer | null = null;
+    if (anyMetricHasCuped) {
+      if (params.fullRefresh) {
+        createMetricCovariateTableQuery = await startQuery({
+          name: `create_metrics_covariate_table_${group.groupId}`,
+          title: `Create Metric Covariate Table ${sourceName}`,
+          query: integration.getCreateMetricSourceCovariateTableQuery({
+            settings: snapshotSettings,
+            metrics: group.metrics,
+            factTableMap: params.factTableMap,
+            metricSourceCovariateTableFullName,
+          }),
+          dependencies: [alterUnitsTableQuery.query],
+          run: (query, setExternalId) =>
+            integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+          process: (rows) => rows,
+          queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
+        });
+        queries.push(createMetricCovariateTableQuery);
+      }
+
+      insertMetricCovariateDataQuery = await startQuery({
+        name: `insert_metrics_covariate_data_${group.groupId}`,
+        title: `Update Metric Covariate Data ${sourceName}`,
+        query: integration.getInsertMetricSourceCovariateDataQuery({
+          ...metricParams,
+          metricSourceCovariateTableFullName,
+          incrementalRefreshStartTime: params.incrementalRefreshStartTime,
+        }),
+        dependencies: createMetricCovariateTableQuery
+          ? [createMetricCovariateTableQuery.query]
+          : [alterUnitsTableQuery.query],
+        run: (query, setExternalId) =>
+          integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+        process: (rows) => rows,
+        queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
+      });
+      queries.push(insertMetricCovariateDataQuery);
+    }
     const metricSourceTablePartitionsName: string | undefined =
       existingSource?.tableFullName ??
       (integration.generateTablePath &&
@@ -608,8 +673,16 @@ export const startExperimentIncrementalRefreshQueries = async (
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
       title: `Compute Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery(metricParams),
-      dependencies: [insertMetricsSourceDataQuery.query],
+      query: integration.getIncrementalRefreshStatisticsQuery({
+        ...metricParams,
+        metricSourceCovariateTableFullName,
+      }),
+      dependencies: [
+        insertMetricsSourceDataQuery.query,
+        ...(insertMetricCovariateDataQuery
+          ? [insertMetricCovariateDataQuery.query]
+          : []),
+      ],
       run: (query, setExternalId) =>
         integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
       process: (rows) => rows,

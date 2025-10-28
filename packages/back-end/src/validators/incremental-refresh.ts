@@ -3,6 +3,7 @@ import { baseSchema } from "back-end/src/models/BaseModel";
 
 export const incrementalRefreshMetricSourceValidator = z.object({
   groupId: z.string(),
+  factTableId: z.string().optional(),
   metrics: z.array(
     z.object({
       id: z.string(),

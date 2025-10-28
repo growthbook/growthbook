@@ -39,7 +39,7 @@ export default function QueryStatsRow({
     if (q.queryType?.includes("experimentIncrementalRefresh")) return true;
     return false;
   });
-  
+
   const factTableOptimizedMetrics = !hasOptimizedQueries
     ? 0
     : queries
