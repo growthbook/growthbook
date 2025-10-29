@@ -45,7 +45,17 @@ export class AiPromptModel extends BaseClass {
       type,
     });
     return existing
-      ? { isDefaultPrompt: false, prompt: existing.prompt }
-      : { isDefaultPrompt: true, prompt: AIPromptDefaults[type] };
+      ? { 
+          isDefaultPrompt: false, 
+          prompt: existing.prompt,
+          modelProvider: existing.modelProvider,
+          textModel: existing.textModel,
+        }
+      : { 
+          isDefaultPrompt: true, 
+          prompt: AIPromptDefaults[type],
+          modelProvider: undefined,
+          textModel: undefined,
+        };
   };
 }

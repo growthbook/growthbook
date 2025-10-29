@@ -1,5 +1,28 @@
+/**
+ * Generic AI Service for GrowthBook
+ *
+ * This service provides a unified interface for multiple AI providers using Vercel's AI SDK.
+ * Currently supports: OpenAI, Anthropic
+ *
+ * To add a new provider:
+ * 1. Install the provider SDK: `yarn add @ai-sdk/[provider]`
+ * 2. Add provider type to AIProvider union type
+ * 3. Add configuration to AI_PROVIDER_CONFIGS
+ * 4. Add provider creation logic in getAIProvider()
+ * 5. Add environment variable handling in getAISettingsForOrg()
+ * 6. Update organization.d.ts types if needed
+ *
+ * Example: Adding Google AI
+ * - `yarn add @ai-sdk/google`
+ * - Add "google" to AIProvider type
+ * - Add google config to AI_PROVIDER_CONFIGS
+ * - Add createGoogle() call in getAIProvider()
+ * - Add GOOGLE_API_KEY handling
+ */
+
 import { generateText, generateObject, embed } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import {
   encoding_for_model,
   get_encoding,
@@ -17,31 +40,134 @@ import { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { logCloudAIUsage } from "back-end/src/services/clickhouse";
 
-/**
- * The MODEL_TOKEN_LIMIT is the maximum number of tokens that can be sent to
- * the OpenAI API in a single request. This limit is imposed by OpenAI.
- *
- */
-const MODEL_TOKEN_LIMIT = 128000;
-// Require a minimum of 30 tokens for responses.
-const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
+// AI Provider types and configurations
+export type AIProvider = "openai" | "anthropic";
 
-export const getOpenAI = (context: ReqContext | ApiReqContext) => {
-  const { aiEnabled, openAIAPIKey, openAIDefaultModel } = getAISettingsForOrg(
-    context,
-    true,
-  );
+export interface AIProviderConfig {
+  provider: AIProvider;
+  textModel: string;
+  embeddingModel?: string;
+  maxTokens: number;
+  supportsJSON: boolean;
+  supportsEmbeddings: boolean;
+}
 
-  if (!openAIAPIKey || !aiEnabled) {
-    return { provider: null, model: openAIDefaultModel || "gpt-4o-mini" };
-  }
+// Available models for each provider
+export const AI_MODELS: Record<AIProvider, string[]> = {
+  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+  anthropic: [
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku-20241022",
+    "claude-3-opus-20240229",
+    "claude-3-sonnet-20240229",
+    "claude-3-haiku-20240307",
+  ],
+};
 
-  const provider = createOpenAI({
-    apiKey: openAIAPIKey,
+const AI_PROVIDER_CONFIGS: Record<AIProvider, AIProviderConfig> = {
+  openai: {
+    provider: "openai",
+    textModel: "gpt-4o-mini",
+    embeddingModel: "text-embedding-ada-002",
+    maxTokens: 128000,
+    supportsJSON: true,
+    supportsEmbeddings: true,
+  },
+  anthropic: {
+    provider: "anthropic",
+    textModel: "claude-3-haiku-20240307",
+    embeddingModel: undefined, // Anthropic doesn't have embedding models
+    maxTokens: 200000,
+    supportsJSON: true,
+    supportsEmbeddings: false,
+  },
+};
+
+// Helper function to get available providers based on API keys
+export function getAvailableAIProviders(): AIProvider[] {
+  const providers: AIProvider[] = [];
+  if (process.env.OPENAI_API_KEY) providers.push("openai");
+  if (process.env.ANTHROPIC_API_KEY) providers.push("anthropic");
+  return providers;
+}
+
+// Helper function to validate provider configuration
+export function validateAIProvider(provider: AIProvider): boolean {
+  if (provider === "openai") return !!process.env.OPENAI_API_KEY;
+  if (provider === "anthropic") return !!process.env.ANTHROPIC_API_KEY;
+  return false;
+}
+
+// Get all available models grouped by provider
+export function getAvailableAIModels(): Record<AIProvider, string[]> {
+  const availableProviders = getAvailableAIProviders();
+  const result: Partial<Record<AIProvider, string[]>> = {};
+
+  availableProviders.forEach((provider) => {
+    result[provider] = AI_MODELS[provider];
   });
 
-  const model = openAIDefaultModel || "gpt-4o-mini";
-  return { provider, model };
+  return result as Record<AIProvider, string[]>;
+}
+
+// Get models for a specific provider
+export function getModelsForProvider(provider: AIProvider): string[] {
+  return AI_MODELS[provider] || [];
+}
+
+// Require a minimum of 30 tokens for responses.
+const getMessageTokenLimit = (provider: AIProvider) =>
+  AI_PROVIDER_CONFIGS[provider].maxTokens - 30;
+
+export const getAIProvider = (
+  context: ReqContext | ApiReqContext,
+  overrideProvider?: AIProvider,
+  overrideModel?: string,
+) => {
+  const {
+    aiEnabled,
+    aiProvider,
+    openAIAPIKey,
+    anthropicAPIKey,
+    openAIDefaultModel,
+    anthropicDefaultModel,
+  } = getAISettingsForOrg(context, true);
+
+  // Use override provider if specified, otherwise use org default
+  const selectedProvider = overrideProvider || aiProvider;
+
+  if (!aiEnabled) {
+    return {
+      provider: null,
+      model:
+        overrideModel ||
+        (selectedProvider === "anthropic"
+          ? anthropicDefaultModel
+          : openAIDefaultModel),
+      config: AI_PROVIDER_CONFIGS[selectedProvider],
+    };
+  }
+
+  let provider = null;
+  let model = "";
+
+  if (selectedProvider === "anthropic" && anthropicAPIKey) {
+    provider = createAnthropic({
+      apiKey: anthropicAPIKey,
+    });
+    model = overrideModel || anthropicDefaultModel;
+  } else if (selectedProvider === "openai" && openAIAPIKey) {
+    provider = createOpenAI({
+      apiKey: openAIAPIKey,
+    });
+    model = overrideModel || openAIDefaultModel;
+  }
+
+  return {
+    provider,
+    model,
+    config: AI_PROVIDER_CONFIGS[selectedProvider],
+  };
 };
 
 type ChatCompletionRequestMessage = {
@@ -54,17 +180,32 @@ type ChatCompletionRequestMessage = {
  * The exact way that messages are converted into tokens may change from model
  * to model. So when future model versions are released, the answers returned
  * by this function may be only approximate.
+ *
+ * Note: Token counting is primarily accurate for OpenAI models.
+ * For other providers, this provides an approximation.
  */
 const numTokensFromMessages = (
   messages: ChatCompletionRequestMessage[],
   context: ReqContext | ApiReqContext,
 ) => {
+  const { config, model } = getAIProvider(context);
+
+  // For non-OpenAI providers, use a rough approximation
+  if (config.provider !== "openai") {
+    // Rough approximation: ~4 characters per token
+    const totalChars = messages.reduce(
+      (sum, msg) => sum + JSON.stringify(msg).length,
+      0,
+    );
+    return Math.ceil(totalChars / 4) + messages.length * 4; // Add overhead per message
+  }
+
+  // Use tiktoken for OpenAI models
   let encoding;
   try {
-    const { model } = getOpenAI(context);
-    encoding = encoding_for_model(model);
+    encoding = encoding_for_model(model as TiktokenModel);
   } catch (e) {
-    logger.warn(`services/openai - Could not find encoding for model`);
+    logger.warn(`services/ai - Could not find encoding for model: ${model}`);
     encoding = get_encoding("cl100k_base");
   }
 
@@ -123,6 +264,8 @@ export const simpleCompletion = async ({
   isDefaultPrompt,
   returnType = "text",
   jsonSchema,
+  overrideProvider,
+  overrideModel,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -133,29 +276,41 @@ export const simpleCompletion = async ({
   isDefaultPrompt: boolean;
   returnType?: "text" | "json";
   jsonSchema?: ZodObject<ZodRawShape>;
+  overrideProvider?: AIProvider;
+  overrideModel?: string;
 }) => {
-  const { provider: openaiProvider, model } = getOpenAI(context);
+  const {
+    provider: aiProvider,
+    model,
+    config,
+  } = getAIProvider(context, overrideProvider, overrideModel);
 
-  if (openaiProvider == null) {
-    throw new Error("OpenAI not enabled or key not set");
+  if (aiProvider == null) {
+    throw new Error("AI provider not enabled or key not set");
+  }
+
+  // Check if JSON is supported for this provider
+  if (returnType === "json" && !config.supportsJSON) {
+    throw new Error(`JSON generation not supported by ${config.provider}`);
   }
 
   const messages = constructMessages(prompt, instructions);
   const numTokens = numTokensFromMessages(messages, context);
+  const messageTokenLimit = getMessageTokenLimit(config.provider);
 
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
       `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
     );
   }
-  if (numTokens > MESSAGE_TOKEN_LIMIT) {
+  if (numTokens > messageTokenLimit) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`,
+      `Number of tokens (${numTokens}) exceeds limit for ${config.provider} (${messageTokenLimit})`,
     );
   }
 
   const generateOptions = {
-    model: openaiProvider(model),
+    model: aiProvider(model),
     messages,
     ...(temperature != null ? { temperature } : {}),
   };
@@ -216,6 +371,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt,
   zodObjectSchema,
   model,
+  overrideProvider,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -225,12 +381,21 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   type: AIPromptType;
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
-  model?: TiktokenModel;
+  model?: string;
+  overrideProvider?: AIProvider;
 }): Promise<z.infer<T>> => {
-  const { provider: openaiProvider, model: defaultModel } = getOpenAI(context);
+  const {
+    provider: aiProvider,
+    model: defaultModel,
+    config,
+  } = getAIProvider(context, overrideProvider, model);
 
-  if (openaiProvider == null) {
-    throw new Error("OpenAI not enabled or key not set");
+  if (aiProvider == null) {
+    throw new Error("AI provider not enabled or key not set");
+  }
+
+  if (!config.supportsJSON) {
+    throw new Error(`JSON generation not supported by ${config.provider}`);
   }
 
   if (!zodObjectSchema) {
@@ -240,23 +405,30 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
 
   const messages = constructMessages(prompt, instructions);
-
   const numTokens = numTokensFromMessages(messages, context);
+  const messageTokenLimit = getMessageTokenLimit(config.provider);
+
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
       `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
     );
   }
-  if (numTokens > MESSAGE_TOKEN_LIMIT) {
+  if (numTokens > messageTokenLimit) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`,
+      `Number of tokens (${numTokens}) exceeds limit for ${config.provider} (${messageTokenLimit})`,
     );
   }
   const modelToUse = model || defaultModel;
 
+  // Convert messages to the format expected by Vercel AI SDK
+  const coreMessages = messages.map((msg) => ({
+    role: msg.role,
+    content: msg.content,
+  }));
+
   const response = await generateObject({
-    model: openaiProvider(modelToUse),
-    messages,
+    model: aiProvider(modelToUse),
+    messages: coreMessages,
     schema: zodObjectSchema,
     ...(temperature != null ? { temperature } : {}),
   });
@@ -298,15 +470,25 @@ export async function generateEmbeddings(
   context: ReqContext | ApiReqContext,
   { input }: { input: string[] },
 ): Promise<number[][]> {
-  const { provider: openaiProvider, model: _model } = getOpenAI(context);
+  const { provider: aiProvider, config } = getAIProvider(context);
 
-  if (openaiProvider == null) {
-    throw new Error("OpenAI not enabled or key not set");
+  if (aiProvider == null) {
+    throw new Error("AI provider not enabled or key not set");
+  }
+
+  if (!config.supportsEmbeddings) {
+    throw new Error(`Embeddings not supported by ${config.provider}`);
+  }
+
+  if (config.provider !== "openai") {
+    throw new Error("Embeddings currently only supported for OpenAI");
   }
 
   try {
     // Use OpenAI's text-embedding-ada-002 model for embeddings
-    const embeddingModel = openaiProvider.embedding("text-embedding-ada-002");
+    const embeddingModel = (
+      aiProvider as ReturnType<typeof createOpenAI>
+    ).embedding(config.embeddingModel!);
 
     // Generate embeddings for each input string
     const embeddings: number[][] = [];

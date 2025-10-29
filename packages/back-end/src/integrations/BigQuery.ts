@@ -73,10 +73,13 @@ export default class BigQuery extends SqlIntegration {
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
+    // Set maximum bytes billed (default: 10GB, can override via params)
+    const MAX_BYTES_BILLED = this.params.maxBytesBilled || 10_000_000_000; // 10GB
     const [job] = await client.createQueryJob({
       labels: { integration: "growthbook" },
       query: sql,
       useLegacySql: false,
+      maximumBytesBilled: MAX_BYTES_BILLED,
     });
 
     if (setExternalId && job.id) {

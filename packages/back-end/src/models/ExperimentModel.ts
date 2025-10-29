@@ -43,7 +43,7 @@ import {
 import {
   generateEmbeddings,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
 import {
   DiffResult,
   getObjectDiff,

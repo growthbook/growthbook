@@ -216,7 +216,9 @@ export interface OrganizationSettings {
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
   aiEnabled?: boolean;
+  aiProvider?: "openai" | "anthropic";
   openAIDefaultModel?: TiktokenModel;
+  anthropicDefaultModel?: string;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;

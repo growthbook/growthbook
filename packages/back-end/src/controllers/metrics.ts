@@ -57,7 +57,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are

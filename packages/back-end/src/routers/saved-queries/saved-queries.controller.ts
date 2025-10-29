@@ -19,7 +19,7 @@ import {
   simpleCompletion,
   parsePrompt,
   supportsJSONSchema,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
 import {
   InformationSchemaTablesInterface,
   InformationSchemaInterface,
