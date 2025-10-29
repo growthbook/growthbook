@@ -7,6 +7,7 @@ import {
   dataVizConfigValidator,
   xAxisDateAggregationUnit,
   yAxisAggregationType,
+  dimensionAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -315,9 +316,11 @@ export function DataVisualizationDisplay({
   const yField = yConfig?.fieldName;
   const aggregation = yConfig?.aggregation || "sum";
   // Get all dimension configurations
-  const dimensionConfigs = useMemo(
+  const dimensionConfigs: dimensionAxisConfiguration[] = useMemo(
     () =>
-      supportsDimension(dataVizConfig) ? dataVizConfig.dimension || [] : [],
+      supportsDimension(dataVizConfig)
+        ? (dataVizConfig.dimension ?? [])
+        : ([] as dimensionAxisConfiguration[]),
     [dataVizConfig],
   );
   const dimensionFields = dimensionConfigs.map((d) => d.fieldName);
@@ -384,6 +387,7 @@ export function DataVisualizationDisplay({
     }
 
     dimensionConfigs.forEach((config) => {
+      console.log("dimensionConfig", config);
       const dimensionField = config.fieldName;
       const maxValues = config.maxValues || 5;
 
