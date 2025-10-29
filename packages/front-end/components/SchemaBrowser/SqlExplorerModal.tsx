@@ -19,6 +19,7 @@ import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
 import { FiChevronRight } from "react-icons/fi";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -106,16 +107,24 @@ export default function SqlExplorerModal({
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
 
-  let filteredDatasources = datasources;
+  let filteredDatasources: DataSourceInterfaceWithParams[] = [];
 
   // If the dashboard has a projects list, only include datasources that are contain all of the projects in the list or are in 'All Projects'
   if (projects.length) {
-    filteredDatasources = filteredDatasources.filter((d) => {
+    filteredDatasources = datasources.filter((d) => {
       if (!d.projects || !d.projects.length) {
         return true;
       }
+
+      // Always include the existing datasource if it exists, this will prevent issues if the datasource or the dashboard's projects have changed since the query was created.
+      if (initial?.datasourceId && d.id === initial?.datasourceId) {
+        return true;
+      }
+
       return projects.every((p) => d.projects?.includes(p));
     });
+  } else {
+    filteredDatasources = datasources;
   }
 
   let initialDatasourceId = filteredDatasources[0]?.id;
