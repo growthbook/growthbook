@@ -15,6 +15,7 @@ import { ApiFactMetric } from "back-end/types/openapi";
 import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { UpdateProps } from "back-end/types/models";
+import { promiseAllChunks } from "../util/promise";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -289,23 +290,11 @@ export class FactMetricModel extends BaseClass {
     const factMetrics = await this._find({
       projects: [projectId],
     });
-    await Promise.all(
-      factMetrics.map((factMetric) => this.deleteById(factMetric.id)),
-    );
-  }
-
-  public async removeProjectFromFactMetrics(projectId: string) {
-    // Find all fact metrics for the project
-    const factMetrics = await this._find({
-      projects: [projectId],
-    });
-    // Update each fact metric to remove the project
-    await Promise.all(
-      factMetrics.map((factMetric) =>
-        this.updateById(factMetric.id, {
-          projects: factMetric.projects.filter((p) => p !== projectId),
-        }),
+    await promiseAllChunks(
+      factMetrics.map(
+        (factMetric) => async () => await this.deleteById(factMetric.id),
       ),
+      5,
     );
   }
 

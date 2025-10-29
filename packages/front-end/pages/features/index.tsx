@@ -17,6 +17,7 @@ import {
 } from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import clsx from "clsx";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -46,6 +47,7 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LinkButton from "@/ui/LinkButton";
+import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -58,6 +60,7 @@ const HEADER_HEIGHT_PX = 55;
 
 export default function FeaturesPage() {
   const router = useRouter();
+  const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const permissionsUtils = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
@@ -430,7 +433,12 @@ export default function FeaturesPage() {
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
-  const hasFeatures = allFeatures.length > 0;
+  // Ignore the demo datasource
+  const hasFeatures = allFeatures.some(
+    (f) =>
+      f.project !==
+      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
+  );
 
   const canUseSetupFlow =
     permissionsUtils.canCreateSDKConnection({

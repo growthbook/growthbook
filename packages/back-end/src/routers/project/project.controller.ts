@@ -26,10 +26,7 @@ import {
   removeProjectFromSlackIntegration,
 } from "back-end/src/models/SlackIntegrationModel";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
-import {
-  deleteAllFactTablesForAProject,
-  removeProjectFromFactTables,
-} from "back-end/src/models/FactTableModel";
+import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableModel";
 
 // region POST /projects
 
@@ -221,7 +218,7 @@ export const deleteProject = async (
     await removeProjectFromMetrics(id, org.id);
   }
 
-  // Clean up fact metrics
+  // Clean up fact tables and metrics
   if (deleteFactTables) {
     try {
       await deleteAllFactTablesForAProject({
@@ -235,9 +232,6 @@ export const deleteProject = async (
         message: "Failed to delete fact tables",
       });
     }
-  } else {
-    await removeProjectFromFactTables(id, context);
-    await context.models.factMetrics.removeProjectFromFactMetrics(id);
   }
 
   // Clean up features
