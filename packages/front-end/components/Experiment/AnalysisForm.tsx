@@ -745,6 +745,7 @@ const AnalysisForm: FC<{
               noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
+              experimentId={experiment.id}
             />
 
             <CustomMetricSlicesSelector

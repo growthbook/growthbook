@@ -236,6 +236,7 @@ const EditMetricsForm: FC<{
             : undefined
         }
         filterConversionWindowMetrics={isHoldout}
+        experimentId={experiment.id}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (

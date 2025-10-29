@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
+import { expandMetricGroups } from "shared/experiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
@@ -24,6 +26,7 @@ export interface Props {
   goalMetricsDescription?: string;
   filterConversionWindowMetrics?: boolean;
   excludeQuantiles?: boolean;
+  experimentId?: string;
 }
 
 export default function ExperimentMetricsSelector({
@@ -47,7 +50,86 @@ export default function ExperimentMetricsSelector({
   goalMetricsDescription,
   filterConversionWindowMetrics,
   excludeQuantiles = false,
+  experimentId,
 }: Props) {
+  const { getExperimentMetricById, getDatasourceById, metricGroups } =
+    useDefinitions();
+
+  const getMetricDisabledInfo = useMemo(
+    () => (metricId: string, isGroup: boolean) => {
+      const datasourceObj = datasource ? getDatasourceById(datasource) : null;
+      const isIncrementalRefreshEnabled =
+        datasourceObj?.settings.pipelineSettings?.mode === "incremental";
+      const isExperimentIncludedInIncrementalRefresh =
+        isIncrementalRefreshEnabled &&
+        (datasourceObj?.settings.pipelineSettings?.includedExperimentIds ===
+          undefined ||
+          (experimentId &&
+            datasourceObj?.settings.pipelineSettings?.includedExperimentIds?.includes(
+              experimentId,
+            )));
+
+      if (!isExperimentIncludedInIncrementalRefresh) {
+        return { disabled: false };
+      }
+
+      if (isGroup) {
+        // Check if metric group contains cross fact-table ratio metrics
+        const metricGroup = metricGroups.find((mg) => mg.id === metricId);
+        if (!metricGroup) {
+          return { disabled: false };
+        }
+        const expandedIds = expandMetricGroups(
+          metricGroup.metrics,
+          metricGroups,
+        );
+        const hasInvalidMetrics = expandedIds.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return (
+            metric &&
+            "numerator" in metric &&
+            !!metric.denominator &&
+            metric.numerator.factTableId !== metric.denominator.factTableId
+          );
+        });
+
+        if (hasInvalidMetrics) {
+          return {
+            disabled: true,
+            reason:
+              "We currently don't support cross fact-table metrics with Incremental Refresh",
+          };
+        }
+      } else {
+        // Check if individual metric is a cross fact-table ratio metric
+        const metric = getExperimentMetricById(metricId);
+        console.log("metric", metric);
+        if (
+          metric &&
+          "numerator" in metric &&
+          !!metric.denominator &&
+          metric.numerator.factTableId !== metric.denominator.factTableId
+        ) {
+          console.log("here?");
+          return {
+            disabled: true,
+            reason:
+              "We currently don't support cross fact-table metrics with Incremental Refresh",
+          };
+        }
+      }
+
+      return { disabled: false };
+    },
+    [
+      datasource,
+      experimentId,
+      getExperimentMetricById,
+      getDatasourceById,
+      metricGroups,
+    ],
+  );
+
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
     !!collapseSecondary && secondaryMetrics.length === 0,
   );
@@ -87,6 +169,7 @@ export default function ExperimentMetricsSelector({
             filterConversionWindowMetrics={filterConversionWindowMetrics}
             noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}
+            getMetricDisabledInfo={getMetricDisabledInfo}
           />
         </div>
       )}
@@ -126,6 +209,7 @@ export default function ExperimentMetricsSelector({
                 excludeQuantiles={excludeQuantiles}
                 noLegacyMetrics={noLegacyMetrics}
                 disabled={disabled}
+                getMetricDisabledInfo={getMetricDisabledInfo}
               />
             </>
           )}
@@ -166,6 +250,7 @@ export default function ExperimentMetricsSelector({
                 excludeQuantiles={excludeQuantiles}
                 noLegacyMetrics={noLegacyMetrics}
                 disabled={disabled}
+                getMetricDisabledInfo={getMetricDisabledInfo}
               />
             </>
           )}

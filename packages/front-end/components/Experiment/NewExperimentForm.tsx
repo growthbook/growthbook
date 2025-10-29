@@ -1394,6 +1394,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setGuardrailMetrics={(guardrailMetrics) =>
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
+                experimentId={initialValue?.id}
               />
             </div>
 

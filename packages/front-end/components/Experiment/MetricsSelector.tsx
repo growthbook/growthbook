@@ -34,6 +34,8 @@ type MetricOption = {
   isGroup: boolean;
   metrics?: string[];
   managedBy?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 type MetricsSelectorTooltipProps = {
@@ -96,6 +98,13 @@ const MetricsSelector: FC<{
   disabled?: boolean;
   helpText?: ReactNode;
   groupOptions?: boolean;
+  getMetricDisabledInfo?: (
+    metricId: string,
+    isGroup: boolean,
+  ) => {
+    disabled: boolean;
+    reason?: string;
+  };
 }> = ({
   datasource,
   project,
@@ -113,6 +122,7 @@ const MetricsSelector: FC<{
   disabled,
   helpText,
   groupOptions = true,
+  getMetricDisabledInfo,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -139,18 +149,25 @@ const MetricsSelector: FC<{
         return true;
       })
       .filter((m) => (noManual ? m.datasource : true))
-      .map((m) => ({
-        id: m.id,
-        name: m.name,
-        description: m.description || "",
-        datasource: m.datasource || "",
-        tags: m.tags || [],
-        projects: m.projects || [],
-        factTables: [],
-        userIdTypes: m.userIdTypes || [],
-        isGroup: false,
-        managedBy: m.managedBy,
-      })),
+      .map((m) => {
+        const disabledInfo = getMetricDisabledInfo?.(m.id, false) || {
+          disabled: false,
+        };
+        return {
+          id: m.id,
+          name: m.name,
+          description: m.description || "",
+          datasource: m.datasource || "",
+          tags: m.tags || [],
+          projects: m.projects || [],
+          factTables: [],
+          userIdTypes: m.userIdTypes || [],
+          isGroup: false,
+          managedBy: m.managedBy,
+          disabled: disabledInfo.disabled,
+          disabledReason: disabledInfo.reason,
+        };
+      }),
     ...(includeFacts
       ? factMetrics
           .filter((m) => {
@@ -162,42 +179,56 @@ const MetricsSelector: FC<{
             }
             return true;
           })
-          .map((m) => ({
-            id: m.id,
-            name: m.name,
-            description: m.description || "",
-            datasource: m.datasource,
-            tags: m.tags || [],
-            projects: m.projects || [],
-            managedBy: m.managedBy,
-            factTables: [
-              m.numerator.factTableId,
-              (m.metricType === "ratio" && m.denominator
-                ? m.denominator.factTableId
-                : "") || "",
-            ],
-            // only focus on numerator user id types
-            userIdTypes:
-              factTables.find((f) => f.id === m.numerator.factTableId)
-                ?.userIdTypes || [],
-            isGroup: false,
-          }))
+          .map((m) => {
+            const disabledInfo = getMetricDisabledInfo?.(m.id, false) || {
+              disabled: false,
+            };
+            return {
+              id: m.id,
+              name: m.name,
+              description: m.description || "",
+              datasource: m.datasource,
+              tags: m.tags || [],
+              projects: m.projects || [],
+              managedBy: m.managedBy,
+              factTables: [
+                m.numerator.factTableId,
+                (m.metricType === "ratio" && m.denominator
+                  ? m.denominator.factTableId
+                  : "") || "",
+              ],
+              // only focus on numerator user id types
+              userIdTypes:
+                factTables.find((f) => f.id === m.numerator.factTableId)
+                  ?.userIdTypes || [],
+              isGroup: false,
+              disabled: disabledInfo.disabled,
+              disabledReason: disabledInfo.reason,
+            };
+          })
       : []),
     ...(includeGroups
       ? metricGroups
           .filter((mg) => !mg.archived)
-          .map((mg) => ({
-            id: mg.id,
-            name: mg.name + " (" + mg.metrics.length + " metrics)",
-            description: mg.description || "",
-            datasource: mg.datasource,
-            tags: mg.tags || [],
-            projects: mg.projects || [],
-            factTables: [],
-            userIdTypes: [],
-            isGroup: true,
-            metrics: mg.metrics,
-          }))
+          .map((mg) => {
+            const disabledInfo = getMetricDisabledInfo?.(mg.id, true) || {
+              disabled: false,
+            };
+            return {
+              id: mg.id,
+              name: mg.name + " (" + mg.metrics.length + " metrics)",
+              description: mg.description || "",
+              datasource: mg.datasource,
+              tags: mg.tags || [],
+              projects: mg.projects || [],
+              factTables: [],
+              userIdTypes: [],
+              isGroup: true,
+              metrics: mg.metrics,
+              disabled: disabledInfo.disabled,
+              disabledReason: disabledInfo.reason,
+            };
+          })
       : []),
   ];
 
@@ -219,6 +250,15 @@ const MetricsSelector: FC<{
         : true,
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
+
+  const isOptionDisabled = (option: SingleValue | GroupedValue): boolean => {
+    if ("options" in option) {
+      return false;
+    }
+
+    const metricOption = filteredOptions.find((m) => m.id === option.value);
+    return metricOption?.disabled ?? false;
+  };
 
   const tagCounts: Record<string, number> = {};
   filteredOptions.forEach((m) => {
@@ -264,10 +304,15 @@ const MetricsSelector: FC<{
               const unManagedMetrics: SingleValue[] = [];
 
               filteredOptions.forEach((option) => {
+                const tooltipText =
+                  option.disabled && option.disabledReason
+                    ? option.disabledReason
+                    : option.description;
+
                 const singleValue: SingleValue = {
                   value: option.id,
                   label: option.name,
-                  tooltip: option.description,
+                  tooltip: tooltipText,
                 };
 
                 if (option.managedBy) {
@@ -294,15 +339,21 @@ const MetricsSelector: FC<{
               return groupedOptions;
             })()
           : filteredOptions.map((m) => {
+              const tooltipText =
+                m.disabled && m.disabledReason
+                  ? `${m.description || ""}\n\n${m.disabledReason}`.trim()
+                  : m.description;
+
               return {
                 value: m.id,
                 label: m.name,
-                tooltip: m.description,
+                tooltip: tooltipText,
               };
             })
       }
       placeholder="Select metrics..."
       autoFocus={autoFocus}
+      isOptionDisabled={isOptionDisabled}
       formatOptionLabel={({ value, label }, { context }) => {
         const option = filteredOptions.find((o) => o.id === value);
         const isGroup = option?.isGroup;
@@ -461,6 +512,7 @@ const MetricsSelector: FC<{
       })}
       placeholder="Select metric..."
       autoFocus={autoFocus}
+      isOptionDisabled={isOptionDisabled}
       formatOptionLabel={({ value, label }, { context }) => {
         return value ? (
           <MetricName
