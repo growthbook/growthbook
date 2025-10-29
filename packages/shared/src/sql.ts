@@ -82,7 +82,7 @@ export function isMultiStatementSQL(sql: string) {
   // If there was a parse error, search the original string for semicolons
   if (parseError) {
     // Ignore final trailing semicolon when searching to avoid common false positive
-    return sql.replace(/\s*;\s*/, "").includes(";");
+    return sql.replace(/;\s*$/, "").includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
   else {

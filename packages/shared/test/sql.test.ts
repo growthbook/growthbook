@@ -355,4 +355,9 @@ describe("isMultiStatementSQL", () => {
     const sql = `SELECT 'It\\'; DROP TABLE users; SELECT '1'`;
     expect(isMultiStatementSQL(sql)).toBe(true);
   });
+
+  it("searches entire string when there is a parse error", () => {
+    const sql = `SELECT 'It\\'; DROP TABLE users`;
+    expect(isMultiStatementSQL(sql)).toBe(true);
+  });
 });
