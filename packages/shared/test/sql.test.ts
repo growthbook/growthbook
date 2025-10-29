@@ -350,13 +350,15 @@ describe("isMultiStatementSQL", () => {
     const sql = `SELECT \`It\`\`s a test\`; DROP TABLE users; SELECT \`1\`;`;
     expect(isMultiStatementSQL(sql)).toBe(true);
   });
-
-  it("is conservative with dialects that don't support backslash escaping", () => {
-    const sql = `SELECT 'It\\'; DROP TABLE users; SELECT '1'`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+  it("allows parse errors as long as there are no semicolons", () => {
+    const sql = `SELECT 'It\\'`;
+    expect(isMultiStatementSQL(sql)).toBe(false);
   });
-
-  it("searches entire string when there is a parse error", () => {
+  it("allows parse errors as long as there is only a trailing semicolon", () => {
+    const sql = `SELECT 'It\\'; `;
+    expect(isMultiStatementSQL(sql)).toBe(false);
+  });
+  it("blocks all internal semicolons when there is a parse error", () => {
     const sql = `SELECT 'It\\'; DROP TABLE users`;
     expect(isMultiStatementSQL(sql)).toBe(true);
   });
