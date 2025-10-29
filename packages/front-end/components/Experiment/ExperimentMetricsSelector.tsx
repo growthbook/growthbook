@@ -110,7 +110,6 @@ export default function ExperimentMetricsSelector({
           !!metric.denominator &&
           metric.numerator.factTableId !== metric.denominator.factTableId
         ) {
-          console.log("here?");
           return {
             disabled: true,
             reason:
