@@ -145,35 +145,6 @@ export default function DashboardsPage() {
     [apiCall, mutateDashboards],
   );
 
-  const createDashboardWithDefaults = useCallback(async () => {
-    const defaultProjects = project ? [project] : [];
-
-    const res = await apiCall<{
-      status: number;
-      dashboard: DashboardInterface;
-    }>("/dashboards", {
-      method: "POST",
-      body: JSON.stringify({
-        title: "Untitled Dashboard",
-        editLevel: "private",
-        shareLevel: "private",
-        enableAutoUpdates: false,
-        experimentId: "",
-        projects: defaultProjects,
-        blocks: [],
-      }),
-    });
-
-    if (res.status === 200) {
-      mutateDashboards();
-      setDashboardId(res.dashboard.id);
-      setBlocks(res.dashboard.blocks);
-      setIsEditing(true);
-    } else {
-      console.error(res);
-    }
-  }, [apiCall, mutateDashboards, project]);
-
   if (loading || saving) return <LoadingOverlay />;
 
   return (
@@ -274,7 +245,10 @@ export default function DashboardsPage() {
         <Flex justify="between" align="center">
           <h1>Product Analytics Dashboards</h1>
           {filteredDashboards.length ? (
-            <Button onClick={createDashboardWithDefaults} disabled={!canCreate}>
+            <Button
+              onClick={() => router.push("/product-analytics/dashboards/new")}
+              disabled={!canCreate}
+            >
               Create Dashboard
             </Button>
           ) : null}
@@ -292,7 +266,11 @@ export default function DashboardsPage() {
                 title="Explore & Share Custom Analyses"
                 description="Create curated dashboards to visualize key metrics and track performance."
                 leftButton={
-                  <Button onClick={createDashboardWithDefaults}>
+                  <Button
+                    onClick={() =>
+                      router.push("/product-analytics/dashboards/new")
+                    }
+                  >
                     Create Dashboard
                   </Button>
                 }
