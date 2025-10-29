@@ -6,7 +6,6 @@ import {
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -31,9 +30,6 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
     ready,
   } = useDefinitions();
 
-  const growthbook = useGrowthBook();
-  const useNewSampleData = growthbook?.isOn("new-sample-data");
-
   // the demo project ID, if we have an orgId
   const demoProjectId: string | null = orgId
     ? getDemoDatasourceProjectIdForOrganization(orgId)
@@ -48,9 +44,7 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
   const currentProjectIsDemo = currentProjectId === demoProjectId;
 
-  const demoFeatureId = useNewSampleData
-    ? "gbdemo-add-to-cart-cta"
-    : getDemoDataSourceFeatureId();
+  const demoFeatureId = getDemoDataSourceFeatureId();
 
   // We assume the demo datasource is the one that has only one project and it's the demo datasource project
   const demoDataSource: DataSourceInterfaceWithParams | null = useMemo(() => {
