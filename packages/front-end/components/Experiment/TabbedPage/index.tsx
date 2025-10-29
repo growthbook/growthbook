@@ -152,19 +152,6 @@ export default function TabbedPage({
     "asc" | "desc" | null
   >(`experiment-page__${experiment.id}__sort_direction`, null);
 
-  const setSortByWithPriority = (
-    newSortBy: "metric-tags" | "significance" | "change" | null,
-  ) => {
-    if (newSortBy === "significance" || newSortBy === "change") {
-      // When sorting by significance or change, clear tag order to avoid conflicts
-      setMetricFilter((prev) => ({
-        ...(prev || {}),
-        tagOrder: [],
-      }));
-    }
-    setSortBy(newSortBy);
-  };
-
   const setSortDirectionDirect = (direction: "asc" | "desc" | null) => {
     setSortDirection(direction);
   };
@@ -591,7 +578,7 @@ export default function TabbedPage({
           setAnalysisBarSettings={setAnalysisBarSettings}
           setMetricTagFilter={setMetricTagFilterWithPriority}
           sortBy={sortBy}
-          setSortBy={setSortByWithPriority}
+          setSortBy={setSortBy}
           sortDirection={sortDirection}
           setSortDirection={setSortDirectionDirect}
         />

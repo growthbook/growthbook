@@ -18,12 +18,14 @@ import {
   ExperimentTableRow,
   compareRows,
 } from "@/services/experiments";
-import { filterMetricsByTags } from "@/components/Experiment/Results";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getAllMetricTags } from "./useExperimentTableRows";
+import {
+  filterMetricsByTags,
+  getAllMetricTags,
+} from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
   results: ExperimentReportResultDimension[];

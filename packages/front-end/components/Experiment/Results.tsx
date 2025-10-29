@@ -7,11 +7,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {
-  ExperimentMetricInterface,
-  generatePinnedSliceKey,
-  SliceLevelsData,
-} from "shared/experiments";
+import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
@@ -532,61 +528,3 @@ const Results: FC<{
 };
 
 export default Results;
-
-// Filter metrics by their tags (simplified - just an array of tag names)
-export function filterMetricsByTags(
-  metrics: ExperimentMetricInterface[],
-  tagFilter?: string[],
-): string[] {
-  // If no filter, return all metrics
-  if (!tagFilter || tagFilter.length === 0) {
-    return metrics.map((m) => m.id);
-  }
-
-  // Filter metrics to only those with matching tags
-  return metrics
-    .filter((metric) => {
-      return metric.tags?.some((tag) => tagFilter.includes(tag));
-    })
-    .map((m) => m.id);
-}
-
-// Helper function to sort metrics by tag order (used when sortBy === "metric-tags")
-export function sortMetricsByTagOrder(
-  metrics: ExperimentMetricInterface[],
-  tagOrder?: string[],
-): string[] {
-  // If no tag order specified, return all metrics in original order
-  if (!tagOrder || tagOrder.length === 0) {
-    return metrics.map((m) => m.id);
-  }
-
-  const sortedMetrics: string[] = [];
-  const metricDefs: Record<string, ExperimentMetricInterface> = {};
-
-  // Get all metrics and their tags
-  metrics.forEach((metric) => {
-    if (!metric) return;
-    metricDefs[metric.id] = metric;
-  });
-
-  // Sort metrics by tag order
-  tagOrder.forEach((tag) => {
-    for (const metricId in metricDefs) {
-      const metric = metricDefs[metricId];
-      if (metric.tags?.includes(tag)) {
-        if (!sortedMetrics.includes(metricId)) {
-          sortedMetrics.push(metricId);
-        }
-        delete metricDefs[metricId];
-      }
-    }
-  });
-
-  // Add any remaining metrics to the end
-  for (const metricId in metricDefs) {
-    sortedMetrics.push(metricId);
-  }
-
-  return sortedMetrics;
-}
