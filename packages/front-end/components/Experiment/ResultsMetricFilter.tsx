@@ -1,39 +1,34 @@
 import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
-import React, { useEffect, useState } from "react";
-import { FaX } from "react-icons/fa6";
-import { Flex, Text, Box } from "@radix-ui/themes";
+import React from "react";
+import { Flex, Box, Heading } from "@radix-ui/themes";
+import { PiX } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 
 export default function ResultsMetricFilter({
   metricTags = [],
-  metricFilter = {},
-  setMetricFilter,
+  metricTagFilter = [],
+  setMetricTagFilter,
+  sortBy,
+  setSortBy,
   showMetricFilter,
   setShowMetricFilter,
 }: {
   metricTags?: string[];
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter: (filter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  setSortBy?: (
+    s: "metric-tags" | "significance" | "change" | "custom" | null,
+  ) => void;
   showMetricFilter: boolean;
   setShowMetricFilter: (show: boolean) => void;
 }) {
-  const [_metricFilter, _setMetricFilter] = useState(metricFilter);
-  const _filteringApplied =
-    _metricFilter?.tagOrder?.length || _metricFilter?.filterByTag;
   const filteringApplied =
-    metricFilter?.tagOrder?.length || metricFilter?.filterByTag;
-
-  useEffect(() => {
-    // reset inputs on close
-    if (!showMetricFilter) {
-      _setMetricFilter(metricFilter);
-    }
-  }, [showMetricFilter, metricFilter, _setMetricFilter]);
+    metricTagFilter?.length > 0 || sortBy === "metric-tags";
 
   return (
     <div
@@ -41,6 +36,13 @@ export default function ResultsMetricFilter({
       style={{ maxWidth: 20 }}
     >
       <Popover
+        side="top"
+        align="start"
+        showCloseButton
+        open={showMetricFilter}
+        onOpenChange={setShowMetricFilter}
+        triggerAsChild={false}
+        contentStyle={{ padding: "12px 16px 8px 16px" }}
         trigger={
           <Tooltip
             body={
@@ -54,10 +56,11 @@ export default function ResultsMetricFilter({
             <a
               role="button"
               onClick={() => setShowMetricFilter(!showMetricFilter)}
-              className={`d-inline-block px-1 ${
-                filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
-              }`}
-              style={{ transform: "scale(1.1)", marginRight: -4 }}
+              className="d-inline-block px-1"
+              style={{
+                color: filteringApplied ? "var(--blue-10)" : "var(--gray-a8)",
+                userSelect: "none",
+              }}
             >
               {filteringApplied ? (
                 <MdFilterAlt
@@ -73,90 +76,69 @@ export default function ResultsMetricFilter({
             </a>
           </Tooltip>
         }
-        triggerAsChild={false}
         content={
-          <Box style={{ width: 280 }}>
-            <div>
-              <Text as="label" size="3" weight="bold" className="my-2">
-                Order metrics by tag
-              </Text>
-              <MultiSelectField
-                customClassName="multiselect-unfixed"
-                value={_metricFilter?.tagOrder || []}
-                options={metricTags.map((tag) => ({ label: tag, value: tag }))}
-                onChange={(v) => {
-                  _setMetricFilter({
-                    ..._metricFilter,
-                    tagOrder: v,
-                    filterByTag:
-                      v.length > 0 ? _metricFilter?.filterByTag : false,
-                  });
-                  return;
-                }}
-              />
-              <Text size="1" color="gray">
-                Drag &amp; drop tags to change display order
-              </Text>
-            </div>
-
-            <Flex mt="3" align="center" gap="3">
+          <Flex
+            direction="column"
+            justify="between"
+            style={{ width: 350, minHeight: 180 }}
+          >
+            <Box>
+              <Heading size="3" weight="medium" mb="3">
+                <MdFilterAlt
+                  className="position-relative mr-1"
+                  style={{ bottom: 2 }}
+                />
+                Filter Results
+              </Heading>
+              <Box>
+                <Heading size="2" weight="medium">
+                  By metric tags
+                </Heading>
+                <MultiSelectField
+                  customClassName="multiselect-unfixed"
+                  value={metricTagFilter || []}
+                  options={metricTags.map((tag) => ({
+                    label: tag,
+                    value: tag,
+                  }))}
+                  onChange={(v) => {
+                    setMetricTagFilter?.(v);
+                    if (v.length === 0 && sortBy === "metric-tags") {
+                      setSortBy?.(null);
+                    }
+                    return;
+                  }}
+                />
+              </Box>
               <Checkbox
-                label="Filter metrics"
-                mb="0"
-                value={
-                  _metricFilter?.tagOrder?.length
-                    ? !!_metricFilter.filterByTag
-                    : false
-                }
+                label="Also sort by tag order"
+                labelSize="1"
+                mt="3"
+                value={sortBy === "metric-tags"}
+                disabled={!metricTagFilter || metricTagFilter.length === 0}
                 setValue={(value) => {
-                  _setMetricFilter({
-                    ..._metricFilter,
-                    filterByTag: value,
-                  });
+                  setSortBy?.(value ? "metric-tags" : null);
                 }}
-                disabled={!_metricFilter?.tagOrder?.length}
               />
-              {!_metricFilter?.tagOrder?.length ? (
-                <Text size="1" color="gray" ml="2">
-                  No tags selected
-                </Text>
-              ) : null}
-            </Flex>
-            <div className="d-flex mt-3">
-              {_filteringApplied ? (
+            </Box>
+            {filteringApplied ? (
+              <Flex mt="4" justify="end">
                 <Button
                   size="xs"
                   variant="ghost"
-                  color="gray"
-                  icon={<FaX />}
+                  color="red"
+                  icon={<PiX />}
                   onClick={async () => {
-                    _setMetricFilter({});
+                    setMetricTagFilter?.([]);
+                    setSortBy?.(null);
                   }}
                 >
                   Clear filters
                 </Button>
-              ) : null}
-              <div className="flex-1" />
-              <Button
-                size="xs"
-                onClick={async () => {
-                  setMetricFilter(_metricFilter);
-                  setShowMetricFilter(false);
-                }}
-                disabled={
-                  JSON.stringify(_metricFilter) === JSON.stringify(metricFilter)
-                }
-              >
-                Apply
-              </Button>
-            </div>
-          </Box>
+              </Flex>
+            ) : null}
+          </Flex>
         }
-        side="bottom"
-        align="start"
-        showCloseButton
-        open={showMetricFilter}
-        onOpenChange={setShowMetricFilter}
       />
     </div>
   );

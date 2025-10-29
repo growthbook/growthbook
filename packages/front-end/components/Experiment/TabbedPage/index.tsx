@@ -32,7 +32,6 @@ import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
@@ -142,12 +141,9 @@ export default function TabbedPage({
     variationFilter: [],
     differenceType: "relative",
   });
-  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
-    `experiment-page__${experiment.id}__metric_filter`,
-    {
-      tagOrder: [],
-      filterByTag: false,
-    },
+  const [metricTagFilter, setMetricTagFilter] = useLocalStorage<string[]>(
+    `experiment-page__${experiment.id}__metric_tag_filter`,
+    [],
   );
   const [sortBy, setSortBy] = useLocalStorage<
     "metric-tags" | "significance" | "change" | null
@@ -173,24 +169,8 @@ export default function TabbedPage({
     setSortDirection(direction);
   };
 
-  const setMetricFilterWithPriority = (
-    newMetricFilter: ResultsMetricFilters,
-  ) => {
-    // If tagOrder has items and we're not already sorting by metric-tags, switch to metric-tags
-    if (
-      (newMetricFilter.tagOrder?.length ?? 0) > 0 &&
-      sortBy !== "metric-tags"
-    ) {
-      setSortBy("metric-tags");
-    }
-    // If tagOrder is empty and we're sorting by metric-tags, switch to null
-    else if (
-      (newMetricFilter.tagOrder?.length ?? 0) === 0 &&
-      sortBy === "metric-tags"
-    ) {
-      setSortBy(null);
-    }
-    setMetricFilter(newMetricFilter);
+  const setMetricTagFilterWithPriority = (newMetricTagFilter: string[]) => {
+    setMetricTagFilter(newMetricTagFilter);
   };
 
   useEffect(() => {
@@ -606,10 +586,10 @@ export default function TabbedPage({
           editTargeting={editTargeting}
           isTabActive={tab === "results"}
           safeToEdit={safeToEdit}
-          metricFilter={metricFilter}
+          metricTagFilter={metricTagFilter}
           analysisBarSettings={analysisBarSettings}
           setAnalysisBarSettings={setAnalysisBarSettings}
-          setMetricFilter={setMetricFilterWithPriority}
+          setMetricTagFilter={setMetricTagFilterWithPriority}
           sortBy={sortBy}
           setSortBy={setSortByWithPriority}
           sortDirection={sortDirection}

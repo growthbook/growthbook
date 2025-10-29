@@ -29,8 +29,8 @@ import {
   compareRows,
 } from "@/services/experiments";
 import {
-  ResultsMetricFilters,
-  sortAndFilterMetricsByTags,
+  filterMetricsByTags,
+  sortMetricsByTagOrder,
 } from "@/components/Experiment/Results";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -49,7 +49,7 @@ export interface UseExperimentTableRowsParams {
       levels: string[];
     }>;
   }>;
-  metricFilter?: ResultsMetricFilters;
+  metricTagFilter?: string[];
   sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
@@ -81,7 +81,7 @@ export function useExperimentTableRows({
   ssrPolyfills,
   customMetricSlices,
   pinnedMetricSlices,
-  metricFilter,
+  metricTagFilter,
   sortBy,
   sortDirection,
   customMetricOrder,
@@ -185,13 +185,23 @@ export function useExperimentTableRows({
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    // Only use tag-based sorting when sortBy is "metric-tags"
+
+    // Apply tag filtering first (independent of sorting)
+    const filteredMetrics = filterMetricsByTags(metricDefs, metricTagFilter);
+
+    // Apply sorting on top of filtered metrics
     const sortedFilteredMetrics =
       sortBy === "metric-tags"
-        ? sortAndFilterMetricsByTags(metricDefs, metricFilter)
+        ? sortMetricsByTagOrder(
+            metricDefs.filter((m) => filteredMetrics.includes(m.id)),
+            metricTagFilter,
+          )
         : sortBy === "custom" && customMetricOrder
-          ? sortMetricsByCustomOrder(metricDefs, customMetricOrder)
-          : metricDefs.map((m) => m.id);
+          ? sortMetricsByCustomOrder(
+              metricDefs.filter((m) => filteredMetrics.includes(m.id)),
+              customMetricOrder,
+            )
+          : filteredMetrics;
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -200,12 +210,26 @@ export function useExperimentTableRows({
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
+
+    // Apply tag filtering first (independent of sorting)
+    const filteredSecondary = filterMetricsByTags(
+      secondaryDefs,
+      metricTagFilter,
+    );
+
+    // Apply sorting on top of filtered secondary metrics
     const sortedFilteredSecondary =
       sortBy === "metric-tags"
-        ? sortAndFilterMetricsByTags(secondaryDefs, metricFilter)
+        ? sortMetricsByTagOrder(
+            secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
+            metricTagFilter,
+          )
         : sortBy === "custom" && customMetricOrder
-          ? sortMetricsByCustomOrder(secondaryDefs, customMetricOrder)
-          : secondaryDefs.map((m) => m.id);
+          ? sortMetricsByCustomOrder(
+              secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
+              customMetricOrder,
+            )
+          : filteredSecondary;
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -214,12 +238,26 @@ export function useExperimentTableRows({
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
+
+    // Apply tag filtering first (independent of sorting)
+    const filteredGuardrails = filterMetricsByTags(
+      guardrailDefs,
+      metricTagFilter,
+    );
+
+    // Apply sorting on top of filtered guardrail metrics
     const sortedFilteredGuardrails =
       sortBy === "metric-tags"
-        ? sortAndFilterMetricsByTags(guardrailDefs, metricFilter)
+        ? sortMetricsByTagOrder(
+            guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
+            metricTagFilter,
+          )
         : sortBy === "custom" && customMetricOrder
-          ? sortMetricsByCustomOrder(guardrailDefs, customMetricOrder)
-          : guardrailDefs.map((m) => m.id);
+          ? sortMetricsByCustomOrder(
+              guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
+              customMetricOrder,
+            )
+          : filteredGuardrails;
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -287,7 +325,7 @@ export function useExperimentTableRows({
     ssrPolyfills,
     getExperimentMetricById,
     getFactTableById,
-    metricFilter,
+    metricTagFilter,
     pinnedMetricSlices,
     expandedMetrics,
     shouldShowMetricSlices,

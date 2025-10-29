@@ -57,8 +57,8 @@ const Results: FC<{
   onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
@@ -83,8 +83,8 @@ const Results: FC<{
   onRegressionAdjustmentChange,
   analysisBarSettings,
   setAnalysisBarSettings,
-  metricFilter,
-  setMetricFilter,
+  metricTagFilter,
+  setMetricTagFilter,
   isTabActive = true,
   setTab,
   holdout,
@@ -414,8 +414,8 @@ const Results: FC<{
           settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
-          metricFilter={metricFilter}
-          setMetricFilter={setMetricFilter}
+          metricTagFilter={metricTagFilter}
+          setMetricTagFilter={setMetricTagFilter}
           experimentType={experiment.type}
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -459,8 +459,8 @@ const Results: FC<{
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
+            metricTagFilter={metricTagFilter}
+            setMetricTagFilter={setMetricTagFilter}
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
@@ -533,76 +533,59 @@ const Results: FC<{
 
 export default Results;
 
-// given an ordered list of tags, sort the metrics by their tags
-export type ResultsMetricFilters = {
-  tagOrder?: string[];
-  filterByTag?: boolean;
-  tagFilter?: string[] | null; // if null, use tagOrder
-};
-export function sortAndFilterMetricsByTags(
+// Filter metrics by their tags (simplified - just an array of tag names)
+export function filterMetricsByTags(
   metrics: ExperimentMetricInterface[],
-  filters?: ResultsMetricFilters,
+  tagFilter?: string[],
 ): string[] {
-  let { tagOrder, filterByTag, tagFilter } = filters || {};
-  // normalize input
-  if (!tagOrder) tagOrder = [];
-  if (!filterByTag) filterByTag = false;
-  if (!tagFilter) tagFilter = null;
-
-  if (filterByTag && !tagFilter) {
-    tagFilter = tagOrder;
+  // If no filter, return all metrics
+  if (!tagFilter || tagFilter.length === 0) {
+    return metrics.map((m) => m.id);
   }
-  const sortedMetrics: string[] = [];
 
-  const metricsByTag: Record<string, string[]> = {};
+  // Filter metrics to only those with matching tags
+  return metrics
+    .filter((metric) => {
+      return metric.tags?.some((tag) => tagFilter.includes(tag));
+    })
+    .map((m) => m.id);
+}
+
+// Helper function to sort metrics by tag order (used when sortBy === "metric-tags")
+export function sortMetricsByTagOrder(
+  metrics: ExperimentMetricInterface[],
+  tagOrder?: string[],
+): string[] {
+  // If no tag order specified, return all metrics in original order
+  if (!tagOrder || tagOrder.length === 0) {
+    return metrics.map((m) => m.id);
+  }
+
+  const sortedMetrics: string[] = [];
   const metricDefs: Record<string, ExperimentMetricInterface> = {};
 
-  // get all possible tags from the metric definitions
-  const tagsInMetrics: Set<string> = new Set();
-  const allMetrics: ExperimentMetricInterface[] = [];
+  // Get all metrics and their tags
   metrics.forEach((metric) => {
     if (!metric) return;
     metricDefs[metric.id] = metric;
-    allMetrics.push(metric);
-    metric.tags?.forEach((tag) => {
-      tagsInMetrics.add(tag);
-    });
   });
 
-  // reduce tagOrder to only the tags that are in the metrics
-  tagOrder = tagOrder.filter((tag) => tagsInMetrics.has(tag));
-
-  // using tagOrder, build our initial set of sorted metrics
-  if (tagOrder?.length) {
-    tagOrder.forEach((tag) => {
-      metricsByTag[tag] = [];
-      for (const metricId in metricDefs) {
-        const metric = metricDefs[metricId];
-        if (metric.tags?.includes(tag)) {
-          if (filterByTag && !tagFilter?.includes(tag)) {
-            continue;
-          }
-          // pick out the metrics that match the tag
-          metricsByTag[tag].push(metricId);
-          delete metricDefs[metricId];
+  // Sort metrics by tag order
+  tagOrder.forEach((tag) => {
+    for (const metricId in metricDefs) {
+      const metric = metricDefs[metricId];
+      if (metric.tags?.includes(tag)) {
+        if (!sortedMetrics.includes(metricId)) {
+          sortedMetrics.push(metricId);
         }
+        delete metricDefs[metricId];
       }
-    });
-    for (const tag in metricsByTag) {
-      sortedMetrics.push(...metricsByTag[tag]);
     }
-  }
+  });
 
-  // add any remaining metrics to the end
-  for (const i in allMetrics) {
-    const metric = allMetrics[i];
-    if (filterByTag) {
-      if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
-        sortedMetrics.push(metric.id);
-      }
-    } else {
-      sortedMetrics.push(metric.id);
-    }
+  // Add any remaining metrics to the end
+  for (const metricId in metricDefs) {
+    sortedMetrics.push(metricId);
   }
 
   return sortedMetrics;

@@ -14,7 +14,9 @@ export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 
 export type Props = {
-  onClick?: ((e?: React.MouseEvent<HTMLButtonElement>) => Promise<void>) | (() => void);
+  onClick?:
+    | ((e?: React.MouseEvent<HTMLButtonElement>) => Promise<void>)
+    | (() => void);
   color?: Color;
   variant?: Variant;
   size?: Size;
