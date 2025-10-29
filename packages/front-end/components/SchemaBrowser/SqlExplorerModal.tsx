@@ -70,6 +70,7 @@ export interface Props {
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
   onSave?: (savedQueryId: string | undefined, name: string | undefined) => void;
+  projects?: string[];
 }
 
 export default function SqlExplorerModal({
@@ -83,6 +84,7 @@ export default function SqlExplorerModal({
   lockDatasource = false,
   trackingEventModalSource = "",
   onSave,
+  projects = [],
 }: Props) {
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
@@ -101,12 +103,33 @@ export default function SqlExplorerModal({
   const [informationSchema, setInformationSchema] = useState<
     InformationSchemaInterfaceWithPaths | undefined
   >();
-
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
 
-  const initialDatasourceId =
-    initial?.datasourceId || defaultDataSource || datasources[0]?.id;
+  let filteredDatasources = datasources;
+
+  // If the dashboard has a projects list, only include datasources that are contain all of the projects in the list or are in 'All Projects'
+  if (projects.length) {
+    filteredDatasources = filteredDatasources.filter((d) => {
+      if (!d.projects || !d.projects.length) {
+        return true;
+      }
+      return projects.every((p) => d.projects?.includes(p));
+    });
+  }
+
+  let initialDatasourceId = filteredDatasources[0]?.id;
+  if (
+    initial?.datasourceId &&
+    filteredDatasources.find((d) => d.id === initial?.datasourceId)
+  ) {
+    initialDatasourceId = initial.datasourceId;
+  } else if (
+    defaultDataSource &&
+    filteredDatasources.find((d) => d.id === defaultDataSource)
+  ) {
+    initialDatasourceId = defaultDataSource;
+  }
 
   const form = useForm<
     Omit<SavedQuery, "dateCreated" | "dateUpdated" | "dataVizConfig"> & {
@@ -130,7 +153,7 @@ export default function SqlExplorerModal({
     },
   });
 
-  const datasourceId = form.watch("datasourceId") || initialDatasourceId;
+  const datasourceId = form.watch("datasourceId");
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -546,7 +569,7 @@ export default function SqlExplorerModal({
 
   // Filter datasources to only those that support SQL queries
   // Also only show datasources that the user has permission to query
-  const validDatasources = datasources.filter(
+  const validDatasources = filteredDatasources.filter(
     (d) =>
       d.type !== "google_analytics" &&
       permissionsUtil.canRunSqlExplorerQueries(d),

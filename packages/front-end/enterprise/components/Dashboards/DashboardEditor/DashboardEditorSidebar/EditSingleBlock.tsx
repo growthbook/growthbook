@@ -84,6 +84,7 @@ const metricSelectorLabels: {
 };
 
 interface Props {
+  projects: string[];
   dashboardId: string;
   experiment: ExperimentInterfaceStringDates | null;
   cancel: () => void;
@@ -143,6 +144,7 @@ export default function EditSingleBlock({
   submit,
   block,
   setBlock,
+  projects,
 }: Props) {
   const {
     dimensions,
@@ -531,6 +533,7 @@ export default function EditSingleBlock({
           }}
           mutate={mutateQuery}
           initial={savedQuery}
+          projects={projects}
           id={savedQuery?.id}
           dashboardId={dashboardId}
           onSave={async (

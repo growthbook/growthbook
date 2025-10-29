@@ -400,6 +400,7 @@ export default function DashboardWorkspace({
           <DashboardEditorSidebar
             dashboardId={dashboard.id}
             experiment={experiment}
+            projects={dashboard.projects || []}
             isGeneralDashboard={isGeneralDashboard}
             open={editSidebarExpanded}
             cancel={clearEditingState}
