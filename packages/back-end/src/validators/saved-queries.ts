@@ -142,6 +142,10 @@ const withXAxis = z.object({
   xAxis: xAxisConfigurationValidator,
 });
 
+const withXAxisArray = z.object({
+  xAxis: z.array(xAxisConfigurationValidator).nonempty(),
+});
+
 const withDimensions = z.object({
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
 });
@@ -177,7 +181,8 @@ const bigValueChartValidator = baseChartConfig
 
 const pivotTableValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("pivot-table") }))
-  .merge(withXAxis)
+  // .merge(withXAxis) // This needs to be an array of xAxis
+  .merge(withXAxisArray)
   .merge(withDimensions);
 
 // Union of all chart type validators

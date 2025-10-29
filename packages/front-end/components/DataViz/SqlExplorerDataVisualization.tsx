@@ -10,7 +10,8 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
+import { supportsDimension } from "@/services/dataVizTypeGuards";
+import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import Table, {
   TableBody,
   TableCell,
@@ -307,9 +308,9 @@ export function DataVisualizationDisplay({
   }, [dataVizConfig.filters, rows]);
 
   // TODO: Support multiple y-axis fields
-  const xConfig = requiresXAxis(dataVizConfig)
-    ? dataVizConfig.xAxis
-    : undefined;
+  // Get xAxis configurations as array (using first element for now)
+  const xAxisConfigs = getXAxisConfig(dataVizConfig);
+  const xConfig = xAxisConfigs[0];
   const xField = xConfig?.fieldName;
   const yConfig = dataVizConfig.yAxis?.[0];
   const yField = yConfig?.fieldName;

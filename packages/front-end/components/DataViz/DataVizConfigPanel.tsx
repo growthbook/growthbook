@@ -11,7 +11,11 @@ import { PiWrench } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Select, SelectItem } from "@/ui/Select";
-import { requiresXAxis } from "@/services/dataVizTypeGuards";
+import {
+  getXAxisConfig,
+  setXAxisConfig,
+  updateXAxisConfig,
+} from "@/services/dataVizConfigUtilities";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizFilterPanel from "./DataVizFilterPanel";
 import DataVizDimensionPanel from "./DataVizDimensionPanel";
@@ -77,20 +81,26 @@ export default function DataVizConfigPanel({
     return Object.keys(rows[0]);
   }, [rows]);
 
+  // Get xAxis configurations as array (using first element for now)
+  const xAxisConfigs = useMemo(
+    () => getXAxisConfig(dataVizConfig),
+    [dataVizConfig],
+  );
+  const xConfig = xAxisConfigs[0];
+
   useEffect(() => {
-    if (requiresXAxis(dataVizConfig) && dataVizConfig.xAxis) {
-      const type = dataVizConfig.xAxis.type;
-      const currentSort = dataVizConfig.xAxis.sort;
+    if (xConfig) {
+      const type = xConfig.type;
+      const currentSort = xConfig.sort;
 
       // Non-string axes should default to ascending sort
       if (type !== "string" && currentSort !== "asc") {
-        onDataVizConfigChange({
-          ...dataVizConfig,
-          xAxis: { ...dataVizConfig.xAxis, sort: "asc" },
-        });
+        onDataVizConfigChange(
+          setXAxisConfig(dataVizConfig, { ...xConfig, sort: "asc" }),
+        );
       }
     }
-  }, [dataVizConfig, onDataVizConfigChange]);
+  }, [xConfig, dataVizConfig, onDataVizConfigChange]);
 
   return (
     <Flex direction="column" gap="4">
@@ -151,7 +161,7 @@ export default function DataVizConfigPanel({
                 onDataVizConfigChange({
                   ...dataVizConfig,
                   chartType: v as DataVizConfig["chartType"],
-                });
+                } as Partial<DataVizConfig>);
               }}
             >
               <SelectItem value="bar">Bar</SelectItem>
@@ -240,30 +250,20 @@ export default function DataVizConfigPanel({
               <>
                 <Select
                   label="X Axis"
-                  value={
-                    requiresXAxis(dataVizConfig)
-                      ? (dataVizConfig.xAxis?.fieldName ?? "")
-                      : ""
-                  }
+                  value={xConfig?.fieldName ?? ""}
                   setValue={(v) => {
                     if (!v) return;
                     const type = getInferredFieldType(v);
-                    onDataVizConfigChange({
-                      ...dataVizConfig,
-                      xAxis: {
+                    onDataVizConfigChange(
+                      setXAxisConfig(dataVizConfig, {
                         fieldName: v,
                         type,
                         sort:
-                          type !== "string"
-                            ? "asc"
-                            : requiresXAxis(dataVizConfig) &&
-                                dataVizConfig.xAxis?.sort
-                              ? dataVizConfig.xAxis.sort
-                              : "none",
+                          type !== "string" ? "asc" : (xConfig?.sort ?? "none"),
                         // TODO: infer date aggregation unit based on data
                         dateAggregationUnit: "day",
-                      },
-                    });
+                      }),
+                    );
                   }}
                   size="2"
                   placeholder="Select X Axis"
@@ -274,7 +274,7 @@ export default function DataVizConfigPanel({
                     </SelectItem>
                   ))}
                 </Select>
-                {requiresXAxis(dataVizConfig) && dataVizConfig.xAxis && (
+                {xConfig && (
                   <Flex direction="column" gap="2">
                     <Flex direction="row" justify="between" align="center">
                       <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
@@ -282,21 +282,14 @@ export default function DataVizConfigPanel({
                       </Text>
                       <Select
                         style={{ flex: 1 }}
-                        value={dataVizConfig.xAxis.type}
+                        value={xConfig.type}
                         setValue={(v) => {
-                          if (
-                            !v ||
-                            !requiresXAxis(dataVizConfig) ||
-                            !dataVizConfig.xAxis
-                          )
-                            return;
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            xAxis: {
-                              ...dataVizConfig.xAxis,
+                          if (!v || !xConfig) return;
+                          onDataVizConfigChange(
+                            updateXAxisConfig(dataVizConfig, {
                               type: v as "string" | "number" | "date",
-                            },
-                          });
+                            }),
+                          );
                         }}
                         size="2"
                         placeholder="Select type"
@@ -307,7 +300,7 @@ export default function DataVizConfigPanel({
                       </Select>
                     </Flex>
 
-                    {dataVizConfig.xAxis.type === "date" && (
+                    {xConfig.type === "date" && (
                       <>
                         <Flex direction="row" align="center">
                           <Box flexGrow="1">
@@ -316,22 +309,16 @@ export default function DataVizConfigPanel({
                             </Text>
                           </Box>
                           <Select
-                            value={dataVizConfig.xAxis.dateAggregationUnit}
+                            value={xConfig.dateAggregationUnit}
                             style={{ flex: 1 }}
                             setValue={(v) => {
-                              if (
-                                !requiresXAxis(dataVizConfig) ||
-                                !dataVizConfig.xAxis
-                              )
-                                return;
-                              onDataVizConfigChange({
-                                ...dataVizConfig,
-                                xAxis: {
-                                  ...dataVizConfig.xAxis,
+                              if (!xConfig) return;
+                              onDataVizConfigChange(
+                                updateXAxisConfig(dataVizConfig, {
                                   dateAggregationUnit:
                                     v as xAxisDateAggregationUnit,
-                                },
-                              });
+                                }),
+                              );
                             }}
                             size="2"
                             placeholder="Select granularity"
@@ -349,33 +336,26 @@ export default function DataVizConfigPanel({
                       </>
                     )}
 
-                    {dataVizConfig.xAxis.type === "string" && (
+                    {xConfig.type === "string" && (
                       <Flex direction="row" justify="between" align="center">
                         <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
                           Sort
                         </Text>
                         <Select
-                          value={dataVizConfig.xAxis.sort}
+                          value={xConfig.sort}
                           style={{ flex: 1 }}
                           setValue={(v) => {
-                            if (
-                              !v ||
-                              !requiresXAxis(dataVizConfig) ||
-                              !dataVizConfig.xAxis
-                            )
-                              return;
-                            onDataVizConfigChange({
-                              ...dataVizConfig,
-                              xAxis: {
-                                ...dataVizConfig.xAxis,
+                            if (!v || !xConfig) return;
+                            onDataVizConfigChange(
+                              updateXAxisConfig(dataVizConfig, {
                                 sort: v as
                                   | "none"
                                   | "asc"
                                   | "desc"
                                   | "valueAsc"
                                   | "valueDesc",
-                              },
-                            });
+                              }),
+                            );
                           }}
                           size="2"
                           placeholder="Select sort"
@@ -481,11 +461,9 @@ export default function DataVizConfigPanel({
                       >
                         {dataVizConfig.yAxis?.[0].type === "number" ? (
                           <>
-                            {((requiresXAxis(dataVizConfig) &&
-                              dataVizConfig.xAxis?.type !== "date") ||
-                              (requiresXAxis(dataVizConfig) &&
-                                dataVizConfig.xAxis?.dateAggregationUnit ===
-                                  "none")) && (
+                            {((xConfig && xConfig.type !== "date") ||
+                              (xConfig &&
+                                xConfig.dateAggregationUnit === "none")) && (
                               <SelectItem value="none">None</SelectItem>
                             )}
                             <SelectItem value="sum">Sum</SelectItem>
@@ -553,30 +531,20 @@ export default function DataVizConfigPanel({
               <Flex direction="column" gap="4">
                 <Select
                   label="Column"
-                  value={
-                    requiresXAxis(dataVizConfig)
-                      ? (dataVizConfig.xAxis?.fieldName ?? "")
-                      : ""
-                  }
+                  value={xConfig?.fieldName ?? ""}
                   setValue={(v) => {
                     if (!v) return;
                     const type = getInferredFieldType(v);
-                    onDataVizConfigChange({
-                      ...dataVizConfig,
-                      xAxis: {
+                    onDataVizConfigChange(
+                      setXAxisConfig(dataVizConfig, {
                         fieldName: v,
                         type,
                         sort:
-                          type !== "string"
-                            ? "asc"
-                            : requiresXAxis(dataVizConfig) &&
-                                dataVizConfig.xAxis?.sort
-                              ? dataVizConfig.xAxis.sort
-                              : "none",
+                          type !== "string" ? "asc" : (xConfig?.sort ?? "none"),
                         // TODO: infer date aggregation unit based on data
                         dateAggregationUnit: "day",
-                      },
-                    });
+                      }),
+                    );
                   }}
                   size="2"
                   placeholder="Select columns"
@@ -587,7 +555,7 @@ export default function DataVizConfigPanel({
                     </SelectItem>
                   ))}
                 </Select>
-                {requiresXAxis(dataVizConfig) && dataVizConfig.xAxis && (
+                {xConfig && (
                   <Flex direction="column" gap="2">
                     <Flex direction="row" justify="between" align="center">
                       <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
@@ -595,21 +563,14 @@ export default function DataVizConfigPanel({
                       </Text>
                       <Select
                         style={{ flex: 1 }}
-                        value={dataVizConfig.xAxis.type}
+                        value={xConfig.type}
                         setValue={(v) => {
-                          if (
-                            !v ||
-                            !requiresXAxis(dataVizConfig) ||
-                            !dataVizConfig.xAxis
-                          )
-                            return;
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            xAxis: {
-                              ...dataVizConfig.xAxis,
+                          if (!v || !xConfig) return;
+                          onDataVizConfigChange(
+                            updateXAxisConfig(dataVizConfig, {
                               type: v as "string" | "number" | "date",
-                            },
-                          });
+                            }),
+                          );
                         }}
                         size="2"
                         placeholder="Select type"
@@ -620,7 +581,7 @@ export default function DataVizConfigPanel({
                       </Select>
                     </Flex>
 
-                    {dataVizConfig.xAxis.type === "date" && (
+                    {xConfig.type === "date" && (
                       <>
                         <Flex direction="row" align="center">
                           <Box flexGrow="1">
@@ -629,22 +590,16 @@ export default function DataVizConfigPanel({
                             </Text>
                           </Box>
                           <Select
-                            value={dataVizConfig.xAxis.dateAggregationUnit}
+                            value={xConfig.dateAggregationUnit}
                             style={{ flex: 1 }}
                             setValue={(v) => {
-                              if (
-                                !requiresXAxis(dataVizConfig) ||
-                                !dataVizConfig.xAxis
-                              )
-                                return;
-                              onDataVizConfigChange({
-                                ...dataVizConfig,
-                                xAxis: {
-                                  ...dataVizConfig.xAxis,
+                              if (!xConfig) return;
+                              onDataVizConfigChange(
+                                updateXAxisConfig(dataVizConfig, {
                                   dateAggregationUnit:
                                     v as xAxisDateAggregationUnit,
-                                },
-                              });
+                                }),
+                              );
                             }}
                             size="2"
                             placeholder="Select granularity"
@@ -662,33 +617,26 @@ export default function DataVizConfigPanel({
                       </>
                     )}
 
-                    {dataVizConfig.xAxis.type === "string" && (
+                    {xConfig.type === "string" && (
                       <Flex direction="row" justify="between" align="center">
                         <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
                           Sort
                         </Text>
                         <Select
-                          value={dataVizConfig.xAxis.sort}
+                          value={xConfig.sort}
                           style={{ flex: 1 }}
                           setValue={(v) => {
-                            if (
-                              !v ||
-                              !requiresXAxis(dataVizConfig) ||
-                              !dataVizConfig.xAxis
-                            )
-                              return;
-                            onDataVizConfigChange({
-                              ...dataVizConfig,
-                              xAxis: {
-                                ...dataVizConfig.xAxis,
+                            if (!v || !xConfig) return;
+                            onDataVizConfigChange(
+                              updateXAxisConfig(dataVizConfig, {
                                 sort: v as
                                   | "none"
                                   | "asc"
                                   | "desc"
                                   | "valueAsc"
                                   | "valueDesc",
-                              },
-                            });
+                              }),
+                            );
                           }}
                           size="2"
                           placeholder="Select sort"
@@ -847,11 +795,9 @@ export default function DataVizConfigPanel({
                       >
                         {dataVizConfig.yAxis?.[0].type === "number" ? (
                           <>
-                            {((requiresXAxis(dataVizConfig) &&
-                              dataVizConfig.xAxis?.type !== "date") ||
-                              (requiresXAxis(dataVizConfig) &&
-                                dataVizConfig.xAxis?.dateAggregationUnit ===
-                                  "none")) && (
+                            {((xConfig && xConfig.type !== "date") ||
+                              (xConfig &&
+                                xConfig.dateAggregationUnit === "none")) && (
                               <SelectItem value="none">None</SelectItem>
                             )}
                             <SelectItem value="sum">Sum</SelectItem>
