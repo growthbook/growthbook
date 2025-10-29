@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import {
   getDemoDatasourceFactTableIdForOrganization,
+  getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
 import {
@@ -153,7 +154,7 @@ const DEMO_RATIO_METRIC: Pick<
   windowSettings: CONVERSION_WINDOW_SETTINGS,
 };
 
-const DEMO_DATA_FEATURE_ID = "gbdemo-add-to-cart-cta";
+const DEMO_DATA_EXPERIMENT_ID = "gbdemo-add-to-cart-cta";
 
 // endregion Constants for Demo Datasource
 
@@ -374,8 +375,8 @@ export const postDemoDatasourceProject = async (
       | "phases"
       | "regressionAdjustmentEnabled"
     > = {
-      name: DEMO_DATA_FEATURE_ID,
-      trackingKey: DEMO_DATA_FEATURE_ID,
+      name: DEMO_DATA_EXPERIMENT_ID,
+      trackingKey: DEMO_DATA_EXPERIMENT_ID,
       description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
 
 Experiment to test impact of a different 'Add to Cart' CTA design.
@@ -432,7 +433,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
 
     // Create feature
     const featureToCreate: FeatureInterface = {
-      id: DEMO_DATA_FEATURE_ID,
+      id: getDemoDataSourceFeatureId(),
       version: 1,
       project: project.id,
       organization: org.id,
@@ -454,7 +455,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
           {
             type: "force",
             description: "",
-            id: `${DEMO_DATA_FEATURE_ID}-employee-force-rule`,
+            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
             value: "true",
             condition: `{"is_employee":true}`,
             enabled: true,
@@ -462,9 +463,9 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
           {
             type: "experiment-ref",
             description: "",
-            id: `${DEMO_DATA_FEATURE_ID}-exp-rule`,
+            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
             enabled: true,
-            experimentId: DEMO_DATA_FEATURE_ID, // This value is replaced below after the experiment is created.
+            experimentId: DEMO_DATA_EXPERIMENT_ID, // This value is replaced below after the experiment is created.
             variations: [
               {
                 variationId: "v0",

@@ -292,7 +292,7 @@ export class FactMetricModel extends BaseClass {
     });
     await promiseAllChunks(
       factMetrics.map(
-        (factMetric) => async () => await this.deleteById(factMetric.id),
+        (factMetric) => async () => await this.delete(factMetric),
       ),
       5,
     );
