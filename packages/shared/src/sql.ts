@@ -171,3 +171,93 @@ export function stripSQLComments(sql: string): string {
     .replace(/--.*$/gm, "") // remove line comments
     .replace(/\s*;\s*$/, ""); // trim trailing semicolon
 }
+
+export interface EncodedSQLResultChunk {
+  columns: string[];
+  numRows: number;
+  // Keys are column names, values are arrays of column values
+  // Enables better compression
+  data: Record<string, unknown[]>;
+}
+
+export function encodeSQLResults(
+  // Raw SQL results
+  results: Record<string, unknown>[],
+  // 4MB default chunk size (document max is 16MB, but leave plenty of room for overhead)
+  chunkSize: number = 4000000,
+): EncodedSQLResultChunk[] {
+  if (results.length === 0) {
+    return [];
+  }
+
+  const columns = Object.keys(results[0]);
+  const encodedResults: EncodedSQLResultChunk[] = [];
+
+  function createChunk(): EncodedSQLResultChunk {
+    const chunk: EncodedSQLResultChunk = {
+      columns,
+      numRows: 0,
+      data: {},
+    };
+    columns.forEach((col) => {
+      chunk.data[col] = [];
+    });
+    return chunk;
+  }
+
+  function getSize(value: unknown): number {
+    if (value === null || value === undefined) return 1;
+    if (typeof value === "boolean") return 1;
+    if (typeof value === "number") return 8;
+    if (typeof value === "string") return value.length + 5;
+
+    // Each nested field has overhead, so just multiply by 2 to be extra conservative
+    return 1 + JSON.stringify(value).length * 2;
+  }
+
+  let currentChunk = createChunk();
+  let currentChunkSize = 0;
+
+  for (const row of results) {
+    currentChunk.numRows++;
+    for (const col of columns) {
+      const value = row[col];
+      currentChunk.data[col].push(value);
+      currentChunkSize += getSize(value);
+    }
+
+    if (currentChunkSize >= chunkSize) {
+      encodedResults.push(currentChunk);
+      // Start a new chunk
+      currentChunk = createChunk();
+      currentChunkSize = 0;
+    }
+  }
+  // Push the final chunk if it has any data
+  if (currentChunkSize > 0) {
+    encodedResults.push(currentChunk);
+  }
+
+  return encodedResults;
+}
+
+export function decodeSQLResults(
+  chunks: EncodedSQLResultChunk[],
+): Record<string, unknown>[] {
+  const results: Record<string, unknown>[] = [];
+
+  for (const chunk of chunks) {
+    const { columns, data, numRows } = chunk;
+    if (!numRows) continue;
+
+    for (let i = 0; i < numRows; i++) {
+      const row: Record<string, unknown> = {};
+      for (const col of columns) {
+        row[col] = data[col]?.[i] ?? null;
+      }
+      results.push(row);
+    }
+  }
+
+  return results;
+}

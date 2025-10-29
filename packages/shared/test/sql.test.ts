@@ -1,4 +1,10 @@
-import { ensureLimit, isMultiStatementSQL, isReadOnlySQL } from "../src/sql";
+import {
+  decodeSQLResults,
+  encodeSQLResults,
+  ensureLimit,
+  isMultiStatementSQL,
+  isReadOnlySQL,
+} from "../src/sql";
 
 describe("ensureLimit", () => {
   describe("already has LIMIT and OFFSET clauses", () => {
@@ -350,5 +356,64 @@ describe("isMultiStatementSQL", () => {
   it("is conservative with dialects that don't support backslash escaping", () => {
     const sql = `SELECT 'It\\'; DROP TABLE users; SELECT '1'`;
     expect(isMultiStatementSQL(sql)).toBe(true);
+  });
+});
+
+describe("encodeSQLResults", () => {
+  it("should encode and decode SQL results correctly", () => {
+    const results = [
+      { id: 1, name: "Alice", age: 30 },
+      { id: 2, name: "Bob", age: 25 },
+      { id: 3, name: "Charlie", age: 35 },
+    ];
+
+    const encoded = encodeSQLResults(results);
+    expect(encoded).toEqual([
+      {
+        numRows: 3,
+        columns: ["id", "name", "age"],
+        data: {
+          id: [1, 2, 3],
+          name: ["Alice", "Bob", "Charlie"],
+          age: [30, 25, 35],
+        },
+      },
+    ]);
+
+    const decoded = decodeSQLResults(encoded);
+    expect(decoded).toEqual(results);
+  });
+
+  it("should chunk results", () => {
+    const results = [
+      { id: 1, name: "Alice", age: 30 },
+      { id: 2, name: "Bob", age: 25 },
+      { id: 3, name: "Charlie", age: 35 },
+    ];
+
+    const encoded = encodeSQLResults(results, 50);
+    expect(encoded).toEqual([
+      {
+        numRows: 2,
+        columns: ["id", "name", "age"],
+        data: {
+          id: [1, 2],
+          name: ["Alice", "Bob"],
+          age: [30, 25],
+        },
+      },
+      {
+        numRows: 1,
+        columns: ["id", "name", "age"],
+        data: {
+          id: [3],
+          name: ["Charlie"],
+          age: [35],
+        },
+      },
+    ]);
+
+    const decoded = decodeSQLResults(encoded);
+    expect(decoded).toEqual(results);
   });
 });
