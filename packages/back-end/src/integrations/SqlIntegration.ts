@@ -7049,7 +7049,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           INNER JOIN (
             SELECT ${baseIdType}
             FROM ${params.unitsSourceTableFullName}
-            WHERE update_timestamp = ${this.toTimestamp(params.incrementalRefreshStartTime)}
+            ${params.lastCovariateSuccessfulUpdateTimestamp ? `WHERE update_timestamp > ${this.toTimestamp(params.lastCovariateSuccessfulUpdateTimestamp)}` : ""}
           ) d
             ON (d.${baseIdType} = m.${baseIdType})
           GROUP BY

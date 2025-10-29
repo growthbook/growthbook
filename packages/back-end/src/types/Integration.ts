@@ -332,6 +332,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   incrementalRefreshStartTime: Date;
+  lastCovariateSuccessfulUpdateTimestamp?: Date;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {

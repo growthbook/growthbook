@@ -3,6 +3,7 @@ import { baseSchema } from "back-end/src/models/BaseModel";
 
 export const incrementalRefreshMetricSourceValidator = z.object({
   groupId: z.string(),
+  factTableId: z.string(),
   metrics: z.array(
     z.object({
       id: z.string(),
@@ -11,6 +12,11 @@ export const incrementalRefreshMetricSourceValidator = z.object({
   ),
   maxTimestamp: z.date().nullable(),
   tableFullName: z.string(),
+});
+
+export const incrementalRefreshMetricCovariateSourceValidator = z.object({
+  groupId: z.string(),
+  lastCovariateSuccessfulUpdateTimestamp: z.date().nullable(),
 });
 
 const incrementalRefresh = z
@@ -27,6 +33,10 @@ const incrementalRefresh = z
 
     // Metrics
     metricSources: z.array(incrementalRefreshMetricSourceValidator),
+
+    metricCovariateSources: z.array(
+      incrementalRefreshMetricCovariateSourceValidator,
+    ),
   })
   .strict();
 
@@ -40,4 +50,8 @@ export type IncrementalRefreshInterface = z.infer<
 
 export type IncrementalRefreshMetricSourceInterface = z.infer<
   typeof incrementalRefreshMetricSourceValidator
+>;
+
+export type IncrementalRefreshMetricCovariateSourceInterface = z.infer<
+  typeof incrementalRefreshMetricCovariateSourceValidator
 >;

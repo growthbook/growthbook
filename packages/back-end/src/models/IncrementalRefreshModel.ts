@@ -43,6 +43,7 @@ export class IncrementalRefreshModel extends BaseClass {
       unitsTableFullName: null,
       unitsMaxTimestamp: null,
       metricSources: [],
+      metricCovariateSources: [],
       experimentSettingsHash: null,
       ...data,
     });

@@ -3,7 +3,9 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   isFactMetric,
+  isRatioMetric,
   isRegressionAdjusted,
+  quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
@@ -31,6 +33,7 @@ import { updateReport } from "back-end/src/models/ReportModel";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   IncrementalRefreshInterface,
+  IncrementalRefreshMetricCovariateSourceInterface,
   IncrementalRefreshMetricSourceInterface,
 } from "back-end/src/validators/incremental-refresh";
 import {
@@ -44,7 +47,6 @@ import {
 import { SegmentInterface } from "back-end/types/segment";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
-  getFactMetricGroup,
   MAX_METRICS_PER_QUERY,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -79,26 +81,47 @@ export interface MetricSourceGroups {
   metrics: FactMetricInterface[];
 }
 
+function validateFactMetricForIncrementalRefresh(metric: FactMetricInterface) {
+  if (
+    isRatioMetric(metric) &&
+    metric.numerator.factTableId !== metric.denominator?.factTableId
+  ) {
+    throw new Error(
+      "Ratio metrics must have the same numerator and denominator fact table with incremental refresh.",
+    );
+  }
+
+  if (quantileMetricType(metric)) {
+    throw new Error(
+      "Quantile metrics are not supported with incremental refresh.",
+    );
+  }
+}
+
 function getIncrementalRefreshMetricSources(
   metrics: FactMetricInterface[],
   existingMetricSources: IncrementalRefreshInterface["metricSources"],
 ): {
   metrics: FactMetricInterface[];
   groupId: string;
+  factTableId: string;
 }[] {
   // TODO(incremental-refresh): skip partial data is currently ignored
   // TODO(incremental-refresh): error if no efficient percentiles
-  // (shouldn't be possible since we are unlikely to build incremental
+  // shouldn't be possible since we are unlikely to build incremental
   // refresh for mySQL
   const groups: Record<
     string,
     {
       alreadyExists: boolean;
+      factTableId: string;
       metrics: FactMetricInterface[];
     }
   > = {};
 
   metrics.forEach((metric) => {
+    validateFactMetricForIncrementalRefresh(metric);
+
     const existingGroup = existingMetricSources.find((group) =>
       group.metrics.some((m) => m.id === metric.id),
     );
@@ -106,28 +129,34 @@ function getIncrementalRefreshMetricSources(
     if (existingGroup) {
       groups[existingGroup.groupId] = groups[existingGroup.groupId] || {
         alreadyExists: true,
+        factTableId: existingGroup.factTableId,
         metrics: [],
       };
       groups[existingGroup.groupId].metrics.push(metric);
       return;
     }
 
-    const group = getFactMetricGroup(metric) ?? metric.id;
-    groups[group] = groups[group] || {
+    // TODO(incremental-refresh): handle cross-table metrics
+    const factTableId = metric.numerator.factTableId;
+
+    groups[factTableId] = groups[factTableId] || {
       alreadyExists: false,
+      factTableId,
       metrics: [],
     };
-    groups[group].metrics.push(metric);
+    groups[factTableId].metrics.push(metric);
   });
 
   const finalGroups: {
     groupId: string;
+    factTableId: string;
     metrics: FactMetricInterface[];
   }[] = [];
   Object.entries(groups).forEach(([groupId, group]) => {
     if (group.alreadyExists) {
       finalGroups.push({
         groupId,
+        factTableId: group.factTableId,
         metrics: group.metrics,
       });
       return;
@@ -139,6 +168,7 @@ function getIncrementalRefreshMetricSources(
       const randomId = Math.random().toString(36).substring(2, 15);
       finalGroups.push({
         groupId: groupId + "_" + randomId + i,
+        factTableId: group.factTableId,
         metrics: chunk,
       });
     });
@@ -469,25 +499,37 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   // Metric Queries
   let existingSources = incrementalRefreshModel?.metricSources;
+  let existingCovariateSources =
+    incrementalRefreshModel?.metricCovariateSources;
 
   // Filter out metric source groups that belong to Fact Tables with new metrics
   // This forces a full refresh for those Fact Tables
   if (factTablesWithNewMetrics.size > 0) {
-    existingSources = existingSources?.filter((source) => {
+    const sourcesGroupIdsToDelete: string[] = [];
+    existingSources?.forEach((source) => {
       // Exclude sources where any metric belongs to a Fact Table with new metrics
       return !source.metrics.some((m) => {
         const metric = metricMap.get(m.id);
         if (!metric || !isFactMetric(metric)) return false;
         const factTableId = metric.numerator?.factTableId;
-        return factTableId && factTablesWithNewMetrics.has(factTableId);
+        if (factTableId && factTablesWithNewMetrics.has(factTableId)) {
+          sourcesGroupIdsToDelete.push(source.groupId);
+        }
       });
     });
+    existingSources = existingSources?.filter(
+      (source) => !sourcesGroupIdsToDelete.includes(source.groupId),
+    );
+    existingCovariateSources = existingCovariateSources?.filter(
+      (source) => !sourcesGroupIdsToDelete.includes(source.groupId),
+    );
   }
 
   // Full refresh, pretend no existing sources
   // Will recreate sources with new random id for metric sources
   if (params.fullRefresh) {
     existingSources = [];
+    existingCovariateSources = [];
   }
 
   if (selectedMetrics.some((m) => !isFactMetric(m))) {
@@ -501,9 +543,14 @@ export const startExperimentIncrementalRefreshQueries = async (
     existingSources ?? [],
   );
   let runningSourceData = existingSources ?? [];
+  let runningCovariateSourceData = existingCovariateSources ?? [];
 
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
+      (s) => s.groupId === group.groupId,
+    );
+
+    const existingCovariateSource = existingCovariateSources?.find(
       (s) => s.groupId === group.groupId,
     );
 
@@ -601,7 +648,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     let createMetricCovariateTableQuery: QueryPointer | null = null;
     let insertMetricCovariateDataQuery: QueryPointer | null = null;
     if (anyMetricHasCuped) {
-      if (params.fullRefresh) {
+      if (!existingCovariateSource) {
         createMetricCovariateTableQuery = await startQuery({
           name: `create_metrics_covariate_table_${group.groupId}`,
           title: `Create Metric Covariate Table ${sourceName}`,
@@ -626,13 +673,44 @@ export const startExperimentIncrementalRefreshQueries = async (
           ...metricParams,
           metricSourceCovariateTableFullName,
           incrementalRefreshStartTime: params.incrementalRefreshStartTime,
+          lastCovariateSuccessfulUpdateTimestamp:
+            existingCovariateSource?.lastCovariateSuccessfulUpdateTimestamp ??
+            undefined,
         }),
         dependencies: createMetricCovariateTableQuery
           ? [createMetricCovariateTableQuery.query]
           : [alterUnitsTableQuery.query],
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-        process: (rows) => rows,
+        process: async (rows) => {
+          const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
+            existingCovariateSource
+              ? {
+                  ...existingCovariateSource,
+                  lastCovariateSuccessfulUpdateTimestamp:
+                    params.incrementalRefreshStartTime,
+                }
+              : {
+                  groupId: group.groupId,
+                  lastCovariateSuccessfulUpdateTimestamp:
+                    params.incrementalRefreshStartTime,
+                };
+          if (!existingCovariateSource) {
+            runningCovariateSourceData = runningCovariateSourceData.concat(
+              updatedCovariateSource,
+            );
+          } else {
+            runningCovariateSourceData = runningCovariateSourceData.map((s) =>
+              s.groupId === group.groupId ? updatedCovariateSource : s,
+            );
+          }
+          context.models.incrementalRefresh
+            .upsertByExperimentId(params.queryParentId, {
+              metricCovariateSources: runningCovariateSourceData,
+            })
+            .catch((e) => context.logger.error(e));
+          return rows;
+        },
         queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
       });
       queries.push(insertMetricCovariateDataQuery);
@@ -667,6 +745,7 @@ export const startExperimentIncrementalRefreshQueries = async (
               ? { ...existingSource, maxTimestamp }
               : {
                   groupId: group.groupId,
+                  factTableId: group.factTableId,
                   maxTimestamp,
                   metrics: group.metrics.map((m) => ({
                     id: m.id,
