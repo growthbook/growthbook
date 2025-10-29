@@ -12,15 +12,12 @@ import {
  */
 export function requiresXAxis(
   config: Partial<DataVizConfig>,
-): config is Partial<
-  BarChart | LineChart | AreaChart | ScatterChart | PivotTable
-> {
+): config is Partial<BarChart | LineChart | AreaChart | ScatterChart> {
   return (
     config.chartType === "bar" ||
     config.chartType === "line" ||
     config.chartType === "area" ||
-    config.chartType === "scatter" ||
-    config.chartType === "pivot-table"
+    config.chartType === "scatter"
   );
 }
 
@@ -29,6 +26,8 @@ export function requiresXAxis(
  */
 export function supportsDimension(
   config: Partial<DataVizConfig>,
-): config is Partial<BarChart | LineChart | AreaChart | ScatterChart> {
-  return requiresXAxis(config);
+): config is Partial<
+  BarChart | LineChart | AreaChart | ScatterChart | PivotTable
+> {
+  return requiresXAxis(config) || config.chartType === "pivot-table";
 }

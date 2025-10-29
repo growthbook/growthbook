@@ -1,5 +1,9 @@
 import {
+  AreaChart,
+  BarChart,
   DataVizConfig,
+  LineChart,
+  ScatterChart,
   xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
 import { requiresXAxis } from "./dataVizTypeGuards";
@@ -7,17 +11,18 @@ import { requiresXAxis } from "./dataVizTypeGuards";
 export function getXAxisConfig(
   config: Partial<DataVizConfig>,
 ): xAxisConfiguration[] {
-  if (!requiresXAxis(config) || !config.xAxis) {
+  if (config.chartType === "pivot-table") {
+    return config.xAxes || [];
+  }
+
+  if (!requiresXAxis(config)) {
     return [];
   }
-
-  // If it's already an array, return it
-  if (Array.isArray(config.xAxis)) {
-    return config.xAxis;
-  }
-
-  // Otherwise, normalize single object to array
-  return [config.xAxis as xAxisConfiguration];
+  const nonPivot = config as Partial<
+    BarChart | LineChart | AreaChart | ScatterChart
+  >;
+  if (!nonPivot.xAxis) return [];
+  return [nonPivot.xAxis];
 }
 
 export function setXAxisConfig(
@@ -30,7 +35,7 @@ export function setXAxisConfig(
   if (config.chartType === "pivot-table") {
     return {
       ...config,
-      xAxis: valueArray,
+      xAxes: valueArray,
     } as Partial<DataVizConfig>;
   }
 
@@ -38,7 +43,9 @@ export function setXAxisConfig(
   // If empty array, set to undefined
   return {
     ...config,
-    xAxis: valueArray.length > 0 ? valueArray[0] : undefined,
+    xAxis: (valueArray.length > 0 ? valueArray[0] : undefined) as Partial<
+      BarChart | LineChart | AreaChart | ScatterChart
+    >["xAxis"],
   } as Partial<DataVizConfig>;
 }
 

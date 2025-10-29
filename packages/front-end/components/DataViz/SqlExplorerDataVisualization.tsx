@@ -308,7 +308,6 @@ export function DataVisualizationDisplay({
   }, [dataVizConfig.filters, rows]);
 
   // TODO: Support multiple y-axis fields
-  // Get xAxis configurations as array (using first element for now)
   const xAxisConfigs = getXAxisConfig(dataVizConfig);
   const xConfig = xAxisConfigs[0];
   const xField = xConfig?.fieldName;
@@ -783,7 +782,7 @@ export function DataVisualizationDisplay({
   }
 
   if (dataVizConfig.chartType === "pivot-table") {
-    if (!dataVizConfig.xAxis || !dataVizConfig.yAxis) {
+    if (!dataVizConfig.xAxes || !dataVizConfig.yAxis) {
       return (
         <Flex justify="center" align="center" height="100%">
           Select X and Y axis on the side panel to visualize your data.
