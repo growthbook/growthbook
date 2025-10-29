@@ -70,48 +70,33 @@ export function ensureLimit(sql: string, limit: number): string {
 }
 
 export function isReadOnlySQL(sql: string) {
-  // Strip comments
-  // This will be fooled by comments within strings, but
-  // Since we are only matching the first keyword, it is fine
-  let withoutComments = "";
-  let state: "lineComment" | "blockComment" | null = null;
-  const n = sql.length;
-  for (let i = 0; i < n; i++) {
-    const char = sql[i];
-    const nextChar = i + 1 < n ? sql[i + 1] : null;
-    if (state === "lineComment") {
-      if (char === "\n" || char === "\r") {
-        state = null; // End of line comment
-      }
-    } else if (state === "blockComment") {
-      if (char === "*" && nextChar === "/") {
-        state = null; // End of block comment
-        i++; // Skip the '/'
-      }
-    } else {
-      // Not in any special state
-      if (char === "-" && nextChar === "-") {
-        state = "lineComment";
-        i++; // Skip the second '-'
-      } else if (char === "/" && nextChar === "*") {
-        state = "blockComment";
-        i++; // Skip the '*'
-      } else {
-        withoutComments += char;
-      }
-    }
-  }
+  const { strippedSql } = stripCommentsAndStrings(sql);
 
   // Check the first keyword (e.g. "select", "with", etc.)
-  const match = withoutComments.match(
-    /^\s*(with|select|explain|show|describe|desc)\b/i,
-  );
-  if (!match) return false;
-
-  return true;
+  return !!strippedSql.match(/^\s*(with|select|explain|show|describe|desc)\b/i);
 }
 
 export function isMultiStatementSQL(sql: string) {
+  const { strippedSql, parseError } = stripCommentsAndStrings(sql);
+
+  // Check for semicolons outside of comments and strings
+  if (strippedSql.includes(";")) {
+    return true;
+  }
+
+  // If there was a parse error, search the original string for semicolons
+  if (parseError) {
+    // Ignore final trailing semicolon when searching to avoid common false positive
+    return sql.replace(/\s*;\s*/, "").includes(";");
+  }
+
+  return false;
+}
+
+function stripCommentsAndStrings(sql: string): {
+  strippedSql: string;
+  parseError: boolean;
+} {
   let state:
     | "singleQuote"
     | "doubleQuote"
@@ -122,7 +107,7 @@ export function isMultiStatementSQL(sql: string) {
 
   const n = sql.length;
 
-  let foundSemicolon = false;
+  let strippedSql = "";
 
   for (let i = 0; i < n; i++) {
     const char = sql[i];
@@ -133,6 +118,7 @@ export function isMultiStatementSQL(sql: string) {
         // Skip escaped character (e.g. \' or \\)
         i++;
       } else if (char === "'") {
+        strippedSql += char;
         state = null;
       }
     } else if (state === "doubleQuote") {
@@ -140,10 +126,12 @@ export function isMultiStatementSQL(sql: string) {
         // Skip escaped character (e.g. \" or \\)
         i++;
       } else if (char === '"') {
+        strippedSql += char;
         state = null;
       }
     } else if (state === "backtickQuote") {
       if (char === "`") {
+        strippedSql += char;
         state = null;
       }
     } else if (state === "lineComment") {
@@ -158,10 +146,13 @@ export function isMultiStatementSQL(sql: string) {
     } else {
       // Not in any special state
       if (char === "'") {
+        strippedSql += char;
         state = "singleQuote";
       } else if (char === '"') {
+        strippedSql += char;
         state = "doubleQuote";
       } else if (char === "`") {
+        strippedSql += char;
         state = "backtickQuote";
       } else if (char === "-" && nextChar === "-") {
         state = "lineComment";
@@ -169,27 +160,28 @@ export function isMultiStatementSQL(sql: string) {
       } else if (char === "/" && nextChar === "*") {
         state = "blockComment";
         i++; // Skip the '*'
-      } else if (char === ";") {
-        foundSemicolon = true;
       } else {
-        // Check for any non-whitespace character after a semicolon
-        if (foundSemicolon && /\S/.test(char)) {
-          return true;
-        }
+        strippedSql += char;
       }
     }
   }
 
-  // If we finish in an invalid state, something went wrong. Be conservative by searching for a semicolon in the entire string
+  // Removing trailing semicolon and spaces
+  strippedSql = strippedSql.replace(/;\s*$/, "").trim();
+
+  // See if we ended in an invalid state
+  let parseError = false;
   if (
     state === "singleQuote" ||
     state === "doubleQuote" ||
     state === "backtickQuote" ||
     state === "blockComment"
   ) {
-    // Ignore final trailing semicolon when searching to avoid common false positive
-    return sql.replace(/\s*;\s*/, "").includes(";");
+    parseError = true;
   }
 
-  return false;
+  return {
+    strippedSql,
+    parseError,
+  };
 }
