@@ -181,7 +181,6 @@ const bigValueChartValidator = baseChartConfig
 
 const pivotTableValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("pivot-table") }))
-  // .merge(withXAxis) // This needs to be an array of xAxis
   .merge(withXAxisArray)
   .merge(withDimensions);
 
