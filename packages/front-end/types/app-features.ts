@@ -102,4 +102,7 @@ export type AppFeatures = {
   "metric-dimensions": boolean;
   "metric-slices": boolean;
   "new-sample-data": boolean;
+  "october16-ff": boolean;
+  "general-dashboards": boolean;
+  "incremental-refresh": boolean;
 };
