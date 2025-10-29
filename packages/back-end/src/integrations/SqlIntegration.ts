@@ -1,3 +1,4 @@
+import bs58 from "bs58";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import normal from "@stdlib/stats/base/dists/normal";
@@ -7063,8 +7064,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             (
               m, // test this is only RA metrics
             ) =>
-              `, ${m.capCoalesceCovariate} AS ${m.id}_value
-              ${m.ratioMetric ? `, ${m.capCoalesceDenominatorCovariate} AS ${m.id}_denominator_value` : ""}
+              `, ${m.capCoalesceCovariate} AS ${this.encodeMetricIdForColumnName(m.id)}_value
+              ${m.ratioMetric ? `, ${m.capCoalesceDenominatorCovariate} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}
         `,
           )
           .join("\n")}
@@ -7126,7 +7127,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     metrics.forEach((metric) => {
       const numeratorMetadata = this.getAggregationMetadata({ metric });
       schema.set(
-        `${metric.id}_value`,
+        `${this.encodeMetricIdForColumnName(metric.id)}_value`,
         this.getDataType(numeratorMetadata.intermediateDataType),
       );
 
@@ -7136,7 +7137,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           useDenominator: true,
         });
         schema.set(
-          `${metric.id}_denominator_value`,
+          `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
           this.getDataType(denominatorMetadata.intermediateDataType),
         );
       }
@@ -7178,7 +7179,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     metrics.forEach((metric) => {
       const numeratorMetadata = this.getAggregationMetadata({ metric });
       schema.set(
-        `${metric.id}_value`,
+        `${this.encodeMetricIdForColumnName(metric.id)}_value`,
         this.getDataType(numeratorMetadata.finalDataType),
       );
 
@@ -7188,7 +7189,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           useDenominator: true,
         });
         schema.set(
-          `${metric.id}_denominator_value`,
+          `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
           this.getDataType(denominatorMetadata.finalDataType),
         );
       }
@@ -7359,8 +7360,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   useDenominator: true,
                 })?.aggregationFunction;
                 return `
-                , ${aggfunction(`${m.alias}_value`)} AS ${m.id}_value
-                ${!!denomAggFunction && isRatioMetric(m.metric) ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${m.id}_denominator_value` : ""}
+                , ${aggfunction(`${m.alias}_value`)} AS ${this.encodeMetricIdForColumnName(m.id)}_value
+                ${!!denomAggFunction && isRatioMetric(m.metric) ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}
               `;
               })
               .join("\n")}
@@ -7374,7 +7375,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           ${metricData
             .map(
               (m) =>
-                `, ${m.id}_value${m.ratioMetric ? `\n, ${m.id}_denominator_value` : ""}`,
+                `, ${this.encodeMetricIdForColumnName(m.id)}_value${m.ratioMetric ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}`,
             )
             .join("\n")}
           , ${this.getCurrentTimestamp()} AS refresh_timestamp
@@ -7442,10 +7443,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 metric: data.metric,
                 useDenominator: true,
               })?.reAggregateFunction;
-              return `, ${reAggFunction(`umj.${data.metric.id}_value`)} AS ${data.metric.id}_value
+              return `, ${reAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_value
                 ${
                   data.ratioMetric && denomReAggFunction
-                    ? `, ${denomReAggFunction(`umj.${data.metric.id}_denominator_value`)} AS ${data.metric.id}_denominator_value`
+                    ? `, ${denomReAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
                     : ""
                 }`;
             })
@@ -7463,9 +7464,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               // quantiles with ignore zeros. Otherwise the coalesce seems fine.
               .map(
                 (data) =>
-                  `, COALESCE(${data.metric.id}_value, 0) AS ${data.alias}_value ${
+                  `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0) AS ${data.alias}_value ${
                     data.ratioMetric
-                      ? `, COALESCE(${data.metric.id}_denominator_value, 0) AS ${data.alias}_denominator`
+                      ? `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0) AS ${data.alias}_denominator`
                       : ""
                   }`,
               )
@@ -7493,8 +7494,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${regressionAdjustedMetrics
               .map(
                 (data) =>
-                  `, MAX(${data.id}_value) AS ${data.alias}_value
-                ${data.ratioMetric ? `\n, MAX(${data.id}_denominator_value) AS ${data.alias}_denominator` : ""}`,
+                  `, MAX(${this.encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_value
+                ${data.ratioMetric ? `\n, MAX(${this.encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_denominator` : ""}`,
               )
               .join("\n")}
           FROM ${params.metricSourceCovariateTableFullName}
@@ -7546,5 +7547,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       )`,
       this.getFormatDialect(),
     );
+  }
+
+  encodeMetricIdForColumnName(metricId: string): string {
+    const parts = metricId.split("?");
+    if (parts.length === 2) {
+      const encoded = bs58.encode(Buffer.from(parts[1]));
+      return `${parts[0]}_${encoded}`;
+    }
+    return parts[0];
   }
 }
