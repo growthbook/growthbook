@@ -1,7 +1,5 @@
 import {
-  expandMetricGroups,
   ExperimentMetricInterface,
-  getAllMetricIdsFromExperiment,
   isFactMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -208,13 +206,12 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   const settings = integration.datasource.settings;
 
-  // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const allMetricGroups = await context.models.metricGroups.getAll();
-  const selectedMetrics = expandMetricGroups(
-    getAllMetricIdsFromExperiment(snapshotSettings, false),
-    allMetricGroups,
-  )
-    .map((m) => metricMap.get(m))
+  // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
+  // after the introduction of metric slices
+  // TODO(bryce): refactor the source of truth for metrics so that the expandedMetricMap isn't used to add
+  // metrics to an experiment
+  const selectedMetrics = snapshotSettings.metricSettings
+    .map((m) => metricMap.get(m.id))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
