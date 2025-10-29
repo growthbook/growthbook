@@ -79,18 +79,15 @@ export function isReadOnlySQL(sql: string) {
 export function isMultiStatementSQL(sql: string) {
   const { strippedSql, parseError } = stripCommentsAndStrings(sql);
 
-  // Check for semicolons outside of comments and strings
-  if (strippedSql.includes(";")) {
-    return true;
-  }
-
   // If there was a parse error, search the original string for semicolons
   if (parseError) {
     // Ignore final trailing semicolon when searching to avoid common false positive
     return sql.replace(/\s*;\s*/, "").includes(";");
   }
-
-  return false;
+  // Otherwise, search the stripped SQL for semicolons
+  else {
+    return strippedSql.includes(";");
+  }
 }
 
 function stripCommentsAndStrings(sql: string): {
