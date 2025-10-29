@@ -9,6 +9,7 @@ import { PiSlidersHorizontal } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Badge from "@/ui/Badge";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
+import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import { inferFieldType } from "./DataVizConfigPanel";
@@ -30,14 +31,13 @@ function getColumnFilterOptions(
   sampleRow: Record<string, unknown>,
 ) {
   const filterableColumns: ColumnFilterOption[] = [];
-  if (requiresXAxis(dataVizConfig) && dataVizConfig.xAxis) {
-    if (
-      dataVizConfig.xAxis?.type === "date" ||
-      dataVizConfig.xAxis?.type === "number"
-    ) {
+  if (requiresXAxis(dataVizConfig)) {
+    const xAxisConfigs = getXAxisConfig(dataVizConfig);
+    const xConfig = xAxisConfigs[0];
+    if (xConfig && (xConfig.type === "date" || xConfig.type === "number")) {
       filterableColumns.push({
-        column: dataVizConfig.xAxis.fieldName,
-        knownType: dataVizConfig.xAxis.type,
+        column: xConfig.fieldName,
+        knownType: xConfig.type,
       });
     }
   }
