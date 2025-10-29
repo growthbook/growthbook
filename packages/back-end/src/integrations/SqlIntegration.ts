@@ -146,6 +146,7 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
 import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -167,6 +168,7 @@ export default abstract class SqlIntegration
 {
   datasource: DataSourceInterface;
   context: ReqContext;
+  additionalMetadata?: AdditionalQueryMetadata;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -174,6 +176,7 @@ export default abstract class SqlIntegration
   abstract runQuery(
     sql: string,
     setExternalId?: ExternalIdCallback,
+    metadata?: QueryMetadata,
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
     logger.debug(`Cancel query: ${externalId} - not implemented`);
@@ -195,12 +198,26 @@ export default abstract class SqlIntegration
 
   private wrapRunQuery() {
     const originalRunQuery = this.runQuery;
-    this.runQuery = async (sql: string, setExternalId?: ExternalIdCallback) => {
+    this.runQuery = async (
+      sql: string,
+      setExternalId?: ExternalIdCallback,
+      metadata?: QueryMetadata,
+    ) => {
       if (isMultiStatementSQL(sql)) {
         throw new Error("Multi-statement queries are not supported");
       }
-      return originalRunQuery.call(this, sql, setExternalId);
+      metadata = {
+        ...metadata,
+        userId: this.context.userId,
+        userName: this.context.userName,
+        ...this.additionalMetadata,
+      };
+      return originalRunQuery.call(this, sql, setExternalId, metadata);
     };
+  }
+
+  setAdditionalQueryMetadata(additionalQueryMetadata: AdditionalQueryMetadata) {
+    this.additionalMetadata = additionalQueryMetadata;
   }
 
   getSourceProperties(): DataSourceProperties {

@@ -12,7 +12,7 @@ import {
 import { DimensionInterface } from "back-end/types/dimension";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "back-end/types/metric";
-import { QueryStatistics } from "back-end/types/query";
+import { AdditionalQueryMetadata, QueryStatistics } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
 import { TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -774,9 +774,13 @@ export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
+  additionalQueryMetadata?: AdditionalQueryMetadata;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
+  setAdditionalQueryMetadata?(
+    additionalQueryMetadata: AdditionalQueryMetadata,
+  ): void;
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
