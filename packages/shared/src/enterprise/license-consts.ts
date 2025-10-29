@@ -65,8 +65,10 @@ export type CommercialFeature =
   | "metric-effects"
   | "metric-correlations"
   | "dashboards"
+  | "product-analytics-dashboards"
+  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
-  | "metric-dimensions"
+  | "metric-slices"
   | "manage-official-resources";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -139,6 +141,7 @@ export interface LicenseInterface {
   installationUsers: {
     [installationId: string]: {
       date: string;
+      installationName?: string;
       userHashes: string[];
       licenseUserCodes?: LicenseUserCodes;
     };
@@ -211,6 +214,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "managed-warehouse",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -242,6 +246,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "managed-warehouse",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   enterprise: new Set<CommercialFeature>([
     "ai-suggestions",
@@ -298,8 +303,10 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-correlations",
     "dashboards",
     "precomputed-dimensions",
-    "metric-dimensions",
+    "metric-slices",
     "manage-official-resources",
+    "product-analytics-dashboards",
+    "share-product-analytics-dashboards",
   ]),
 };
 
@@ -317,6 +324,7 @@ export interface LicenseUserCodes {
 
 export interface LicenseMetaData {
   installationId: string;
+  installationName?: string;
   gitSha: string;
   gitCommitDate: string;
   sdkLanguages: string[];

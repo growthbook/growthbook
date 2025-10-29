@@ -29,7 +29,7 @@ export type Props = {
   size?: Size;
   error?: string;
   errorLevel?: "error" | "warning";
-  description?: string;
+  description?: string | ReactElement;
   weight?: "bold" | "regular";
   setValue: (value: boolean) => void;
   required?: boolean;
@@ -76,6 +76,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         ref={ref}
         as="label"
         size={labelSize}
+        mb="0"
         className={clsx(
           "rt-CheckboxItem",
           {

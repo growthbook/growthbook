@@ -11,20 +11,20 @@ import {
   isFactMetric,
   isBinomialMetric,
   ExperimentMetricInterface,
-  getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
+  generateSliceString,
+  expandAllSliceMetricsInMap,
+  parseSliceMetricId,
+  SliceLevelsData,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
-import {
-  expandDimensionMetricsInMap,
-  getMetricsByIds,
-} from "back-end/src/models/MetricModel";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
@@ -177,6 +177,8 @@ export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
   metricMap: Map<string, ExperimentMetricInterface>,
   factTableMap?: FactTableMap,
+  experiment?: ExperimentInterface,
+  metricGroups: MetricGroupInterface[] = [],
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -188,23 +190,24 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
 
-  // Expand dimension metrics if factTableMap is provided
+  // Expand slice metrics if factTableMap is provided
   if (factTableMap) {
-    const baseMetricIds = getAllMetricIdsFromExperiment(args);
-    const baseMetrics = baseMetricIds
-      .map((m) => metricMap.get(m) || null)
-      .filter(isDefined);
-    expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+    // Expand all slice metrics (auto and custom) and add them to the metricMap
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment: experiment ?? args,
+      metricGroups,
+    });
   }
 
   const snapshotSettings: ExperimentSnapshotSettings = {
-    metricSettings: getAllExpandedMetricIdsFromExperiment(
-      args,
-      metricMap,
-      factTableMap || new Map(),
-      true,
-      [],
-    )
+    metricSettings: getAllExpandedMetricIdsFromExperiment({
+      exp: args,
+      expandedMetricMap: metricMap,
+      includeActivationMetric: true,
+      metricGroups: [],
+    })
       .map((m) =>
         getMetricForSnapshot({
           id: m,
@@ -345,13 +348,17 @@ export function getMetricForSnapshot({
   if (metric.windowSettings.type === "conversion" && phaseLookbackWindow) {
     return null;
   }
-  const overrides = metricOverrides?.find((o) => o.id === id);
+
+  // For slice metrics, use the base metric ID for lookups
+  const { baseMetricId } = parseSliceMetricId(id);
+  const overrides = metricOverrides?.find((o) => o.id === baseMetricId);
+
   const decisionFrameworkMetricOverride =
     decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
-      (o) => o.id === id,
+      (o) => o.id === baseMetricId,
     );
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
-    (s) => s.metric === id,
+    (s) => s.metric === baseMetricId,
   );
 
   return {
@@ -453,26 +460,20 @@ export async function createReportSnapshot({
 
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // First, expand dimension metrics and add them to the metricMap
-  const baseMetricIds = getAllMetricIdsFromExperiment(
-    report.experimentAnalysisSettings,
-    false,
-    metricGroups,
-  );
-  const baseMetrics = baseMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined);
-
-  // Expand dimension metrics for fact metrics with enableMetricDimensions
-  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
-
-  const metricIds = getAllExpandedMetricIdsFromExperiment(
-    report.experimentAnalysisSettings,
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  expandAllSliceMetricsInMap({
     metricMap,
     factTableMap,
-    false,
+    experiment: report.experimentAnalysisSettings,
     metricGroups,
-  );
+  });
+
+  const metricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: report.experimentAnalysisSettings,
+    expandedMetricMap: metricMap,
+    includeActivationMetric: false,
+    metricGroups,
+  });
   const allReportMetrics = metricIds.map((m) => metricMap.get(m) || null);
   const denominatorMetricIds = uniq<string>(
     allReportMetrics
@@ -519,6 +520,7 @@ export async function createReportSnapshot({
     factTableMap,
     metricGroups,
     datasource,
+    experiment,
   });
 
   const snapshotType = "report";
@@ -591,6 +593,7 @@ export function getReportSnapshotSettings({
   factTableMap,
   metricGroups,
   datasource,
+  experiment,
 }: {
   report: ExperimentSnapshotReportInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -601,6 +604,7 @@ export function getReportSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
+  experiment?: ExperimentInterface | null;
 }): ExperimentSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -652,13 +656,12 @@ export function getReportSnapshotSettings({
     }),
   );
 
-  const metricSettings = getAllExpandedMetricIdsFromExperiment(
-    report.experimentAnalysisSettings,
-    metricMap,
-    factTableMap,
-    true,
+  const metricSettings = getAllExpandedMetricIdsFromExperiment({
+    exp: report.experimentAnalysisSettings,
+    expandedMetricMap: metricMap,
+    includeActivationMetric: true,
     metricGroups,
-  )
+  })
     .map((m) =>
       getMetricForSnapshot({
         id: m,
@@ -689,6 +692,10 @@ export function getReportSnapshotSettings({
       report?.dateCreated,
     endDate: report.experimentAnalysisSettings.dateEnded || new Date(),
     experimentId: report.experimentAnalysisSettings.trackingKey,
+    phase: {
+      index: phaseIndex + "",
+    },
+    customFields: experiment?.customFields,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
@@ -820,73 +827,86 @@ export async function generateExperimentReportSSRData({
     : undefined;
   const projectMap = _project?.id ? { [_project.id]: _project } : {};
 
-  // Generate fact metric dimensions for fact metrics with dimension analysis enabled
-  const factMetricDimensions: Record<
+  // Generate fact metric slices for fact metrics with slice analysis enabled
+  const factMetricSlices: Record<
     string,
     Array<{
       id: string;
       name: string;
       description: string;
-      parentMetricId: string;
-      dimensionColumn: string;
-      dimensionColumnName: string;
-      dimensionValue: string | null;
-      dimensionLevels: string[];
+      baseMetricId: string;
+      sliceLevels: SliceLevelsData[];
+      allSliceLevels: string[];
     }>
   > = {};
   for (const factMetric of factMetrics) {
-    if (factMetric.enableMetricDimensions) {
+    if (factMetric.metricAutoSlices?.length) {
       const factTableId = factMetric.numerator.factTableId;
       const factTable = factTableId ? factTableMap[factTableId] : undefined;
       if (factTable) {
         const dimensionColumns = factTable.columns.filter(
-          (col: ColumnInterface) => col.isDimension && !col.deleted,
+          (col: ColumnInterface) =>
+            col.isAutoSliceColumn &&
+            !col.deleted &&
+            factMetric.metricAutoSlices?.includes(col.column),
         );
         if (dimensionColumns.length > 0) {
-          const dimensionMetrics: Array<{
+          const sliceMetrics: Array<{
             id: string;
             name: string;
             description: string;
-            parentMetricId: string;
-            dimensionColumn: string;
-            dimensionColumnName: string;
-            dimensionValue: string | null;
-            dimensionLevels: string[];
+            baseMetricId: string;
+            sliceLevels: SliceLevelsData[];
+            allSliceLevels: string[];
           }> = [];
 
           dimensionColumns.forEach((col: ColumnInterface) => {
-            const dimensionLevels = col.dimensionLevels || [];
+            const autoSlices = col.autoSlices || [];
 
-            // Create a metric for each dimension level
-            dimensionLevels.forEach((value: string) => {
-              dimensionMetrics.push({
-                id: `${factMetric.id}?dim:${col.column}=${value}`,
+            // Create a metric for each auto slice
+            autoSlices.forEach((value: string) => {
+              const dimensionString = generateSliceString({
+                [col.column]: value,
+              });
+              sliceMetrics.push({
+                id: `${factMetric.id}?${dimensionString}`,
                 name: `${factMetric.name} (${col.name || col.column}: ${value})`,
-                description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = ${value}`,
-                parentMetricId: factMetric.id,
-                dimensionColumn: col.column,
-                dimensionColumnName: col.name || col.column,
-                dimensionValue: value,
-                dimensionLevels: col.dimensionLevels || [],
+                description: `Slice analysis of ${factMetric.name} for ${col.name || col.column} = ${value}`,
+                baseMetricId: factMetric.id,
+                sliceLevels: [
+                  {
+                    column: col.column,
+                    datatype: col.datatype === "boolean" ? "boolean" : "string",
+                    levels: [value],
+                  },
+                ],
+                allSliceLevels: col.autoSlices || [],
               });
             });
 
-            // Create an "other" metric for values not in dimensionLevels
-            if (dimensionLevels.length > 0) {
-              dimensionMetrics.push({
-                id: `${factMetric.id}?dim:${col.column}=`,
+            // Create an "other" metric for values not in autoSlices
+            if (autoSlices.length > 0) {
+              const dimensionString = generateSliceString({
+                [col.column]: "",
+              });
+              sliceMetrics.push({
+                id: `${factMetric.id}?${dimensionString}`,
                 name: `${factMetric.name} (${col.name || col.column}: other)`,
-                description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = other`,
-                parentMetricId: factMetric.id,
-                dimensionColumn: col.column,
-                dimensionColumnName: col.name || col.column,
-                dimensionValue: null,
-                dimensionLevels: col.dimensionLevels || [],
+                description: `Slice analysis of ${factMetric.name} for ${col.name || col.column} = other`,
+                baseMetricId: factMetric.id,
+                sliceLevels: [
+                  {
+                    column: col.column,
+                    datatype: col.datatype === "boolean" ? "boolean" : "string",
+                    levels: [], // Empty array for "other" slice
+                  },
+                ],
+                allSliceLevels: col.autoSlices || [],
               });
             }
           });
 
-          factMetricDimensions[factMetric.id] = dimensionMetrics;
+          factMetricSlices[factMetric.id] = sliceMetrics;
         }
       }
     }
@@ -896,7 +916,7 @@ export async function generateExperimentReportSSRData({
     metrics: metricMap,
     metricGroups,
     factTables: factTableMap,
-    factMetricDimensions,
+    factMetricSlices,
     settings: orgSettings,
     projects: projectMap,
     dimensions,

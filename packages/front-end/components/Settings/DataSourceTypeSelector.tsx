@@ -12,7 +12,7 @@ export default function DataSourceTypeSelector({ value, setValue }: Props) {
   return (
     <RadioCards
       options={dataSourceConnections
-        .filter((o) => o.type !== "google_analytics")
+        .filter((o) => o.type !== "google_analytics" && o.type !== "mixpanel")
         .map((o) => {
           return {
             value: o.type,

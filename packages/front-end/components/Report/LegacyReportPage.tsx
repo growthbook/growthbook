@@ -31,11 +31,10 @@ import {
 } from "@/components/Icons";
 import ConfigureLegacyReport from "@/components/Report/ConfigureLegacyReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -95,9 +94,6 @@ export default function LegacyReportPage({
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment",
-  );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
 
@@ -142,12 +138,6 @@ export default function LegacyReportPage({
 
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
-
-  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
-  const regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature &&
-    regressionAdjustmentAvailable &&
-    !!report.args.regressionAdjustmentEnabled;
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
@@ -203,20 +193,15 @@ export default function LegacyReportPage({
                 value={form.watch("description")}
               />
             </div>
-            Publish:{" "}
-            <Toggle
+            <Switch
               id="toggle-status"
               value={form.watch("status") === "published"}
-              label="published"
-              setValue={(value) => {
+              label="Publish"
+              description="A published report will be visible to other users of your team"
+              onChange={(value) => {
                 const newStatus = value ? "published" : "private";
                 form.setValue("status", newStatus);
               }}
-            />
-            <Tooltip
-              body={
-                "A published report will be visible to other users of your team"
-              }
             />
           </Modal>
         )}
@@ -436,7 +421,6 @@ export default function LegacyReportPage({
                         report.args,
                         false,
                       )}
-                      differenceType={report.args.differenceType ?? "relative"}
                       trackingKey={report.title}
                       dimension={report.args.dimension ?? undefined}
                       project={experimentData?.experiment.project || ""}
@@ -519,7 +503,6 @@ export default function LegacyReportPage({
                       report.args.statsEngine || DEFAULT_STATS_ENGINE
                     }
                     pValueCorrection={pValueCorrection}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                     settingsForSnapshotMetrics={
                       report.args.settingsForSnapshotMetrics
                     }
@@ -593,7 +576,6 @@ export default function LegacyReportPage({
                         report.args.statsEngine || DEFAULT_STATS_ENGINE
                       }
                       pValueCorrection={pValueCorrection}
-                      regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                       settingsForSnapshotMetrics={
                         report.args.settingsForSnapshotMetrics
                       }

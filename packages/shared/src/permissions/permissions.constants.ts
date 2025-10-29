@@ -29,6 +29,7 @@ export const POLICIES = [
   "EnvironmentsFullAccess",
   "NamespacesFullAccess",
   "SavedGroupsFullAccess",
+  "SavedGroupsBypassSizeLimit",
   "GeneralSettingsFullAccess",
   "NorthStarMetricFullAccess",
   "TeamManagementFullAccess",
@@ -46,6 +47,7 @@ export const POLICIES = [
   "SqlExplorerFullAccess",
   "HoldoutsFullAccess",
   "ManageOfficialResources",
+  "GeneralDashboardsFullAccess",
 ] as const;
 
 export type Policy = (typeof POLICIES)[number];
@@ -113,6 +115,11 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
   SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
+  SavedGroupsBypassSizeLimit: [
+    "readData",
+    "manageSavedGroups",
+    "bypassSavedGroupSizeLimit",
+  ],
   GeneralSettingsFullAccess: ["readData", "organizationSettings"],
   NorthStarMetricFullAccess: ["readData", "manageNorthStarMetric"],
   TeamManagementFullAccess: ["readData", "manageTeam"],
@@ -126,6 +133,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
   CustomFieldsFullAccess: ["readData", "manageCustomFields"],
   TemplatesFullAccess: ["readData", "manageTemplates"],
+  GeneralDashboardsFullAccess: ["readData", "manageGeneralDashboards"],
   SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
   HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
   ManageOfficialResources: [
@@ -186,6 +194,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "SavedGroupsBypassSizeLimit",
     ],
   },
   {
@@ -324,6 +333,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Saved Groups Full Access",
     description: "Create, edit, and delete saved groups",
   },
+  SavedGroupsBypassSizeLimit: {
+    displayName: "Saved Groups Bypass Size Limit",
+    description: "Bypass org-defined size limits for saved groups",
+  },
+
   GeneralSettingsFullAccess: {
     displayName: "General Settings Full Access",
     description: "Edit organization general settings",
@@ -396,6 +410,10 @@ export const POLICY_METADATA_MAP: Record<
     description:
       "Create, edit, and delete official resources. For example: Manage resources like Fact Tables, Metrics, Segments, etc that have been marked as 'Official'.",
   },
+  GeneralDashboardsFullAccess: {
+    displayName: "General Dashboards Full Access",
+    description: "Create, edit, and delete Product Analytics dashboards.",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -467,6 +485,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   experimenter: {
@@ -499,6 +518,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   admin: {
@@ -552,7 +572,9 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
+  "manageGeneralDashboards",
   "manageOfficialResources",
+  "bypassSavedGroupSizeLimit",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [

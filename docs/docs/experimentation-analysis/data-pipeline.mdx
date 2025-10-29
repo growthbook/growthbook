@@ -7,7 +7,7 @@ slug: /app/data-pipeline
 
 # Data Pipeline Mode
 
-:::note
+:::info Enterprise only
 
 Pipeline mode is only available for Enterprise customers and is currently only available for BigQuery, Snowflake, and Databricks Data Sources.
 
@@ -20,6 +20,14 @@ With **Pipeline Mode** enabled, whenever an experiment analysis is run, GrowthBo
 The only change from enabling pipeline mode is that we materialize one intermediate table per experiment analysis that will have the number of rows equal to the number of experiment units in that experiment. Enabling pipeline mode has no impact on any of your analysis settings or experiment results and we do not access any more data than if pipeline mode is disabled.
 
 To enable Pipeline Mode, follow the steps for your data warehouse:
+
+## Configuring Pipeline Mode
+
+:::info Pipeline mode requires write permissions
+
+While Pipeline mode requires you to give write permissions to your Data Source, GrowthBook only uses it for the Pipeline Mode. All other user-provided SQL statements are validated to be read-only before being executed.
+
+:::
 
 ### BigQuery
 
@@ -39,7 +47,7 @@ To enable Pipeline Mode, follow the steps for your data warehouse:
 
 Databricks works slightly differently. Instead of creating a temporary table, we create a regular table for the deduped units assignment and then `DROP` that table when analysis is completed.
 
-:::note
+:::info Using pipeline mode in Databricks requires DROP permissions
 
 Using pipeline mode in Databricks requires either granting DROP permissions to the Databricks account that GrowthBook uses, or leaving many tables in your schema you have to manually delete later! For this reason we strongly recommend a standalone schema for GrowthBook to use to write tables to.
 

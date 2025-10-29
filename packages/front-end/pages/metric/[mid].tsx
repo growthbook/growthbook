@@ -19,7 +19,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -51,7 +51,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -481,6 +481,7 @@ const MetricPage: FC = () => {
             ) : null}
             {!metric.managedBy &&
             canEditMetric &&
+            permissionsUtil.canCreateOfficialResources(metric) &&
             hasCommercialFeature("manage-official-resources") ? (
               <Button
                 className="btn dropdown-item py-2"
@@ -810,24 +811,27 @@ const MetricPage: FC = () => {
                               </div>
                               <div className="col">
                                 <div className="float-right mr-2">
-                                  <label
-                                    className="small my-0 mr-2 text-right align-middle"
-                                    htmlFor="toggle-group-by-avg"
-                                  >
-                                    Smoothing
-                                    <br />
-                                    (7 day trailing)
-                                  </label>
-                                  <Toggle
-                                    value={smoothByAvg === "week"}
-                                    setValue={() =>
-                                      setSmoothByAvg(
-                                        smoothByAvg === "week" ? "day" : "week",
-                                      )
-                                    }
-                                    id="toggle-group-by-avg"
-                                    className="align-middle"
-                                  />
+                                  <Flex align="center" gap="1">
+                                    <Switch
+                                      value={smoothByAvg === "week"}
+                                      onChange={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week",
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                    />
+                                    <label
+                                      className="small my-0 mr-2 text-right align-middle"
+                                      htmlFor="toggle-group-by-avg"
+                                    >
+                                      Smoothing
+                                      <br />
+                                      (7 day trailing)
+                                    </label>
+                                  </Flex>
                                 </div>
                               </div>
                             </div>
@@ -885,24 +889,25 @@ const MetricPage: FC = () => {
                           </div>
                           <div className="col">
                             <div className="float-right mr-2">
-                              <label
-                                className="small my-0 mr-2 text-right align-middle"
-                                htmlFor="toggle-group-by-sum"
-                              >
-                                Smoothing
-                                <br />
-                                (7 day trailing)
-                              </label>
-                              <Toggle
-                                value={smoothBySum === "week"}
-                                setValue={() =>
-                                  setSmoothBySum(
-                                    smoothBySum === "week" ? "day" : "week",
-                                  )
-                                }
-                                id="toggle-group-by-sum"
-                                className="align-middle"
-                              />
+                              <Flex align="center" gap="1">
+                                <Switch
+                                  value={smoothBySum === "week"}
+                                  onChange={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week",
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                />
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                              </Flex>
                             </div>
                           </div>
                         </div>

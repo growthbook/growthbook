@@ -226,6 +226,12 @@ const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000
 
 ### What is the difference between a Dimension and a Segment?
 
+:::info Dimensions recommended over Segments
+
+We recommend using Dimensions instead of Segments for new implementations. While Segments remain fully supported, we plan to deprecate them in a future release.
+
+:::
+
 A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
 
 A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
@@ -261,6 +267,23 @@ GrowthBook achieves deduplication by assigning a unique identifier (such as a `u
 If a user participates in an experiment more than once (e.g., revisits the site multiple times), GrowthBook will count only their first recorded exposure.
 
 ## Other
+
+### What types of SQL queries can users run in GrowthBook?
+
+Users can only run read SELECT queries in GrowthBook. For security reasons, all user-provided SQL is validated to be a read-only query before being executed. This applies to all places where you can write raw SQL, including:
+
+- SQL Explorer for ad-hoc queries
+- Metric and Fact Table definitions
+- Dimension queries
+- Data Source configuration (experiment assignment queries, identifier joins, etc.)
+
+Write operations such as INSERT, UPDATE, DELETE, etc, are not permitted from any user-entered SQL.
+
+:::note Pipeline Mode writes to your data warehouse
+
+Some GrowthBook features, such as [Pipeline Mode](/app/data-pipeline), may write temporary tables to your data warehouse to improve query performance. However, these write operations are managed by GrowthBook itself.
+
+:::
 
 ### How do I disable the on-screen celebrations?
 

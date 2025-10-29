@@ -23,6 +23,11 @@ export const metricAnalysisSettingsValidator = z
     populationId: z.string().nullable(),
   })
   .strict();
+export const metricAnalysisSettingsStringDatesValidator =
+  metricAnalysisSettingsValidator
+    .omit({ startDate: true, endDate: true })
+    .extend({ startDate: z.string(), endDate: z.string() })
+    .strict();
 
 export const createMetricAnalysisPropsValidator = z
   .object({

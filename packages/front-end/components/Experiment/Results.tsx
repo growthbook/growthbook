@@ -7,7 +7,11 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  generatePinnedSliceKey,
+  SliceLevelsData,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
@@ -58,6 +62,10 @@ const Results: FC<{
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
   envs,
@@ -80,48 +88,54 @@ const Results: FC<{
   isTabActive = true,
   setTab,
   holdout,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }) => {
   const { apiCall } = useAuth();
 
   const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
     string[]
-  >(experiment.pinnedMetricDimensionLevels || []);
+  >(experiment.pinnedMetricSlices || []);
   useEffect(
-    () =>
-      setOptimisticPinnedLevels(experiment.pinnedMetricDimensionLevels || []),
-    [experiment.pinnedMetricDimensionLevels],
+    () => setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []),
+    [experiment.pinnedMetricSlices],
   );
 
-  const togglePinnedMetricDimensionLevel = async (
+  const togglePinnedMetricSlice = async (
     metricId: string,
-    dimensionColumn: string,
-    dimensionValue: string | null,
+    sliceLevels: SliceLevelsData[],
     location?: "goal" | "secondary" | "guardrail",
   ) => {
     if (!editMetrics || !mutateExperiment) return;
 
-    const key = `${metricId}?dim:${dimensionColumn}=${dimensionValue || ""}&location=${location || ""}`;
+    const key = generatePinnedSliceKey(
+      metricId,
+      sliceLevels,
+      location || "goal",
+    );
     const newPinned = optimisticPinnedLevels.includes(key)
       ? optimisticPinnedLevels.filter((id) => id !== key)
       : [...optimisticPinnedLevels, key];
     setOptimisticPinnedLevels(newPinned);
 
     try {
-      const response = await apiCall<{ pinnedMetricDimensionLevels: string[] }>(
+      const response = await apiCall<{ pinnedMetricSlices: string[] }>(
         `/experiment/${experiment.id}`,
         {
           method: "POST",
           body: JSON.stringify({
-            pinnedMetricDimensionLevels: newPinned,
+            pinnedMetricSlices: newPinned,
           }),
         },
       );
-      if (response?.pinnedMetricDimensionLevels) {
-        setOptimisticPinnedLevels(response.pinnedMetricDimensionLevels);
+      if (response?.pinnedMetricSlices) {
+        setOptimisticPinnedLevels(response.pinnedMetricSlices);
       }
       mutateExperiment();
     } catch (error) {
-      setOptimisticPinnedLevels(experiment.pinnedMetricDimensionLevels || []);
+      setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []);
     }
   };
 
@@ -397,13 +411,17 @@ const Results: FC<{
           status={experiment.status}
           statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
           pValueCorrection={pValueCorrection}
-          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
           settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
           experimentType={experiment.type}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
+          analysisBarSettings={analysisBarSettings}
         />
       ) : showCompactResults ? (
         <>
@@ -438,7 +456,6 @@ const Results: FC<{
             id={experiment.id}
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
@@ -447,8 +464,14 @@ const Results: FC<{
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
-            pinnedMetricDimensionLevels={optimisticPinnedLevels}
-            togglePinnedMetricDimensionLevel={togglePinnedMetricDimensionLevel}
+            pinnedMetricSlices={optimisticPinnedLevels}
+            togglePinnedMetricSlice={togglePinnedMetricSlice}
+            customMetricSlices={experiment.customMetricSlices}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
+            analysisBarSettings={analysisBarSettings}
           />
         </>
       ) : null}

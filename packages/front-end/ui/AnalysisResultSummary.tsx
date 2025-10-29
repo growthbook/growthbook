@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
 import {
@@ -45,13 +45,17 @@ import { PercentileLabel } from "@/components/Metrics/MetricName";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import Callout from "@/ui/Callout";
 
-interface AnalysisResultSummaryProps {
+export interface AnalysisResultSummaryProps {
   data?: {
     metricRow: number;
     metric: ExperimentMetricInterface;
     metricSnapshotSettings?: MetricSnapshotSettings;
     dimensionName?: string;
-    dimensionValue?: string;
+    dimensionValue?: string | ReactNode;
+    sliceLevels?: Array<{
+      dimension: string;
+      levels: string[];
+    }>;
     variation: ExperimentReportVariationWithIndex;
     stats: SnapshotMetric;
     baseline: SnapshotMetric;

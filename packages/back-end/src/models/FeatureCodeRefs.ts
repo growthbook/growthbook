@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
-import { omit } from "lodash";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 import { ApiCodeRef } from "back-end/types/openapi";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
@@ -41,10 +45,10 @@ const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
   featureCodeRefsSchema,
 );
 
-function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
-  const ret = doc.toJSON<FeatureCodeRefsDocument>();
-  return omit(ret, ["__v", "_id"]);
-}
+const COLLECTION = "featurecoderefs";
+
+const toInterface: ToInterface<FeatureCodeRefsInterface> = (doc) =>
+  removeMongooseFields(doc);
 
 export function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
   return {
@@ -93,12 +97,16 @@ export const upsertFeatureCodeRefs = async ({
     { upsert: true },
   );
 
-  return await FeatureCodeRefsModel.find({
-    feature,
-    repo,
-    branch,
-    organization: organization.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      feature,
+      repo,
+      branch,
+      organization: organization.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };
 
 export const getFeatureCodeRefsByFeatures = async ({
@@ -112,12 +120,16 @@ export const getFeatureCodeRefsByFeatures = async ({
   features: string[];
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  return await FeatureCodeRefsModel.find({
-    repo,
-    branch,
-    feature: { $in: features },
-    organization: organization.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      repo,
+      branch,
+      feature: { $in: features },
+      organization: organization.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };
 
 export const getAllCodeRefsForFeature = async ({
@@ -127,10 +139,14 @@ export const getAllCodeRefsForFeature = async ({
   feature: string;
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  return await FeatureCodeRefsModel.find({
-    feature,
-    organization: organization.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      feature,
+      organization: organization.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };
 
 export const getAllCodeRefsForOrg = async ({
@@ -138,7 +154,11 @@ export const getAllCodeRefsForOrg = async ({
 }: {
   context: ReqContext | ApiReqContext;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  return await FeatureCodeRefsModel.find({
-    organization: context.org.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };

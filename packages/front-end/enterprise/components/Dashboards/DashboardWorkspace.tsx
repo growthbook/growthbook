@@ -17,11 +17,16 @@ import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
+
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import DashboardEditor, { DASHBOARD_TOPBAR_HEIGHT } from "./DashboardEditor";
+import DashboardEditor, {
+  DASHBOARD_TOPBAR_HEIGHT,
+  GENERAL_DASHBOARD_BLOCK_TYPES,
+  isBlockTypeAllowed,
+} from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 
@@ -30,7 +35,7 @@ export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
 
 interface Props {
   isTabActive: boolean;
-  experiment: ExperimentInterfaceStringDates;
+  experiment: ExperimentInterfaceStringDates | null;
   dashboard: DashboardInterface;
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
@@ -44,6 +49,8 @@ export default function DashboardWorkspace({
   submitDashboard,
   close,
 }: Props) {
+  // Determine if this is a general dashboard (no experiment linked)
+  const isGeneralDashboard = !experiment || dashboard.experimentId === "";
   useEffect(() => {
     const bodyElements = window.document.getElementsByTagName("body");
     for (const element of bodyElements) {
@@ -136,13 +143,31 @@ export default function DashboardWorkspace({
   );
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
+    // Validate that the block type is allowed for this dashboard type
+    if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
+      console.warn(
+        `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
+      );
+      return;
+    }
+
     index = index ?? blocks.length;
-    setStagedAddBlock(
-      CREATE_BLOCK_TYPE[bType]({
-        experiment,
-        metricGroups,
-      }),
-    );
+
+    // For general dashboards, only allow blocks that don't require experiment
+    if (isGeneralDashboard && !GENERAL_DASHBOARD_BLOCK_TYPES.includes(bType)) {
+      console.warn(
+        `Block type ${bType} requires an experiment and cannot be used in general dashboards`,
+      );
+      return;
+    }
+
+    // Create the block with appropriate parameters
+    const blockData = CREATE_BLOCK_TYPE[bType]({
+      experiment: experiment!,
+      metricGroups,
+    });
+
+    setStagedAddBlock(blockData);
     setAddBlockIndex(index);
     setEditSidebarDirty(true);
   };
@@ -278,15 +303,27 @@ export default function DashboardWorkspace({
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <DashboardEditor
             isTabActive={isTabActive}
-            experiment={experiment}
+            id={dashboard.id}
+            ownerId={dashboard.userId}
+            initialEditLevel={dashboard.editLevel}
+            initialShareLevel={dashboard.shareLevel}
+            dashboardOwnerId={dashboard.userId}
+            projects={
+              dashboard.projects
+                ? dashboard.projects
+                : experiment?.project
+                  ? [experiment.project]
+                  : []
+            }
             title={dashboard.title}
             blocks={effectiveBlocks}
             isEditing={true}
+            isGeneralDashboard={isGeneralDashboard}
             enableAutoUpdates={dashboard.enableAutoUpdates}
-            editSidebarDirty={editSidebarDirty}
-            focusedBlockIndex={focusedBlockIndex}
-            stagedBlockIndex={addBlockIndex ?? editingBlockIndex}
-            scrollAreaRef={scrollAreaRef}
+            nextUpdate={
+              experiment ? experiment.nextSnapshotAttempt : dashboard.nextUpdate
+            }
+            dashboardLastUpdated={dashboard.lastUpdated}
             setBlock={(i, block) => {
               if (i === editingBlockIndex) {
                 setStagedEditBlock(block);
@@ -300,23 +337,29 @@ export default function DashboardWorkspace({
                 ]);
               }
             }}
-            moveBlock={(i, direction) => {
-              if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
-                return;
-              const otherBlocks = blocks.toSpliced(i, 1);
-              setBlocksAndSubmit([
-                ...otherBlocks.slice(0, i + direction),
-                blocks[i],
-                ...otherBlocks.slice(i + direction),
-              ]);
+            editBlockProps={{
+              editSidebarDirty: editSidebarDirty,
+              focusedBlockIndex: focusedBlockIndex,
+              stagedBlockIndex: addBlockIndex ?? editingBlockIndex,
+              scrollAreaRef: scrollAreaRef,
+              moveBlock: (i, direction) => {
+                if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
+                  return;
+                const otherBlocks = blocks.toSpliced(i, 1);
+                setBlocksAndSubmit([
+                  ...otherBlocks.slice(0, i + direction),
+                  blocks[i],
+                  ...otherBlocks.slice(i + direction),
+                ]);
+              },
+              addBlockType: addBlockType,
+              editBlock: editBlock,
+              duplicateBlock: (i) => {
+                setAddBlockIndex(i + 1);
+                setStagedAddBlock(getBlockData(effectiveBlocks[i]));
+              },
+              deleteBlock: deleteBlock,
             }}
-            addBlockType={addBlockType}
-            editBlock={editBlock}
-            duplicateBlock={(i) => {
-              setAddBlockIndex(i + 1);
-              setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-            }}
-            deleteBlock={deleteBlock}
             mutate={mutate}
           />
         </div>
@@ -355,7 +398,9 @@ export default function DashboardWorkspace({
           </Flex>
 
           <DashboardEditorSidebar
+            dashboardId={dashboard.id}
             experiment={experiment}
+            isGeneralDashboard={isGeneralDashboard}
             open={editSidebarExpanded}
             cancel={clearEditingState}
             submit={() => {

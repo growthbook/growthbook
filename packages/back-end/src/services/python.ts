@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { CloudWatch } from "aws-sdk";
 import { createPool } from "generic-pool";
 import { stringToBoolean } from "shared/util";
+import JSON5 from "json5";
 import { MultipleExperimentMetricAnalysis } from "back-end/types/stats";
 import { logger } from "back-end/src/util/logger";
 import { ExperimentDataForStatsEngine } from "back-end/src/services/stats";
@@ -102,7 +103,7 @@ class PythonStatsServer<Input, Output> {
           const parsed:
             | PythonServerResponse<Output>
             | { id: string; error: string; stack_trace?: string } =
-            JSON.parse(output);
+            JSON5.parse(output);
 
           if (!parsed.id) {
             logger.error(
