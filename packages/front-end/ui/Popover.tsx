@@ -79,7 +79,7 @@ export function Popover({
             side={side}
             align={align}
             className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
-            style={{ padding: 16, ...contentStyle }}
+            style={contentStyle}
             onEscapeKeyDown={
               disableDismiss ? (e) => e.preventDefault() : undefined
             }
