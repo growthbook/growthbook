@@ -52,17 +52,52 @@ const DangerIcon = () => {
 export default function AdmonitionWrapper(props: Props) {
   switch (props.type) {
     case "note":
-      return <Admonition type="note" {...props} icon={<NoteIcon />} />;
+      return (
+        <Admonition
+          type="note"
+          {...props}
+          icon={<NoteIcon />}
+          className={!props.title && "uppercase"}
+        />
+      );
     case "tip":
     case "success":
-      return <Admonition type="tip" {...props} icon={<BulbIcon />} />;
+      return (
+        <Admonition
+          type="tip"
+          {...props}
+          icon={<BulbIcon />}
+          className={!props.title && "uppercase"}
+        />
+      );
     case "info":
-      return <Admonition type="info" {...props} icon={<InfoIcon />} />;
+      return (
+        <Admonition
+          type="info"
+          {...props}
+          icon={<InfoIcon />}
+          className={!props.title && "uppercase"}
+        />
+      );
     case "warning":
     case "caution":
-      return <Admonition type="warning" {...props} icon={<WarningIcon />} />;
+      return (
+        <Admonition
+          type="warning"
+          {...props}
+          icon={<WarningIcon />}
+          className={!props.title && "uppercase"}
+        />
+      );
     case "danger":
-      return <Admonition type="danger" {...props} icon={<DangerIcon />} />;
+      return (
+        <Admonition
+          type="danger"
+          {...props}
+          icon={<DangerIcon />}
+          className={!props.title && "uppercase"}
+        />
+      );
     default:
       return <Admonition {...props} />;
   }
