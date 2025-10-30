@@ -676,8 +676,7 @@ export const startExperimentIncrementalRefreshQueries = async (
           metricSourceCovariateTableFullName,
           incrementalRefreshStartTime: params.incrementalRefreshStartTime,
           lastCovariateSuccessfulUpdateTimestamp:
-            existingCovariateSource?.lastCovariateSuccessfulUpdateTimestamp ??
-            undefined,
+            existingCovariateSource?.lastSuccessfulUpdateTimestamp ?? undefined,
         }),
         dependencies: createMetricCovariateTableQuery
           ? [createMetricCovariateTableQuery.query]
@@ -689,12 +688,12 @@ export const startExperimentIncrementalRefreshQueries = async (
             existingCovariateSource
               ? {
                   ...existingCovariateSource,
-                  lastCovariateSuccessfulUpdateTimestamp:
+                  lastSuccessfulUpdateTimestamp:
                     params.incrementalRefreshStartTime,
                 }
               : {
                   groupId: group.groupId,
-                  lastCovariateSuccessfulUpdateTimestamp:
+                  lastSuccessfulUpdateTimestamp:
                     params.incrementalRefreshStartTime,
                 };
           if (!existingCovariateSource) {
