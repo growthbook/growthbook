@@ -585,10 +585,6 @@ export async function postValidatePipelineSettings(
           result: "skipped",
           resultMessage: "Skipped because allowWriting is false",
         },
-        insert: {
-          result: "skipped",
-          resultMessage: "Skipped because allowWriting is false",
-        },
       },
     });
   }

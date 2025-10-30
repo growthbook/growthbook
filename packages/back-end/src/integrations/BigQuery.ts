@@ -202,6 +202,7 @@ export default class BigQuery extends SqlIntegration {
       database,
     );
   }
+
   async listDatasets(): Promise<string[]> {
     const [datasets] = await this.getClient().getDatasets();
 

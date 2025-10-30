@@ -2,7 +2,7 @@ import {
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
 } from "back-end/src/validators/incremental-refresh";
-import { MakeModelClass, UpdateProps } from "./BaseModel";
+import { CreateProps, UpdateProps, MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
 
@@ -31,8 +31,9 @@ export class IncrementalRefreshModel extends BaseClass {
   }
   public async upsertByExperimentId(
     experimentId: string,
-    // -- TODO better typing
-    data: Partial<IncrementalRefreshInterface>,
+    data:
+      | CreateProps<IncrementalRefreshInterface>
+      | UpdateProps<IncrementalRefreshInterface>,
   ) {
     const existing = await this._findOne({ experimentId });
     if (existing) {

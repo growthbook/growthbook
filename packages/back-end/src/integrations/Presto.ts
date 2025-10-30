@@ -30,9 +30,6 @@ export default class Presto extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  dropUnitsTable(): boolean {
-    return true;
-  }
   runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: IPrestoClientOptions = {
       host: this.params.host,
