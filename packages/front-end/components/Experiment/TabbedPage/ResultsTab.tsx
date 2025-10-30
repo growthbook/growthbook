@@ -15,6 +15,7 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
+  expandMetricGroups,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -111,11 +112,26 @@ export default function ResultsTab({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
-
-  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
+  const { getMetricGroupById } = useDefinitions();
+  const metricAndMetricGroupIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
   );
+
+  const metricGroups = metricAndMetricGroupIds.map((m) =>
+    getMetricGroupById(m),
+  );
+
+  //include metric group metric ids to return correct snapshot settings (specically regression adjustment)
+  const filteredMetricGroups = metricGroups.filter(isDefined);
+  let allExperimentMetricIds = metricAndMetricGroupIds;
+  if (filteredMetricGroups.length > 0) {
+    allExperimentMetricIds = expandMetricGroups(
+      metricAndMetricGroupIds,
+      filteredMetricGroups,
+    );
+  }
+
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m),
   );
