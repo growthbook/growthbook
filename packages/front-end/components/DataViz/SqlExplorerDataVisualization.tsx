@@ -387,7 +387,6 @@ export function DataVisualizationDisplay({
     }
 
     dimensionConfigs.forEach((config) => {
-      console.log("dimensionConfig", config);
       const dimensionField = config.fieldName;
       const maxValues = config.maxValues || 5;
 
@@ -935,6 +934,15 @@ export function DataVisualizationDisplay({
       renderTree(root, 0);
     }
 
+    let maxCellValue = 0;
+    for (const row of tableRows) {
+      for (const value of row.values) {
+        if (typeof value === "number" && Number.isFinite(value)) {
+          if (value > maxCellValue) maxCellValue = value;
+        }
+      }
+    }
+
     return (
       <>
         <Flex
@@ -976,6 +984,13 @@ export function DataVisualizationDisplay({
                       key={i}
                       style={{
                         fontWeight: row.isBold ? "bold" : "normal",
+                        background:
+                          typeof value === "number" && maxCellValue > 0
+                            ? `color-mix(in srgb, #5071de ${Math.round(
+                                Math.max(0, Math.min(1, value / maxCellValue)) *
+                                  85,
+                              )}%, transparent)`
+                            : undefined,
                       }}
                     >
                       {value !== null && value !== undefined ? value : "-"}
