@@ -27,6 +27,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { SegmentInterface } from "back-end/types/segment";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
@@ -603,11 +604,6 @@ export class Permissions {
   public canViewCreateFactTableModal = (project?: string): boolean => {
     return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
-  public canViewEditFactTableModal = (
-    factTable: Pick<FactTableInterface, "projects">,
-  ): boolean => {
-    return this.canUpdateFactTable(factTable, {});
-  };
 
   public canCreateFactTable = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
@@ -624,10 +620,11 @@ export class Permissions {
     existing: Pick<FactTableInterface, "projects" | "managedBy">,
     updates: UpdateFactTableProps,
   ): boolean => {
-    if (
-      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
-      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
-    ) {
+    // We allow changing columns even for managed fact tables
+    const changedKeys = Object.keys(updates);
+    const requireManagedByCheck = changedKeys.some((k) => k !== "columns");
+
+    if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
         return false;
       }
@@ -986,6 +983,35 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       datasource,
       "runSqlExplorerQueries",
+    );
+  };
+
+  public canCreateGeneralDashboards = (
+    dashboard: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      dashboard,
+      "manageGeneralDashboards",
+    );
+  };
+
+  public canUpdateGeneralDashboards = (
+    existing: Pick<DashboardInterface, "projects">,
+    updates: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageGeneralDashboards",
+    );
+  };
+
+  public canDeleteGeneralDashboards = (
+    dashboard: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      dashboard,
+      "manageGeneralDashboards",
     );
   };
 

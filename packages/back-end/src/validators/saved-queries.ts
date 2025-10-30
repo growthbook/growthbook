@@ -132,6 +132,7 @@ const formatEnum = z.enum([
 
 // Base chart components for composition
 const baseChartConfig = z.object({
+  id: z.string().optional(), // UUID for referencing in blockConfig - optional as this was added after the initial release
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   filters: z.array(filterConfigurationValidator).optional(),

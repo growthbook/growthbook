@@ -17,6 +17,7 @@ import {
   generateSliceString,
   expandAllSliceMetricsInMap,
   parseSliceMetricId,
+  SliceLevelsData,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -58,6 +59,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
+  getAdditionalQueryMetadataForExperiment,
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
@@ -577,6 +579,9 @@ export async function createReportSnapshot({
     metricMap,
     queryParentId: snapshot.id,
     factTableMap,
+    experimentQueryMetadata: experiment
+      ? getAdditionalQueryMetadataForExperiment(experiment)
+      : null,
   });
 
   return snapshot;
@@ -834,11 +839,7 @@ export async function generateExperimentReportSSRData({
       name: string;
       description: string;
       baseMetricId: string;
-      sliceLevels: Array<{
-        column: string;
-        columnName: string;
-        level: string | null;
-      }>;
+      sliceLevels: SliceLevelsData[];
       allSliceLevels: string[];
     }>
   > = {};
@@ -859,11 +860,7 @@ export async function generateExperimentReportSSRData({
             name: string;
             description: string;
             baseMetricId: string;
-            sliceLevels: Array<{
-              column: string;
-              columnName: string;
-              level: string | null;
-            }>;
+            sliceLevels: SliceLevelsData[];
             allSliceLevels: string[];
           }> = [];
 
@@ -883,8 +880,8 @@ export async function generateExperimentReportSSRData({
                 sliceLevels: [
                   {
                     column: col.column,
-                    columnName: col.name || col.column,
-                    level: value,
+                    datatype: col.datatype === "boolean" ? "boolean" : "string",
+                    levels: [value],
                   },
                 ],
                 allSliceLevels: col.autoSlices || [],
@@ -904,8 +901,8 @@ export async function generateExperimentReportSSRData({
                 sliceLevels: [
                   {
                     column: col.column,
-                    columnName: col.name || col.column,
-                    level: null,
+                    datatype: col.datatype === "boolean" ? "boolean" : "string",
+                    levels: [], // Empty array for "other" slice
                   },
                 ],
                 allSliceLevels: col.autoSlices || [],
