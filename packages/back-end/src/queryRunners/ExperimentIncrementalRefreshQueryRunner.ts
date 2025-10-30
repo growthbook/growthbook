@@ -234,10 +234,11 @@ export const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Integration does not support incremental refresh queries");
   }
 
+  const unitsTableName = `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}`;
   const unitsTableFullName =
     integration.generateTablePath &&
     integration.generateTablePath(
-      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}`,
+      unitsTableName,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true,
@@ -322,14 +323,11 @@ export const startExperimentIncrementalRefreshQueries = async (
         }
       }
 
-      // TODO(adriel): Do we need to check numerator/denominator here?
-      // TODO(adriel): Also, do we even have non fact-metrics here?
+      // Ratio metrics must have the same numerator and denominator fact table for now
       addedMetrics.forEach((m) => {
-        if (isFactMetric(m)) {
-          const factTableId = m.numerator?.factTableId;
-          if (factTableId) {
-            factTablesWithNewMetrics.add(factTableId);
-          }
+        const factTableId = m.numerator?.factTableId;
+        if (factTableId) {
+          factTablesWithNewMetrics.add(factTableId);
         }
       });
 
@@ -451,7 +449,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     name: `alter_${queryParentId}`,
     title: "Rename Experiment Units Table",
     query: integration.getAlterNewIncrementalUnitsQuery({
-      unitsTableFullName: unitsTableFullName,
+      unitsTableName: unitsTableName,
       unitsTempTableFullName: unitsTempTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],

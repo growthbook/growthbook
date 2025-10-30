@@ -16,8 +16,6 @@ import {
   RawInformationSchema,
   DataType,
   QueryResponseColumnData,
-  AlterNewIncrementalUnitsQueryParams,
-  CreateMetricSourceTableQueryParams,
 } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
@@ -204,10 +202,6 @@ export default class BigQuery extends SqlIntegration {
       database,
     );
   }
-  // TODO(adriel): Should we keep this or rely on option(expiration_timestamp)?)
-  dropUnitsTable() {
-    return true;
-  }
   async listDatasets(): Promise<string[]> {
     const [datasets] = await this.getClient().getDatasets();
 
@@ -321,59 +315,7 @@ export default class BigQuery extends SqlIntegration {
     return `CURRENT_TIMESTAMP()`;
   }
 
-  getAlterNewIncrementalUnitsQuery(
-    params: AlterNewIncrementalUnitsQueryParams,
-  ): string {
-    // TODO(adriel): How can we do this better for BigQuery?
-    // NB: For BQ the new name is not the full path, just the table name.
-    const newName = params.unitsTableFullName
-      .replace(/^[`'"]+|[`'"]+$/g, "")
-      .split(".");
-
-    // NB: We remove the expiration timestamp when we consider this the new default table.
-    // and then we rename it.
-    return format(
-      `
-      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${newName.pop()}
-      `,
-      this.getFormatDialect(),
-    );
-  }
-
   createTablePartitions(columns: string[]): string {
     return bigQueryCreateTablePartitions(columns);
-  }
-
-  getCreateMetricSourceTableQuery(
-    params: CreateMetricSourceTableQueryParams,
-  ): string {
-    const exposureQuery = this.getExposureQuery(
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
-    const baseIdType = exposureQuery.userIdType;
-    const sortedMetrics = params.metrics.sort((a, b) =>
-      a.id.localeCompare(b.id),
-    );
-
-    // Get column definitions using the helper to ensure consistency
-    const columnDefinitions = this.getMetricSourceTableColumnDefinitions(
-      baseIdType,
-      sortedMetrics,
-    );
-
-    // TODO(adriel): The only difference to SQLIntegration is where options go
-    return format(
-      `
-    CREATE TABLE ${params.metricSourceTableFullName}
-    (
-      ${columnDefinitions.join(", \n")}
-    )
-    ${this.createTablePartitions(["max_timestamp", "metric_date"])}
-    ${this.createUnitsTableOptions()}
-    `,
-      this.getFormatDialect(),
-    );
   }
 }

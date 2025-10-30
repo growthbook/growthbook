@@ -6646,7 +6646,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
-    // TODO(adriel): (should we add options here?)
     return format(
       `
     CREATE TABLE ${params.unitsTableFullName}
@@ -6828,7 +6827,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     return format(
       `
-      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableFullName}
+      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableName}
       `,
       this.getFormatDialect(),
     );
@@ -6866,7 +6865,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     };
   }
 
-  // TODO(adriel): How can we simplify this? We have many wrappers around runQuery
   async runIncrementalWithNoOutputQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
@@ -6875,7 +6873,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return results;
   }
 
-  // TODO(adriel): Should we add this method to SourceIntegrationInterface ?
   getDataType(dataType: DataType): string {
     switch (dataType) {
       case "string":
@@ -6899,7 +6896,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
-  // TODO(adriel): Is it worth merging this with getMaxTimestampIncrementalUnitsQuery?
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
   ): string {
@@ -7094,8 +7090,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
-  // TODO(adriel): This includes options that will expire the table by default.
-  // We need to find a better way to handle it
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
@@ -7338,7 +7332,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                     metricQuantileSettings: data.quantileMetric
                       ? data.metricQuantileSettings
                       : undefined,
-                    // TODO(adriel): Should this be timestamp or something? as this is not a col name
                     metricTimestampCol: "cast(m.timestamp as timestamp)",
                     exposureTimestampCol: "d.first_exposure_timestamp",
                   })} AS ${data.alias}_value

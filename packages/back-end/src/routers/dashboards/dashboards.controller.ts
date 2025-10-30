@@ -285,11 +285,11 @@ export async function refreshDashboardData(
         metricMap: await getMetricMap(context),
         queryParentId: mainSnapshot.id,
         factTableMap: await getFactTableMap(context),
-        // TODO(adriel): Is this correct?
-        fullRefresh: false,
-        incrementalRefreshStartTime: new Date(),
         experimentQueryMetadata:
           getAdditionalQueryMetadataForExperiment(experiment),
+        // TODO(adriel): Dashboard is using IncrementalRefresh -- should we allow it or force it to be non-Incremental?
+        fullRefresh: false,
+        incrementalRefreshStartTime: new Date(),
       });
     } else {
       await deleteSnapshotById(context.org.id, mainSnapshot.id);

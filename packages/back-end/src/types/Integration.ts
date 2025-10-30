@@ -288,7 +288,7 @@ export interface DropOldIncrementalUnitsQueryParams {
 }
 
 export interface AlterNewIncrementalUnitsQueryParams {
-  unitsTableFullName: string;
+  unitsTableName: string;
   unitsTempTableFullName: string;
 }
 
