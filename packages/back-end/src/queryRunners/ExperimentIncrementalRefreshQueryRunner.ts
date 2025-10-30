@@ -62,9 +62,9 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 
-export const INCREMENTAL_UNITS_TABLE_PREFIX = "growthbook_units";
-export const INCREMENTAL_METRICS_TABLE_PREFIX = "growthbook_metrics";
-export const INCREMENTAL_CUPED_TABLE_PREFIX = "growthbook_cuped";
+export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
+export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
+export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
@@ -73,6 +73,7 @@ export type ExperimentIncrementalRefreshQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
+  experimentId: string;
   experimentQueryMetadata: ExperimentQueryMetadata | null;
   // Incremental Refresh specific
   fullRefresh: boolean;
@@ -192,6 +193,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
+  const experimentId = params.experimentId;
   const metricMap = params.metricMap;
 
   const { org } = context;
@@ -234,7 +236,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Integration does not support incremental refresh queries");
   }
 
-  const unitsTableName = `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}`;
+  const unitsTableName = `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}`;
   const unitsTableFullName =
     integration.generateTablePath &&
     integration.generateTablePath(
@@ -253,7 +255,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   const unitsTempTableFullName =
     integration.generateTablePath &&
     integration.generateTablePath(
-      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}_temp_${randomId}`,
+      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}_temp_${randomId}`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true,
@@ -265,10 +267,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   }
 
   const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(
-      // FIX-ME(incremental-refresh): This is the experimentId, and snapshotSettings.experimentId is the trackingKey
-      params.queryParentId,
-    );
+    await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
@@ -464,8 +463,8 @@ export const startExperimentIncrementalRefreshQueries = async (
     integration.generateTablePath &&
     integration.generateTablePath(
       // TODO this needs to be dynamic
-      // Trino/Presto: `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}$partitions"`,
-      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}`,
+      // Trino/Presto: `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}$partitions"`,
+      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true,
@@ -485,7 +484,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
       if (maxTimestamp) {
         context.models.incrementalRefresh
-          .upsertByExperimentId(params.queryParentId, {
+          .upsertByExperimentId(experimentId, {
             unitsTableFullName: unitsTableFullName,
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
@@ -560,7 +559,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       existingSource?.tableFullName ??
       (integration.generateTablePath &&
         integration.generateTablePath(
-          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}`,
+          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${experimentId}_${group.groupId}`,
           settings.pipelineSettings?.writeDataset,
           settings.pipelineSettings?.writeDatabase,
           true,
@@ -706,7 +705,7 @@ export const startExperimentIncrementalRefreshQueries = async (
             );
           }
           context.models.incrementalRefresh
-            .upsertByExperimentId(params.queryParentId, {
+            .upsertByExperimentId(experimentId, {
               metricCovariateSources: runningCovariateSourceData,
             })
             .catch((e) => context.logger.error(e));
@@ -769,7 +768,7 @@ export const startExperimentIncrementalRefreshQueries = async (
             );
           }
           context.models.incrementalRefresh
-            .upsertByExperimentId(params.queryParentId, {
+            .upsertByExperimentId(experimentId, {
               metricSources: runningSourceData,
             })
             .catch((e) => context.logger.error(e));
