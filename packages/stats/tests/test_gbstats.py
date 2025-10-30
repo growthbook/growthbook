@@ -828,6 +828,7 @@ class TestFormatResults(TestCase):
         rows = RATIO_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = format_results(
+            COUNT_METRIC,
             analyze_metric_df(
                 df,
                 metric=COUNT_METRIC,
@@ -839,7 +840,7 @@ class TestFormatResults(TestCase):
         )
         for res in result:
             for i, v in enumerate(res.variations):
-                self.assertEqual(v.denominator, 510 if i == 0 else 500)
+                self.assertEqual(v.response.denominator, 510 if i == 0 else 500)
 
 
 class TestBandit(TestCase):

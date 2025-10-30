@@ -148,12 +148,24 @@ class TestCreateRows(TestCase):
 
     def test_count_metric(self):
         self.assertEqual(
-            list(self.results_gbstats[0].analyses[0].dimensions[0].variations[1].ci),
+            list(
+                self.results_gbstats[0]
+                .analyses[0]
+                .dimensions[0]
+                .variations[1]
+                .response.ci
+            ),
             self.res_1.ci,
         )
 
     def test_ratio_adjusted_regression_metric(self):
         self.assertEqual(
-            list(self.results_gbstats[1].analyses[0].dimensions[0].variations[1].ci),
+            list(
+                self.results_gbstats[1]
+                .analyses[0]
+                .dimensions[0]
+                .variations[1]
+                .response.ci
+            ),
             self.res_3.ci,
         )

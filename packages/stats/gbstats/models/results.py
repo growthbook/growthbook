@@ -93,13 +93,16 @@ class BaselineResponseForComparison:
 @dataclass
 class BayesianVariationResponseForComparison:
     response: BayesianVariationResponse
-    responseCupedUnadjusted: BayesianVariationResponse
+    responseCupedUnadjusted: Optional[BayesianVariationResponse]
+    responseUncapped: Optional[BayesianVariationResponse]
+    responseFlatPrior: Optional[BayesianVariationResponse]
 
 
 @dataclass
 class FrequentistVariationResponseForComparison:
     response: FrequentistVariationResponse
-    responseCupedUnadjusted: FrequentistVariationResponse
+    responseCupedUnadjusted: Optional[FrequentistVariationResponse]
+    responseUncapped: Optional[FrequentistVariationResponse]
 
 
 VariationResponse = Union[

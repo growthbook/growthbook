@@ -153,8 +153,6 @@ class CreateStatistic:
                 n=self.n,
                 sum=float(np.sum(self.y)),
                 sum_squares=float(np.sum(self.y**2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
         elif self.statistic_type == "proportion":
             return ProportionStatistic(n=self.n, sum=float(np.sum(self.y)))
@@ -165,15 +163,11 @@ class CreateStatistic:
                 n=self.n,
                 sum=float(np.sum(self.y)),
                 sum_squares=float(np.sum(self.y**2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             d_statistic = SampleMeanStatistic(
                 n=self.n,
                 sum=float(np.sum(self.x)),
                 sum_squares=float(np.sum(self.x**2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             m_d_sum_of_products = float(np.sum(self.y * self.x))
             return RatioStatistic(
@@ -181,9 +175,6 @@ class CreateStatistic:
                 m_statistic=m_statistic,
                 d_statistic=d_statistic,
                 m_d_sum_of_products=m_d_sum_of_products,
-                m_statistic_uncapped=None,
-                d_statistic_uncapped=None,
-                m_d_sum_of_products_uncapped=None,
             )
         elif self.statistic_type == "regression_adjusted":
             if self.x is None:
@@ -192,15 +183,11 @@ class CreateStatistic:
                 n=self.n,
                 sum=float(np.sum(self.y)),
                 sum_squares=float(np.sum(self.y**2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             pre_statistic = SampleMeanStatistic(
                 n=self.n,
                 sum=float(np.sum(self.x)),
                 sum_squares=float(np.sum(self.x**2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             post_pre_sum_of_products = float(np.sum(self.y * self.x))
             stat = RegressionAdjustedStatistic(
@@ -208,9 +195,6 @@ class CreateStatistic:
                 post_statistic=post_statistic,
                 pre_statistic=pre_statistic,
                 post_pre_sum_of_products=post_pre_sum_of_products,
-                post_statistic_uncapped=None,
-                pre_statistic_uncapped=None,
-                post_pre_sum_of_products_uncapped=None,
                 theta=None,
             )
             stat.theta = stat.covariance / stat.pre_statistic.variance
@@ -224,29 +208,21 @@ class CreateStatistic:
                 n=self.n,
                 sum=float(np.sum(self.y[:, 0])),
                 sum_squares=float(np.sum(self.y[:, 0] ** 2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             d_statistic_post = SampleMeanStatistic(
                 n=self.n,
                 sum=float(np.sum(self.y[:, 1])),
                 sum_squares=float(np.sum(self.y[:, 1] ** 2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             m_statistic_pre = SampleMeanStatistic(
                 n=self.n,
                 sum=float(np.sum(self.x[:, 0])),
                 sum_squares=float(np.sum(self.x[:, 0] ** 2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             d_statistic_pre = SampleMeanStatistic(
                 n=self.n,
                 sum=float(np.sum(self.x[:, 1])),
                 sum_squares=float(np.sum(self.x[:, 1] ** 2)),
-                sum_uncapped=None,
-                sum_squares_uncapped=None,
             )
             m_post_m_pre_sum_of_products = float(np.sum(self.y[:, 0] * self.x[:, 0]))
             d_post_d_pre_sum_of_products = float(np.sum(self.y[:, 1] * self.x[:, 1]))
@@ -267,16 +243,6 @@ class CreateStatistic:
                 m_post_d_pre_sum_of_products=m_post_d_pre_sum_of_products,
                 m_pre_d_post_sum_of_products=m_pre_d_post_sum_of_products,
                 theta=None,
-                m_statistic_post_uncapped=None,
-                d_statistic_post_uncapped=None,
-                m_statistic_pre_uncapped=None,
-                d_statistic_pre_uncapped=None,
-                m_post_m_pre_sum_of_products_uncapped=None,
-                d_post_d_pre_sum_of_products_uncapped=None,
-                m_pre_d_pre_sum_of_products_uncapped=None,
-                m_post_d_post_sum_of_products_uncapped=None,
-                m_post_d_pre_sum_of_products_uncapped=None,
-                m_pre_d_post_sum_of_products_uncapped=None,
             )
         else:
             if not self.nu:

@@ -48,12 +48,16 @@ interface FrequentistVariationResponse extends BaseVariationResponse {
 
 export interface FrequentistVariationResponseForComparison {
   response: FrequentistVariationResponse;
-  responseCupedUnadjusted: FrequentistVariationResponse;
+  responseCupedUnadjusted?: FrequentistVariationResponse;
+  responseUncapped?: FrequentistVariationResponse;
+  responseFlatPrior?: FrequentistVariationResponse;
 }
 
 export interface BayesianVariationResponseForComparison {
   response: BayesianVariationResponse;
-  responseCupedUnadjusted: BayesianVariationResponse;
+  responseCupedUnadjusted?: BayesianVariationResponse;
+  responseUncapped?: BayesianVariationResponse;
+  responseFlatPrior?: BayesianVariationResponse;
 }
 
 // Keep in sync with gbstats PowerResponse
