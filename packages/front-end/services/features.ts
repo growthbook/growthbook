@@ -199,7 +199,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
+    searchFields: ["id^3", "description", "defaultValue"],
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
