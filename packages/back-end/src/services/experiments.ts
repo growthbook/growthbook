@@ -1299,6 +1299,7 @@ export async function createSnapshot({
       variationNames: experiment.variations.map((v) => v.name),
       metricMap,
       queryParentId: snapshot.id,
+      experimentId: experiment.id,
       factTableMap,
       experimentQueryMetadata:
         getAdditionalQueryMetadataForExperiment(experiment),

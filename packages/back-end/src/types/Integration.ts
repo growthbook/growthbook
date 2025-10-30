@@ -285,7 +285,7 @@ export interface UpdateExperimentIncrementalUnitsQueryParams
   extends CreateExperimentIncrementalUnitsQueryParams {
   segment: SegmentInterface | null;
   incrementalRefreshStartTime: Date;
-  lastMaxTimestamp: Date;
+  lastMaxTimestamp: Date | null;
   unitsTempTableFullName: string;
 }
 
@@ -338,8 +338,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   metricSourceCovariateTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
-  incrementalRefreshStartTime: Date;
-  lastCovariateSuccessfulUpdateTimestamp?: Date;
+  lastCovariateSuccessfulMaxTimestamp?: Date;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {

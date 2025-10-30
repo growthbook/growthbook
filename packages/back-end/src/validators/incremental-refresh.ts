@@ -16,7 +16,7 @@ export const incrementalRefreshMetricSourceValidator = z.object({
 
 export const incrementalRefreshMetricCovariateSourceValidator = z.object({
   groupId: z.string(),
-  lastSuccessfulUpdateTimestamp: z.date().nullable(),
+  lastSuccessfulMaxTimestamp: z.date().nullable(),
 });
 
 const incrementalRefresh = z

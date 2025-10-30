@@ -355,10 +355,9 @@ export const startExperimentIncrementalRefreshQueries = async (
   }
 
   // Begin Queries
-  const lastMaxTimestamp = params.fullRefresh
-    ? snapshotSettings.startDate
-    : (incrementalRefreshModel?.unitsMaxTimestamp ??
-      snapshotSettings.startDate);
+  const lastMaxTimestamp = !params.fullRefresh
+    ? incrementalRefreshModel?.unitsMaxTimestamp
+    : null;
 
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId,
@@ -469,7 +468,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       settings.pipelineSettings?.writeDatabase,
       true,
     );
-  const maxTimestampQuery = await startQuery({
+  const maxTimestampUnitsTableQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
     displayTitle: "Find Latest Experiment Source Timestamp",
     query: integration.getMaxTimestampIncrementalUnitsQuery({
@@ -496,7 +495,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     },
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
   });
-  queries.push(maxTimestampQuery);
+  queries.push(maxTimestampUnitsTableQuery);
 
   // Metric Queries
   let existingSources = incrementalRefreshModel?.metricSources;
@@ -673,27 +672,33 @@ export const startExperimentIncrementalRefreshQueries = async (
         query: integration.getInsertMetricSourceCovariateDataQuery({
           ...metricParams,
           metricSourceCovariateTableFullName,
-          incrementalRefreshStartTime: params.incrementalRefreshStartTime,
-          lastCovariateSuccessfulUpdateTimestamp:
-            existingCovariateSource?.lastSuccessfulUpdateTimestamp ?? undefined,
+          lastCovariateSuccessfulMaxTimestamp:
+            existingCovariateSource?.lastSuccessfulMaxTimestamp ?? undefined,
         }),
-        dependencies: createMetricCovariateTableQuery
-          ? [createMetricCovariateTableQuery.query]
-          : [alterUnitsTableQuery.query],
+        dependencies: [
+          maxTimestampUnitsTableQuery.query,
+          ...(createMetricCovariateTableQuery
+            ? [createMetricCovariateTableQuery.query]
+            : []),
+        ],
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
         process: async (rows) => {
+          const incrementalRefresh =
+            await context.models.incrementalRefresh.getByExperimentId(
+              experimentId,
+            );
+          const lastSuccessfulMaxTimestamp =
+            incrementalRefresh?.unitsMaxTimestamp ?? null;
           const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
             existingCovariateSource
               ? {
                   ...existingCovariateSource,
-                  lastSuccessfulUpdateTimestamp:
-                    params.incrementalRefreshStartTime,
+                  lastSuccessfulMaxTimestamp,
                 }
               : {
                   groupId: group.groupId,
-                  lastSuccessfulUpdateTimestamp:
-                    params.incrementalRefreshStartTime,
+                  lastSuccessfulMaxTimestamp,
                 };
           if (!existingCovariateSource) {
             runningCovariateSourceData = runningCovariateSourceData.concat(
@@ -720,7 +725,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       (integration.generateTablePath &&
         integration.generateTablePath(
           // `"${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}$partitions"`,
-          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}`,
+          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${experimentId}_${group.groupId}`,
           settings.pipelineSettings?.writeDataset,
           settings.pipelineSettings?.writeDatabase,
           true,

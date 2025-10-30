@@ -6661,10 +6661,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ${experimentDimensions
         .map((d) => `, dim_exp_${d.id} ${this.getDataType("string")}`)
         .join("\n")}
-      , update_timestamp ${this.getDataType("timestamp")}
       , max_timestamp ${this.getDataType("timestamp")}
     )
-    ${this.createTablePartitions(["update_timestamp", "max_timestamp"])}
+    ${this.createTablePartitions(["max_timestamp"])}
     `,
       this.getFormatDialect(),
     );
@@ -6704,7 +6703,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return format(
       `
       CREATE TABLE ${params.unitsTempTableFullName} 
-      ${this.createTablePartitions(["update_timestamp", "max_timestamp"])}
+      ${this.createTablePartitions(["max_timestamp"])}
         AS (
         WITH ${idJoinSQL}
         __existingUnits AS (
@@ -6712,7 +6711,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${baseIdType}
             , variation
             , first_exposure_timestamp AS timestamp
-            , update_timestamp AS update_timestamp
+            , max_timestamp
             ${
               activationMetric
                 ? `, first_activation_timestamp AS activation_timestamp`
@@ -6720,7 +6719,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             }
             ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           FROM ${params.unitsTableFullName}
-          WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
+          ${params.lastMaxTimestamp ? `WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
         )
         ${
           segment
@@ -6751,14 +6750,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , variation_id AS variation
             , timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
-            , ${this.castToTimestamp(this.toTimestamp(params.incrementalRefreshStartTime))} AS update_timestamp
             ${experimentDimensions
               .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
               .join("\n")}
           FROM __newExposures
           WHERE 
             experiment_id = '${settings.experimentId}'
-            AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
+            AND timestamp >= ${this.toTimestamp(settings.startDate)}
+            ${params.lastMaxTimestamp ? `AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
             ${endDate ? `AND timestamp <= ${this.toTimestamp(endDate)}` : ""}
             
         )
@@ -6766,9 +6765,16 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           SELECT * FROM __existingUnits
           UNION ALL
           (
-            SELECT n.* 
-            FROM __filteredNewExposures n
-            ${segment ? `JOIN __segment s ON (${this.castToString(`s.${baseIdType}`)} = n.${baseIdType})` : ""}
+            SELECT
+              ${baseIdType}
+              , variation
+              , timestamp
+              , MAX(timestamp) OVER () AS max_timestamp
+              ${activationMetric ? `, NULL AS activation_timestamp` : ""}
+              ${experimentDimensions
+                .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
+                .join("\n")}
+            FROM __filteredNewExposures
           )
         )
         , __experimentUnits AS (
@@ -6780,7 +6786,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               "MAX(e.variation)",
             )} AS variation
             , MIN(e.timestamp) AS first_exposure_timestamp
-            , MIN(e.update_timestamp) AS update_timestamp
+            , MIN(e.max_timestamp) AS max_timestamp
             ${experimentDimensions
               .map(
                 (d) => `
@@ -6797,8 +6803,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           , first_exposure_timestamp
           ${activationMetric ? `, first_activation_timestamp` : ""}
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
-          , update_timestamp
-          , MAX(first_exposure_timestamp) OVER () AS max_timestamp
+          , max_timestamp
         FROM __experimentUnits
       )
       `,
@@ -6932,7 +6937,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     (
       ${columnDefinitions.join("\n, ")}
     )
-    ${this.createTablePartitions(["update_timestamp"])}
     `,
       this.getFormatDialect(),
     );
@@ -7067,8 +7071,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             SELECT ${baseIdType}
             FROM ${params.unitsSourceTableFullName}
             ${
-              params.lastCovariateSuccessfulUpdateTimestamp
-                ? `WHERE update_timestamp > ${this.toTimestamp(params.lastCovariateSuccessfulUpdateTimestamp)}`
+              params.lastCovariateSuccessfulMaxTimestamp
+                ? `WHERE max_timestamp > ${this.toTimestamp(params.lastCovariateSuccessfulMaxTimestamp)}`
                 : ""
             }
           ) d
@@ -7088,7 +7092,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         `,
           )
           .join("\n")}
-        , ${this.castToTimestamp(this.toTimestamp(params.incrementalRefreshStartTime))} AS update_timestamp
       FROM __newCovariateValues c
       )
       `,
@@ -7212,8 +7215,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       }
     });
 
-    schema.set("update_timestamp", this.getDataType("timestamp"));
-
     return schema;
   }
 
@@ -7320,6 +7321,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           exclusiveStartDateFilter:
             factTableWithMetricData.bindingLastMaxTimestamp,
         })})
+        , __maxTimestamp AS (
+          SELECT MAX(max_timestamp) AS max_timestamp FROM __factTable
+        )
         , __newMetricRows AS (
           SELECT
             m.${baseIdType} AS ${baseIdType}
@@ -7366,7 +7370,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           SELECT
             ${baseIdType}
             , ${this.castToDate("timestamp")} AS metric_date
-            , MAX(timestamp) AS max_timestamp
             ${metricData
               .map((m) => {
                 const aggfunction = this.getAggregationMetadata({
@@ -7378,7 +7381,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 })?.aggregationFunction;
                 return `
                 , ${aggfunction(`${m.alias}_value`)} AS ${this.encodeMetricIdForColumnName(m.id)}_value
-                ${!!denomAggFunction && isRatioMetric(m.metric) ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}
+                ${
+                  !!denomAggFunction && isRatioMetric(m.metric)
+                    ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    : ""
+                }
               `;
               })
               .join("\n")}
@@ -7388,17 +7395,23 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , ${this.castToDate("timestamp")}
         )
        SELECT
-          ${baseIdType}
+          dv.${baseIdType} AS ${baseIdType}
+          , MAX(mt.max_timestamp) AS max_timestamp
           ${metricData
             .map(
               (m) =>
-                `, ${this.encodeMetricIdForColumnName(m.id)}_value${m.ratioMetric ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}`,
+                `, ${this.encodeMetricIdForColumnName(m.id)}_value AS ${this.encodeMetricIdForColumnName(m.id)}_value${
+                  m.ratioMetric
+                    ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    : ""
+                }`,
             )
             .join("\n")}
           , ${this.getCurrentTimestamp()} AS refresh_timestamp
-          , cast(MAX(max_timestamp) OVER () AS timestamp) AS max_timestamp
-          , metric_date
-        FROM __newDailyValues
+          , dv.metric_date AS metric_date
+          , mt.max_timestamp AS max_timestamp
+        FROM __newDailyValues dv
+        CROSS JOIN __maxTimestamp mt
 )
       `,
       this.getFormatDialect(),
