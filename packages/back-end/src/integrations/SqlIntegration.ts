@@ -7324,7 +7324,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             factTableWithMetricData.bindingLastMaxTimestamp,
         })})
         , __maxTimestamp AS (
-          SELECT MAX(timestamp) AS max_timestamp FROM __factTable
+          SELECT ${this.castToTimestamp("MAX(timestamp)")} AS max_timestamp FROM __factTable
         )
         , __newMetricRows AS (
           SELECT
@@ -7344,7 +7344,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                     metricQuantileSettings: data.quantileMetric
                       ? data.metricQuantileSettings
                       : undefined,
-                    metricTimestampColExpr: "CAST(m.timestamp AS timestamp)",
+                    metricTimestampColExpr: this.castToTimestamp("m.timestamp"),
                     exposureTimestampColExpr: "d.first_exposure_timestamp",
                   })} AS ${data.alias}_value
                 ${
@@ -7356,7 +7356,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                           data.overrideConversionWindows,
                         endDate: params.settings.endDate,
                         metricTimestampColExpr:
-                          "CAST(m.timestamp AS timestamp)",
+                          this.castToTimestamp("m.timestamp"),
                         exposureTimestampColExpr: "d.first_exposure_timestamp",
                       })} AS ${data.alias}_denominator`
                     : ""
@@ -7398,7 +7398,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         )
        SELECT
           dv.${baseIdType} AS ${baseIdType}
-          , mt.max_timestamp AS max_timestamp
           ${metricData
             .map(
               (m) =>
@@ -7410,8 +7409,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             )
             .join("\n")}
           , ${this.getCurrentTimestamp()} AS refresh_timestamp
-          , dv.metric_date AS metric_date
           , mt.max_timestamp AS max_timestamp
+          , dv.metric_date AS metric_date
         FROM __newDailyValues dv
         CROSS JOIN __maxTimestamp mt
 )
