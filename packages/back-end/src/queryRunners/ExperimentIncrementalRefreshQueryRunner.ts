@@ -591,7 +591,7 @@ export const startExperimentIncrementalRefreshQueries = async (
           factTableMap: params.factTableMap,
           metricSourceTableFullName,
         }),
-        dependencies: [alterUnitsTableQuery.query],
+        dependencies: [updateUnitsTableQuery.query],
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
         process: (rows) => rows,
@@ -659,7 +659,7 @@ export const startExperimentIncrementalRefreshQueries = async (
             metrics: group.metrics,
             metricSourceCovariateTableFullName,
           }),
-          dependencies: [alterUnitsTableQuery.query],
+          dependencies: [updateUnitsTableQuery.query],
           run: (query, setExternalId) =>
             integration.runIncrementalWithNoOutputQuery(query, setExternalId),
           process: (rows) => rows,

@@ -115,10 +115,10 @@ import {
   UserExperimentExposuresQueryParams,
   UserExperimentExposuresQueryResponse,
   CovariateWindowType,
-  FactMetricRegressionAdjustmentSettings,
   InsertMetricSourceCovariateDataQueryParams,
   FactMetricSourceData,
   CreateMetricSourceCovariateTableQueryParams,
+  CovariatePhaseStartSettings,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -2614,35 +2614,30 @@ export default abstract class SqlIntegration
     };
   }
 
-  private getRaMetricSettings({
+  private getRaMetricPhaseStartSettings({
+    // accounts for minimum delay from activation metric
+    // and analysis metric
+    minDelay,
     phaseStartDate,
-    metric,
     regressionAdjustmentHours,
-    minMetricDelay,
-    alias,
   }: {
+    minDelay: number;
     phaseStartDate: Date;
-    metric: ExperimentMetricInterface;
     regressionAdjustmentHours: number;
-    minMetricDelay: number;
-    alias: string;
-  }): FactMetricRegressionAdjustmentSettings {
+  }): CovariatePhaseStartSettings {
     const metricEnd = new Date(phaseStartDate);
-    const delayHours = getDelayWindowHours(metric.windowSettings);
-    if (delayHours < 0) {
-      metricEnd.setHours(metricEnd.getHours() + delayHours);
+    if (minDelay > 0) {
+      metricEnd.setHours(metricEnd.getHours() + minDelay);
     }
 
     const metricStart = new Date(phaseStartDate);
     if (regressionAdjustmentHours > 0) {
       metricStart.setHours(metricStart.getHours() - regressionAdjustmentHours);
     }
+
     return {
       covariateStartDate: metricStart,
       covariateEndDate: metricEnd,
-      hours: regressionAdjustmentHours,
-      minDelay: minMetricDelay,
-      alias,
     };
   }
 
@@ -2738,13 +2733,17 @@ export default abstract class SqlIntegration
       overrideConversionWindows,
     );
 
-    const raMetricSettings = this.getRaMetricSettings({
+    const raMetricPhaseStartSettings = this.getRaMetricPhaseStartSettings({
+      minDelay: minMetricDelay,
       phaseStartDate: settings.startDate,
-      metric,
       regressionAdjustmentHours,
-      minMetricDelay,
-      alias,
     });
+    const raMetricFirstExposureSettings = {
+      hours: regressionAdjustmentHours,
+      minDelay: minMetricDelay,
+      alias,
+    };
+
     const maxHoursToConvert = this.getMaxHoursToConvert(
       funnelMetric,
       [metric],
@@ -2771,7 +2770,8 @@ export default abstract class SqlIntegration
       capCoalesceCovariate,
       capCoalesceDenominatorCovariate,
       minMetricDelay,
-      raMetricSettings,
+      raMetricFirstExposureSettings,
+      raMetricPhaseStartSettings,
       metricStart,
       metricEnd,
       maxHoursToConvert,
@@ -3007,7 +3007,7 @@ export default abstract class SqlIntegration
     // TODO(sql): Separate metric start by fact table
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
-      .map((m) => m.raMetricSettings);
+      .map((m) => m.raMetricFirstExposureSettings);
     const maxHoursToConvert = Math.max(
       ...metricData.map((m) => m.maxHoursToConvert),
     );
@@ -6609,11 +6609,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       const regressionAdjustedMetrics = metricData.filter(
         (m) => m.regressionAdjusted,
       );
-      const minStartDate = regressionAdjustedMetrics
-        .map((m) => m.raMetricSettings.covariateStartDate)
+      const minCovariateStartDate = regressionAdjustedMetrics
+        .map((m) => m.raMetricPhaseStartSettings.covariateStartDate)
         .sort((a, b) => a.getTime() - b.getTime())[0];
-      const maxEndDate = regressionAdjustedMetrics
-        .map((m) => m.raMetricSettings.covariateEndDate)
+      const maxCovariateEndDate = regressionAdjustedMetrics
+        .map((m) => m.raMetricPhaseStartSettings.covariateEndDate)
         .sort((a, b) => b.getTime() - a.getTime())[0];
 
       return {
@@ -6626,8 +6626,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         metricStart: startDate,
         metricEnd,
         regressionAdjustedMetrics,
-        minStartDate,
-        maxEndDate,
+        minCovariateStartDate,
+        maxCovariateEndDate,
         activationMetric,
         // used for incremental refresh
         bindingLastMaxTimestamp,
@@ -7024,6 +7024,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             m.${baseIdType} AS ${baseIdType}
             ${metricData
               .map((m) => {
+                const raSettings = m.raMetricPhaseStartSettings;
                 const aggfunction = this.getAggregationMetadata({
                   metric: m.metric,
                 }).covariateAggregationFunction;
@@ -7036,7 +7037,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   m.numeratorSourceIndex === factTableWithMetricData.index
                     ? `, ${aggfunction(
                         this.ifElse(
-                          `m.timestamp >= ${this.toTimestamp(m.raMetricSettings.covariateStartDate)} AND m.timestamp < ${this.toTimestamp(m.raMetricSettings.covariateEndDate)}`,
+                          `m.timestamp >= ${this.toTimestamp(raSettings.covariateStartDate)} 
+                            AND m.timestamp < ${this.toTimestamp(raSettings.covariateEndDate)}`,
                           `${m.alias}_value`,
                           "NULL",
                         ),
@@ -7049,7 +7051,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   m.denominatorSourceIndex === factTableWithMetricData.index
                     ? `, ${denomAggFunction(
                         this.ifElse(
-                          `m.timestamp >= ${this.toTimestamp(m.raMetricSettings.covariateStartDate)} AND m.timestamp < ${this.toTimestamp(m.raMetricSettings.covariateEndDate)}`,
+                          `m.timestamp >= ${this.toTimestamp(raSettings.covariateStartDate)} 
+                            AND m.timestamp < ${this.toTimestamp(raSettings.covariateEndDate)}`,
                           `${m.alias}_denominator`,
                           "NULL",
                         ),
@@ -7063,13 +7066,16 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           INNER JOIN (
             SELECT ${baseIdType}
             FROM ${params.unitsSourceTableFullName}
-            ${params.lastCovariateSuccessfulUpdateTimestamp ? `WHERE update_timestamp > ${this.toTimestamp(params.lastCovariateSuccessfulUpdateTimestamp)}` : ""}
+            ${
+              params.lastCovariateSuccessfulUpdateTimestamp
+                ? `WHERE update_timestamp > ${this.toTimestamp(params.lastCovariateSuccessfulUpdateTimestamp)}`
+                : ""
+            }
           ) d
             ON (d.${baseIdType} = m.${baseIdType})
           GROUP BY
-            ${baseIdType}
-           
-          )
+            m.${baseIdType}
+        )
       SELECT
         ${baseIdType}
         ${metricData

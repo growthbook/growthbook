@@ -69,9 +69,11 @@ export type FactMetricAggregationMetadata = {
   intermediateDataType: DataType; // Should match output of aggregationFunction
   // takes the processed column from the fact table (e.g. 1 for binomial, or `column` for a selected column)
   // and produces an aggregated value that can be stored at the user-date level
+  // Should return `intermediateDataType`
   aggregationFunction: (column: string) => string;
   // takes user-date aggregation and re-aggregates it to the user level for producing
-  // the final metric value in the`capCoalesceValue function
+  // the final metric value in the `capCoalesceValue` function
+  // Should return `finalDataType`
   reAggregateFunction: (column: string, quantileColumn?: string) => string;
 
   // CUPED data
@@ -81,6 +83,7 @@ export type FactMetricAggregationMetadata = {
   finalDataType: DataType; // Should match output of covariateAggregationFunction
   // Takes processed column from the fact table and produces the final metric value for
   // the cuped/covariate capCoalesceValue function, skipping re-aggregation
+  // Should return `finalDataType`
   covariateAggregationFunction: (column: string) => string;
 };
 
@@ -88,14 +91,15 @@ export type FactMetricAggregationMetadata = {
 // "phaseStart" builds a window before the phase start date for all users
 export type CovariateWindowType = "firstExposure" | "phaseStart";
 
-export type FactMetricRegressionAdjustmentSettings = {
-  // used only for "firstExposure" window type
+export type CovariatePhaseStartSettings = {
+  covariateStartDate: Date;
+  covariateEndDate: Date;
+};
+
+export type CovariateFirstExposureSettings = {
   hours: number;
   minDelay: number;
   alias: string;
-  // used only for "phaseStart" window type
-  covariateStartDate: Date;
-  covariateEndDate: Date;
 };
 
 export type FactMetricData = {
@@ -118,7 +122,8 @@ export type FactMetricData = {
   capCoalesceCovariate: string;
   capCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
-  raMetricSettings: FactMetricRegressionAdjustmentSettings;
+  raMetricFirstExposureSettings: CovariateFirstExposureSettings;
+  raMetricPhaseStartSettings: CovariatePhaseStartSettings;
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
