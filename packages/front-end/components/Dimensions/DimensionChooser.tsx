@@ -188,7 +188,6 @@ export default function DimensionChooser({
     activationMetric,
   });
 
-  // Incremental refresh restriction: only allow "None" while in Beta
   const isExperimentIncludedInIncrementalRefresh = experiment
     ? getIsExperimentIncludedInIncrementalRefresh(
         datasource ?? undefined,
@@ -196,19 +195,19 @@ export default function DimensionChooser({
       )
     : false;
 
-  // If incremental refresh applies and a non-empty dimension is selected, reset to None
   useEffect(() => {
     if (isExperimentIncludedInIncrementalRefresh && value) {
       setValue?.("");
     }
   }, [isExperimentIncludedInIncrementalRefresh, value, setValue]);
 
-  const betaMessage =
+  const incrementalRefreshBetaMessage =
     "Dimensions are not supported for incremental refresh while in Beta.";
+
   const effectiveOptions = isExperimentIncludedInIncrementalRefresh
     ? [
         {
-          label: betaMessage,
+          label: incrementalRefreshBetaMessage,
           value: "__beta_message__",
         },
       ]
@@ -314,7 +313,9 @@ export default function DimensionChooser({
             showHelp ? "Break down results for each metric by a dimension" : ""
           }
           disabled={disabled}
-          isOptionDisabled={(opt) => opt.label === betaMessage}
+          isOptionDisabled={(opt) =>
+            opt.label === incrementalRefreshBetaMessage
+          }
         />
         {postLoading && <LoadingSpinner className="ml-1" />}
       </Flex>

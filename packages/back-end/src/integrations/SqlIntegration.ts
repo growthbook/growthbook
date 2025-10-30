@@ -413,7 +413,7 @@ export default abstract class SqlIntegration
     return `${col} IS ${value ? "TRUE" : "FALSE"}`;
   }
 
-  protected getExposureQuery(
+  private getExposureQuery(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user",
   ): ExposureQuery {
@@ -1911,13 +1911,14 @@ export default abstract class SqlIntegration
     cteSql: string,
   ): string {
     return format(
-      `CREATE TABLE ${unitsTableFullName}
-      ${this.createTablePartitions(["first_exposure_timestamp"])}
+      `
+      CREATE OR REPLACE TABLE ${unitsTableFullName}
       ${this.createUnitsTableOptions()}
       AS (
-        WITH ${cteSql}
-      SELECT * FROM __experimentUnits
-    )
+        WITH
+        ${cteSql}
+        SELECT * FROM __experimentUnits
+      );
     `,
       this.getFormatDialect(),
     );
@@ -7559,6 +7560,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   }
 
   encodeMetricIdForColumnName(metricId: string): string {
+    // We are using ? for slices and that is an invalid character for column names
+    // so we encode it.
+    // We use base58 because base64 includes charactes that are invalid too
     const parts = metricId.split("?");
     if (parts.length === 2) {
       const encoded = bs58.encode(Buffer.from(parts[1]));

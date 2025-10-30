@@ -482,8 +482,7 @@ export default function EditSqlModal({
                       helpText={""}
                       fullHeight
                       setCursorData={setCursorData}
-                      // Disable Ctrl+Enter when testing is disabled
-                      onCtrlEnter={canRunQueries ? handleTestQuery : undefined}
+                      onCtrlEnter={handleTestQuery}
                       completions={autoCompletions}
                     />
                   </Box>

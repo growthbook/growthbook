@@ -216,12 +216,11 @@ export default function ResultMoreMenu({
           }
           yesText="I understand"
           noText="Cancel"
-          modalState={showConfirmForceRefresh}
-          setModalState={(state) => setShowConfirmForceRefresh(state)}
           onConfirm={() => {
             forceRefresh();
             setShowConfirmForceRefresh(false);
           }}
+          onCancel={() => setShowConfirmForceRefresh(false)}
         />
       )}
     </>

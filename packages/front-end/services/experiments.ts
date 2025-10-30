@@ -987,7 +987,6 @@ export function getIsExperimentIncludedInIncrementalRefresh(
 ): boolean {
   const isPipelineIncrementalEnabled =
     datasource?.settings.pipelineSettings?.mode === "incremental";
-
   if (!isPipelineIncrementalEnabled) {
     return false;
   }
@@ -996,13 +995,9 @@ export function getIsExperimentIncludedInIncrementalRefresh(
     datasource?.settings.pipelineSettings?.includedExperimentIds;
 
   // If no specific experiment IDs are set, all experiments are included
-  if (includedExperimentIds === undefined || includedExperimentIds === null) {
+  // If experimentId is not provided, consider it included for the New Experiment form
+  if (includedExperimentIds === undefined || !experimentId) {
     return true;
-  }
-
-  // If experimentId is not provided, it's not included
-  if (!experimentId) {
-    return false;
   }
 
   return includedExperimentIds.includes(experimentId);
