@@ -2,9 +2,13 @@ import babel from "@rollup/plugin-babel";
 import resolve from "@rollup/plugin-node-resolve";
 import { terser } from "rollup-plugin-terser";
 import replace from "@rollup/plugin-replace";
+import { readFileSync } from "fs";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { version } = require("./package.json");
+// Read version from package.json
+const packageJson = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8")
+);
+const { version } = packageJson;
 
 const extensions = [".js", ".ts"];
 
@@ -100,3 +104,4 @@ export default [
     ],
   },
 ];
+
