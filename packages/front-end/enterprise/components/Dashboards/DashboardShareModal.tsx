@@ -199,7 +199,8 @@ export default function DashboardShareModal({
               commercialFeature="share-product-analytics-dashboards"
               id="dashboard-share-modal"
             >
-              Contact us for a free Enterprise Trial to use this feature.
+              Creating shared dashboards requires an Enterprise plan, reach out
+              to try a free Enterprise Trial.
             </PremiumCallout>
           ) : shareLevel === "private" ? (
             <Callout status="info" size="sm">
