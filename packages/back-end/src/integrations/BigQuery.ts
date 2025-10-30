@@ -330,7 +330,7 @@ export default class BigQuery extends SqlIntegration {
       SELECT
         MAX(max_timestamp) AS max_timestamp
         FROM ${params.metricSourceTableFullName}
-        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${params.lastMaxTimestamp}` : ""}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,
       this.getFormatDialect(),
     );
@@ -344,7 +344,7 @@ export default class BigQuery extends SqlIntegration {
       SELECT
         MAX(max_timestamp) AS max_timestamp
         FROM ${params.unitsTableFullName}
-        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${params.lastMaxTimestamp}` : ""}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,
       this.getFormatDialect(),
     );
