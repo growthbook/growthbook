@@ -17,6 +17,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 
 export interface Props {
   value: string;
@@ -188,15 +189,12 @@ export default function DimensionChooser({
   });
 
   // Incremental refresh restriction: only allow "None" while in Beta
-  const isPipelineIncrementalEnabledForDatasource =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
-  const isExperimentIncludedInIncrementalRefresh =
-    !!experiment &&
-    isPipelineIncrementalEnabledForDatasource &&
-    (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
-      experiment.id,
-    ) ??
-      true);
+  const isExperimentIncludedInIncrementalRefresh = experiment
+    ? getIsExperimentIncludedInIncrementalRefresh(
+        datasource ?? undefined,
+        experiment.id,
+      )
+    : false;
 
   // If incremental refresh applies and a non-empty dimension is selected, reset to None
   useEffect(() => {

@@ -37,6 +37,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -223,14 +224,11 @@ const AnalysisForm: FC<{
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
 
-  const isPipelineIncrementalEnabledForDatasource =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
   const isExperimentIncludedInIncrementalRefresh =
-    isPipelineIncrementalEnabledForDatasource &&
-    (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
       experiment.id,
-    ) ??
-      true);
+    );
 
   if (upgradeModal) {
     return (
@@ -798,25 +796,37 @@ const AnalysisForm: FC<{
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
-                        <SelectField
-                          label="Metric Conversion Windows"
-                          labelClassName="font-weight-bold"
-                          value={form.watch("skipPartialData")}
-                          onChange={(value) =>
-                            form.setValue("skipPartialData", value)
+                        <Tooltip
+                          shouldDisplay={
+                            isExperimentIncludedInIncrementalRefresh
                           }
-                          options={[
-                            {
-                              label: "Include In-Progress Conversions",
-                              value: "loose",
-                            },
-                            {
-                              label: "Exclude In-Progress Conversions",
-                              value: "strict",
-                            },
-                          ]}
-                          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-                        />
+                          body="In-progress Conversions is not supported with Incremental Refresh while in beta"
+                        >
+                          <SelectField
+                            label="Metric Conversion Windows"
+                            labelClassName="font-weight-bold"
+                            value={form.watch("skipPartialData")}
+                            onChange={(value) =>
+                              form.setValue("skipPartialData", value)
+                            }
+                            options={[
+                              {
+                                label: "Include In-Progress Conversions",
+                                value: "loose",
+                              },
+                              {
+                                label: "Exclude In-Progress Conversions",
+                                value: "strict",
+                              },
+                            ]}
+                            isOptionDisabled={(option) =>
+                              isExperimentIncludedInIncrementalRefresh &&
+                              "value" in option &&
+                              option.value === "strict"
+                            }
+                            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                          />
+                        </Tooltip>
                       </div>
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (

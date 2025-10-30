@@ -1,8 +1,13 @@
 import { useState, useMemo } from "react";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
-import { expandMetricGroups } from "shared/experiments";
+import {
+  expandMetricGroups,
+  quantileMetricType,
+  isFactMetric,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
@@ -58,16 +63,11 @@ export default function ExperimentMetricsSelector({
   const getMetricDisabledInfo = useMemo(
     () => (metricId: string, isGroup: boolean) => {
       const datasourceObj = datasource ? getDatasourceById(datasource) : null;
-      const isIncrementalRefreshEnabled =
-        datasourceObj?.settings.pipelineSettings?.mode === "incremental";
       const isExperimentIncludedInIncrementalRefresh =
-        isIncrementalRefreshEnabled &&
-        (datasourceObj?.settings.pipelineSettings?.includedExperimentIds ===
-          undefined ||
-          (experimentId &&
-            datasourceObj?.settings.pipelineSettings?.includedExperimentIds?.includes(
-              experimentId,
-            )));
+        getIsExperimentIncludedInIncrementalRefresh(
+          datasourceObj ?? undefined,
+          experimentId,
+        );
 
       if (!isExperimentIncludedInIncrementalRefresh) {
         return { disabled: false };
@@ -100,10 +100,35 @@ export default function ExperimentMetricsSelector({
               "We currently don't support cross fact-table metrics with Incremental Refresh",
           };
         }
+
+        // Check if metric group contains quantile metrics
+        const hasQuantileMetrics = expandedIds.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && quantileMetricType(metric);
+        });
+
+        if (hasQuantileMetrics) {
+          return {
+            disabled: true,
+            reason: "Not supported with Incremental Refresh while in beta",
+          };
+        }
+
+        // Check if metric group contains legacy metrics
+        const hasLegacyMetrics = expandedIds.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && !isFactMetric(metric);
+        });
+
+        if (hasLegacyMetrics) {
+          return {
+            disabled: true,
+            reason: "Only fact metrics are supported with Incremental Refresh",
+          };
+        }
       } else {
         // Check if individual metric is a cross fact-table ratio metric
         const metric = getExperimentMetricById(metricId);
-        console.log("metric", metric);
         if (
           metric &&
           "numerator" in metric &&
@@ -114,6 +139,22 @@ export default function ExperimentMetricsSelector({
             disabled: true,
             reason:
               "We currently don't support cross fact-table metrics with Incremental Refresh",
+          };
+        }
+
+        // Check if metric is a quantile metric
+        if (metric && quantileMetricType(metric)) {
+          return {
+            disabled: true,
+            reason: "Not supported with Incremental Refresh while in beta",
+          };
+        }
+
+        // Check if metric is a legacy metric (non-fact metric)
+        if (metric && !isFactMetric(metric)) {
+          return {
+            disabled: true,
+            reason: "Only fact metrics are supported with Incremental Refresh",
           };
         }
       }

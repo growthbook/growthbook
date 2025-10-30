@@ -21,6 +21,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 
 export default function ResultMoreMenu({
   experiment,
@@ -72,15 +73,12 @@ export default function ResultMoreMenu({
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
-  const isPipelineIncrementalEnabledForDatasource =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
-  const isExperimentIncludedInIncrementalRefresh =
-    isPipelineIncrementalEnabledForDatasource &&
-    experiment &&
-    (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
-      experiment.id,
-    ) ??
-      true);
+  const isExperimentIncludedInIncrementalRefresh = experiment
+    ? getIsExperimentIncludedInIncrementalRefresh(
+        datasource ?? undefined,
+        experiment.id,
+      )
+    : false;
 
   const [showConfirmForceRefresh, setShowConfirmForceRefresh] = useState(false);
 

@@ -24,6 +24,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -157,14 +158,11 @@ const EditMetricsForm: FC<{
   const isHoldout = experiment.type === "holdout";
 
   const datasource = getDatasourceById(experiment.datasource);
-  const isPipelineIncrementalEnabledForDatasource =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
   const isExperimentIncludedInIncrementalRefresh =
-    isPipelineIncrementalEnabledForDatasource &&
-    (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
       experiment.id,
-    ) ??
-      true);
+    );
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
