@@ -1002,72 +1002,78 @@ export function DataVisualizationDisplay({
     }
 
     return (
-      <>
+      <div style={{ height: "100%" }}>
         <Flex
-          justify="center"
+          justify="start"
           align="center"
           direction="column"
-          className="p-4"
           style={{
             overflowX: "auto",
             width: "100%",
-            minWidth: "max-content",
+            maxWidth: "100%",
+            minWidth: 0,
+            height: "100%",
+            flex: 1,
           }}
         >
-          <h4>{dataVizConfig.title}</h4>
-          <Table variant="surface">
-            <TableHeader>
-              <TableRow>
-                <TableColumnHeader />
-                {columnHeaders.map((header, i) => (
-                  <TableColumnHeader key={`${header}-${i}`}>
-                    {header}
-                  </TableColumnHeader>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tableRows.map((row, rowIndex) => (
-                <TableRow key={`${row.header}-${rowIndex}`}>
-                  <TableCell
-                    style={{
-                      paddingLeft: `${12 + row.indent * 24}px`,
-                      fontWeight: row.isBold ? "bold" : "normal",
-                    }}
-                  >
-                    {row.header}
-                  </TableCell>
-                  {row.values.map((value, i) => (
-                    <TableCell
-                      role="button"
-                      key={i}
-                      style={{
-                        fontWeight: row.isBold ? "bold" : "normal",
-                        background:
-                          typeof value === "number" && maxCellValue > 0
-                            ? `color-mix(in srgb, #5071de ${Math.round(
-                                Math.max(0, Math.min(1, value / maxCellValue)) *
-                                  85,
-                              )}%, transparent)`
-                            : undefined,
-                      }}
-                    >
-                      <PivotTableTooltip
-                        rowHeader={row.header}
-                        columnHeader={columnHeaders[i]}
-                        value={value}
-                        dataVizConfig={dataVizConfig}
-                      >
-                        {value !== null && value !== undefined ? value : "-"}
-                      </PivotTableTooltip>
-                    </TableCell>
+          <div className="p-4" style={{ width: "100%" }}>
+            <h4 style={{ textAlign: "center" }}>{dataVizConfig.title}</h4>
+            <Table variant="surface">
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader />
+                  {columnHeaders.map((header, i) => (
+                    <TableColumnHeader key={`${header}-${i}`}>
+                      {header}
+                    </TableColumnHeader>
                   ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {tableRows.map((row, rowIndex) => (
+                  <TableRow key={`${row.header}-${rowIndex}`}>
+                    <TableCell
+                      style={{
+                        paddingLeft: `${12 + row.indent * 24}px`,
+                        fontWeight: row.isBold ? "bold" : "normal",
+                      }}
+                    >
+                      {row.header}
+                    </TableCell>
+                    {row.values.map((value, i) => (
+                      <TableCell
+                        role="button"
+                        key={i}
+                        style={{
+                          fontWeight: row.isBold ? "bold" : "normal",
+                          background:
+                            typeof value === "number" && maxCellValue > 0
+                              ? `color-mix(in srgb, #5071de ${Math.round(
+                                  Math.max(
+                                    0,
+                                    Math.min(1, value / maxCellValue),
+                                  ) * 85,
+                                )}%, transparent)`
+                              : undefined,
+                        }}
+                      >
+                        <PivotTableTooltip
+                          rowHeader={row.header}
+                          columnHeader={columnHeaders[i]}
+                          value={value}
+                          dataVizConfig={dataVizConfig}
+                        >
+                          {value !== null && value !== undefined ? value : "-"}
+                        </PivotTableTooltip>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </Flex>
-      </>
+      </div>
     );
   }
 
