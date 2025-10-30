@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
@@ -23,11 +23,69 @@ import Table, {
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
+import Tooltip from "../Tooltip/Tooltip";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 
 // We need to use any here because the rows are defined only in runtime
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Rows = any[];
+
+type PivotTableConfig = Extract<DataVizConfig, { chartType: "pivot-table" }>;
+
+function PivotTableTooltip({
+  rowHeader,
+  columnHeader,
+  value,
+  dataVizConfig,
+  children,
+}: {
+  rowHeader: string;
+  columnHeader: string;
+  value: string | number | null | undefined;
+  dataVizConfig: Partial<PivotTableConfig>;
+  children: ReactNode;
+}) {
+  const xAxes = dataVizConfig.xAxes;
+  const headerStr = rowHeader + "";
+  const [rawTitle, ...rest] = headerStr.split(":");
+  const rowTitle = (rawTitle || "").trim();
+  const rowValue = rest.join(":").trim();
+
+  const xLabel = xAxes?.[0]?.fieldName;
+  const xValue = columnHeader;
+
+  const yFieldName = dataVizConfig.yAxis?.[0]?.fieldName;
+  const yAgg = dataVizConfig.yAxis?.[0]?.aggregation;
+  const yLabel = yFieldName ? `${yFieldName} (${yAgg})` : undefined;
+  const yValue = value;
+
+  return (
+    <Tooltip
+      body={
+        <Flex direction="column" gap="2">
+          <Flex direction="row" align="center" justify="between">
+            <Text className="font-bold pr-4">{rowTitle}</Text>
+            <Text className="pl-4">{rowValue}</Text>
+          </Flex>
+          {xLabel && (
+            <Flex direction="row" align="center" justify="between">
+              <Text className="font-bold pr-4">{xLabel}</Text>
+              <Text className="pl-4">{xValue}</Text>
+            </Flex>
+          )}
+          {yLabel && (
+            <Flex direction="row" align="center" justify="between">
+              <Text className="font-bold pr-4">{yLabel}</Text>
+              <Text className="pl-4">{yValue}</Text>
+            </Flex>
+          )}
+        </Flex>
+      }
+    >
+      {children}
+    </Tooltip>
+  );
+}
 
 function parseYValue(
   row: Rows[number],
@@ -981,6 +1039,7 @@ export function DataVisualizationDisplay({
                   </TableCell>
                   {row.values.map((value, i) => (
                     <TableCell
+                      role="button"
                       key={i}
                       style={{
                         fontWeight: row.isBold ? "bold" : "normal",
@@ -993,7 +1052,14 @@ export function DataVisualizationDisplay({
                             : undefined,
                       }}
                     >
-                      {value !== null && value !== undefined ? value : "-"}
+                      <PivotTableTooltip
+                        rowHeader={row.header}
+                        columnHeader={columnHeaders[i]}
+                        value={value}
+                        dataVizConfig={dataVizConfig}
+                      >
+                        {value !== null && value !== undefined ? value : "-"}
+                      </PivotTableTooltip>
                     </TableCell>
                   ))}
                 </TableRow>
