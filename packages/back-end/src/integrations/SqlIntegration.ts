@@ -6770,10 +6770,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               , variation
               , timestamp
               , MAX(timestamp) OVER () AS max_timestamp
-              ${activationMetric ? `, NULL AS activation_timestamp` : ""}
-              ${experimentDimensions
-                .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
-                .join("\n")}
+              ${activationMetric ? `, activation_timestamp` : ""}
+              ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
             FROM __filteredNewExposures
           )
         )
