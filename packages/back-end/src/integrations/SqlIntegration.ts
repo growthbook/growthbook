@@ -7324,7 +7324,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             factTableWithMetricData.bindingLastMaxTimestamp,
         })})
         , __maxTimestamp AS (
-          SELECT MAX(max_timestamp) AS max_timestamp FROM __factTable
+          SELECT MAX(timestamp) AS max_timestamp FROM __factTable
         )
         , __newMetricRows AS (
           SELECT
