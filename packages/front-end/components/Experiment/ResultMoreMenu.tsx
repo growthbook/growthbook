@@ -204,8 +204,17 @@ export default function ResultMoreMenu({
       {showConfirmForceRefresh && forceRefresh && (
         <ConfirmDialog
           title="Full Refresh"
-          subtitle="This experiment is updated with the incremental refresh pipeline. Fully refreshing the experiment will discard the previous data and results and re-scan the data source from the beginning of the experiment."
-          yesText="Full Refresh"
+          content={
+            <>
+              This experiment has Pipeline Mode Incremental enabled.
+              <br />
+              <br />
+              Fully refreshing the experiment will re-scan the data source from
+              the beginning of the experiment, instead of scanning only new
+              data.
+            </>
+          }
+          yesText="I understand"
           noText="Cancel"
           modalState={showConfirmForceRefresh}
           setModalState={(state) => setShowConfirmForceRefresh(state)}

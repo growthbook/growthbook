@@ -1,9 +1,10 @@
+import { ReactNode } from "react";
 import { AlertDialog, Box, Flex, Text } from "@radix-ui/themes";
 import Button, { Color as ButtonColor } from "@/ui/Button";
 
 type Props = {
   title: string;
-  subtitle?: string;
+  content?: ReactNode;
   yesText?: string;
   noText?: string;
   yesColor?: ButtonColor | "primary" | "danger";
@@ -29,7 +30,7 @@ function mapYesColor(color?: Props["yesColor"]): ButtonColor {
 
 export default function ConfirmDialog({
   title,
-  subtitle,
+  content,
   yesText = "yes",
   yesColor = "primary",
   noText = "no",
@@ -48,13 +49,11 @@ export default function ConfirmDialog({
                 {title}
               </Text>
             </AlertDialog.Title>
-            {(subtitle || subtitle === "") && (
-              <AlertDialog.Description>
-                <Text as="div" size="2" color="gray">
-                  {subtitle}
-                </Text>
-              </AlertDialog.Description>
-            )}
+            <AlertDialog.Description>
+              <Text as="div" size="2" color="gray">
+                {content}
+              </Text>
+            </AlertDialog.Description>
           </Box>
           {children ? (
             <Box>
