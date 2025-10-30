@@ -14,7 +14,12 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
-import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
+import {
+  ExperimentQueryMetadata,
+  Queries,
+  QueryPointer,
+  QueryStatus,
+} from "back-end/types/query";
 import {
   findSnapshotById,
   updateSnapshot,
@@ -66,10 +71,12 @@ export type ExperimentIncrementalRefreshQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
-  incrementalRefreshStartTime: Date;
   factTableMap: FactTableMap;
   queryParentId: string;
+  experimentQueryMetadata: ExperimentQueryMetadata | null;
+  // Incremental Refresh specific
   fullRefresh: boolean;
+  incrementalRefreshStartTime: Date;
 };
 
 // TODO(incremental-refresh): add metrics to existing metric source to force recreating the whole thing.
@@ -837,6 +844,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   ): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+    if (params.experimentQueryMetadata) {
+      this.integration.setAdditionalQueryMetadata?.(
+        params.experimentQueryMetadata,
+      );
+    }
 
     if (params.snapshotSettings.skipPartialData) {
       throw new Error(

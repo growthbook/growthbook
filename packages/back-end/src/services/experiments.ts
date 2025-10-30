@@ -1264,41 +1264,47 @@ export async function createSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({ data });
-
   const integration = getSourceIntegrationObject(context, datasource, true);
 
-  if (
-    (experiment.type === undefined || experiment.type === "standard") &&
-    snapshot.type === "standard" &&
+  const isIncrementalRefreshEnabledForExperiment =
     datasource.settings.pipelineSettings?.mode === "incremental" &&
     (datasource.settings.pipelineSettings?.includedExperimentIds ===
       undefined ||
       datasource.settings.pipelineSettings?.includedExperimentIds?.includes(
         experiment.id,
-      ))
+      ));
+
+  if (
+    isIncrementalRefreshEnabledForExperiment &&
+    (experiment.type === undefined || experiment.type === "standard") &&
+    snapshot.type === "standard"
   ) {
-    const fullRefresh =
-      !useCache ||
+    const hasIncrementalRefreshData =
       (await context.models.incrementalRefresh.getByExperimentId(
         experiment.id,
-      )) === undefined;
-    const incrementalRefreshStartTime = new Date();
+      )) !== undefined;
+
+    const fullRefresh = !useCache || !hasIncrementalRefreshData;
+
     const queryRunner = new ExperimentIncrementalRefreshQueryRunner(
       context,
       snapshot,
       integration,
       false, // always ignore cache for incremental refresh queries
     );
+
     await queryRunner.startAnalysis({
       snapshotSettings: data.settings,
       variationNames: experiment.variations.map((v) => v.name),
       metricMap,
-      incrementalRefreshStartTime,
+      incrementalRefreshStartTime: new Date(),
       // experiment ID used for table name
       queryParentId: experiment.id,
       factTableMap,
       fullRefresh,
       snapshotType: type,
+      experimentQueryMetadata:
+        getAdditionalQueryMetadataForExperiment(experiment),
     });
     return queryRunner;
   }
