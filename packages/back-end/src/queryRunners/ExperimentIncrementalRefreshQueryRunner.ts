@@ -404,7 +404,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     createUnitsTableQuery = await startQuery({
       name: `create_${queryParentId}`,
-      title: "Create Experiment Units Table",
+      displayTitle: "Create Experiment Units Table",
       query:
         integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
       dependencies: [dropOldUnitsTableQuery.query],
@@ -418,7 +418,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
-    title: "Update Experiment Units Table",
+    displayTitle: "Update Experiment Units Table",
     query:
       integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
     dependencies: [
@@ -433,7 +433,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   const dropUnitsTableQuery = await startQuery({
     name: `drop_${queryParentId}`,
-    title: "Drop Old Experiment Units Table",
+    displayTitle: "Drop Old Experiment Units Table",
     query: integration.getDropOldIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
     }),
@@ -447,7 +447,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   const alterUnitsTableQuery = await startQuery({
     name: `alter_${queryParentId}`,
-    title: "Rename Experiment Units Table",
+    displayTitle: "Rename Experiment Units Table",
     query: integration.getAlterNewIncrementalUnitsQuery({
       unitsTableName: unitsTableName,
       unitsTempTableFullName: unitsTempTableFullName,
@@ -472,7 +472,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
   const maxTimestampQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
-    title: "Find Latest Experiment Source Timestamp",
+    displayTitle: "Find Latest Experiment Source Timestamp",
     query: integration.getMaxTimestampIncrementalUnitsQuery({
       unitsTablePartitionsName: unitsTablePartitionsName ?? unitsTableFullName,
     }),
@@ -584,7 +584,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     if (!existingSource) {
       createMetricsSourceQuery = await startQuery({
         name: `create_metrics_source_${group.groupId}`,
-        title: `Create Metrics Source ${sourceName}`,
+        displayTitle: `Create Metrics Source ${sourceName}`,
         query: integration.getCreateMetricSourceTableQuery({
           settings: snapshotSettings,
           metrics: group.metrics,
@@ -613,7 +613,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     const insertMetricsSourceDataQuery = await startQuery({
       name: `insert_metrics_source_data_${group.groupId}`,
-      title: `Update Metrics Source ${sourceName}`,
+      displayTitle: `Update Metrics Source ${sourceName}`,
       query: integration.getInsertMetricSourceDataQuery(metricParams),
       dependencies: createMetricsSourceQuery
         ? [createMetricsSourceQuery.query]
@@ -653,7 +653,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       if (!existingCovariateSource) {
         createMetricCovariateTableQuery = await startQuery({
           name: `create_metrics_covariate_table_${group.groupId}`,
-          title: `Create Metric Covariate Table ${sourceName}`,
+          displayTitle: `Create Metric Covariate Table ${sourceName}`,
           query: integration.getCreateMetricSourceCovariateTableQuery({
             settings: snapshotSettings,
             metrics: group.metrics,
@@ -670,7 +670,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
       insertMetricCovariateDataQuery = await startQuery({
         name: `insert_metrics_covariate_data_${group.groupId}`,
-        title: `Update Metric Covariate Data ${sourceName}`,
+        displayTitle: `Update Metric Covariate Data ${sourceName}`,
         query: integration.getInsertMetricSourceCovariateDataQuery({
           ...metricParams,
           metricSourceCovariateTableFullName,
@@ -730,7 +730,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: `max_timestamp_metrics_source_${group.groupId}`,
-      title: `Find Latest Metrics Source Timestamp ${sourceName}`,
+      displayTitle: `Find Latest Metrics Source Timestamp ${sourceName}`,
       query: integration.getMaxTimestampMetricSourceQuery({
         metricSourceTablePartitionsName:
           metricSourceTablePartitionsName ?? metricSourceTableFullName,
@@ -783,7 +783,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
-      title: `Compute Statistics ${sourceName}`,
+      displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
         metricSourceCovariateTableFullName,

@@ -184,7 +184,7 @@ export async function createNewQuery({
   datasource,
   language,
   query,
-  title,
+  displayTitle,
   dependencies = [],
   running = false,
   queryType = "",
@@ -194,7 +194,7 @@ export async function createNewQuery({
   datasource: string;
   language: QueryLanguage;
   query: string;
-  title?: string;
+  displayTitle?: string;
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
@@ -208,7 +208,7 @@ export async function createNewQuery({
     language,
     organization,
     query,
-    title,
+    displayTitle,
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
@@ -233,7 +233,7 @@ export async function createNewQueryFromCached({
     datasource: existing.datasource,
     heartbeat: new Date(),
     id: uniqid("qry_"),
-    title: existing.title,
+    displayTitle: existing.displayTitle,
     language: existing.language,
     organization: existing.organization,
     query: existing.query,

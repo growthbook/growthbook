@@ -1910,7 +1910,6 @@ export default abstract class SqlIntegration
     unitsTableFullName: string,
     cteSql: string,
   ): string {
-    // TODO: How to ensure the partition matches the CTE? same with table name
     return format(
       `CREATE TABLE ${unitsTableFullName}
       ${this.createTablePartitions(["first_exposure_timestamp"])}

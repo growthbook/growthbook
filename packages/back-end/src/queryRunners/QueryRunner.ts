@@ -52,7 +52,7 @@ export type ProcessedRowsType = Record<string, any>;
 
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
-  title?: string;
+  displayTitle?: string;
   query: string;
   dependencies: string[];
   run: (
@@ -587,7 +587,7 @@ export abstract class QueryRunner<
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
     const {
       name,
-      title,
+      displayTitle,
       query,
       dependencies,
       runAtEnd,
@@ -673,7 +673,7 @@ export abstract class QueryRunner<
     const doc = await createNewQuery({
       query,
       queryType,
-      title: title,
+      displayTitle,
       datasource: this.integration.datasource.id,
       organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,

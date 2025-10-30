@@ -48,24 +48,23 @@ export type QueryType =
   | "experimentMultiMetric"
   | "populationMetric"
   | "populationMultiMetric"
+  | "experimentIncrementalRefreshCreateUnitsTable"
   | "experimentIncrementalRefreshDropUnitsTable"
   | "experimentIncrementalRefreshDropTempUnitsTable"
-  | "experimentIncrementalRefreshCreateUnitsTable"
   | "experimentIncrementalRefreshUpdateUnitsTable"
   | "experimentIncrementalRefreshAlterUnitsTable"
   | "experimentIncrementalRefreshMaxTimestampUnitsTable"
-  | "experimentIncrementalRefreshMaxTimestampMetricsSource"
-  | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshCreateMetricsSourceTable"
   | "experimentIncrementalRefreshInsertMetricsSourceData"
+  | "experimentIncrementalRefreshMaxTimestampMetricsSource"
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
+  | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth";
 
 export interface QueryInterface {
   id: string;
-  // user facing title for use in modal
-  title?: string;
+  displayTitle?: string;
   organization: string;
   datasource: string;
   language: QueryLanguage;
