@@ -7014,8 +7014,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           baseIdType,
           idJoinMap,
           factTable: factTableWithMetricData.factTable,
-          startDate: factTableWithMetricData.metricStart,
-          endDate: factTableWithMetricData.metricEnd,
+          startDate: factTableWithMetricData.minCovariateStartDate,
+          endDate: factTableWithMetricData.maxCovariateEndDate,
           metricsWithIndices: metricData.map((m, i) => ({
             metric: m.metric,
             index: i,

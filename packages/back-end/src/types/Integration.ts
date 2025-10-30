@@ -136,6 +136,8 @@ export type FactMetricSourceData = {
   percentileData: FactMetricPercentileData[];
   eventQuantileData: FactMetricQuantileData[];
   regressionAdjustedMetrics: FactMetricData[];
+  minCovariateStartDate: Date;
+  maxCovariateEndDate: Date;
   metricStart: Date;
   metricEnd: Date;
   maxHoursToConvert: number;
@@ -352,6 +354,7 @@ export interface IncrementalRefreshStatisticsQueryParams {
   metricSourceCovariateTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
+  lastMaxTimestamp: Date | null;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

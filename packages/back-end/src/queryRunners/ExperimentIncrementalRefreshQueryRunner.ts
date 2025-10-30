@@ -664,7 +664,7 @@ export const startExperimentIncrementalRefreshQueries = async (
           ...metricParams,
           metricSourceCovariateTableFullName,
           lastCovariateSuccessfulMaxTimestamp:
-            existingCovariateSource?.lastSuccessfulMaxTimestamp ?? undefined,
+            existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
         }),
         dependencies: [
           maxTimestampUnitsTableQuery.query,
