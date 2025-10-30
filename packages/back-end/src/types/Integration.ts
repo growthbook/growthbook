@@ -51,6 +51,7 @@ export type DataType =
   | "hll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
+
 export type FactMetricAggregationType =
   | "sum"
   | "count"
@@ -323,6 +324,7 @@ export interface CreateMetricSourceCovariateTableQueryParams {
   metrics: FactMetricInterface[];
   metricSourceCovariateTableFullName: string;
 }
+
 export interface InsertMetricSourceCovariateDataQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;

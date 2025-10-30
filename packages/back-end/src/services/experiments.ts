@@ -1270,7 +1270,7 @@ export async function createSnapshot({
     datasource.settings.pipelineSettings?.mode === "incremental" &&
     (datasource.settings.pipelineSettings?.includedExperimentIds ===
       undefined ||
-      datasource.settings.pipelineSettings?.includedExperimentIds?.includes(
+      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
         experiment.id,
       ));
 
@@ -1294,17 +1294,16 @@ export async function createSnapshot({
     );
 
     await queryRunner.startAnalysis({
+      snapshotType: type,
       snapshotSettings: data.settings,
       variationNames: experiment.variations.map((v) => v.name),
       metricMap,
-      incrementalRefreshStartTime: new Date(),
-      // experiment ID used for table name
       queryParentId: experiment.id,
       factTableMap,
-      fullRefresh,
-      snapshotType: type,
       experimentQueryMetadata:
         getAdditionalQueryMetadataForExperiment(experiment),
+      fullRefresh,
+      incrementalRefreshStartTime: new Date(),
     });
     return queryRunner;
   }
