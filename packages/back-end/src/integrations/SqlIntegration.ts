@@ -7398,7 +7398,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         )
        SELECT
           dv.${baseIdType} AS ${baseIdType}
-          , MAX(mt.max_timestamp) AS max_timestamp
+          , mt.max_timestamp AS max_timestamp
           ${metricData
             .map(
               (m) =>
