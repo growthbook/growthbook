@@ -623,7 +623,6 @@ export async function postValidatePipelineSettings(
 
   const results: PipelineValidationResults = {
     create: { result: "skipped" },
-    insert: { result: "skipped" },
   };
 
   try {
@@ -641,33 +640,36 @@ export async function postValidatePipelineSettings(
     };
   }
 
-  if (results.create.result !== "success") {
-    results.insert = {
-      result: "skipped",
-      resultMessage: "Skipped due to create failure",
-    };
-  } else {
-    try {
-      await integration.runTestQuery(
-        getPipelineValidationInsertQuery({
-          tableFullName: fullTestTablePath,
-          integration,
-        }),
-      );
-      results.insert.result = "success";
-    } catch (e) {
+  // Insert only happens for incremental mode
+  if (pipelineSettings.mode === "incremental") {
+    if (results.create.result !== "success") {
       results.insert = {
-        result: "failed",
-        resultMessage: "message" in e ? e.message : String(e),
+        result: "skipped",
+        resultMessage: "Skipped due to create failure",
       };
+    } else {
+      try {
+        await integration.runTestQuery(
+          getPipelineValidationInsertQuery({
+            tableFullName: fullTestTablePath,
+            integration,
+          }),
+        );
+        results.insert = { result: "success" };
+      } catch (e) {
+        results.insert = {
+          result: "failed",
+          resultMessage: "message" in e ? e.message : String(e),
+        };
+      }
     }
   }
 
   if (
-    integration.dropUnitsTable() &&
-    (pipelineSettings.mode === "incremental" ||
-      (pipelineSettings.mode === "ephemeral" &&
-        pipelineSettings.unitsTableDeletion === true))
+    pipelineSettings.mode === "incremental" ||
+    (pipelineSettings.mode === "ephemeral" &&
+      integration.dropUnitsTable() &&
+      pipelineSettings.unitsTableDeletion === true)
   ) {
     if (results.create.result !== "success") {
       results.drop = {
@@ -690,11 +692,6 @@ export async function postValidatePipelineSettings(
         };
       }
     }
-  } else {
-    results.drop = {
-      result: "skipped",
-      resultMessage: "Skipped because dropUnitsTable is false",
-    };
   }
 
   res.status(200).json({ tableName: fullTestTablePath, results });

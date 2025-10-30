@@ -150,7 +150,7 @@ export default class Presto extends SqlIntegration {
     return this.params.catalog || "";
   }
 
-  // FIXME: Consider using 2 separate queries to create table and insert data instead of ignored cteSql
+  // FIXME(incremental-refresh): Consider using 2 separate queries to create table and insert data instead of ignored cteSql
   // NB: CREATE AS CTE does not work because of a bug with timestamp columns with Hive
   getExperimentUnitsTableQueryFromCte(
     unitsTableFullName: string,

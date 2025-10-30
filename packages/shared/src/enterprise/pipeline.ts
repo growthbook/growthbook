@@ -13,7 +13,7 @@ export type PipelineValidationResult = {
 // If optional, means the validation is not needed
 export type PipelineValidationResults = {
   create: PipelineValidationResult;
-  insert: PipelineValidationResult;
+  insert?: PipelineValidationResult;
   drop?: PipelineValidationResult;
 };
 
