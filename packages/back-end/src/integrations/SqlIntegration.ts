@@ -6513,7 +6513,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     activationMetric: ExperimentMetricInterface | null;
     settings: ExperimentSnapshotSettings;
     factTableMap: FactTableMap;
-    lastMaxTimestamp?: Date;
+    lastMaxTimestamp: Date | null;
     forcedUserIdType?: string;
   }): {
     factTablesWithMetricData: FactMetricSourceData[];
@@ -6843,7 +6843,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTablePartitionsName}
+      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
       `,
       this.getFormatDialect(),
     );
@@ -6906,7 +6906,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTablePartitionsName}
+      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
       `,
       this.getFormatDialect(),
     );
@@ -6966,10 +6966,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       factTableMap: FactTableMap;
       covariateWindowType: CovariateWindowType;
       forcedUserIdType?: string;
+      lastMaxTimestamp: Date | null;
     } = {
       ...params,
       metrics: sortedMetrics,
       covariateWindowType: "phaseStart",
+      lastMaxTimestamp: null,
     };
 
     // TODO(incremental-refresh): use max hours to convert from here

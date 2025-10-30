@@ -16,6 +16,8 @@ import {
   RawInformationSchema,
   DataType,
   QueryResponseColumnData,
+  MaxTimestampMetricSourceQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
 } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
@@ -318,5 +320,33 @@ export default class BigQuery extends SqlIntegration {
 
   createTablePartitions(columns: string[]): string {
     return bigQueryCreateTablePartitions(columns);
+  }
+
+  getMaxTimestampMetricSourceQuery(
+    params: MaxTimestampMetricSourceQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        FROM ${params.metricSourceTableFullName}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${params.lastMaxTimestamp}` : ""}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        FROM ${params.unitsTableFullName}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${params.lastMaxTimestamp}` : ""}
+      `,
+      this.getFormatDialect(),
+    );
   }
 }

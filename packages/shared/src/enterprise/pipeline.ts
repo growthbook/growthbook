@@ -96,7 +96,7 @@ export function getPipelineValidationDropTableQuery({
 
 export function bigQueryCreateTablePartitions(columns: string[]) {
   // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date column?
-  const partitionBy = `PARTITION BY DATE(\`${columns[0]}\`)`;
+  const partitionBy = `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
 
   // NB: BigQuery only supports one column for partitioning, so use cluster for the rest.
   if (columns.length === 1) {

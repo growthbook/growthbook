@@ -382,7 +382,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     segment: segmentObj,
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
-    lastMaxTimestamp: lastMaxTimestamp,
+    lastMaxTimestamp: lastMaxTimestamp || null,
   };
 
   let createUnitsTableQuery: QueryPointer | null = null;
@@ -458,21 +458,12 @@ export const startExperimentIncrementalRefreshQueries = async (
   });
   queries.push(alterUnitsTableQuery);
 
-  const unitsTablePartitionsName =
-    integration.generateTablePath &&
-    integration.generateTablePath(
-      // TODO this needs to be dynamic
-      // Trino/Presto: `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}$partitions"`,
-      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}`,
-      settings.pipelineSettings?.writeDataset,
-      settings.pipelineSettings?.writeDatabase,
-      true,
-    );
   const maxTimestampUnitsTableQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
     displayTitle: "Find Latest Experiment Source Timestamp",
     query: integration.getMaxTimestampIncrementalUnitsQuery({
-      unitsTablePartitionsName: unitsTablePartitionsName ?? unitsTableFullName,
+      unitsTableFullName,
+      lastMaxTimestamp: lastMaxTimestamp || null,
     }),
     dependencies: [alterUnitsTableQuery.query],
     run: (query, setExternalId) =>
@@ -606,7 +597,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       metricSourceTableFullName,
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
-      lastMaxTimestamp: existingSource?.maxTimestamp ?? undefined,
+      lastMaxTimestamp: existingSource?.maxTimestamp || null,
     };
 
     const insertMetricsSourceDataQuery = await startQuery({
@@ -720,23 +711,13 @@ export const startExperimentIncrementalRefreshQueries = async (
       });
       queries.push(insertMetricCovariateDataQuery);
     }
-    const metricSourceTablePartitionsName: string | undefined =
-      existingSource?.tableFullName ??
-      (integration.generateTablePath &&
-        integration.generateTablePath(
-          // `"${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}$partitions"`,
-          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${experimentId}_${group.groupId}`,
-          settings.pipelineSettings?.writeDataset,
-          settings.pipelineSettings?.writeDatabase,
-          true,
-        ));
 
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: `max_timestamp_metrics_source_${group.groupId}`,
       displayTitle: `Find Latest Metrics Source Timestamp ${sourceName}`,
       query: integration.getMaxTimestampMetricSourceQuery({
-        metricSourceTablePartitionsName:
-          metricSourceTablePartitionsName ?? metricSourceTableFullName,
+        metricSourceTableFullName,
+        lastMaxTimestamp: existingSource?.maxTimestamp || null,
       }),
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>

@@ -6,7 +6,11 @@ import { prestoCreateTablePartitions } from "shared/enterprise";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
-import { QueryResponse } from "back-end/src/types/Integration";
+import {
+  QueryResponse,
+  MaxTimestampIncrementalUnitsQueryParams,
+  MaxTimestampMetricSourceQueryParams,
+} from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -166,6 +170,38 @@ export default class Presto extends SqlIntegration {
     )
       ${this.createUnitsTableOptions()}
     `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getTablePartitionsTableName(fullTableName: string) {
+    const lastDotIndex = fullTableName.lastIndexOf(".");
+    return lastDotIndex >= 0
+      ? fullTableName.substring(0, lastDotIndex + 1) +
+          `"${fullTableName.substring(lastDotIndex + 1)}$partitions"`
+      : `"${fullTableName}$partitions"`;
+  }
+
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT MAX(max_timestamp) AS max_timestamp
+      FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getMaxTimestampMetricSourceQuery(
+    params: MaxTimestampMetricSourceQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT MAX(max_timestamp) AS max_timestamp
+      FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}
+      `,
       this.getFormatDialect(),
     );
   }

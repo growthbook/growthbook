@@ -299,11 +299,13 @@ export interface AlterNewIncrementalUnitsQueryParams {
 }
 
 export interface MaxTimestampIncrementalUnitsQueryParams {
-  unitsTablePartitionsName: string;
+  unitsTableFullName: string;
+  lastMaxTimestamp: Date | null;
 }
 
 export interface MaxTimestampMetricSourceQueryParams {
-  metricSourceTablePartitionsName: string;
+  metricSourceTableFullName: string;
+  lastMaxTimestamp: Date | null;
 }
 
 export interface CreateMetricSourceTableQueryParams {
@@ -321,7 +323,7 @@ export interface InsertMetricSourceDataQueryParams {
   metricSourceTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
-  lastMaxTimestamp?: Date;
+  lastMaxTimestamp: Date | null;
 }
 
 export interface CreateMetricSourceCovariateTableQueryParams {
@@ -338,7 +340,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   metricSourceCovariateTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
-  lastCovariateSuccessfulMaxTimestamp?: Date;
+  lastCovariateSuccessfulMaxTimestamp: Date | null;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
