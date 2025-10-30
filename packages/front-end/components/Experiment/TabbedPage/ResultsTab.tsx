@@ -81,6 +81,7 @@ export default function ResultsTab({
     getDatasourceById,
     getExperimentMetricById,
     getMetricById,
+    getMetricGroupById,
     getProjectById,
     metrics,
     datasources,
@@ -112,12 +113,13 @@ export default function ResultsTab({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
-  const { getMetricGroupById } = useDefinitions();
+  //returns all metric ids from an experiment, including metric group metric ids
   const metricAndMetricGroupIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
   );
 
+  //get all metric groups from the metric ids
   const metricGroups = metricAndMetricGroupIds.map((m) =>
     getMetricGroupById(m),
   );
