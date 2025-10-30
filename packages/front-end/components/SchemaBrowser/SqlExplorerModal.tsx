@@ -53,6 +53,7 @@ import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
 export interface Props {
+  dashboardId?: string;
   close: () => void;
   initial?: {
     sql?: string;
@@ -68,9 +69,11 @@ export interface Props {
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
+  onSave?: (savedQueryId: string | undefined, name: string | undefined) => void;
 }
 
 export default function SqlExplorerModal({
+  dashboardId,
   close,
   initial,
   id,
@@ -79,6 +82,7 @@ export default function SqlExplorerModal({
   header,
   lockDatasource = false,
   trackingEventModalSource = "",
+  onSave,
 }: Props) {
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
@@ -352,18 +356,24 @@ export default function SqlExplorerModal({
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
       try {
-        await apiCall("/saved-queries", {
-          method: "POST",
-          body: JSON.stringify({
-            name: currentName,
-            sql: form.watch("sql"),
-            datasourceId: form.watch("datasourceId"),
-            dateLastRan: form.watch("dateLastRan"),
-            results: form.watch("results"),
-            dataVizConfig,
-          }),
-        });
+        const res = await apiCall<{ id: string; status: number }>(
+          "/saved-queries",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: currentName,
+              sql: form.watch("sql"),
+              datasourceId: form.watch("datasourceId"),
+              dateLastRan: form.watch("dateLastRan"),
+              results: form.watch("results"),
+              dataVizConfig,
+              linkedDashboardIds: dashboardId ? [dashboardId] : [],
+            }),
+          },
+        );
         mutate();
+        // Call the onSave callback if it exists
+        onSave?.(res?.id, currentName);
         close();
       } catch (error) {
         setLoading(false);
@@ -381,6 +391,7 @@ export default function SqlExplorerModal({
 
     // Something changed, so save the updates
     try {
+      const results = form.watch("results");
       await apiCall(`/saved-queries/${id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -389,10 +400,17 @@ export default function SqlExplorerModal({
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
           dataVizConfig: dataVizConfig,
-          results: form.watch("results"),
+          results: {
+            ...results,
+            error: results.error || undefined, // Convert null/empty to undefined
+          },
         }),
       });
       mutate();
+      // Call the onSave callback after successful save
+      if (onSave) {
+        onSave(id, currentName);
+      }
       close();
     } catch (error) {
       setLoading(false);

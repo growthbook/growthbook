@@ -26,6 +26,15 @@ export const metricSelectors = [
   "custom",
 ] as const;
 
+// BlockConfig item types for sql-explorer blocks
+export const BLOCK_CONFIG_ITEM_TYPES = {
+  RESULTS_TABLE: "results_table",
+  VISUALIZATION: "visualization",
+} as const;
+
+export function isResultsTableItem(item: string): boolean {
+  return item === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+}
 export const pinSources = ["experiment", "custom", "none"] as const;
 
 export interface BlockSnapshotSettings {
@@ -223,7 +232,25 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     savedQueryId: "",
-    dataVizConfigIndex: -1,
+    blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+    ...(initialValues || {}),
+  }),
+  "metric-explorer": ({ initialValues }) => ({
+    type: "metric-explorer",
+    title: "",
+    description: "",
+    factMetricId: "",
+    analysisSettings: {
+      lookbackDays: 30,
+      startDate: new Date(Date.now() - 30 * 24 * 3600 * 1000),
+      endDate: new Date(),
+      populationId: "",
+      populationType: "factTable",
+      userIdType: "",
+    },
+    visualizationType: "timeseries",
+    valueType: "avg",
+    metricAnalysisId: "",
     ...(initialValues || {}),
   }),
 };

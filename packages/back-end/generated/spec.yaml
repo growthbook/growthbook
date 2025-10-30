@@ -117,6 +117,9 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
+  - name: attributes
+    x-displayName: Attributes
+    description: Used when targeting feature flags and experiments.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -2715,11 +2718,10 @@ paths:
                   description: 'ID for the [DataSource](#tag/DataSource_model)'
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only.'
                   enum:
                     - ''
                     - api
-                    - admin
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -3030,7 +3032,7 @@ paths:
               properties:
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only. Please note that we have deprecated support for setting the managedBy property to "admin". Your existing Legacy Metrics with this value will continue to work, but we suggest migrating to Fact Metrics instead.'
                   enum:
                     - ''
                     - api
@@ -8587,6 +8589,7 @@ x-tagGroups:
       - archetypes
       - queries
       - settings
+      - attributes
   - name: Models
     tags:
       - Archetype_model

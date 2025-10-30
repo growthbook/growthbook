@@ -39,21 +39,6 @@ const AppearanceUIThemeContext = createContext<AppearanceUIThemeContextType>({
   setTheme: () => undefined,
 });
 
-// Ensure the background is applied while JS is loading
-export const AppearanceUISnippet = `
-  (function() {
-    try {
-      const themeFromStorage = localStorage.getItem("${STORAGE_KEY_THEME}");
-      if (themeFromStorage === "dark" || themeFromStorage === "light") {
-        document.documentElement.classList.add(\`\${themeFromStorage}-theme\`);
-      } else {
-        const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.classList.add(isDark ? "dark-theme" : "light-theme");
-      }
-    } catch (e) { }
-  })();
-`;
-
 /**
  * Get the currently inferred theme and the user's explicitly-selected theme. Set the theme.
  */
@@ -66,13 +51,31 @@ export const useAppearanceUITheme = (): AppearanceUIThemeContextType =>
 export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   children,
 }) => {
-  const [systemTheme, setSystemTheme] = useState<AppearanceUITheme>(
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light",
-  );
   const [preferredTheme, setPreferredTheme] =
     useState<PreferredAppearanceUITheme>("system");
+
+  const [systemTheme, setSystemTheme] = useState<AppearanceUITheme>("light");
+
+  useEffect(() => {
+    let actualTheme: AppearanceUITheme = "light";
+    try {
+      const fromStorage = localStorage.getItem(STORAGE_KEY_THEME);
+      if (
+        !fromStorage &&
+        window.matchMedia("(prefers-color-scheme: dark)")?.matches
+      ) {
+        actualTheme = "dark";
+      }
+
+      if (fromStorage === "dark") {
+        actualTheme = "dark";
+      }
+
+      setSystemTheme(actualTheme);
+    } catch (e) {
+      setSystemTheme(actualTheme);
+    }
+  }, [preferredTheme]);
 
   useEffect(function attachSystemListener() {
     const listener = (e) => {
@@ -94,7 +97,9 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   useEffect(() => {
     try {
       const themeFromStorage = localStorage.getItem(STORAGE_KEY_THEME);
+
       if (themeFromStorage === "dark" || themeFromStorage === "light") {
+        document.documentElement.className = `theme--${themeFromStorage} ${themeFromStorage}-theme`;
         setPreferredTheme(themeFromStorage);
       }
     } catch (e) {
@@ -102,21 +107,23 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     }
   }, []);
 
-  useEffect(() => {
-    document.documentElement.classList.remove("light-theme", "dark-theme");
-    if (preferredTheme !== "system") {
-      document.documentElement.classList.add(`${preferredTheme}-theme`);
-    }
-  }, [preferredTheme]);
-
   const handleThemeChange = useCallback(
     (updated: PreferredAppearanceUITheme) => {
-      setPreferredTheme(updated);
+      ["theme--dark", "theme--light", "light-theme", "dark-theme"].forEach(
+        (c) => {
+          document.documentElement.classList.remove(c);
+        },
+      );
 
+      setPreferredTheme(updated);
       try {
         if (updated === "system") {
           localStorage.removeItem(STORAGE_KEY_THEME);
         } else {
+          document.documentElement.classList.add(
+            `theme--${updated}`,
+            `${updated}-theme`, // This is for the Radix UI theme
+          );
           localStorage.setItem(STORAGE_KEY_THEME, updated);
         }
       } catch (e) {
@@ -125,7 +132,6 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     },
     [],
   );
-
   const theme: AppearanceUITheme = useMemo(
     () => (preferredTheme === "system" ? systemTheme : preferredTheme),
     [systemTheme, preferredTheme],
