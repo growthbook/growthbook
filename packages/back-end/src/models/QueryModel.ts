@@ -22,7 +22,6 @@ const querySchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  name: String,
   displayTitle: String,
   organization: {
     type: String,

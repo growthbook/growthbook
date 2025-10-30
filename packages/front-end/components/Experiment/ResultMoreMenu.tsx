@@ -206,7 +206,7 @@ export default function ResultMoreMenu({
           title="Full Refresh"
           content={
             <>
-              This experiment has Pipeline Mode Incremental enabled.
+              This experiment has Pipeline Mode enabled.
               <br />
               <br />
               Fully refreshing the experiment will re-scan the data source from

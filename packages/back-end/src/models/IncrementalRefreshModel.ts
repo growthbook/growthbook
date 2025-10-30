@@ -10,12 +10,6 @@ const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,
   collectionName: COLLECTION_NAME,
   idPrefix: "ir_",
-  auditLog: {
-    entity: "incrementalRefresh",
-    createEvent: "incrementalRefresh.create",
-    updateEvent: "incrementalRefresh.update",
-    deleteEvent: "incrementalRefresh.delete",
-  },
   globallyUniqueIds: true,
   additionalIndexes: [
     {

@@ -3235,8 +3235,8 @@ export default abstract class SqlIntegration
                           metricQuantileSettings: data.quantileMetric
                             ? data.metricQuantileSettings
                             : undefined,
-                          metricTimestampCol: "m.timestamp",
-                          exposureTimestampCol: "d.timestamp",
+                          metricTimestampColExpr: "m.timestamp",
+                          exposureTimestampColExpr: "d.timestamp",
                         })} as ${data.alias}_value`
                       : ""
                   }
@@ -3248,8 +3248,8 @@ export default abstract class SqlIntegration
                           overrideConversionWindows:
                             data.overrideConversionWindows,
                           endDate: settings.endDate,
-                          metricTimestampCol: "m.timestamp",
-                          exposureTimestampCol: "d.timestamp",
+                          metricTimestampColExpr: "m.timestamp",
+                          exposureTimestampColExpr: "d.timestamp",
                         })} as ${data.alias}_denominator`
                       : ""
                   }
@@ -3866,8 +3866,8 @@ export default abstract class SqlIntegration
             metric,
             overrideConversionWindows,
             endDate: settings.endDate,
-            metricTimestampCol: "m.timestamp",
-            exposureTimestampCol: "d.timestamp",
+            metricTimestampColExpr: "m.timestamp",
+            exposureTimestampColExpr: "d.timestamp",
           })} as value
         FROM
           ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
@@ -5927,21 +5927,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     overrideConversionWindows,
     endDate,
     metricQuantileSettings,
-    metricTimestampCol,
-    exposureTimestampCol,
+    metricTimestampColExpr,
+    exposureTimestampColExpr,
   }: {
     col: string;
     metric: ExperimentMetricInterface;
     overrideConversionWindows: boolean;
     endDate: Date;
     metricQuantileSettings?: MetricQuantileSettings;
-    metricTimestampCol: string;
-    exposureTimestampCol: string;
+    metricTimestampColExpr: string;
+    exposureTimestampColExpr: string;
   }): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause(
-        exposureTimestampCol,
-        metricTimestampCol,
+        exposureTimestampColExpr,
+        metricTimestampColExpr,
         metric,
         endDate,
         overrideConversionWindows,
@@ -7338,8 +7338,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                     metricQuantileSettings: data.quantileMetric
                       ? data.metricQuantileSettings
                       : undefined,
-                    metricTimestampCol: "cast(m.timestamp as timestamp)",
-                    exposureTimestampCol: "d.first_exposure_timestamp",
+                    metricTimestampColExpr: "CAST(m.timestamp AS timestamp)",
+                    exposureTimestampColExpr: "d.first_exposure_timestamp",
                   })} AS ${data.alias}_value
                 ${
                   data.ratioMetric
@@ -7349,8 +7349,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                         overrideConversionWindows:
                           data.overrideConversionWindows,
                         endDate: params.settings.endDate,
-                        metricTimestampCol: "cast(m.timestamp as timestamp)",
-                        exposureTimestampCol: "d.first_exposure_timestamp",
+                        metricTimestampColExpr:
+                          "CAST(m.timestamp AS timestamp)",
+                        exposureTimestampColExpr: "d.first_exposure_timestamp",
                       })} AS ${data.alias}_denominator`
                     : ""
                 }
