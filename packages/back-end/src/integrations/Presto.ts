@@ -149,18 +149,19 @@ export default class Presto extends SqlIntegration {
   getDefaultDatabase() {
     return this.params.catalog || "";
   }
-  // TODO(adriel): Find a better way for this
+
+  // FIXME: Consider using 2 separate queries to create table and insert data instead of ignored cteSql
+  // NB: CREATE AS CTE does not work because of a bug with timestamp columns with Hive
   getExperimentUnitsTableQueryFromCte(
     unitsTableFullName: string,
-    cteSql: string,
+    _cteSql: string,
   ): string {
-    // TODO: How to ensure the partition matches the CTE? same with table name
     return format(
       `CREATE TABLE ${unitsTableFullName} (
         user_id ${this.getDataType("string")},
         variation ${this.getDataType("string")},
         first_exposure_timestamp ${this.getDataType("timestamp")}
-      )
+    )
       ${this.createUnitsTableOptions()}
     `,
       this.getFormatDialect(),

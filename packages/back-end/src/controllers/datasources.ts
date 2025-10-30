@@ -641,19 +641,26 @@ export async function postValidatePipelineSettings(
     };
   }
 
-  try {
-    await integration.runTestQuery(
-      getPipelineValidationInsertQuery({
-        tableFullName: fullTestTablePath,
-        integration,
-      }),
-    );
-    results.insert.result = "success";
-  } catch (e) {
+  if (results.create.result !== "success") {
     results.insert = {
-      result: "failed",
-      resultMessage: "message" in e ? e.message : String(e),
+      result: "skipped",
+      resultMessage: "Skipped due to create failure",
     };
+  } else {
+    try {
+      await integration.runTestQuery(
+        getPipelineValidationInsertQuery({
+          tableFullName: fullTestTablePath,
+          integration,
+        }),
+      );
+      results.insert.result = "success";
+    } catch (e) {
+      results.insert = {
+        result: "failed",
+        resultMessage: "message" in e ? e.message : String(e),
+      };
+    }
   }
 
   if (
