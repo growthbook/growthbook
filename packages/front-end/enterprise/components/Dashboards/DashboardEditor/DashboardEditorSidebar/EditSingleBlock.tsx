@@ -84,6 +84,7 @@ const metricSelectorLabels: {
 };
 
 interface Props {
+  projects: string[];
   dashboardId: string;
   experiment: ExperimentInterfaceStringDates | null;
   cancel: () => void;
@@ -143,6 +144,7 @@ export default function EditSingleBlock({
   submit,
   block,
   setBlock,
+  projects,
 }: Props) {
   const {
     dimensions,
@@ -186,8 +188,28 @@ export default function EditSingleBlock({
 
   // TODO: does this need to handle metric groups
   const factMetricOptions = useMemo(
-    () => factMetrics.map((m) => ({ label: m.name, value: m.id })),
-    [factMetrics],
+    () =>
+      factMetrics
+        // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
+        .filter((factMetric) => {
+          if (!projects.length || !factMetric.projects.length) {
+            return true;
+          }
+
+          // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
+          if (
+            blockHasFieldOfType(block, "factMetricId", isString) &&
+            factMetric.id === block.factMetricId
+          ) {
+            return true;
+          }
+
+          return projects.every((project) =>
+            factMetric.projects.includes(project),
+          );
+        })
+        .map((m) => ({ label: m.name, value: m.id })),
+    [block, factMetrics, projects],
   );
 
   const metricOptions = useMemo(() => {
@@ -531,6 +553,7 @@ export default function EditSingleBlock({
           }}
           mutate={mutateQuery}
           initial={savedQuery}
+          projects={projects}
           id={savedQuery?.id}
           dashboardId={dashboardId}
           onSave={async (

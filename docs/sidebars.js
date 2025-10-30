@@ -303,7 +303,11 @@ const sidebars = {
           type: "doc",
           id: "experimentation-analysis/managed-warehouse",
           label: "Managed Warehouse",
-          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/event-forwarder",
+          label: "Event Forwarder",
         },
         {
           type: "doc",

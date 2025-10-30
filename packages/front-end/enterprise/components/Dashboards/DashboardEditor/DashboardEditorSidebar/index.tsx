@@ -46,6 +46,7 @@ function moveBlocks<T>(
 
 interface Props {
   dashboardId: string;
+  projects: string[];
   experiment: ExperimentInterfaceStringDates | null;
   isGeneralDashboard?: boolean;
   open: boolean;
@@ -69,6 +70,7 @@ interface Props {
 }
 
 export default function DashboardEditorSidebar({
+  projects,
   dashboardId,
   experiment,
   isGeneralDashboard = false,
@@ -232,6 +234,7 @@ export default function DashboardEditorSidebar({
             <EditSingleBlock
               dashboardId={dashboardId}
               experiment={experiment}
+              projects={projects}
               cancel={cancel}
               submit={submit}
               block={stagedBlock}
