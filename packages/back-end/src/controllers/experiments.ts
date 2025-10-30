@@ -2806,9 +2806,29 @@ export async function createExperimentSnapshot({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+  const metricAndMetricGroupIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+  );
 
-  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const metricGroups = metricAndMetricGroupIds.map(
+    (id) => allMetricGroups.find((g) => g.id === id) ?? null,
+  );
+
+  //include metric group metric ids to return correct snapshot settings (specifically regression adjustment)
+  const filteredMetricGroups = metricGroups.filter(isDefined);
+  let allExperimentMetricIds = metricAndMetricGroupIds;
+  if (filteredMetricGroups.length > 0) {
+    allExperimentMetricIds = expandMetricGroups(
+      metricAndMetricGroupIds,
+      filteredMetricGroups,
+    );
+  }
+
+  const allExperimentMetrics = allExperimentMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined);
 
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics

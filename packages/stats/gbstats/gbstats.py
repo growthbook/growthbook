@@ -522,6 +522,7 @@ def analyze_metric_df(
                 use_uncapped=False,
             )
             res = test.compute_result()
+
             if metric.statistic_type in ["ratio_ra", "mean_ra"]:
                 test_cuped_unadjusted = get_configured_test(
                     row=s,
