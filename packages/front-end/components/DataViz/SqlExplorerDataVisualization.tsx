@@ -936,14 +936,14 @@ export function DataVisualizationDisplay({
     }
 
     return (
-      <div className="pl-4 pr-4">
+      <>
         <Flex
           justify="center"
           align="center"
           height="100%"
-          overflowY="auto"
           direction="column"
-          className="py-2"
+          className="px-4"
+          style={{ overflowX: "auto", width: "100%", minWidth: "max-content" }}
         >
           <h4>{dataVizConfig.title}</h4>
           <Table variant="surface">
@@ -983,7 +983,7 @@ export function DataVisualizationDisplay({
             </TableBody>
           </Table>
         </Flex>
-      </div>
+      </>
     );
   }
 
