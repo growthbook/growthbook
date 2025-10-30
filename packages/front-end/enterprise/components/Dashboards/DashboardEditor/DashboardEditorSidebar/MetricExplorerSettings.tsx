@@ -20,7 +20,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   const factTable = getFactTableById(metric?.numerator?.factTableId || "");
 
   // Preset values that appear in the dropdown
-  const presetDays = [7, 14, 30, 90, 180, 365, 9999];
+  const presetDays = [7, 14, 30, 90, 180, 365];
 
   // Track whether user selected "Custom Lookback" option
   // Initialize based on whether current value is a preset or custom
