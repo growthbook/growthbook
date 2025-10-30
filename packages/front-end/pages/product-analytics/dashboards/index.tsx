@@ -40,6 +40,7 @@ import {
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import LinkButton from "@/ui/LinkButton";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
@@ -245,12 +246,12 @@ export default function DashboardsPage() {
         <Flex justify="between" align="center">
           <h1>Product Analytics Dashboards</h1>
           {filteredDashboards.length ? (
-            <Button
-              onClick={() => router.push("/product-analytics/dashboards/new")}
+            <LinkButton
+              href="/product-analytics/dashboards/new"
               disabled={!canCreate}
             >
               Create Dashboard
-            </Button>
+            </LinkButton>
           ) : null}
         </Flex>
         {!filteredDashboards.length ? (

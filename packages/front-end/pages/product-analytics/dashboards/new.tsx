@@ -48,7 +48,6 @@ export default function NewDashboardPage() {
   const handleSubmitDashboard: SubmitDashboard<UpdateDashboardArgs> =
     useCallback(
       async (args) => {
-        console.log("args", args);
         // If dashboardId is "new", we need to create the dashboard (POST)
         if (args.dashboardId === "new") {
           const res = await apiCall<{
@@ -66,13 +65,7 @@ export default function NewDashboardPage() {
               blocks: args.data.blocks || dashboard.blocks,
             }),
           });
-
-          if (res.status === 200) {
-            setDashboard(res.dashboard);
-          } else {
-            console.error(res);
-            throw new Error("Failed to create dashboard");
-          }
+          setDashboard(res.dashboard);
         } else {
           // Otherwise, update as normal
           const res = await apiCall<{
@@ -88,13 +81,7 @@ export default function NewDashboardPage() {
                 args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
             }),
           });
-
-          if (res.status === 200) {
-            setDashboard(res.dashboard);
-          } else {
-            console.error(res);
-            throw new Error("Failed to update dashboard");
-          }
+          setDashboard(res.dashboard);
         }
       },
       [apiCall, dashboard],
