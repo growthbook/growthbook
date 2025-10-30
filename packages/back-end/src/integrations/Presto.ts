@@ -2,6 +2,7 @@
 import { Client, IPrestoClientOptions } from "presto-client";
 import { format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
+import { prestoCreateTablePartitions } from "shared/enterprise";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
@@ -145,6 +146,10 @@ export default class Presto extends SqlIntegration {
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
+  }
+
+  createTablePartitions(columns: string[]) {
+    return prestoCreateTablePartitions(columns);
   }
 
   // FIXME(incremental-refresh): Consider using 2 separate queries to create table and insert data instead of ignored cteSql

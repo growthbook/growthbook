@@ -110,3 +110,10 @@ export function bigQueryCreateTablePartitions(columns: string[]) {
     return `${partitionBy} CLUSTER BY ${clusterBy}`;
   }
 }
+
+export function prestoCreateTablePartitions(columns: string[]) {
+  return `WITH (
+    format = 'ORC',
+    partitioned_by = ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]
+  )`;
+}
