@@ -2,9 +2,9 @@ import babel from "@rollup/plugin-babel";
 import resolve from "@rollup/plugin-node-resolve";
 import { terser } from "rollup-plugin-terser";
 import replace from "@rollup/plugin-replace";
+import packageJson from "./package.json" assert { type: "json" };
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { version } = require("./package.json");
+const { version } = packageJson;
 
 const extensions = [".js", ".ts"];
 
@@ -100,3 +100,4 @@ export default [
     ],
   },
 ];
+

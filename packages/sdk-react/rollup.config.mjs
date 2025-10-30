@@ -8,7 +8,12 @@ const extensions = [".js", ".ts", ".tsx", ".jsx"];
 export default {
   input: "src/index.ts",
   external: (id) => {
-    return !id.match(/(sdk-react|^\.)/);
+    // Bundle local files
+    if (id.startsWith('.') || id.startsWith('/') || id.startsWith('\0') || id.includes('src/')) {
+      return false;
+    }
+    // Mark package imports as external (react, @growthbook/growthbook, etc.)
+    return true;
   },
   output: [
     {
@@ -36,3 +41,4 @@ export default {
     }),
   ],
 };
+
