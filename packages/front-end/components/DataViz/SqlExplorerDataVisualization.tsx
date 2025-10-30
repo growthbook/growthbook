@@ -940,10 +940,13 @@ export function DataVisualizationDisplay({
         <Flex
           justify="center"
           align="center"
-          height="100%"
           direction="column"
-          className="px-4"
-          style={{ overflowX: "auto", width: "100%", minWidth: "max-content" }}
+          className="p-4"
+          style={{
+            overflowX: "auto",
+            width: "100%",
+            minWidth: "max-content",
+          }}
         >
           <h4>{dataVizConfig.title}</h4>
           <Table variant="surface">
