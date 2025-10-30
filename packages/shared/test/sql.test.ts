@@ -250,6 +250,10 @@ describe("isReadOnlySQL", () => {
     const sql = `-- /*\nDROP TABLE users\n-- */ SELECT 1`;
     expect(isReadOnlySQL(sql)).toBe(false);
   });
+  it("cannot be tricked by nested comments and an IN clause", () => {
+    const sql = `-- /*\nDELETE FROM users WHERE id NOT IN (--*/\nSELECT 1)`;
+    expect(isReadOnlySQL(sql)).toBe(false);
+  });
 });
 describe("isMultiStatementSQL", () => {
   it("should return true for multiple statements", () => {
@@ -346,9 +350,16 @@ describe("isMultiStatementSQL", () => {
     const sql = `SELECT \`It\`\`s a test\`; DROP TABLE users; SELECT \`1\`;`;
     expect(isMultiStatementSQL(sql)).toBe(true);
   });
-
-  it("is conservative with dialects that don't support backslash escaping", () => {
-    const sql = `SELECT 'It\\'; DROP TABLE users; SELECT '1'`;
+  it("allows parse errors as long as there are no semicolons", () => {
+    const sql = `SELECT 'It\\'`;
+    expect(isMultiStatementSQL(sql)).toBe(false);
+  });
+  it("allows parse errors as long as there is only a trailing semicolon", () => {
+    const sql = `SELECT 'It\\'; `;
+    expect(isMultiStatementSQL(sql)).toBe(false);
+  });
+  it("blocks all internal semicolons when there is a parse error", () => {
+    const sql = `SELECT 'It\\'; DROP TABLE users`;
     expect(isMultiStatementSQL(sql)).toBe(true);
   });
 });
