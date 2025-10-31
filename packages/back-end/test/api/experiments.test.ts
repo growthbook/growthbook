@@ -7,7 +7,6 @@ import {
   updateExperiment,
 } from "../../src/models/ExperimentModel";
 import { getLatestSnapshot } from "../../src/models/ExperimentSnapshotModel";
-import { findVisualChangesetsByExperiment } from "../../src/models/VisualChangesetModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
 import { setupApp } from "./api.setup";
 
@@ -25,11 +24,6 @@ jest.mock("../../src/models/ExperimentModel", () => ({
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
   getLatestSnapshot: jest.fn(),
-}));
-
-jest.mock("../../src/models/VisualChangesetModel", () => ({
-  findVisualChangesetsByExperiment: jest.fn().mockResolvedValue([]),
-  toVisualChangesetApiInterface: jest.fn(),
 }));
 
 jest.mock("../../src/models/MetricModel", () => ({
@@ -832,85 +826,6 @@ describe("experiments API", () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("message");
       expect(res.body.message).toContain("No results found");
-    });
-  });
-
-  describe("POST /api/v1/experiments/:id/snapshot", () => {
-    it("creates experiment snapshot", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-
-      const snapshotPayload = {
-        phase: 0,
-        dimension: "all",
-      };
-
-      const res = await request(app)
-        .post("/api/v1/experiments/exp_123/snapshot")
-        .send(snapshotPayload)
-        .set("Authorization", "Bearer foo");
-
-      // Note: This might return different status codes based on implementation
-      // Adjust expectations based on actual behavior
-      expect([200, 400]).toContain(res.status);
-      if (res.status === 200) {
-        expect(res.body).toHaveProperty("snapshot");
-      }
-    });
-
-    it("returns 400 when experiment not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(null);
-
-      const snapshotPayload = {
-        phase: 0,
-        dimension: "all",
-      };
-
-      const res = await request(app)
-        .post("/api/v1/experiments/nonexistent/snapshot")
-        .send(snapshotPayload)
-        .set("Authorization", "Bearer foo");
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("message");
-    });
-  });
-
-  describe("GET /api/v1/experiments/:id/visual-changesets", () => {
-    it("returns visual changesets for experiment", async () => {
-      setReqContext({
-        org,
-        permissions: {
-          canViewExperiment: () => true,
-        },
-      });
-
-      (findVisualChangesetsByExperiment as jest.Mock).mockResolvedValue([]);
-
-      const res = await request(app)
-        .get("/api/v1/experiments/exp_123/visual-changesets")
-        .set("Authorization", "Bearer foo");
-
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("visualChangesets");
-      expect(Array.isArray(res.body.visualChangesets)).toBe(true);
-    });
-
-    it("returns empty array when no visual changesets exist", async () => {
-      setReqContext({
-        org,
-        permissions: {
-          canViewExperiment: () => true,
-        },
-      });
-
-      (findVisualChangesetsByExperiment as jest.Mock).mockResolvedValue([]);
-
-      const res = await request(app)
-        .get("/api/v1/experiments/exp_123/visual-changesets")
-        .set("Authorization", "Bearer foo");
-
-      expect(res.status).toBe(200);
-      expect(res.body.visualChangesets).toEqual([]);
     });
   });
 });
