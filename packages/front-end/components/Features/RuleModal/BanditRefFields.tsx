@@ -146,6 +146,8 @@ export default function BanditRefFields({
                   valueType={feature.valueType}
                   feature={feature}
                   renderJSONInline={false}
+                  useCodeInput={true}
+                  codeInputDefaultHeight={80}
                 />
               ))}
             </div>

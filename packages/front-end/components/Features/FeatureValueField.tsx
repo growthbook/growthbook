@@ -19,6 +19,7 @@ import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -33,6 +34,8 @@ export interface Props {
   renderJSONInline?: boolean;
   disabled?: boolean;
   useDropdown?: boolean;
+  useCodeInput?: boolean;
+  codeInputDefaultHeight?: number;
 }
 
 export default function FeatureValueField({
@@ -46,6 +49,8 @@ export default function FeatureValueField({
   renderJSONInline,
   disabled = false,
   useDropdown = false,
+  useCodeInput = false,
+  codeInputDefaultHeight,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -120,6 +125,50 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
+    if (useCodeInput) {
+      let formatted;
+      try {
+        const parsed = dJSON.parse(value);
+        formatted = stringify(parsed);
+      } catch (e) {
+        // Ignore
+      }
+
+      const formattedHelpText = (
+        <div className="d-flex align-items-top">
+          {helpText && <div>{helpText}</div>}
+          <a
+            href="#"
+            className={clsx("text-purple ml-auto", {
+              "text-muted cursor-default no-underline":
+                !formatted || formatted === value,
+            })}
+            onClick={(e) => {
+              e.preventDefault();
+              if (formatted && formatted !== value) {
+                setValue(formatted);
+              }
+            }}
+          >
+            <FaMagic /> Format JSON
+          </a>
+        </div>
+      );
+
+      return (
+        <CodeTextArea
+          label={label}
+          language="json"
+          value={value}
+          setValue={setValue}
+          helpText={formattedHelpText}
+          placeholder={placeholder}
+          disabled={disabled}
+          resizable={true}
+          defaultHeight={codeInputDefaultHeight}
+        />
+      );
+    }
     return (
       <JSONTextEditor
         label={label}

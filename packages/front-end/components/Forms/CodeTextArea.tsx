@@ -1,7 +1,8 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState, useRef, createElement } from "react";
+import { useEffect, useState, useRef, createElement, useMemo } from "react";
 import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
+import { v4 as uuid4 } from "uuid";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
@@ -188,6 +189,8 @@ export type Props = Omit<
   onCtrlEnter?: () => void;
   wrapperClassName?: string;
   completions?: AceCompletion[];
+  resizable?: boolean;
+  defaultHeight?: number;
 };
 
 const LIGHT_THEME = "textmate";
@@ -205,6 +208,8 @@ export default function CodeTextArea({
   onCtrlEnter,
   wrapperClassName,
   completions,
+  resizable = false,
+  defaultHeight = 200, // for resizable
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -212,8 +217,10 @@ export default function CodeTextArea({
   const { theme } = useAppearanceUITheme();
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const editorUid = useMemo(() => uuid4(), []);
 
-  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
+  const heightProps =
+    fullHeight || resizable ? { height: "100%" } : { minLines, maxLines };
 
   // Handle Ctrl+Enter binding
   useEffect(() => {
@@ -234,7 +241,8 @@ export default function CodeTextArea({
 
   // Auto-resize editor when container size changes
   useEffect(() => {
-    if (!editor || !containerRef.current || !fullHeight) return;
+    if (!editor || !containerRef.current) return;
+    if (!fullHeight && !resizable) return;
 
     const resizeObserver = new ResizeObserver(() => {
       editor.resize();
@@ -245,7 +253,7 @@ export default function CodeTextArea({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [editor, fullHeight]);
+  }, [editor, fullHeight, resizable]);
 
   return (
     <Field
@@ -253,16 +261,55 @@ export default function CodeTextArea({
       containerClassName={fullHeight ? "h-100" : ""}
       render={(id) => {
         return (
-          <>
+          <div
+            id={editorUid}
+            className={fieldProps.disabled ? "ace-editor-disabled" : undefined}
+          >
             <div
               ref={containerRef}
               className={`border rounded ${wrapperClassName} ${
                 fullHeight ? "h-100" : ""
               }`}
+              style={{
+                ...(resizable
+                  ? {
+                      resize: "vertical",
+                      overflow: "auto",
+                      height: !fullHeight ? defaultHeight : undefined,
+                    }
+                  : {}),
+              }}
             >
+              {fieldProps.disabled && (
+                <style jsx>{`
+                  #${editorUid}.ace-editor-disabled .ace_content {
+                    background-color: ${theme === "light"
+                      ? "rgba(180, 180, 180, 0.20)"
+                      : "rgba(110, 110, 110, 0.25)"};
+                  }
+                  #${editorUid}.ace-editor-disabled .ace_gutter {
+                    background-color: ${theme === "light"
+                      ? "rgba(180, 180, 180, 0.10)"
+                      : "rgba(110, 110, 110, 0.15)"} !important;
+                  }
+                `}</style>
+              )}
               <AceEditor
                 name={id}
-                onLoad={(e) => setEditor(e)}
+                onLoad={(e) => {
+                  setEditor(e);
+                  // Clear auto-selection after editor loads
+                  setTimeout(() => {
+                    e.clearSelection();
+                  }, 100);
+                  // Disable highlights for readonly state
+                  if (fieldProps.disabled) {
+                    e.setOptions({
+                      highlightActiveLine: false,
+                      highlightGutterLine: false,
+                    });
+                  }
+                }}
                 mode={language}
                 theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
                 width="inherit"
@@ -291,7 +338,7 @@ export default function CodeTextArea({
                 }
               />
             </div>
-          </>
+          </div>
         );
       }}
     />

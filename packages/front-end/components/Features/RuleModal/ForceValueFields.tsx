@@ -56,6 +56,7 @@ export default function ForceValueFields({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
+          useCodeInput={true}
         />
       </div>
 
