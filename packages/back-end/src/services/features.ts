@@ -120,6 +120,7 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  namespaces = [],
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -131,6 +132,7 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
+  namespaces?: { name: string; hashAttribute?: string }[];
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -149,6 +151,7 @@ export function generateFeaturesPayload({
       experimentMap,
       safeRolloutMap,
       holdoutsMap,
+      namespaces,
     });
     if (def) {
       defs[feature.id] = def;
@@ -219,6 +222,7 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
+  namespaces = [],
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -226,6 +230,7 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
+  namespaces?: { name: string; hashAttribute?: string }[];
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -335,25 +340,59 @@ export function generateAutoExperimentsPayload({
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
-        filters: phase?.namespace?.enabled
-          ? [
-              {
-                attribute: e.hashAttribute,
-                seed: phase.namespace.name,
-                hashVersion: 2,
-                ranges: [phase.namespace.range],
-              },
-            ]
-          : [],
-        seed: phase.seed,
-        name: e.name,
-        phase: `${e.phases.length - 1}`,
         force: forcedVariation
           ? e.variations.indexOf(forcedVariation)
           : undefined,
         condition,
         coverage: phase.coverage,
       };
+
+      // Handle namespace - check if it's a new format namespace with hashAttribute
+      if (phase?.namespace?.enabled && phase.namespace.name) {
+        const nsDefinition = namespaces.find(
+          (n) => n.name === phase.namespace!.name,
+        );
+
+        // New format: namespace has hashAttribute defined
+        if (nsDefinition?.hashAttribute) {
+          const ns = phase.namespace;
+          let ranges: [number, number][];
+
+          if ("ranges" in ns && ns.ranges) {
+            ranges = ns.ranges;
+          } else if ("range" in ns) {
+            ranges = [ns.range];
+          } else {
+            ranges = [[0, 1]];
+          }
+
+          exp.filters = [
+            {
+              attribute:
+                "hashAttribute" in ns && ns.hashAttribute
+                  ? ns.hashAttribute
+                  : nsDefinition.hashAttribute,
+              seed: ns.name,
+              hashVersion: 2,
+              ranges,
+            },
+          ];
+        } else {
+          // Legacy format: use tuple format for backward compatibility
+          const ns = phase.namespace;
+          let range: [number, number];
+
+          if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+            range = ns.ranges[0];
+          } else if ("range" in ns) {
+            range = ns.range;
+          } else {
+            range = [0, 1];
+          }
+
+          exp.namespace = [ns.name, range[0], range[1]];
+        }
+      }
 
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
@@ -518,6 +557,7 @@ export async function refreshSDKPayloadCache(
       prereqStateCache,
       safeRolloutMap,
       holdoutsMap,
+      namespaces: context.org.settings?.namespaces || [],
     });
 
     const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -531,6 +571,7 @@ export async function refreshSDKPayloadCache(
       features: allFeatures,
       environment,
       prereqStateCache,
+      namespaces: context.org.settings?.namespaces || [],
     });
 
     const savedGroupsInUse = Object.keys(
@@ -897,6 +938,7 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
+    namespaces: context.org.settings?.namespaces || [],
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -920,6 +962,7 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
+    namespaces: context.org.settings?.namespaces || [],
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -1024,6 +1067,8 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
+        holdoutsMap: new Map(),
+        namespaces: [],
       });
 
       if (definition) {
@@ -1154,6 +1199,7 @@ export async function evaluateAllFeatures({
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
+      namespaces: context.org.settings?.namespaces || [],
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1347,12 +1393,14 @@ export function getApiFeatureObj({
       experimentMap,
       environment: env,
       safeRolloutMap,
+      holdoutsMap: new Map(),
+      namespaces: [],
     });
 
     featureEnvironments[env] = {
       enabled,
       defaultValue,
-      rules,
+      rules: rules as ApiFeatureRule[],
     };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
@@ -1392,9 +1440,11 @@ export function getApiFeatureObj({
         experimentMap,
         environment: env,
         safeRolloutMap,
+        holdoutsMap: new Map(),
+        namespaces: [],
       });
 
-      environmentRules[env] = rules;
+      environmentRules[env] = rules as ApiFeatureRule[];
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const publishedBy =
