@@ -424,6 +424,7 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
+            useCodeInput={true}
           />
         )}
 

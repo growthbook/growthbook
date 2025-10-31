@@ -394,6 +394,8 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
+              useCodeInput={true}
+              codeInputDefaultHeight={98}
             />
           </Box>
           <Box
@@ -416,6 +418,8 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields}
               useDropdown={true}
+              useCodeInput={true}
+              codeInputDefaultHeight={98}
             />
           </Box>
         </Grid>

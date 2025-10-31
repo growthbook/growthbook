@@ -71,6 +71,7 @@ export default function EditDefaultValueModal({
         valueType={feature.valueType}
         feature={feature}
         renderJSONInline={true}
+        useCodeInput={true}
       />
     </Modal>
   );

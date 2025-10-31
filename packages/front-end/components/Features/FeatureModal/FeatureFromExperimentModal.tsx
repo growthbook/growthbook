@@ -430,6 +430,7 @@ export default function FeatureFromExperimentModal({
               value={form.watch(`variations.${i}.value`) || ""}
               setValue={(v) => form.setValue(`variations.${i}.value`, v)}
               valueType={form.watch("valueType")}
+              useCodeInput={true}
             />
           ))}
         </div>
