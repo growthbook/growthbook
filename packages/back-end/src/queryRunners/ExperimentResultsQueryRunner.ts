@@ -107,7 +107,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId} (quantile metrics)`
+      ? `${metric.numerator.factTableId}_qtile`
       : "";
   }
   return metric.numerator.factTableId || "";
@@ -247,6 +247,7 @@ export const startExperimentResultQueries = async (
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
       settings.pipelineSettings?.allowWriting &&
+      settings.pipelineSettings?.mode === "ephemeral" &&
       !!settings.pipelineSettings?.writeDataset &&
       hasPipelineModeFeature) ??
     false;

@@ -17,6 +17,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 
 export interface Props {
   value: string;
@@ -162,7 +163,7 @@ export default function DimensionChooser({
 
   const [postLoading, setPostLoading] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
-  const { dimensionless: standardSnapshot } = useSnapshot();
+  const { dimensionless: standardSnapshot, experiment } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   // If activation metric is not selected, don't allow using that dimension
@@ -186,6 +187,31 @@ export default function DimensionChooser({
     dimensions,
     activationMetric,
   });
+
+  const isExperimentIncludedInIncrementalRefresh = experiment
+    ? getIsExperimentIncludedInIncrementalRefresh(
+        datasource ?? undefined,
+        experiment.id,
+      )
+    : false;
+
+  useEffect(() => {
+    if (isExperimentIncludedInIncrementalRefresh && value) {
+      setValue?.("");
+    }
+  }, [isExperimentIncludedInIncrementalRefresh, value, setValue]);
+
+  const incrementalRefreshBetaMessage =
+    "Dimensions are not supported for incremental refresh while in Beta.";
+
+  const effectiveOptions = isExperimentIncludedInIncrementalRefresh
+    ? [
+        {
+          label: incrementalRefreshBetaMessage,
+          value: "__beta_message__",
+        },
+      ]
+    : dimensionOptions;
 
   if (disabled) {
     const dimensionName =
@@ -211,7 +237,7 @@ export default function DimensionChooser({
           label={newUi ? undefined : "Dimension"}
           labelClassName={labelClassName}
           containerClassName={newUi ? "select-dropdown-underline" : ""}
-          options={dimensionOptions}
+          options={effectiveOptions}
           formatGroupLabel={({ label }) => (
             <div className="pt-2 pb-1 border-bottom">{label}</div>
           )}
@@ -287,6 +313,9 @@ export default function DimensionChooser({
             showHelp ? "Break down results for each metric by a dimension" : ""
           }
           disabled={disabled}
+          isOptionDisabled={(opt) =>
+            opt.label === incrementalRefreshBetaMessage
+          }
         />
         {postLoading && <LoadingSpinner className="ml-1" />}
       </Flex>

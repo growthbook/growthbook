@@ -284,9 +284,12 @@ export async function refreshDashboardData(
         variationNames: experiment.variations.map((v) => v.name),
         metricMap: await getMetricMap(context),
         queryParentId: mainSnapshot.id,
+        experimentId: experiment.id,
         factTableMap: await getFactTableMap(context),
         experimentQueryMetadata:
           getAdditionalQueryMetadataForExperiment(experiment),
+        fullRefresh: false,
+        incrementalRefreshStartTime: new Date(),
       });
     } else {
       await deleteSnapshotById(context.org.id, mainSnapshot.id);

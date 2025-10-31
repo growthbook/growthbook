@@ -66,6 +66,9 @@ export default class ClickHouse extends SqlIntegration {
       .substr(0, 19)
       .replace("T", " ")}', 'UTC')`;
   }
+  getCurrentTimestamp(): string {
+    return `now()`;
+  }
   addTime(
     col: string,
     unit: "hour" | "minute",
