@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
@@ -13,79 +13,15 @@ import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
+import PivotTable from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/PivotTable";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
-import Tooltip from "../Tooltip/Tooltip";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 
 // We need to use any here because the rows are defined only in runtime
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Rows = any[];
-
-type PivotTableConfig = Extract<DataVizConfig, { chartType: "pivot-table" }>;
-
-function PivotTableTooltip({
-  rowHeader,
-  columnHeader,
-  value,
-  dataVizConfig,
-  children,
-}: {
-  rowHeader: string;
-  columnHeader: string;
-  value: string | number | null | undefined;
-  dataVizConfig: Partial<PivotTableConfig>;
-  children: ReactNode;
-}) {
-  const xAxes = dataVizConfig.xAxes;
-  const headerStr = rowHeader + "";
-  const [rawTitle, ...rest] = headerStr.split(":");
-  const rowTitle = (rawTitle || "").trim();
-  const rowValue = rest.join(":").trim();
-
-  const xLabel = xAxes?.[0]?.fieldName;
-  const xValue = columnHeader;
-
-  const yFieldName = dataVizConfig.yAxis?.[0]?.fieldName;
-  const yAgg = dataVizConfig.yAxis?.[0]?.aggregation;
-  const yLabel = yFieldName ? `${yFieldName} (${yAgg})` : undefined;
-  const yValue = value;
-
-  return (
-    <Tooltip
-      body={
-        <Flex direction="column" gap="2">
-          <Flex direction="row" align="center" justify="between">
-            <Text className="font-bold pr-4">{rowTitle}</Text>
-            <Text className="pl-4">{rowValue}</Text>
-          </Flex>
-          {xLabel && (
-            <Flex direction="row" align="center" justify="between">
-              <Text className="font-bold pr-4">{xLabel}</Text>
-              <Text className="pl-4">{xValue}</Text>
-            </Flex>
-          )}
-          {yLabel && (
-            <Flex direction="row" align="center" justify="between">
-              <Text className="font-bold pr-4">{yLabel}</Text>
-              <Text className="pl-4">{yValue}</Text>
-            </Flex>
-          )}
-        </Flex>
-      }
-    >
-      {children}
-    </Tooltip>
-  );
-}
 
 function parseYValue(
   row: Rows[number],
@@ -147,23 +83,6 @@ function aggregate(
     case "none":
       return numericValues[0] || 0;
   }
-}
-
-// Tree structure for hierarchical pivot table rows
-type TreeNode = {
-  label: string;
-  fullPath: string[];
-  children: Map<string, TreeNode>;
-  combos: string[]; // Full combo keys that belong to this leaf node
-};
-
-// Recursively collect all descendant combo keys from a tree node
-function getAllDescendantCombos(node: TreeNode): string[] {
-  const combos = [...node.combos];
-  node.children.forEach((child) => {
-    combos.push(...getAllDescendantCombos(child));
-  });
-  return combos;
 }
 
 function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
@@ -386,14 +305,6 @@ export function DataVisualizationDisplay({
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
-  // Helper: Create a dimension key from field and value (e.g., "browser: chrome")
-  const createDimensionKey = useCallback(
-    (field: string, value: string): string => {
-      return `${field}: ${value}`;
-    },
-    [],
-  );
-
   // Helper: Generate all combinations of dimension values across all dimensions
   const generateAllDimensionCombinations = useCallback(
     (
@@ -418,10 +329,7 @@ export function DataVisualizationDisplay({
         const newCombinations: string[][] = [];
         combinations.forEach((combination) => {
           valuesToUse.forEach((value) => {
-            newCombinations.push([
-              ...combination,
-              createDimensionKey(field, value),
-            ]);
+            newCombinations.push([...combination, value]);
           });
         });
 
@@ -430,7 +338,7 @@ export function DataVisualizationDisplay({
 
       return combinations;
     },
-    [dimensionFields, createDimensionKey],
+    [dimensionFields],
   );
 
   // If using dimensions, get top X dimension values for each dimension
@@ -595,7 +503,7 @@ export function DataVisualizationDisplay({
       // Group by dimension combination if dimensions exist
       if (row.dimensions && Object.keys(row.dimensions).length > 0) {
         const dimensionKey = dimensionFields
-          .map((field) => createDimensionKey(field, row.dimensions![field]))
+          .map((field) => row.dimensions![field])
           .join(", ");
 
         if (!groupedRows[key].dimensions[dimensionKey]) {
@@ -610,26 +518,76 @@ export function DataVisualizationDisplay({
       dimensionValuesByField,
     );
 
+    // Sort dimension combinations directly (they ARE the paths we need!)
+    // No need to build a tree - just sort and use them
+    const sortedDimensionPaths = [...dimensionCombinations].sort((a, b) => {
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const aVal = a[i] || "";
+        const bVal = b[i] || "";
+        const cmp = aVal.localeCompare(bVal);
+        if (cmp !== 0) return cmp;
+      }
+      return 0;
+    });
+
+    // Pre-calculate rowSpans for each path depth
+    // RowSpan = how many leaf paths share this prefix at this depth
+    const rowSpans = new Map<string, number>();
+    sortedDimensionPaths.forEach((path) => {
+      path.forEach((_, depth) => {
+        const key = path.slice(0, depth + 1).join("/");
+        if (!rowSpans.has(key)) {
+          // Count how many paths share this prefix
+          const matchingPaths = sortedDimensionPaths.filter((p) =>
+            p.slice(0, depth + 1).every((val, idx) => val === path[idx]),
+          );
+          rowSpans.set(key, matchingPaths.length);
+        }
+      });
+    });
+
     // Apply aggregation to each group
     const aggregatedRows = Object.values(groupedRows).map((group) => {
       const row: Record<string, unknown> = {
         x: group.x,
         y: aggregate(group.y, aggregation || "sum"),
+        _dimensionFields: dimensionFields,
+        _xAxisFields: xField ? [xField] : [],
       };
 
       if (dimensionFields.length > 0) {
         // For each combination of dimension values, add a column
+        const dimensionValuesByCombo: Record<
+          string,
+          Record<string, string>
+        > = {};
+
         dimensionCombinations.forEach((combination) => {
           const dimensionKey = combination.join(", ");
           row[dimensionKey] =
             dimensionKey in group.dimensions
               ? aggregate(group.dimensions[dimensionKey], aggregation)
               : 0;
+
+          // Store structured dimension values for this combo
+          dimensionValuesByCombo[dimensionKey] = {};
+          dimensionFields.forEach((field, idx) => {
+            dimensionValuesByCombo[dimensionKey][field] = combination[idx];
+          });
         });
+
+        row._dimensionValuesByCombo = dimensionValuesByCombo;
       }
 
       return row;
     });
+
+    // Add pivot-table-specific metadata (only if dimensions exist)
+    if (dimensionFields.length > 0 && aggregatedRows.length > 0) {
+      aggregatedRows[0]._pivotDimensionPaths = sortedDimensionPaths;
+      aggregatedRows[0]._pivotRowSpans = Object.fromEntries(rowSpans);
+      aggregatedRows[0]._pivotDimensionFields = dimensionFields;
+    }
 
     if (
       xConfig?.type === "string" &&
@@ -638,13 +596,13 @@ export function DataVisualizationDisplay({
     ) {
       // Sort by x value if specified
       aggregatedRows.sort((a, b) => {
-        if (xConfig.sort === "asc") {
+        if (xConfig?.sort === "asc") {
           return (a.x + "").localeCompare(b.x + "");
-        } else if (xConfig.sort === "desc") {
+        } else if (xConfig?.sort === "desc") {
           return (b.x + "").localeCompare(a.x + "");
-        } else if (xConfig.sort === "valueAsc") {
+        } else if (xConfig?.sort === "valueAsc") {
           return (a.y as number) - (b.y as number);
-        } else if (xConfig.sort === "valueDesc") {
+        } else if (xConfig?.sort === "valueDesc") {
           return (b.y as number) - (a.y as number);
         } else {
           return 0;
@@ -653,7 +611,7 @@ export function DataVisualizationDisplay({
     } else if (xConfig?.type === "number" || xConfig?.type === "date") {
       // Always sort in ascending order
       aggregatedRows.sort((a, b) => {
-        if (xConfig.type === "date") {
+        if (xConfig?.type === "date") {
           return (
             getValidDate(a.x as string).getTime() -
             getValidDate(b.x as string).getTime()
@@ -676,7 +634,6 @@ export function DataVisualizationDisplay({
     dimensionFields,
     dimensionValuesByField,
     filteredRows,
-    createDimensionKey,
     generateAllDimensionCombinations,
   ]);
 
@@ -774,7 +731,7 @@ export function DataVisualizationDisplay({
       xAxis: {
         name:
           xConfig?.type === "date" && xConfig?.dateAggregationUnit !== "none"
-            ? `${xConfig.dateAggregationUnit} (${xField})`
+            ? `${xConfig?.dateAggregationUnit} (${xField})`
             : xField,
         nameLocation: "middle",
         nameTextStyle: {
@@ -859,221 +816,11 @@ export function DataVisualizationDisplay({
       );
     }
 
-    const columnHeaders: string[] = [];
-    for (const row of aggregatedRows) {
-      columnHeaders.push(
-        row.x instanceof Date ? row.x.toLocaleDateString() : row.x + "",
-      );
-    }
-
-    // Build hierarchical row structure
-    type TableRow = {
-      header: string;
-      values: (string | number | null)[];
-      indent: number;
-      isBold?: boolean;
-    };
-
-    const tableRows: TableRow[] = [];
-
-    if (dimensionFields.length === 0) {
-      // No dimensions - just show the y-axis values
-      const yFieldName = dataVizConfig.yAxis?.[0]?.fieldName;
-      const yAggregation = dataVizConfig.yAxis?.[0]?.aggregation;
-      tableRows.push({
-        header: yFieldName ? `${yFieldName} (${yAggregation})` : "y",
-        values: aggregatedRows.map((row) => row.y as number),
-        indent: 0,
-      });
-    } else if (dimensionFields.length === 1) {
-      // Single dimension - no nesting needed
-      const dimensionCombos = new Set<string>();
-      aggregatedRows.forEach((row) => {
-        Object.keys(row).forEach((k) => {
-          if (k !== "x" && k !== "y") {
-            dimensionCombos.add(k);
-          }
-        });
-      });
-
-      Array.from(dimensionCombos)
-        .sort()
-        .forEach((combo) => {
-          tableRows.push({
-            header: combo,
-            values: aggregatedRows.map((row) =>
-              row[combo] !== undefined ? (row[combo] as number) : null,
-            ),
-            indent: 0,
-          });
-        });
-    } else {
-      // Multiple dimensions - build recursive hierarchical structure
-      // Collect all dimension combination keys from aggregatedRows
-      const dimensionCombos = new Set<string>();
-      aggregatedRows.forEach((row) => {
-        Object.keys(row).forEach((k) => {
-          if (k !== "x" && k !== "y") {
-            dimensionCombos.add(k);
-          }
-        });
-      });
-
-      // Build a tree from dimension combinations (e.g., "browser: chrome, country: USA")
-      const root: TreeNode = {
-        label: "",
-        fullPath: [],
-        children: new Map(),
-        combos: [],
-      };
-
-      // Parse each combo and build the tree
-      dimensionCombos.forEach((combo) => {
-        const parts = combo.split(", ");
-        let currentNode = root;
-
-        parts.forEach((part, index) => {
-          if (!currentNode.children.has(part)) {
-            currentNode.children.set(part, {
-              label: part,
-              fullPath: [...currentNode.fullPath, part],
-              children: new Map(),
-              combos: [],
-            });
-          }
-          currentNode = currentNode.children.get(part)!;
-
-          // If this is the last part, this is a leaf node - store the full combo
-          if (index === parts.length - 1) {
-            currentNode.combos.push(combo);
-          }
-        });
-      });
-
-      // Recursively render the tree into table rows
-      const renderTree = (node: TreeNode, depth: number): void => {
-        // Sort children alphabetically
-        const sortedChildren = Array.from(node.children.entries()).sort(
-          ([a], [b]) => a.localeCompare(b),
-        );
-
-        sortedChildren.forEach(([_key, childNode]) => {
-          // Get all combo keys for this node and its descendants
-          const descendantCombos = getAllDescendantCombos(childNode);
-
-          // Calculate aggregated values across all x-axis columns
-          const nodeValues = aggregatedRows.map((row) => {
-            // Sum values from all descendant combinations
-            return descendantCombos.reduce(
-              (total, combo) =>
-                total + (row[combo] !== undefined ? (row[combo] as number) : 0),
-              0,
-            );
-          });
-
-          // Leaf nodes show actual data; parent nodes show aggregated totals
-          const isLeaf =
-            childNode.combos.length > 0 && childNode.children.size === 0;
-
-          tableRows.push({
-            header: childNode.label,
-            values: nodeValues,
-            indent: depth,
-            isBold: !isLeaf, // Non-leaf nodes are bold
-          });
-
-          // Recursively render children
-          if (childNode.children.size > 0) {
-            renderTree(childNode, depth + 1);
-          }
-        });
-      };
-
-      renderTree(root, 0);
-    }
-
-    let maxCellValue = 0;
-    for (const row of tableRows) {
-      for (const value of row.values) {
-        if (typeof value === "number" && Number.isFinite(value)) {
-          if (value > maxCellValue) maxCellValue = value;
-        }
-      }
-    }
-
     return (
-      <div style={{ height: "100%" }}>
-        <Flex
-          justify="start"
-          align="center"
-          direction="column"
-          style={{
-            overflowX: "auto",
-            width: "100%",
-            maxWidth: "100%",
-            minWidth: 0,
-            height: "100%",
-            flex: 1,
-          }}
-        >
-          <div className="p-4" style={{ width: "100%" }}>
-            <h4 style={{ textAlign: "center" }}>{dataVizConfig.title}</h4>
-            <Table variant="surface">
-              <TableHeader>
-                <TableRow>
-                  <TableColumnHeader />
-                  {columnHeaders.map((header, i) => (
-                    <TableColumnHeader key={`${header}-${i}`}>
-                      {header}
-                    </TableColumnHeader>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tableRows.map((row, rowIndex) => (
-                  <TableRow key={`${row.header}-${rowIndex}`}>
-                    <TableCell
-                      style={{
-                        paddingLeft: `${12 + row.indent * 24}px`,
-                        fontWeight: row.isBold ? "bold" : "normal",
-                      }}
-                    >
-                      {row.header}
-                    </TableCell>
-                    {row.values.map((value, i) => (
-                      <TableCell
-                        role="button"
-                        key={i}
-                        style={{
-                          fontWeight: row.isBold ? "bold" : "normal",
-                          background:
-                            typeof value === "number" && maxCellValue > 0
-                              ? `color-mix(in srgb, #5071de ${Math.round(
-                                  Math.max(
-                                    0,
-                                    Math.min(1, value / maxCellValue),
-                                  ) * 85,
-                                )}%, transparent)`
-                              : undefined,
-                        }}
-                      >
-                        <PivotTableTooltip
-                          rowHeader={row.header}
-                          columnHeader={columnHeaders[i]}
-                          value={value}
-                          dataVizConfig={dataVizConfig}
-                        >
-                          {value !== null && value !== undefined ? value : "-"}
-                        </PivotTableTooltip>
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Flex>
-      </div>
+      <PivotTable
+        aggregatedRows={aggregatedRows}
+        dataVizConfig={dataVizConfig}
+      />
     );
   }
 
