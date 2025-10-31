@@ -3,10 +3,11 @@ import {
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React, { useEffect, useState } from "react";
-import { Flex, TextField } from "@radix-ui/themes";
+import { Flex, TextField, Text } from "@radix-ui/themes";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -20,7 +21,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   const factTable = getFactTableById(metric?.numerator?.factTableId || "");
 
   // Preset values that appear in the dropdown
-  const presetDays = [7, 14, 30, 90, 180, 365, 9999];
+  const presetDays = [7, 14, 30, 90, 180, 365];
 
   // Track whether user selected "Custom Lookback" option
   // Initialize based on whether current value is a preset or custom
@@ -100,6 +101,30 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
         />
       )}
 
+      {metric && factTable && factTable.filters?.length > 0 && (
+        <MultiSelectField
+          label={
+            <Text as="label" size="3" weight="medium">
+              Filters
+            </Text>
+          }
+          value={block.filters ?? []}
+          containerClassName="mb-0"
+          labelClassName="mb-0"
+          onChange={(filters) =>
+            setBlock({
+              ...block,
+              filters,
+            })
+          }
+          placeholder="Apply filters..."
+          options={factTable.filters.map((f) => ({
+            value: f.id,
+            label: f.name,
+          }))}
+        />
+      )}
+
       {metric && metric?.metricType !== "ratio" && (
         <Select
           label="Metric Value"
@@ -165,12 +190,11 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           }
         }}
       >
-        <SelectItem value="7">Last 7 Days</SelectItem>
-        <SelectItem value="14">Last 14 Days</SelectItem>
-        <SelectItem value="30">Last 30 Days</SelectItem>
-        <SelectItem value="90">Last 90 Days</SelectItem>
-        <SelectItem value="180">Last 180 Days</SelectItem>
-        <SelectItem value="365">Last 365 Days</SelectItem>
+        {presetDays.map((days) => (
+          <SelectItem key={days} value={days.toString()}>
+            Last {days} Days
+          </SelectItem>
+        ))}
         <SelectItem value="-1">Custom Lookback</SelectItem>
       </Select>
 

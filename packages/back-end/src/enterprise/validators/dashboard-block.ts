@@ -237,6 +237,7 @@ const metricExplorerBlockInterface = baseBlockInterface
     visualizationType: z.enum(["histogram", "bigNumber", "timeseries"]),
     valueType: z.enum(["avg", "sum"]),
     metricAnalysisId: z.string(),
+    filters: z.array(z.string()).optional(),
   })
   .strict();
 
