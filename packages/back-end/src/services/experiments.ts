@@ -1593,10 +1593,8 @@ export async function toExperimentApiInterface(
         description: v.description || "",
         screenshots: await Promise.all(
           v.screenshots.map(async (s) => {
-            if (!s.path) return s.path;
             try {
-              const url = await getSignedImageUrl(s.path);
-              return url || s.path;
+              return await getSignedImageUrl(s.path);
             } catch (e) {
               return s.path;
             }
