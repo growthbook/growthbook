@@ -584,10 +584,8 @@ export abstract class QueryRunner<
           error: e.message,
         })
           .then(() => {
+            onFailure();
             this.onQueryFinish();
-            if (onFailure) {
-              onFailure();
-            }
           })
           .catch((e) => logger.error(e));
       });
