@@ -722,6 +722,18 @@ export const startExperimentIncrementalRefreshQueries = async (
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
+      onFailure: async () => {
+        // Remove the source from the running data if max timestamp fails
+        runningSourceData = runningSourceData.filter(
+          (s) => s.groupId !== group.groupId,
+        );
+        await context.models.incrementalRefresh.upsertByExperimentId(
+          experimentId,
+          {
+            metricSources: runningSourceData,
+          },
+        );
+      },
       process: async (rows) => {
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
