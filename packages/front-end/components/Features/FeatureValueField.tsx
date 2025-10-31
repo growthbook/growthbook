@@ -11,6 +11,8 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
+import { Flex } from "@radix-ui/themes";
+import { PiCheck, PiCopy } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -20,6 +22,7 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -57,6 +60,50 @@ export default function FeatureValueField({
   const { simpleSchema, validationEnabled } = feature
     ? getValidation(feature)
     : { simpleSchema: null, validationEnabled: null };
+
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+
+  const CopyLink = () => (
+    <a
+      href="#"
+      className={clsx("text-purple", {
+        "text-muted cursor-default no-underline": copySuccess,
+      })}
+      onClick={(e) => {
+        e.preventDefault();
+        if (!copySuccess) performCopy(value);
+      }}
+      style={{ whiteSpace: "nowrap" }}
+    >
+      {copySuccess ? (
+        <>
+          <PiCheck /> Copied
+        </>
+      ) : (
+        <>
+          <PiCopy /> Copy
+        </>
+      )}
+    </a>
+  );
+
+  // Helper to render help text with actions (copy, format, etc)
+  const renderFieldActions = (actions: ReactNode[] = []) => {
+    if (!helpText && actions.length === 0) return undefined;
+
+    return (
+      <Flex align="center" gap="3" style={{ width: "100%" }}>
+        {helpText && <div style={{ flex: 1 }}>{helpText}</div>}
+        {actions.length > 0 && (
+          <Flex gap="3" style={{ marginLeft: "auto" }}>
+            {actions}
+          </Flex>
+        )}
+      </Flex>
+    );
+  };
 
   if (
     validationEnabled &&
@@ -134,26 +181,26 @@ export default function FeatureValueField({
         // Ignore
       }
 
-      const formattedHelpText = (
-        <div className="d-flex align-items-top">
-          {helpText && <div>{helpText}</div>}
-          <a
-            href="#"
-            className={clsx("text-purple ml-auto", {
-              "text-muted cursor-default no-underline":
-                !formatted || formatted === value,
-            })}
-            onClick={(e) => {
-              e.preventDefault();
-              if (formatted && formatted !== value) {
-                setValue(formatted);
-              }
-            }}
-          >
-            <FaMagic /> Format JSON
-          </a>
-        </div>
-      );
+      const actions = [
+        <CopyLink key="copy" />,
+        <a
+          key="format"
+          href="#"
+          className={clsx("text-purple", {
+            "text-muted cursor-default no-underline":
+              !formatted || formatted === value,
+          })}
+          onClick={(e) => {
+            e.preventDefault();
+            if (formatted && formatted !== value) {
+              setValue(formatted);
+            }
+          }}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          <FaMagic /> Format JSON
+        </a>,
+      ];
 
       return (
         <CodeTextArea
@@ -161,7 +208,7 @@ export default function FeatureValueField({
           language="json"
           value={value}
           setValue={setValue}
-          helpText={formattedHelpText}
+          helpText={renderFieldActions(actions)}
           placeholder={placeholder}
           disabled={disabled}
           resizable={true}
@@ -202,7 +249,11 @@ export default function FeatureValueField({
               minRows: 1,
             }
           : {})}
-      helpText={helpText}
+      helpText={
+        valueType === "string"
+          ? renderFieldActions([<CopyLink key="copy" />])
+          : helpText
+      }
       style={
         valueType === undefined
           ? { width: 80 }
