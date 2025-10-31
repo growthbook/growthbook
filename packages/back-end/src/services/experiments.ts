@@ -1274,49 +1274,32 @@ export async function createSnapshot({
         experiment.id,
       ));
 
+  let queryRunner:
+    | ExperimentResultsQueryRunner
+    | ExperimentIncrementalRefreshQueryRunner;
+
   if (
     isIncrementalRefreshEnabledForExperiment &&
     (experiment.type === undefined || experiment.type === "standard") &&
     snapshot.type === "standard"
   ) {
-    const hasIncrementalRefreshData =
-      (await context.models.incrementalRefresh.getByExperimentId(
-        experiment.id,
-      )) !== undefined;
-
-    const fullRefresh = !useCache || !hasIncrementalRefreshData;
-
-    const queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+    queryRunner = new ExperimentIncrementalRefreshQueryRunner(
       context,
       snapshot,
       integration,
       false, // always ignore cache for incremental refresh queries
     );
-
-    await queryRunner.startAnalysis({
-      snapshotType: type,
-      snapshotSettings: data.settings,
-      variationNames: experiment.variations.map((v) => v.name),
-      metricMap,
-      queryParentId: snapshot.id,
-      experimentId: experiment.id,
-      factTableMap,
-      experimentQueryMetadata:
-        getAdditionalQueryMetadataForExperiment(experiment),
-      fullRefresh,
-      incrementalRefreshStartTime: new Date(),
-    });
-    return queryRunner;
+  } else {
+    queryRunner = new ExperimentResultsQueryRunner(
+      context,
+      snapshot,
+      integration,
+      useCache,
+    );
   }
 
-  const queryRunner = new ExperimentResultsQueryRunner(
-    context,
-    snapshot,
-    integration,
-    useCache,
-  );
   if (!preventStartingAnalysis) {
-    await queryRunner.startAnalysis({
+    const analysisProps = {
       snapshotType: type,
       snapshotSettings: data.settings,
       variationNames: experiment.variations.map((v) => v.name),
@@ -1325,7 +1308,25 @@ export async function createSnapshot({
       factTableMap,
       experimentQueryMetadata:
         getAdditionalQueryMetadataForExperiment(experiment),
-    });
+    };
+
+    if (queryRunner instanceof ExperimentIncrementalRefreshQueryRunner) {
+      const hasIncrementalRefreshData =
+        (await context.models.incrementalRefresh.getByExperimentId(
+          experiment.id,
+        )) !== undefined;
+
+      const fullRefresh = !useCache || !hasIncrementalRefreshData;
+
+      await queryRunner.startAnalysis({
+        ...analysisProps,
+        experimentId: experiment.id,
+        incrementalRefreshStartTime: new Date(),
+        fullRefresh,
+      });
+    } else {
+      await queryRunner.startAnalysis(analysisProps);
+    }
   }
 
   const runningSnapshot = queryRunner.model;

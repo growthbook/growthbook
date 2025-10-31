@@ -263,7 +263,7 @@ export async function refreshDashboardData(
         dimension: undefined,
         datasource,
         phase: experiment.phases.length - 1,
-        useCache: true,
+        useCache: false,
         triggeredBy: "manual-dashboard",
         type: "standard",
         preventStartingAnalysis: true,
