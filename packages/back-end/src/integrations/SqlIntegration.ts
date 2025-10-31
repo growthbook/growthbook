@@ -353,8 +353,8 @@ export default abstract class SqlIntegration
   castToTimestamp(col: string): string {
     return `CAST(${col} AS TIMESTAMP)`;
   }
-  castToVarbinary(col: string): string {
-    return `CAST(${col} AS VARBINARY)`;
+  castToHllDataType(col: string): string {
+    return `CAST(${col} AS ${this.getDataType("hll")})`;
   }
   ensureFloat(col: string): string {
     return col;
@@ -6436,7 +6436,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       return {
         intermediateDataType: "hll",
         partialAggregationFunction: (column: string) =>
-          this.castToVarbinary(this.hllAggregate(column)),
+          this.castToHllDataType(this.hllAggregate(column)),
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
@@ -6702,6 +6702,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
     }
 
+    const lastMaxTimestampBinds =
+      params.lastMaxTimestamp && params.lastMaxTimestamp > settings.startDate;
+
     // TODO(incremental-refresh): What if "skip partial data" is true?
     // Does the conversionWindowsHour need to be set different?
     const endDate = this.getExperimentEndDate(settings, 0);
@@ -6763,8 +6766,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           FROM __newExposures
           WHERE 
             experiment_id = '${settings.experimentId}'
-            AND timestamp >= ${this.toTimestamp(settings.startDate)}
-            ${params.lastMaxTimestamp ? `AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+            ${
+              lastMaxTimestampBinds && params.lastMaxTimestamp
+                ? `AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}`
+                : `AND timestamp >= ${this.toTimestamp(settings.startDate)}`
+            }
             ${endDate ? `AND timestamp <= ${this.toTimestamp(endDate)}` : ""}
             
         )
