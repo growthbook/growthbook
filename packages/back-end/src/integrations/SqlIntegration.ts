@@ -6372,10 +6372,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     ) {
       return {
         intermediateDataType: "integer",
-        aggregationFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
-        reAggregateFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
+        partialAggregationFunction: (column: string) =>
+          `COALESCE(MAX(${column}), 0)`,
         finalDataType: "integer",
-        covariateAggregationFunction: (column: string) =>
+        reAggregationFunction: (column: string) =>
+          `COALESCE(MAX(${column}), 0)`,
+        fullAggregationFunction: (column: string) =>
           `COALESCE(MAX(${column}), 0)`,
       };
     }
@@ -6389,12 +6391,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     if (binomialWithAggregateFilter || userCountWithAggregateFilter) {
       return {
         intermediateDataType: "integer",
-        aggregationFunction: (column: string) =>
-          `SUM(COALESCE((${column}), 0))`,
-        reAggregateFunction: (column: string) =>
+        partialAggregationFunction: (column: string) =>
           `SUM(COALESCE((${column}), 0))`,
         finalDataType: "integer",
-        covariateAggregationFunction: (column: string) =>
+        reAggregationFunction: (column: string) =>
+          `SUM(COALESCE((${column}), 0))`,
+        fullAggregationFunction: (column: string) =>
           `SUM(COALESCE((${column}), 0))`,
       };
     }
@@ -6402,18 +6404,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // From now on need to check `nullIfZero` in case these aggregations
     // are used as part of a unit quantile metric
     if (column === "$$count") {
-      const reAggregateFunction = nullIfZero
+      const reAggregationFunction = nullIfZero
         ? (column: string) => `NULLIF(SUM(COALESCE(${column}, 0)), 0)`
         : (column: string) => `SUM(COALESCE(${column}, 0))`;
-      const covariateAggregationFunction = nullIfZero
+      const fullAggregationFunction = nullIfZero
         ? (column: string) => `NULLIF(COUNT(${column}), 0)`
         : (column: string) => `COUNT(${column})`;
       return {
         intermediateDataType: "integer",
-        aggregationFunction: (column: string) => `COUNT(${column})`,
-        reAggregateFunction,
+        partialAggregationFunction: (column: string) => `COUNT(${column})`,
         finalDataType: "integer",
-        covariateAggregationFunction,
+        reAggregationFunction,
+        fullAggregationFunction,
       };
     }
 
@@ -6423,21 +6425,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       !columnRef?.column.startsWith("$$") &&
       columnRef?.aggregation === "count distinct"
     ) {
-      const reAggregateFunction = nullIfZero
+      const reAggregationFunction = nullIfZero
         ? (column: string) =>
             `NULLIF(${this.hllCardinality(this.hllReaggregate(column))}, 0)`
         : (column: string) => this.hllCardinality(this.hllReaggregate(column));
-      const covariateAggregationFunction = nullIfZero
+      const fullAggregationFunction = nullIfZero
         ? (column: string) =>
             `NULLIF(${this.hllCardinality(this.hllAggregate(column))}, 0)`
         : (column: string) => this.hllCardinality(this.hllAggregate(column));
       return {
         intermediateDataType: "hll",
-        aggregationFunction: (column: string) =>
+        partialAggregationFunction: (column: string) =>
           this.castToVarbinary(this.hllAggregate(column)),
-        reAggregateFunction,
         finalDataType: "integer",
-        covariateAggregationFunction,
+        reAggregationFunction,
+        fullAggregationFunction,
       };
     }
 
@@ -6447,25 +6449,30 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     ) {
       return {
         intermediateDataType: "float",
-        aggregationFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
-        reAggregateFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
+        partialAggregationFunction: (column: string) =>
+          `COALESCE(MAX(${column}), 0)`,
+        reAggregationFunction: (column: string) =>
+          `COALESCE(MAX(${column}), 0)`,
         finalDataType: "float",
-        covariateAggregationFunction: (column: string) =>
+        fullAggregationFunction: (column: string) =>
           `COALESCE(MAX(${column}), 0)`,
       };
     }
 
     // otherwise, assume sum
-    const reAggregateFunction = nullIfZero
+    const reAggregationFunction = nullIfZero
+      ? (column: string) => `NULLIF(SUM(COALESCE(${column}, 0)), 0)`
+      : (column: string) => `SUM(COALESCE(${column}, 0))`;
+    const fullAggregationFunction = nullIfZero
       ? (column: string) => `NULLIF(SUM(COALESCE(${column}, 0)), 0)`
       : (column: string) => `SUM(COALESCE(${column}, 0))`;
     return {
       intermediateDataType: "float",
-      aggregationFunction: (column: string) => `SUM(COALESCE(${column}, 0))`,
-      reAggregateFunction,
-      finalDataType: "float",
-      covariateAggregationFunction: (column: string) =>
+      partialAggregationFunction: (column: string) =>
         `SUM(COALESCE(${column}, 0))`,
+      finalDataType: "float",
+      reAggregationFunction,
+      fullAggregationFunction,
     };
   }
 
@@ -7029,13 +7036,15 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${metricData
               .map((m) => {
                 const raSettings = m.raMetricPhaseStartSettings;
+                // Use full aggregation function since we are
+                // aggregating only once to the user level for CUPED data
                 const aggfunction = this.getAggregationMetadata({
                   metric: m.metric,
-                }).covariateAggregationFunction;
+                }).fullAggregationFunction;
                 const denomAggFunction = this.getAggregationMetadata({
                   metric: m.metric,
                   useDenominator: true,
-                })?.covariateAggregationFunction;
+                })?.fullAggregationFunction;
                 return `
                 ${
                   m.numeratorSourceIndex === factTableWithMetricData.index
@@ -7372,13 +7381,15 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , ${this.castToDate("timestamp")} AS metric_date
             ${metricData
               .map((m) => {
+                // Use partial aggregation function since we are
+                // aggregating at the user-date level, not the user level
                 const aggfunction = this.getAggregationMetadata({
                   metric: m.metric,
-                }).aggregationFunction;
+                }).partialAggregationFunction;
                 const denomAggFunction = this.getAggregationMetadata({
                   metric: m.metric,
                   useDenominator: true,
-                })?.aggregationFunction;
+                })?.partialAggregationFunction;
                 return `
                 , ${aggfunction(`${m.alias}_value`)} AS ${this.encodeMetricIdForColumnName(m.id)}_value
                 ${
@@ -7467,11 +7478,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .map((data) => {
               const reAggFunction = this.getAggregationMetadata({
                 metric: data.metric,
-              }).reAggregateFunction;
+              }).reAggregationFunction;
               const denomReAggFunction = this.getAggregationMetadata({
                 metric: data.metric,
                 useDenominator: true,
-              })?.reAggregateFunction;
+              })?.reAggregationFunction;
               return `, ${reAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_value
                 ${
                   data.ratioMetric && denomReAggFunction

@@ -65,26 +65,28 @@ export type FactMetricAggregationType =
   | "userCountAggregateFilter";
 
 export type FactMetricAggregationMetadata = {
-  // Data type of the intermediate value produced by the aggregation function
-  intermediateDataType: DataType; // Should match output of aggregationFunction
-  // takes the processed column from the fact table (e.g. 1 for binomial, or `column` for a selected column)
-  // and produces an aggregated value that can be stored at the user-date level
-  // Should return `intermediateDataType`
-  aggregationFunction: (column: string) => string;
-  // takes user-date aggregation and re-aggregates it to the user level for producing
-  // the final metric value in the `capCoalesceValue` function
-  // Should return `finalDataType`
-  reAggregateFunction: (column: string, quantileColumn?: string) => string;
+  // Every metric can be partially aggregated (e.g. per user-date) to `intermediateDataType`
+  // to be stored in the experimenter's warehouse where it can later be re-aggregated
+  // to produce the final metric value.
+  intermediateDataType: DataType;
 
-  // CUPED data
-  // Data type of the final value produced by the covariateAggregationFunction (should
-  // be the same as the datatype produced by reaggregateFunction, but we don't store
-  // the result of re-aggregation in the database except for CUPED data).
-  finalDataType: DataType; // Should match output of covariateAggregationFunction
-  // Takes processed column from the fact table and produces the final metric value for
-  // the cuped/covariate capCoalesceValue function, skipping re-aggregation
-  // Should return `finalDataType`
-  covariateAggregationFunction: (column: string) => string;
+  // Takes the processed column from the fact table (e.g. 1 for binomial, or `column`
+  // for a selected column) and produces a partially aggregated value that can be
+  // stored at the user-date level as intermediateDataType.
+  partialAggregationFunction: (column: string) => string;
+
+  // Takes the partially aggregated value and re-aggregates it to the user level
+  // for producing the final metric value. This should produce a value of type
+  // `finalDataType`, but is returned directly to the back-end, not stored in
+  // the experimenter's warehouse.
+  reAggregationFunction: (column: string, quantileColumn?: string) => string;
+
+  // Data type of the final value produced by the fullAggregationFunction and reAggregationFunction
+  finalDataType: DataType;
+
+  // Takes the processed column from the fact table and produces the final metric value
+  // directly and is only used for CUPED metrics in the incremental refresh pipeline.
+  fullAggregationFunction: (column: string) => string;
 };
 
 // "exposure" builds a window before the first exposure date for the user
