@@ -129,6 +129,7 @@ const metricExplorerBlockSchema = new mongoose.Schema({
   visualizationType: String,
   valueType: String,
   metricAnalysisId: String,
+  filters: [String],
 });
 
 dashboardBlockSchema.index({

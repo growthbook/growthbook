@@ -3,10 +3,11 @@ import {
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React, { useEffect, useState } from "react";
-import { Flex, TextField } from "@radix-ui/themes";
+import { Flex, TextField, Text } from "@radix-ui/themes";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -97,6 +98,30 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           }
           userIdType={block.analysisSettings.userIdType}
           newStyle
+        />
+      )}
+
+      {metric && factTable && factTable.filters?.length > 0 && (
+        <MultiSelectField
+          label={
+            <Text as="label" size="3" weight="medium">
+              Filters
+            </Text>
+          }
+          value={block.filters ?? []}
+          containerClassName="mb-0"
+          labelClassName="mb-0"
+          onChange={(filters) =>
+            setBlock({
+              ...block,
+              filters,
+            })
+          }
+          placeholder="Apply filters..."
+          options={factTable.filters.map((f) => ({
+            value: f.id,
+            label: f.name,
+          }))}
         />
       )}
 
