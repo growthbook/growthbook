@@ -14,6 +14,7 @@ import {
 import { ApiFactTable, ApiFactTableFilter } from "back-end/types/openapi";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { promiseAllChunks } from "../util/promise";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -561,6 +562,26 @@ export async function deleteFactTable(
     id: factTable.id,
     organization: factTable.organization,
   });
+}
+
+export async function deleteAllFactTablesForAProject({
+  projectId,
+  context,
+}: {
+  projectId: string;
+  context: ReqContext | ApiReqContext;
+}) {
+  const factTablesToDelete = await FactTableModel.find({
+    organization: context.org.id,
+    projects: [projectId],
+  });
+
+  await promiseAllChunks(
+    factTablesToDelete.map(
+      (factTable) => async () => await deleteFactTable(context, factTable),
+    ),
+    5,
+  );
 }
 
 export async function deleteFactFilter(
