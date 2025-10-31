@@ -150,7 +150,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentQueryMetadata } from "back-end/types/query";
-
+import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
@@ -174,7 +174,6 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
-import { getSignedImageUrl } from "back-end/src/services/files";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
