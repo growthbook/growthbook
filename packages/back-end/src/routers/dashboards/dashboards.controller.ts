@@ -263,7 +263,7 @@ export async function refreshDashboardData(
         dimension: undefined,
         datasource,
         phase: experiment.phases.length - 1,
-        useCache: false,
+        useCache: true,
         triggeredBy: "manual-dashboard",
         type: "standard",
         preventStartingAnalysis: true,
@@ -288,7 +288,6 @@ export async function refreshDashboardData(
         factTableMap: await getFactTableMap(context),
         experimentQueryMetadata:
           getAdditionalQueryMetadataForExperiment(experiment),
-        // TODO(adriel): Dashboard is using IncrementalRefresh -- should we allow it or force it to be non-Incremental?
         fullRefresh: false,
         incrementalRefreshStartTime: new Date(),
       });
