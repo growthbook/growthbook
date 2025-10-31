@@ -1071,7 +1071,7 @@ def variation_statistic_from_metric_row(
                 f"{prefix}_main_post_denominator_pre_sum_product_uncapped"
             ]
             m_pre_d_post_sum_of_products = row[
-                f"{prefix}_main_pre_denominator_post_sum_product"
+                f"{prefix}_main_pre_denominator_post_sum_product_uncapped"
             ]
         else:
             m_post_m_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]

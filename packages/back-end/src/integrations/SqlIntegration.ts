@@ -1366,30 +1366,40 @@ export default abstract class SqlIntegration
           ...(row.theta !== undefined && {
             theta: parseFloat(row.theta) || 0,
           }),
-          ...(row.main_covariate_sum_product !== undefined && {
-            main_covariate_sum_product:
-              parseFloat(row.main_covariate_sum_product) || 0,
+          ...(row.main_covariate_sum_product_uncapped !== undefined && {
+            main_covariate_sum_product_uncapped:
+              parseFloat(row.main_covariate_sum_product_uncapped) || 0,
           }),
-          ...(row.main_post_denominator_pre_sum_product !== undefined && {
-            main_post_denominator_pre_sum_product:
-              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
-          }),
-          ...(row.main_pre_denominator_post_sum_product !== undefined && {
-            main_pre_denominator_post_sum_product:
-              parseFloat(row.main_pre_denominator_post_sum_product) || 0,
-          }),
-          ...(row.main_pre_denominator_pre_sum_product !== undefined && {
-            main_pre_denominator_pre_sum_product:
-              parseFloat(row.main_pre_denominator_pre_sum_product) || 0,
-          }),
-          ...(row.denominator_post_denominator_pre_sum_product !==
+          ...(row.main_post_denominator_pre_sum_product_uncapped !==
             undefined && {
-            denominator_post_denominator_pre_sum_product:
-              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
+            main_post_denominator_pre_sum_product_uncapped:
+              parseFloat(row.main_post_denominator_pre_sum_product_uncapped) ||
+              0,
           }),
-          ...(row.main_post_denominator_pre_sum_product !== undefined && {
-            main_post_denominator_pre_sum_product:
-              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
+          ...(row.main_pre_denominator_post_sum_product_uncapped !==
+            undefined && {
+            main_pre_denominator_post_sum_product_uncapped:
+              parseFloat(row.main_pre_denominator_post_sum_product_uncapped) ||
+              0,
+          }),
+          ...(row.main_pre_denominator_pre_sum_product_uncapped !==
+            undefined && {
+            main_pre_denominator_pre_sum_product_uncapped:
+              parseFloat(row.main_pre_denominator_pre_sum_product_uncapped) ||
+              0,
+          }),
+          ...(row.denominator_post_denominator_pre_sum_product_uncapped !==
+            undefined && {
+            denominator_post_denominator_pre_sum_product_uncapped:
+              parseFloat(
+                row.denominator_post_denominator_pre_sum_product_uncapped,
+              ) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product_uncapped !==
+            undefined && {
+            main_post_denominator_pre_sum_product_uncapped:
+              parseFloat(row.main_post_denominator_pre_sum_product_uncapped) ||
+              0,
           }),
           ...(row.main_sum_uncapped !== undefined && {
             main_sum_uncapped: parseFloat(row.main_sum_uncapped) || 0,
@@ -3327,11 +3337,11 @@ export default abstract class SqlIntegration
                       , SUM(COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_denominator_pre_sum_uncapped 
                       , SUM(POWER(COALESCE(c.${data.alias}_denominator, 0), 2)) AS ${data.alias}_denominator_pre_sum_squares_uncapped
                       , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(m.${data.alias}_denominator, 0)) AS ${data.alias}_main_denominator_sum_product_uncapped
-                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(c.${data.alias}_value, 0)) AS ${data.alias}_main_covariate_sum_uncapped
-                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_main_post_denominator_pre_uncapped
-                      , SUM(COALESCE(c.${data.alias}_value, 0) * COALESCE(m.${data.alias}_denominator, 0)) AS ${data.alias}_main_pre_denominator_post_uncapped
-                      , SUM(COALESCE(c.${data.alias}_value, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_main_pre_denominator_pre_uncapped
-                      , SUM(COALESCE(m.${data.alias}_denominator, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_denominator_post_denominator_pre_uncapped`
+                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(c.${data.alias}_value, 0)) AS ${data.alias}_main_covariate_sum_product_uncapped
+                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_main_post_denominator_pre_sum_product_uncapped
+                      , SUM(COALESCE(c.${data.alias}_value, 0) * COALESCE(m.${data.alias}_denominator, 0)) AS ${data.alias}_main_pre_denominator_post_sum_product_uncapped
+                      , SUM(COALESCE(c.${data.alias}_value, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_main_pre_denominator_pre_sum_product_uncapped
+                      , SUM(COALESCE(m.${data.alias}_denominator, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_denominator_post_denominator_pre_sum_product_uncapped`
                       : ""
                   }
                   , SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum
