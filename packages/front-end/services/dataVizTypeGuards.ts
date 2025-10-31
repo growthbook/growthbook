@@ -3,6 +3,7 @@ import {
   BarChart,
   DataVizConfig,
   LineChart,
+  PivotTable,
   ScatterChart,
 } from "back-end/src/validators/saved-queries";
 
@@ -25,6 +26,8 @@ export function requiresXAxis(
  */
 export function supportsDimension(
   config: Partial<DataVizConfig>,
-): config is Partial<BarChart | LineChart | AreaChart | ScatterChart> {
-  return requiresXAxis(config);
+): config is Partial<
+  BarChart | LineChart | AreaChart | ScatterChart | PivotTable
+> {
+  return requiresXAxis(config) || config.chartType === "pivot-table";
 }

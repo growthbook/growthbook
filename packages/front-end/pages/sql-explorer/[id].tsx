@@ -163,7 +163,11 @@ export default function SqlQueryDetail() {
         )}
 
         {savedQuery.dataVizConfig?.map((config, index) => (
-          <Box key={index} className="appbox py-4 mb-0">
+          <Box
+            key={index}
+            className="appbox py-4 mb-0"
+            style={{ maxHeight: "500px", overflow: "auto" }}
+          >
             <DataVisualizationDisplay
               dataVizConfig={config}
               rows={savedQuery.results?.results || []}
