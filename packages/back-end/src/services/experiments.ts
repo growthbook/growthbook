@@ -174,6 +174,7 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
+import { getSignedImageUrl } from "back-end/src/services/files";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -1585,13 +1586,25 @@ export async function toExperimentApiInterface(
     disableStickyBucketing: experiment.disableStickyBucketing,
     bucketVersion: experiment.bucketVersion,
     minBucketVersion: experiment.minBucketVersion,
-    variations: experiment.variations.map((v) => ({
-      variationId: v.id,
-      key: v.key,
-      name: v.name || "",
-      description: v.description || "",
-      screenshots: v.screenshots.map((s) => s.path),
-    })),
+    variations: await Promise.all(
+      experiment.variations.map(async (v) => ({
+        variationId: v.id,
+        key: v.key,
+        name: v.name || "",
+        description: v.description || "",
+        screenshots: await Promise.all(
+          v.screenshots.map(async (s) => {
+            if (!s.path) return s.path;
+            try {
+              const url = await getSignedImageUrl(s.path);
+              return url || s.path;
+            } catch (e) {
+              return s.path;
+            }
+          }),
+        ),
+      })),
+    ),
     phases: experiment.phases.map((p) => ({
       name: p.name,
       dateStarted: p.dateStarted.toISOString(),
