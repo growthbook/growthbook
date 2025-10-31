@@ -46,7 +46,7 @@ export default function CustomFieldModal({
           ? (existing.defaultValue ?? false)
           : "",
       section: existing.section || section,
-      projects: existing.projects || [project] || [],
+      projects: existing.projects || (project ? [project] : []),
       required: existing.required ?? false,
       index: true,
     },

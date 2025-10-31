@@ -367,6 +367,10 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/custom-fields": {
+    /** Get list of custom fields */
+    get: operations["getCustomFields"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -3761,6 +3765,20 @@ export interface components {
           flagKey: string;
         })[];
     };
+    CustomField: {
+      id: string;
+      name: string;
+      type: string;
+      section: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      active: boolean;
+      required: boolean;
+      projects?: (string)[];
+      values?: string;
+    };
   };
   responses: {
     Error: never;
@@ -4692,6 +4710,9 @@ export interface operations {
           prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };
@@ -6247,6 +6268,9 @@ export interface operations {
           prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };
@@ -9263,6 +9287,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          customFields?: {
+            [key: string]: string | undefined;
+          };
           /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
           pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
@@ -9751,6 +9778,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          customFields?: {
+            [key: string]: string | undefined;
+          };
           /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
           pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
@@ -13837,6 +13867,35 @@ export interface operations {
       };
     };
   };
+  getCustomFields: {
+    /** Get list of custom fields */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              name: string;
+              type: string;
+              section: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              active: boolean;
+              required: boolean;
+              projects?: (string)[];
+              values?: string;
+            })[];
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -13883,6 +13942,7 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
+export type ApiCustomField = z.infer<typeof openApiValidators.apiCustomFieldValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -13981,3 +14041,4 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
+export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];

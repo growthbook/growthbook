@@ -19,10 +19,11 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   Variation,
 } from "back-end/src/validators/experiments";
+import { validateCustomFields } from "./validation";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
-    const { datasourceId, owner: ownerEmail, project } = req.body;
+    const { datasourceId, owner: ownerEmail, project, customFields } = req.body;
 
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (project) {
@@ -61,6 +62,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       throw new Error(
         `Experiment with tracking key already exists: ${req.body.trackingKey}`,
       );
+    }
+
+    // check if the custom fields are valid
+    if (customFields) {
+      await validateCustomFields(customFields, req.context, project);
     }
 
     const ownerId = await (async () => {
