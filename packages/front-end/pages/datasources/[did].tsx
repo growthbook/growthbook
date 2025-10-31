@@ -21,7 +21,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
@@ -365,6 +364,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   />
                 </Frame>
 
+                <Frame id={EAQ_ANCHOR_ID}>
+                  <ExperimentAssignmentQueries
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+
                 {d.settings?.userIdTypes &&
                 d.settings.userIdTypes.length > 1 ? (
                   <Frame>
@@ -377,32 +385,18 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </Frame>
                 ) : null}
 
-                <Frame id={EAQ_ANCHOR_ID}>
-                  <ExperimentAssignmentQueries
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                  />
-                </Frame>
-
-                <Frame>
-                  <DataSourceJupyterNotebookQuery
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                  />
-                </Frame>
+                {d.settings.notebookRunQuery && (
+                  <Frame>
+                    <DataSourceJupyterNotebookQuery
+                      dataSource={d}
+                      onSave={updateDataSourceSettings}
+                      onCancel={() => undefined}
+                      canEdit={canUpdateDataSourceSettings}
+                    />
+                  </Frame>
+                )}
               </>
             )}
-
-            <Frame>
-              <DataSourceMetrics
-                dataSource={d}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Frame>
 
             {d.properties?.supportsWritingTables && pipelineEnabled ? (
               <Frame>
