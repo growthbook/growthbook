@@ -302,13 +302,6 @@ export default function CodeTextArea({
                   setTimeout(() => {
                     e.clearSelection();
                   }, 100);
-                  // Disable highlights for readonly state
-                  if (fieldProps.disabled) {
-                    e.setOptions({
-                      highlightActiveLine: false,
-                      highlightGutterLine: false,
-                    });
-                  }
                 }}
                 mode={language}
                 theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
