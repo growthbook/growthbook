@@ -136,6 +136,11 @@ export default function QueryStatsRow({
         values={queryStats.map((q) => q.physicalWrittenBytes)}
         format="bytes"
       />
+      <NumericQueryStatDisplay
+        stat="Rows Inserted"
+        values={queryStats.map((q) => q.rowsInserted)}
+        format="number"
+      />
       <BooleanQueryStatDisplay
         stat="Warehouse Cached"
         values={queryStats.map((q) => q.warehouseCachedResult)}

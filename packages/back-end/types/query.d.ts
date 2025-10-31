@@ -17,6 +17,7 @@ export type QueryStatistics = {
   rowsProcessed?: number;
   bytesProcessed?: number;
   bytesBilled?: number;
+  rowsInserted?: number;
   warehouseCachedResult?: boolean;
   partitionsUsed?: boolean;
   physicalWrittenBytes?: number;

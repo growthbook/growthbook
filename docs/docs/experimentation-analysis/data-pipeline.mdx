@@ -13,71 +13,13 @@ Pipeline mode is only available for Enterprise customers and is currently only a
 
 :::
 
-For experimenters who have multiple metrics per experiment and have large experiment assignment sources, GrowthBook can greatly improve the performance of your queries if you enable **Pipeline Mode**, writing intermediate tables back to your warehouse and re-using those across metric analyses in an experiment. This depends a bit on your datasource cost structure, but if you are billed by rows scanned, pipeline mode will almost certainly provide substantial savings.
+For experimenters who have multiple metrics per experiment and have large experiment assignment sources, GrowthBook can greatly improve the performance of your queries if you enable **Pipeline Mode**, writing some intermediate tables back to your warehouse with short retention and re-using those across metric analyses in an experiment. This depends a bit on your datasource cost structure, but if you are billed by rows scanned, pipeline mode will almost certainly provide substantial savings.
 
 With **Pipeline Mode** enabled, whenever an experiment analysis is run, GrowthBook dedupes your experiment assignment source, joins any relevant activation or dimension data, and then stores that deduped experiment assignment table to be re-used by the individual metric analyses.
 
-Pipeline mode supports two strategies:
+The only change from enabling pipeline mode is that we materialize one intermediate table per experiment analysis that will have the number of rows equal to the number of experiment units in that experiment. Enabling pipeline mode has no impact on any of your analysis settings or experiment results and we do not access any more data than if pipeline mode is disabled.
 
-- **Incremental refresh (Recommended)** — On each update, only scans new rows in your experiment assignment and metric sources, and persists reusable intermediate tables to minimize re-scans and speed up analyses.
-- **Temporary materialization (Legacy)** — Per-analysis, short‑lived tables are created with limited retention for reuse within an analysis window.
-
-Both strategies have no impact on your analysis settings or results and do not access any additional data beyond what a non-pipeline run would access.
-
-::::note
-
-Availability may differ by warehouse and strategy. If you don't see an option in your datasource, contact support to enable it.
-
-::::
-
-## Incremental refresh (Recommended)
-
-Incremental refresh reduces cost and speeds up experiment updates by scanning only new data since the last run, while keeping a small set of reusable, de‑duplicated tables in your warehouse.
-
-### How it works
-
-On each experiment update, GrowthBook:
-
-1. Scans only recent rows from the experiment assignment source and updates a de‑duplicated units table (one row per unit with timestamps and slicing dimensions).
-2. Scans only recent rows from each metric's fact source to update pre‑aggregated metric tables suitable for fast joins and time series.
-3. Optionally loads pre‑experiment windows for CUPED into a separate table for only newly seen units.
-4. Joins the above to produce summary statistics and per‑dimension breakdowns.
-
-### Requirements
-
-- A dedicated schema/dataset with write access for GrowthBook
-- Ability to retain intermediate tables beyond 24 hours (often days) for reuse
-- Appropriate permissions to create/read/update (and when supported, merge/partition) tables
-
-### Controls and observability
-
-- Default "Update" performs an incremental refresh
-- "Full refresh" is available when you need to re‑state results (e.g., backfills, config changes)
-- View the queries GrowthBook runs and the intermediate table names, with last updated timestamps
-
-### Limitations and notes
-
-- Some estimators (e.g., CUPED windows, quantile tests) may require additional scans or a full refresh depending on configuration
-- Exact table schemas and partitioning/retention strategies vary by warehouse
-
-### Enable Incremental refresh
-
-1. In your Data Source, open "Data Pipeline Settings"
-2. Enable Pipeline Mode and select the strategy: "Incremental refresh (Recommended)"
-3. Set a destination schema/dataset for intermediate tables and choose retention settings
-4. Save
-
-#### Trino (Hive)
-
-- Ensure the service account has `USE SCHEMA`, `CREATE TABLE`, and `SELECT` permissions in the destination schema
-- Configure partitions as appropriate for your Hive catalog (e.g., date or run partitioning)
-- For restatements, use "Full refresh" to rebuild intermediate tables
-
-## Temporary materialization (Legacy)
-
-In this strategy, GrowthBook materializes one intermediate table per experiment analysis with the number of rows equal to the number of experiment units, with short retention. This is useful for ad‑hoc workloads but is being replaced by Incremental refresh for better performance and lower scan costs.
-
-To enable Temporary materialization, follow the steps for your data warehouse:
+To enable Pipeline Mode, follow the steps for your data warehouse:
 
 ## Configuring Pipeline Mode
 

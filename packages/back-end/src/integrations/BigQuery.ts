@@ -91,6 +91,10 @@ export default class BigQuery extends SqlIntegration {
     const [rows, _, queryResultsResponse] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
 
+    const rowsInserted =
+      metadata?.statistics?.query?.statementType === "INSERT"
+        ? Number(metadata?.statistics?.query?.numDmlAffectedRows)
+        : undefined;
     const statistics = {
       executionDurationMs: Number(
         metadata?.statistics?.finalExecutionDurationMs,
@@ -103,6 +107,7 @@ export default class BigQuery extends SqlIntegration {
         metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
           ? metadata.statistics.query.totalPartitionsProcessed > 0
           : undefined,
+      ...(rowsInserted !== undefined && { rowsInserted }),
     };
 
     const columns = queryResultsResponse
