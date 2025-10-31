@@ -117,6 +117,10 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
   // until we can write custom regex validator
   zod = zod.replace(/(?<=string\(\))\.datetime\(\{.*?\}\)/g, "");
 
+  // Convert zod v3 style z.record(valueType) to zod v4 style z.record(z.string(), valueType)
+  // This handles the breaking change in zod v4 where z.record() requires explicit key and value types
+  zod = zod.replace(/z\.record\(([^)]+)\)/g, "z.record(z.string(), $1)");
+
   return zod;
 }
 
