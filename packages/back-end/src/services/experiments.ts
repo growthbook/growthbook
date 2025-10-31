@@ -150,7 +150,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentQueryMetadata } from "back-end/types/query";
-
+import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
@@ -1585,13 +1585,23 @@ export async function toExperimentApiInterface(
     disableStickyBucketing: experiment.disableStickyBucketing,
     bucketVersion: experiment.bucketVersion,
     minBucketVersion: experiment.minBucketVersion,
-    variations: experiment.variations.map((v) => ({
-      variationId: v.id,
-      key: v.key,
-      name: v.name || "",
-      description: v.description || "",
-      screenshots: v.screenshots.map((s) => s.path),
-    })),
+    variations: await Promise.all(
+      experiment.variations.map(async (v) => ({
+        variationId: v.id,
+        key: v.key,
+        name: v.name || "",
+        description: v.description || "",
+        screenshots: await Promise.all(
+          v.screenshots.map(async (s) => {
+            try {
+              return await getSignedImageUrl(s.path);
+            } catch (e) {
+              return s.path;
+            }
+          }),
+        ),
+      })),
+    ),
     phases: experiment.phases.map((p) => ({
       name: p.name,
       dateStarted: p.dateStarted.toISOString(),

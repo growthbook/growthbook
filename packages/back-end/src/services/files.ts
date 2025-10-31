@@ -130,10 +130,27 @@ export async function getSignedImageUrl(
     throw new Error("Error: Filename must not contain null bytes");
   }
 
+  // Extract the object key from a full URL if necessary
+  let objectKey = filePath;
+  try {
+    const url = new URL(filePath);
+    objectKey = url.pathname;
+    // Remove leading slash if present
+    if (objectKey.startsWith("/")) {
+      objectKey = objectKey.substring(1);
+    }
+    // Remove /upload/ prefix if present (for local uploads)
+    if (objectKey.startsWith("upload/")) {
+      objectKey = objectKey.substring(7);
+    }
+  } catch {
+    // Not a full URL, use as-is
+  }
+
   if (UPLOAD_METHOD === "s3") {
     const params = {
       Bucket: S3_BUCKET,
-      Key: filePath,
+      Key: objectKey,
       Expires: expiresInMinutes * 60, // Convert to seconds
     };
 
@@ -144,7 +161,7 @@ export async function getSignedImageUrl(
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
     const bucket = storage.bucket(GCS_BUCKET_NAME);
-    const file = bucket.file(filePath);
+    const file = bucket.file(objectKey);
 
     const [signedUrl] = await file.getSignedUrl({
       action: "read",
