@@ -32,7 +32,7 @@ import { HiBadgeCheck } from "react-icons/hi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
+// No longer need ResultsMetricFilters - we use simple string[] for metricTagFilter
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -70,8 +70,8 @@ const CompactResults: FC<{
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
   differenceType: DifferenceType;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
   mainTableOnly?: boolean;
@@ -125,8 +125,8 @@ const CompactResults: FC<{
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
   differenceType,
-  metricFilter,
-  setMetricFilter,
+  metricTagFilter,
+  setMetricTagFilter,
   isTabActive,
   setTab,
   mainTableOnly,
@@ -190,7 +190,7 @@ const CompactResults: FC<{
     ssrPolyfills,
     customMetricSlices,
     pinnedMetricSlices,
-    metricFilter,
+    metricTagFilter,
     sortBy,
     sortDirection,
     analysisBarSettings,
@@ -317,12 +317,14 @@ const CompactResults: FC<{
             shouldShowMetricSlices: true,
             getChildRowCounts,
           })}
-          metricFilter={
-            experimentType !== "multi-armed-bandit" ? metricFilter : undefined
-          }
-          setMetricFilter={
+          metricTagFilter={
             experimentType !== "multi-armed-bandit"
-              ? setMetricFilter
+              ? metricTagFilter
+              : undefined
+          }
+          setMetricTagFilter={
+            experimentType !== "multi-armed-bandit"
+              ? setMetricTagFilter
               : undefined
           }
           metricTags={allMetricTags}
@@ -378,8 +380,8 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
             })}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
+            metricTagFilter={metricTagFilter}
+            setMetricTagFilter={setMetricTagFilter}
             metricTags={allMetricTags}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -433,8 +435,8 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
             })}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
+            metricTagFilter={metricTagFilter}
+            setMetricTagFilter={setMetricTagFilter}
             metricTags={allMetricTags}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
