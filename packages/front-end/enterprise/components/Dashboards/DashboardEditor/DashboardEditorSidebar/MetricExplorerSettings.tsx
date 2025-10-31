@@ -190,12 +190,11 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           }
         }}
       >
-        <SelectItem value="7">Last 7 Days</SelectItem>
-        <SelectItem value="14">Last 14 Days</SelectItem>
-        <SelectItem value="30">Last 30 Days</SelectItem>
-        <SelectItem value="90">Last 90 Days</SelectItem>
-        <SelectItem value="180">Last 180 Days</SelectItem>
-        <SelectItem value="365">Last 365 Days</SelectItem>
+        {presetDays.map((days) => (
+          <SelectItem key={days} value={days.toString()}>
+            Last {days} Days
+          </SelectItem>
+        ))}
         <SelectItem value="-1">Custom Lookback</SelectItem>
       </Select>
 
