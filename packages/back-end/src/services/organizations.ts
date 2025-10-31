@@ -20,7 +20,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { TiktokenModel } from "@dqbd/tiktoken";
+import { AiModel } from "shared/ai";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -185,8 +185,7 @@ export function getAISettingsForOrg(
   aiProvider: "openai" | "anthropic";
   openAIAPIKey: string;
   anthropicAPIKey: string;
-  openAIDefaultModel: TiktokenModel;
-  anthropicDefaultModel: string;
+  defaultAIModel: AiModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
@@ -208,10 +207,10 @@ export function getAISettingsForOrg(
     aiProvider: preferredProvider as "openai" | "anthropic",
     openAIAPIKey: includeKey ? openAIKey : "",
     anthropicAPIKey: includeKey ? anthropicKey : "",
-    openAIDefaultModel:
-      context.org.settings?.openAIDefaultModel || "gpt-4o-mini",
-    anthropicDefaultModel:
-      context.org.settings?.anthropicDefaultModel || "claude-3-haiku-20240307",
+    defaultAIModel:
+      context.org.settings?.defaultAIModel ||
+      context.org.settings?.openAIDefaultModel ||
+      "gpt-4o-mini",
   };
 }
 

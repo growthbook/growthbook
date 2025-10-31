@@ -10,7 +10,7 @@ export default function useOrgSettings() {
 export const useAISettings = (): {
   aiEnabled: boolean;
   aiAgreedTo: boolean;
-  openAIDefaultModel: string;
+  defaultAIModel: string;
 } => {
   const { settings, agreements } = useUser();
 
@@ -21,6 +21,6 @@ export const useAISettings = (): {
     ? !!agreements?.includes(AGREEMENT_TYPE_AI)
     : true;
 
-  const openAIDefaultModel = settings?.openAIDefaultModel || "gpt-4o-mini";
-  return { aiEnabled, openAIDefaultModel, aiAgreedTo };
+  const defaultAIModel = settings?.defaultAIModel || "gpt-4o-mini";
+  return { aiEnabled, defaultAIModel, aiAgreedTo };
 };

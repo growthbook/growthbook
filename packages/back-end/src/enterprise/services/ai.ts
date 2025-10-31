@@ -28,7 +28,12 @@ import {
   get_encoding,
   TiktokenModel,
 } from "@dqbd/tiktoken";
-import { AIPromptType } from "shared/ai";
+import {
+  AIPromptType,
+  AIProvider,
+  AI_PROVIDER_MODEL_MAP,
+  AI_PROVIDER_CONFIGS,
+} from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { logger } from "back-end/src/util/logger";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
@@ -39,49 +44,6 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { logCloudAIUsage } from "back-end/src/services/clickhouse";
-
-// AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic";
-
-export interface AIProviderConfig {
-  provider: AIProvider;
-  textModel: string;
-  embeddingModel?: string;
-  maxTokens: number;
-  supportsJSON: boolean;
-  supportsEmbeddings: boolean;
-}
-
-// Available models for each provider
-export const AI_MODELS: Record<AIProvider, string[]> = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
-  anthropic: [
-    "claude-3-5-sonnet-20241022",
-    "claude-3-5-haiku-20241022",
-    "claude-3-opus-20240229",
-    "claude-3-sonnet-20240229",
-    "claude-3-haiku-20240307",
-  ],
-};
-
-const AI_PROVIDER_CONFIGS: Record<AIProvider, AIProviderConfig> = {
-  openai: {
-    provider: "openai",
-    textModel: "gpt-4o-mini",
-    embeddingModel: "text-embedding-ada-002",
-    maxTokens: 128000,
-    supportsJSON: true,
-    supportsEmbeddings: true,
-  },
-  anthropic: {
-    provider: "anthropic",
-    textModel: "claude-3-haiku-20240307",
-    embeddingModel: undefined, // Anthropic doesn't have embedding models
-    maxTokens: 200000,
-    supportsJSON: true,
-    supportsEmbeddings: false,
-  },
-};
 
 // Helper function to get available providers based on API keys
 export function getAvailableAIProviders(): AIProvider[] {
@@ -104,7 +66,7 @@ export function getAvailableAIModels(): Record<AIProvider, string[]> {
   const result: Partial<Record<AIProvider, string[]>> = {};
 
   availableProviders.forEach((provider) => {
-    result[provider] = AI_MODELS[provider];
+    result[provider] = AI_PROVIDER_MODEL_MAP[provider];
   });
 
   return result as Record<AIProvider, string[]>;
@@ -112,7 +74,7 @@ export function getAvailableAIModels(): Record<AIProvider, string[]> {
 
 // Get models for a specific provider
 export function getModelsForProvider(provider: AIProvider): string[] {
-  return AI_MODELS[provider] || [];
+  return AI_PROVIDER_MODEL_MAP[provider] || [];
 }
 
 // Require a minimum of 30 tokens for responses.
@@ -129,8 +91,7 @@ export const getAIProvider = (
     aiProvider,
     openAIAPIKey,
     anthropicAPIKey,
-    openAIDefaultModel,
-    anthropicDefaultModel,
+    defaultAIModel,
   } = getAISettingsForOrg(context, true);
 
   // Use override provider if specified, otherwise use org default
@@ -139,11 +100,7 @@ export const getAIProvider = (
   if (!aiEnabled) {
     return {
       provider: null,
-      model:
-        overrideModel ||
-        (selectedProvider === "anthropic"
-          ? anthropicDefaultModel
-          : openAIDefaultModel),
+      model: overrideModel || defaultAIModel,
       config: AI_PROVIDER_CONFIGS[selectedProvider],
     };
   }
@@ -155,12 +112,12 @@ export const getAIProvider = (
     provider = createAnthropic({
       apiKey: anthropicAPIKey,
     });
-    model = overrideModel || anthropicDefaultModel;
+    model = overrideModel || defaultAIModel;
   } else if (selectedProvider === "openai" && openAIAPIKey) {
     provider = createOpenAI({
       apiKey: openAIAPIKey,
     });
-    model = overrideModel || openAIDefaultModel;
+    model = overrideModel || defaultAIModel;
   }
 
   return {

@@ -64,7 +64,7 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   ];
 }
 
-const openAIModels = [
+const AI_MODEL_LABELS = [
   { value: "gpt-4o-mini", label: "gpt-4o-mini" },
   { value: "gpt-4o", label: "gpt-4o" },
   { value: "gpt-4", label: "gpt-4" },
@@ -72,6 +72,11 @@ const openAIModels = [
   { value: "gpt-4-vision-preview", label: "gpt-4-vision-preview" },
   { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo" },
   { value: "gpt-3.5-turbo-16k", label: "gpt-3.5-turbo-16k" },
+  { value: "claude-3-5-sonnet-20241022", label: "claude-3-5-sonnet" },
+  { value: "claude-3-5-haiku-20241022", label: "claude-3-5-haiku" },
+  { value: "claude-3-opus-20240229", label: "claude-3-opus" },
+  { value: "claude-3-sonnet-20240229", label: "claude-3-sonnet" },
+  { value: "claude-3-haiku-20240307", label: "claude-3-haiku" },
 ];
 
 export default function AISettings({
@@ -207,18 +212,18 @@ export default function AISettings({
                   <Box mb="6" width="100%">
                     <Text
                       as="label"
-                      htmlFor="openaiModel"
+                      htmlFor="defaultAIModel"
                       size="3"
                       className="font-weight-semibold"
                     >
-                      OpenAI model
+                      Default AI model
                     </Text>
                     <SelectField
-                      id="openaiModel"
+                      id="defaultAIModel"
                       helpText="Default is 4o-mini."
-                      value={form.watch("openAIDefaultModel")}
-                      onChange={(v) => form.setValue("openAIDefaultModel", v)}
-                      options={openAIModels}
+                      value={form.watch("defaultAIModel")}
+                      onChange={(v) => form.setValue("defaultAIModel", v)}
+                      options={AI_MODEL_LABELS}
                     />
                   </Box>
                 </>

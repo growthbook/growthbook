@@ -252,8 +252,7 @@ export async function postGenerateSQL(
 ) {
   const { input, datasourceId } = req.body;
   const context = getContextFromReq(req);
-  const { aiEnabled, openAIDefaultModel: _openAIDefaultModel } =
-    getAISettingsForOrg(context);
+  const { aiEnabled } = getAISettingsForOrg(context);
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     throw new Error(

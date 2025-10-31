@@ -1,3 +1,58 @@
+// AI Provider types and configurations
+export type AIProvider = "openai" | "anthropic";
+
+export interface AIProviderConfig {
+  provider: AIProvider;
+  textModel: string;
+  embeddingModel?: string;
+  maxTokens: number;
+  supportsJSON: boolean;
+  supportsEmbeddings: boolean;
+}
+
+export type AiModel =
+  | "gpt-4o"
+  | "gpt-4o-mini"
+  | "gpt-4-turbo"
+  | "gpt-4"
+  | "gpt-3.5-turbo"
+  | "claude-3-5-sonnet-20241022"
+  | "claude-3-5-haiku-20241022"
+  | "claude-3-opus-20240229"
+  | "claude-3-sonnet-20240229"
+  | "claude-3-haiku-20240307";
+
+// Available models for each provider
+export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AI_MODELS[]> = {
+  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+  anthropic: [
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku-20241022",
+    "claude-3-opus-20240229",
+    "claude-3-sonnet-20240229",
+    "claude-3-haiku-20240307",
+  ],
+};
+
+export const AI_PROVIDER_CONFIGS: Record<AIProvider, AIProviderConfig> = {
+  openai: {
+    provider: "openai",
+    textModel: "gpt-4o-mini",
+    embeddingModel: "text-embedding-ada-002",
+    maxTokens: 128000,
+    supportsJSON: true,
+    supportsEmbeddings: true,
+  },
+  anthropic: {
+    provider: "anthropic",
+    textModel: "claude-3-haiku-20240307",
+    embeddingModel: undefined, // Anthropic doesn't have embedding models
+    maxTokens: 200000,
+    supportsJSON: true,
+    supportsEmbeddings: false,
+  },
+};
+
 export interface AITokenUsageInterface {
   id?: string;
   organization: string;
