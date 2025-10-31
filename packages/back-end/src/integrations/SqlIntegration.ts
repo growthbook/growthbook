@@ -301,6 +301,9 @@ export default abstract class SqlIntegration
   toTimestamp(date: Date) {
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
   }
+  toTimestampWithMs(date: Date) {
+    return `'${date.toISOString().substring(0, 23).replace("T", " ")}'`;
+  }
   addHours(col: string, hours: number) {
     if (!hours) return col;
     let unit: "hour" | "minute" = "hour";
@@ -5449,12 +5452,20 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add a rough date filter to improve query performance
     if (startDate) {
+      // If exclusive, we need to be more precise with the timestamp
       const operator = exclusiveStartDateFilter ? ">" : ">=";
-      where.push(`m.timestamp ${operator} ${this.toTimestamp(startDate)}`);
+      const timestampFn = exclusiveStartDateFilter
+        ? this.toTimestampWithMs
+        : this.toTimestamp;
+      where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
     }
     if (endDate) {
+      // If exclusive, we need to be more precise with the timestamp
       const operator = exclusiveEndDateFilter ? "<" : "<=";
-      where.push(`m.timestamp ${operator} ${this.toTimestamp(endDate)}`);
+      const timestampFn = exclusiveEndDateFilter
+        ? this.toTimestampWithMs
+        : this.toTimestamp;
+      where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
     }
 
     const metricCols: string[] = [];
@@ -6729,7 +6740,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             }
             ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           FROM ${params.unitsTableFullName}
-          ${params.lastMaxTimestamp ? `WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+          ${params.lastMaxTimestamp ? `WHERE max_timestamp <= ${this.toTimestampWithMs(params.lastMaxTimestamp)}` : ""}
         )
         ${
           segment
@@ -6768,10 +6779,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             experiment_id = '${settings.experimentId}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
-                ? `AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}`
-                : `AND timestamp >= ${this.toTimestamp(settings.startDate)}`
+                ? `AND timestamp > ${this.toTimestampWithMs(params.lastMaxTimestamp)}`
+                : `AND timestamp >= ${this.toTimestampWithMs(settings.startDate)}`
             }
-            ${endDate ? `AND timestamp <= ${this.toTimestamp(endDate)}` : ""}
+            ${endDate ? `AND timestamp <= ${this.toTimestampWithMs(endDate)}` : ""}
             
         )
         , __jointExposures AS (
@@ -7056,8 +7067,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   m.numeratorSourceIndex === factTableWithMetricData.index
                     ? `, ${aggfunction(
                         this.ifElse(
-                          `m.timestamp >= ${this.toTimestamp(raSettings.covariateStartDate)} 
-                            AND m.timestamp < ${this.toTimestamp(raSettings.covariateEndDate)}`,
+                          `m.timestamp >= ${this.toTimestampWithMs(raSettings.covariateStartDate)} 
+                            AND m.timestamp < ${this.toTimestampWithMs(raSettings.covariateEndDate)}`,
                           `${m.alias}_value`,
                           "NULL",
                         ),
@@ -7070,8 +7081,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   m.denominatorSourceIndex === factTableWithMetricData.index
                     ? `, ${denomAggFunction(
                         this.ifElse(
-                          `m.timestamp >= ${this.toTimestamp(raSettings.covariateStartDate)} 
-                            AND m.timestamp < ${this.toTimestamp(raSettings.covariateEndDate)}`,
+                          `m.timestamp >= ${this.toTimestampWithMs(raSettings.covariateStartDate)} 
+                            AND m.timestamp < ${this.toTimestampWithMs(raSettings.covariateEndDate)}`,
                           `${m.alias}_denominator`,
                           "NULL",
                         ),
@@ -7087,7 +7098,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             FROM ${params.unitsSourceTableFullName}
             ${
               params.lastCovariateSuccessfulMaxTimestamp
-                ? `WHERE max_timestamp > ${this.toTimestamp(params.lastCovariateSuccessfulMaxTimestamp)}`
+                ? `WHERE max_timestamp > ${this.toTimestampWithMs(params.lastCovariateSuccessfulMaxTimestamp)}`
                 : ""
             }
           ) d
