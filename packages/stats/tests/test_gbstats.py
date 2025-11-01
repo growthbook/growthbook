@@ -1,4 +1,5 @@
 import dataclasses
+from dataclasses import asdict
 from functools import partial
 from unittest import TestCase, main as unittest_main
 import numpy as np
@@ -13,6 +14,7 @@ from gbstats.gbstats import (
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_df,
+    process_analysis,
     format_results,
     variation_statistic_from_metric_row,
     get_bandit_result,
@@ -187,82 +189,80 @@ RATIO_METRIC = MetricSettingsForStatsEngine(
 RATIO_RA_METRIC = copy.deepcopy(RATIO_METRIC)
 RATIO_RA_METRIC.statistic_type = "ratio_ra"
 
-RATIO_STATISTICS_DF = pd.DataFrame(
-    [
-        {
-            "dimension": "one",
-            "variation": "one",
-            "users": 120,
-            "count": 120,
-            "main_sum": 300,
-            "main_sum_squares": 869,
-            "denominator_sum": 500,
-            "denominator_sum_squares": 800,
-            "main_denominator_sum_product": -905,
-        },
-        {
-            "dimension": "one",
-            "variation": "zero",
-            "main_sum": 270,
-            "users": 100,
-            "count": 100,
-            "main_sum_squares": 848.79,
-            "denominator_sum": 510,
-            "denominator_sum_squares": 810,
-            "main_denominator_sum_product": -900,
-        },
-    ]
-)
 
+QUERY_OUTPUT_RATIO = [
+    {
+        "dimension": "one",
+        "variation": "one",
+        "users": 120,
+        "count": 120,
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "denominator_sum": 500,
+        "denominator_sum_squares": 800,
+        "main_denominator_sum_product": -905,
+    },
+    {
+        "dimension": "one",
+        "variation": "zero",
+        "main_sum": 270,
+        "users": 100,
+        "count": 100,
+        "main_sum_squares": 848.79,
+        "denominator_sum": 510,
+        "denominator_sum_squares": 810,
+        "main_denominator_sum_product": -900,
+    },
+]
+RATIO_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT_RATIO)
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dimension"] = "fifth"
 
-RATIO_RA_STATISTICS_DF = pd.DataFrame(
-    [
-        {
-            "dimension": "All",
-            "variation": "zero",
-            "users": 100,
-            "count": 100,
-            "main_sum": 485.112236689623,
-            "main_sum_squares": 2715.484666118136,
-            "denominator_sum": 679.9093275844917,
-            "denominator_sum_squares": 4939.424001640236,
-            "covariate_sum": 192.59138069991536,
-            "covariate_sum_squares": 460.076026390857,
-            "denominator_pre_sum": 290.1398399750233,
-            "denominator_pre_sum_squares": 920.9461385038898,
-            "main_covariate_sum_product": 1113.6215759318352,
-            "main_denominator_sum_product": 3602.146836776702,
-            "main_post_denominator_pre_sum_product": 1559.2878434944676,
-            "main_pre_denominator_post_sum_product": 1460.3181079276983,
-            "main_pre_denominator_pre_sum_product": 634.239482353647,
-            "denominator_post_denominator_pre_sum_product": 2130.9404074446747,
-            "theta": None,
-        },
-        {
-            "dimension": "All",
-            "variation": "one",
-            "users": 100,
-            "count": 100,
-            "main_sum": 514.7757826608777,
-            "main_sum_squares": 2994.897482705013,
-            "denominator_sum": 705.4090874383759,
-            "denominator_sum_squares": 5291.36604146392,
-            "covariate_sum": 206.94157227402536,
-            "covariate_sum_squares": 514.2903702246757,
-            "denominator_pre_sum": 302.54389139107326,
-            "denominator_pre_sum_squares": 994.4506208125663,
-            "main_covariate_sum_product": 1237.0953021125997,
-            "main_denominator_sum_product": 3918.1561431600717,
-            "main_post_denominator_pre_sum_product": 1701.0287270040265,
-            "main_pre_denominator_post_sum_product": 1604.075950326651,
-            "main_pre_denominator_pre_sum_product": 698.4173425817913,
-            "denominator_post_denominator_pre_sum_product": 2292.081739775257,
-            "theta": None,
-        },
-    ]
-)
+QUERY_OUTPUT_RATIO_RA = [
+    {
+        "dimension": "All",
+        "variation": "zero",
+        "users": 100,
+        "count": 100,
+        "main_sum": 485.112236689623,
+        "main_sum_squares": 2715.484666118136,
+        "denominator_sum": 679.9093275844917,
+        "denominator_sum_squares": 4939.424001640236,
+        "covariate_sum": 192.59138069991536,
+        "covariate_sum_squares": 460.076026390857,
+        "denominator_pre_sum": 290.1398399750233,
+        "denominator_pre_sum_squares": 920.9461385038898,
+        "main_covariate_sum_product": 1113.6215759318352,
+        "main_denominator_sum_product": 3602.146836776702,
+        "main_post_denominator_pre_sum_product": 1559.2878434944676,
+        "main_pre_denominator_post_sum_product": 1460.3181079276983,
+        "main_pre_denominator_pre_sum_product": 634.239482353647,
+        "denominator_post_denominator_pre_sum_product": 2130.9404074446747,
+        "theta": None,
+    },
+    {
+        "dimension": "All",
+        "variation": "one",
+        "users": 100,
+        "count": 100,
+        "main_sum": 514.7757826608777,
+        "main_sum_squares": 2994.897482705013,
+        "denominator_sum": 705.4090874383759,
+        "denominator_sum_squares": 5291.36604146392,
+        "covariate_sum": 206.94157227402536,
+        "covariate_sum_squares": 514.2903702246757,
+        "denominator_pre_sum": 302.54389139107326,
+        "denominator_pre_sum_squares": 994.4506208125663,
+        "main_covariate_sum_product": 1237.0953021125997,
+        "main_denominator_sum_product": 3918.1561431600717,
+        "main_post_denominator_pre_sum_product": 1701.0287270040265,
+        "main_pre_denominator_post_sum_product": 1604.075950326651,
+        "main_pre_denominator_pre_sum_product": 698.4173425817913,
+        "denominator_post_denominator_pre_sum_product": 2292.081739775257,
+        "theta": None,
+    },
+]
+RATIO_RA_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT_RATIO_RA)
 
 
 ONE_USER_DF = pd.DataFrame(
@@ -703,6 +703,333 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
+
+
+class TestMetricDrilldownRatio(TestCase):
+    def setUp(self):
+        self.var_id_map = {"zero": 0, "one": 1}
+        self.analysis_freq = dataclasses.replace(
+            DEFAULT_ANALYSIS, stats_engine="frequentist"
+        )
+        # use a proper prior for testing
+        self.ratio_metric_proper_prior = dataclasses.replace(
+            RATIO_RA_METRIC, prior_proper=True, prior_mean=-0.02, prior_stddev=0.01
+        )
+        self.ratio_metric_capped = dataclasses.replace(
+            self.ratio_metric_proper_prior, capped=True
+        )
+        self.ratio_metric_cuped_unadjusted = dataclasses.replace(
+            self.ratio_metric_proper_prior, statistic_type="ratio"
+        )
+        self.ratio_metric_flat_prior = dataclasses.replace(
+            self.ratio_metric_proper_prior, prior_proper=False
+        )
+
+        ra_statistics_df_uncapped = copy.deepcopy(pd.DataFrame(QUERY_OUTPUT_RATIO_RA))
+        # add capped columns
+        ra_statistics_df_uncapped["main_sum_uncapped"] = (
+            ra_statistics_df_uncapped["main_sum"] + 10
+        )
+        ra_statistics_df_uncapped["main_sum_squares_uncapped"] = (
+            ra_statistics_df_uncapped["main_sum_squares"] + 100
+        )
+        ra_statistics_df_uncapped["denominator_sum_uncapped"] = (
+            ra_statistics_df_uncapped["denominator_sum"] + 10
+        )
+        ra_statistics_df_uncapped["denominator_sum_squares_uncapped"] = (
+            ra_statistics_df_uncapped["denominator_sum_squares"] + 100
+        )
+        ra_statistics_df_uncapped["covariate_sum_uncapped"] = (
+            ra_statistics_df_uncapped["covariate_sum"] + 10
+        )
+        ra_statistics_df_uncapped["covariate_sum_squares_uncapped"] = (
+            ra_statistics_df_uncapped["covariate_sum_squares"] + 100
+        )
+        ra_statistics_df_uncapped["denominator_pre_sum_uncapped"] = (
+            ra_statistics_df_uncapped["denominator_pre_sum"]
+        )
+        ra_statistics_df_uncapped["denominator_pre_sum_squares_uncapped"] = (
+            ra_statistics_df_uncapped["denominator_pre_sum_squares"]
+        )
+        ra_statistics_df_uncapped["main_covariate_sum_product_uncapped"] = (
+            ra_statistics_df_uncapped["main_covariate_sum_product"]
+        )
+        ra_statistics_df_uncapped["main_denominator_sum_product_uncapped"] = (
+            ra_statistics_df_uncapped["main_denominator_sum_product"]
+        )
+        ra_statistics_df_uncapped["main_post_denominator_pre_sum_product_uncapped"] = (
+            ra_statistics_df_uncapped["main_post_denominator_pre_sum_product"]
+        )
+        ra_statistics_df_uncapped["main_pre_denominator_post_sum_product_uncapped"] = (
+            ra_statistics_df_uncapped["main_pre_denominator_post_sum_product"]
+        )
+        ra_statistics_df_uncapped["main_pre_denominator_pre_sum_product_uncapped"] = (
+            ra_statistics_df_uncapped["main_pre_denominator_pre_sum_product"]
+        )
+        ra_statistics_df_uncapped[
+            "denominator_post_denominator_pre_sum_product_uncapped"
+        ] = ra_statistics_df_uncapped["denominator_post_denominator_pre_sum_product"]
+
+        # create dataframe with only the uncapped columns
+        drop_cols_1 = [
+            "main_sum",
+            "main_sum_squares",
+            "denominator_sum",
+            "denominator_sum_squares",
+        ]
+        drop_cols_2 = [
+            "covariate_sum",
+            "covariate_sum_squares",
+            "denominator_pre_sum",
+            "denominator_pre_sum_squares",
+        ]
+        drop_cols_3 = [
+            "main_covariate_sum_product",
+            "main_denominator_sum_product",
+            "main_post_denominator_pre_sum_product",
+            "main_pre_denominator_post_sum_product",
+            "main_pre_denominator_pre_sum_product",
+            "denominator_post_denominator_pre_sum_product",
+        ]
+        drop_cols = drop_cols_1 + drop_cols_2 + drop_cols_3
+        rename_cols = {f"{col}_uncapped": col for col in drop_cols}
+        ra_statistics_df_uncapped_only = ra_statistics_df_uncapped.drop(
+            columns=drop_cols
+        ).rename(columns=rename_cols)
+        self.rows_all = [
+            ra_statistics_df_uncapped.iloc[0].to_dict(),
+            ra_statistics_df_uncapped.iloc[1].to_dict(),
+        ]
+        self.rows_uncapped_only = [
+            ra_statistics_df_uncapped_only.iloc[0].to_dict(),
+            ra_statistics_df_uncapped_only.iloc[1].to_dict(),
+        ]
+
+        self.results_freq = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ratio_metric_capped,
+            analysis=self.analysis_freq,
+        )
+        self.results_bayes = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ratio_metric_capped,
+            analysis=DEFAULT_ANALYSIS,
+        )
+
+    def test_uncapped_ratio_freq(self):
+        results_true_freq = process_analysis(
+            rows=pd.DataFrame(self.rows_uncapped_only),
+            var_id_map=self.var_id_map,
+            metric=self.ratio_metric_proper_prior,
+            analysis=self.analysis_freq,
+        )
+        result_freq_true = asdict(format_results(RATIO_RA_METRIC, results_true_freq)[0].variations[1].response)  # type: ignore
+        result_freq = asdict(format_results(self.ratio_metric_capped, self.results_freq)[0].variations[1].responseUncapped)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_freq_true["stats"]
+        del result_freq["stats"]
+        self.assertEqual(result_freq, result_freq_true)
+
+    def test_uncapped_ratio_bayes(self):
+        results_bayes_true = process_analysis(
+            rows=pd.DataFrame(self.rows_uncapped_only),
+            var_id_map=self.var_id_map,
+            metric=self.ratio_metric_proper_prior,
+            analysis=DEFAULT_ANALYSIS,
+        )
+        result_bayes_true = asdict(format_results(RATIO_RA_METRIC, results_bayes_true)[0].variations[1].response)  # type: ignore
+        result_bayes = asdict(format_results(self.ratio_metric_capped, self.results_bayes)[0].variations[1].responseUncapped)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_bayes_true["stats"]
+        del result_bayes["stats"]
+        self.assertEqual(result_bayes, result_bayes_true)
+
+    def test_cuped_unadjusted_ratio_freq(self):
+        results_freq_true = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ratio_metric_cuped_unadjusted,
+            analysis=self.analysis_freq,
+        )
+        result_freq_true = asdict(format_results(self.ratio_metric_cuped_unadjusted, results_freq_true)[0].variations[1].response)  # type: ignore
+        result_freq = asdict(format_results(self.ratio_metric_capped, self.results_freq)[0].variations[1].responseCupedUnadjusted)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_freq_true["stats"]
+        del result_freq["stats"]
+        self.assertEqual(result_freq, result_freq_true)
+
+    def test_cuped_unadjusted_ratio_bayes(self):
+        results_bayes_true = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ratio_metric_cuped_unadjusted,
+            analysis=DEFAULT_ANALYSIS,
+        )
+        result_bayes_true = asdict(format_results(self.ratio_metric_cuped_unadjusted, results_bayes_true)[0].variations[1].response)  # type: ignore
+        result_bayes = asdict(format_results(self.ratio_metric_capped, self.results_bayes)[0].variations[1].responseCupedUnadjusted)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_bayes_true["stats"]
+        del result_bayes["stats"]
+        self.assertEqual(result_bayes, result_bayes_true)
+
+    def test_flat_prior_ratio_bayes(self):
+        results_bayes_true = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ratio_metric_flat_prior,
+            analysis=DEFAULT_ANALYSIS,
+        )
+        result_bayes_true = asdict(format_results(self.ratio_metric_flat_prior, results_bayes_true)[0].variations[1].response)  # type: ignore
+        result_bayes = asdict(format_results(self.ratio_metric_capped, self.results_bayes)[0].variations[1].responseFlatPrior)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_bayes_true["stats"]
+        del result_bayes["stats"]
+        self.assertEqual(result_bayes, result_bayes_true)
+
+
+class TestMetricDrilldownUncappedCount(TestCase):
+    def setUp(self):
+        # use a proper prior for testing
+        self.ra_metric_proper_prior = dataclasses.replace(
+            RA_METRIC, prior_proper=True, prior_mean=-0.02, prior_stddev=0.01
+        )
+        self.ra_metric_capped = dataclasses.replace(
+            self.ra_metric_proper_prior, capped=True
+        )
+        self.ra_metric_cuped_unadjusted = dataclasses.replace(
+            self.ra_metric_proper_prior, statistic_type="mean"
+        )
+        self.ra_metric_flat_prior = dataclasses.replace(
+            self.ra_metric_proper_prior, prior_proper=False
+        )
+
+        ra_statistics_df_uncapped = copy.deepcopy(RA_STATISTICS_DF)
+        # add capped columns
+        ra_statistics_df_uncapped["main_sum_uncapped"] = (
+            ra_statistics_df_uncapped["main_sum"] + 10
+        )
+        ra_statistics_df_uncapped["main_sum_squares_uncapped"] = (
+            ra_statistics_df_uncapped["main_sum_squares"] + 100
+        )
+        ra_statistics_df_uncapped["covariate_sum_uncapped"] = (
+            ra_statistics_df_uncapped["covariate_sum"] + 10
+        )
+        ra_statistics_df_uncapped["covariate_sum_squares_uncapped"] = (
+            ra_statistics_df_uncapped["covariate_sum_squares"] + 100
+        )
+        ra_statistics_df_uncapped["main_covariate_sum_product_uncapped"] = (
+            ra_statistics_df_uncapped["main_covariate_sum_product"]
+        )
+        # create dataframe with only the uncapped columns
+        drop_cols = [
+            "main_sum",
+            "main_sum_squares",
+            "covariate_sum",
+            "covariate_sum_squares",
+            "main_covariate_sum_product",
+        ]
+        rename_cols = {f"{col}_uncapped": col for col in drop_cols}
+        ra_statistics_df_uncapped_only = ra_statistics_df_uncapped.drop(
+            columns=drop_cols
+        ).rename(columns=rename_cols)
+
+        self.rows_all = [
+            ra_statistics_df_uncapped.iloc[0].to_dict(),
+            ra_statistics_df_uncapped.iloc[1].to_dict(),
+        ]
+        self.rows_uncapped_only = [
+            ra_statistics_df_uncapped_only.iloc[0].to_dict(),
+            ra_statistics_df_uncapped_only.iloc[1].to_dict(),
+        ]
+        self.var_id_map = {"zero": 0, "one": 1}
+        self.analysis_freq = dataclasses.replace(
+            DEFAULT_ANALYSIS, stats_engine="frequentist"
+        )
+
+        self.results_freq = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ra_metric_capped,
+            analysis=self.analysis_freq,
+        )
+        self.results_bayes = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ra_metric_capped,
+            analysis=DEFAULT_ANALYSIS,
+        )
+
+    def test_uncapped_count_freq(self):
+        result_true_freq = process_analysis(
+            rows=pd.DataFrame(self.rows_uncapped_only),
+            var_id_map=self.var_id_map,
+            metric=self.ra_metric_proper_prior,
+            analysis=self.analysis_freq,
+        )
+        result_freq_true = asdict(format_results(RA_METRIC, result_true_freq)[0].variations[1].response)  # type: ignore
+        result_freq = asdict(format_results(self.ra_metric_capped, self.results_freq)[0].variations[1].responseUncapped)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_freq_true["stats"]
+        del result_freq["stats"]
+        self.assertEqual(result_freq, result_freq_true)
+
+    def test_uncapped_count_bayes(self):
+        results_true_bayes = process_analysis(
+            rows=pd.DataFrame(self.rows_uncapped_only),
+            var_id_map=self.var_id_map,
+            metric=self.ra_metric_proper_prior,
+            analysis=DEFAULT_ANALYSIS,
+        )
+        result_bayes_true = asdict(format_results(RA_METRIC, results_true_bayes)[0].variations[1].response)  # type: ignore
+        result_bayes = asdict(format_results(self.ra_metric_capped, self.results_bayes)[0].variations[1].responseUncapped)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_bayes_true["stats"]
+        del result_bayes["stats"]
+        self.assertEqual(result_bayes, result_bayes_true)
+
+    def test_cuped_unadjusted_count_freq(self):
+        results_freq_true = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ra_metric_cuped_unadjusted,
+            analysis=self.analysis_freq,
+        )
+        result_freq_true = asdict(format_results(self.ra_metric_cuped_unadjusted, results_freq_true)[0].variations[1].response)  # type: ignore
+        result_freq = asdict(format_results(self.ra_metric_capped, self.results_freq)[0].variations[1].responseCupedUnadjusted)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_freq_true["stats"]
+        del result_freq["stats"]
+        self.assertEqual(result_freq, result_freq_true)
+
+    def test_cuped_unadjusted_count_bayes(self):
+        results_bayes_true = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ra_metric_cuped_unadjusted,
+            analysis=DEFAULT_ANALYSIS,
+        )
+        result_bayes_true = asdict(format_results(self.ra_metric_cuped_unadjusted, results_bayes_true)[0].variations[1].response)  # type: ignore
+        result_bayes = asdict(format_results(self.ra_metric_capped, self.results_bayes)[0].variations[1].responseCupedUnadjusted)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_bayes_true["stats"]
+        del result_bayes["stats"]
+        self.assertEqual(result_bayes, result_bayes_true)
+
+    def test_flat_prior_count_bayes(self):
+        results_bayes_true = process_analysis(
+            rows=pd.DataFrame(self.rows_all),
+            var_id_map=self.var_id_map,
+            metric=self.ra_metric_flat_prior,
+            analysis=DEFAULT_ANALYSIS,
+        )
+        result_bayes_true = asdict(format_results(self.ra_metric_flat_prior, results_bayes_true)[0].variations[1].response)  # type: ignore
+        result_bayes = asdict(format_results(self.ra_metric_capped, self.results_bayes)[0].variations[1].responseFlatPrior)  # type: ignore
+        # remove the stats attributes, as we expect these to differ
+        del result_bayes_true["stats"]
+        del result_bayes["stats"]
+        self.assertEqual(result_bayes, result_bayes_true)
 
 
 class TestAnalyzeMetricDfRegressionAdjustment(TestCase):

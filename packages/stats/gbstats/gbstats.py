@@ -948,10 +948,8 @@ def format_variation_result(
                     **metricResultUncapped,
                     **testResultUncapped,
                     power=None,
-                    pValue=row[f"{prefix}_p_value_cuped_unadjusted"],
-                    pValueErrorMessage=row[
-                        f"{prefix}_p_value_error_message_cuped_unadjusted"
-                    ],
+                    pValue=row[f"{prefix}_p_value_uncapped"],
+                    pValueErrorMessage=row[f"{prefix}_p_value_error_message_uncapped"],
                 )
             else:
                 response_uncapped = None
