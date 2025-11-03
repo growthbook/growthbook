@@ -56,7 +56,9 @@ function getDefaultStatusAndText(
     case "ship-now":
       return {
         defaultStatus: "released",
-        text: "The Safe Rollout has finished and no issues were detected.",
+        text:
+          "The Safe Rollout has finished and no issues were detected." +
+          (decisionStatus.shippingEarly ? " We recommend shipping early." : ""),
       };
     case "rollback-now":
       return {
