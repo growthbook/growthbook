@@ -1,4 +1,3 @@
-// sandbox-runner.ts
 import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
 import { RequestInit } from "node-fetch";
 import { cancellableFetch } from "back-end/src/util/http.util";
@@ -12,10 +11,27 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 
-const MEMORY_MB = 32;
-const CPU_TIMEOUT_MS = 100; // max active CPU time (excluding fetch)
-const WALL_TIMEOUT_MS = 5000; // max total run time (including fetch)
-const MAX_FETCH_RESP_SIZE = 500 * 1024; // 500KB max response size from fetch calls
+const parseEnvInt = (value: string | undefined, fallback: number) => {
+  if (!value) return fallback;
+  const n = parseInt(value, 10);
+  if (n < 0 || isNaN(n)) return fallback;
+  return n;
+};
+
+// Default memory limit in MB
+const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32);
+// Max active CPU time (excluding fetch)
+const CPU_TIMEOUT_MS = parseEnvInt(process.env.CUSTOM_HOOK_CPU_TIMEOUT_MS, 100);
+// Max total run time (including fetch)
+const WALL_TIMEOUT_MS = parseEnvInt(
+  process.env.CUSTOM_HOOK_WALL_TIMEOUT_MS,
+  5000,
+);
+// Max response size from fetch calls (default 500KB)
+const MAX_FETCH_RESP_SIZE = parseEnvInt(
+  process.env.CUSTOM_HOOK_MAX_FETCH_RESP_SIZE,
+  500 * 1024,
+);
 
 // Export wrapped calls for each hook type
 export async function runValidateFeatureHooks(
@@ -193,7 +209,10 @@ export async function sandboxEval(
           debug: (...args) => hostLog.applyIgnored(undefined, ["[debug]", ...stringifyLogArgs(args)])
         };
         globalThis.fetch = async (...args) => {
-          const { _body, _error, ...rest } = await hostFetch.applyPromise(undefined, args);
+          const { _body, _error, ...rest } = await hostFetch.apply(undefined, args, {
+            arguments: { copy: true },
+            result: { copy: true, promise: true },
+          });
           if (_error) {
             throw new Error(_error);
           }

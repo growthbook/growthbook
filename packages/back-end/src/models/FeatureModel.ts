@@ -1131,7 +1131,13 @@ export async function publishRevision(
     result,
   );
 
-  await markRevisionAsPublished(context, revision, context.auditUser, comment);
+  await markRevisionAsPublished(
+    context,
+    feature,
+    revision,
+    context.auditUser,
+    comment,
+  );
 
   return updatedFeature;
 }

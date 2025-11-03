@@ -177,6 +177,10 @@ function CustomHooksModal({
     });
   };
 
+  const isMac =
+    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
+  const modKey = isMac ? "⌘" : "Ctrl";
+
   return (
     <Modal
       header={current?.id ? "Edit Custom Hook" : "Add Custom Hook"}
@@ -287,7 +291,7 @@ function CustomHooksModal({
           >
             <Flex align="center" gap="3">
               <Text>Run Test</Text>
-              <Kbd size="1">Ctrl + Enter</Kbd>
+              <Kbd size="1">{modKey} + Enter</Kbd>
             </Flex>
           </Button>
           {testResult.status === "success" && (

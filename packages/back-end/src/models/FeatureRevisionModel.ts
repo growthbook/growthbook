@@ -449,6 +449,7 @@ export async function updateRevision(
 
 export async function markRevisionAsPublished(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
@@ -456,6 +457,20 @@ export async function markRevisionAsPublished(
   const action = revision.status === "draft" ? "publish" : "re-publish";
 
   const revisionComment = revision.comment ? revision.comment : comment;
+
+  const changes: Partial<FeatureRevisionInterface> = {
+    status: "published",
+    publishedBy: user,
+    datePublished: new Date(),
+    dateUpdated: new Date(),
+    comment: revisionComment,
+  };
+
+  await runValidateFeatureRevisionHooks(context, feature, {
+    ...revision,
+    ...changes,
+  });
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -463,13 +478,7 @@ export async function markRevisionAsPublished(
       version: revision.version,
     },
     {
-      $set: {
-        status: "published",
-        publishedBy: user,
-        datePublished: new Date(),
-        dateUpdated: new Date(),
-        comment: revisionComment,
-      },
+      $set: changes,
     },
   );
 

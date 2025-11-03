@@ -1122,6 +1122,7 @@ export async function postFeatureRevert(
 
   await markRevisionAsPublished(
     context,
+    feature,
     revision,
     res.locals.eventAudit,
     comment,
