@@ -417,8 +417,8 @@ export default function CodeTextArea({
                     gap="3"
                     style={{
                       position: "absolute",
-                      bottom: isFullscreen ? 0 : -4,
-                      right: 20,
+                      bottom: 0,
+                      right: 22,
                     }}
                   >
                     {showCopyButton && (
