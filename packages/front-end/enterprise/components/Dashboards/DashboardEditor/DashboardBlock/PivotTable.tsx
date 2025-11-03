@@ -426,8 +426,6 @@ function formatDataForPivotTable(
   // Step 1: Extract metadata
   const metadata = extractMetadata(aggregatedRows, dataVizConfig);
 
-  console.log(metadata);
-
   // Step 2: Get sorted x-axis values
   const xValues = getSortedXValues(aggregatedRows, metadata.isDateType);
 
