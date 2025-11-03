@@ -21,6 +21,12 @@ export function requiresXAxis(
   );
 }
 
+export function requiresXAxes(
+  config: Partial<DataVizConfig>,
+): config is Partial<PivotTable> {
+  return config.chartType === "pivot-table";
+}
+
 /**
  * Type guard to check if a DataVizConfig supports dimensions
  */

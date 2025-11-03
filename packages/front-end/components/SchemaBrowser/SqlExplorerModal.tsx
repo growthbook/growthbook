@@ -38,7 +38,7 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
-import { requiresXAxis } from "@/services/dataVizTypeGuards";
+import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
 import {
   getXAxisConfig,
   setXAxisConfig,
@@ -283,6 +283,14 @@ export default function SqlExplorerModal({
           `X axis is required for Visualization ${
             config.title ? config.title : `${index + 1}`
           }. Please add an X axis or remove the visualization to save the query.`,
+        );
+      }
+      if (requiresXAxes(config) && !config.xAxes) {
+        setTab(`visualization-${index}`);
+        throw new Error(
+          `Columns are required for Visualization ${
+            config.title ? config.title : `${index + 1}`
+          }. Please add a column or remove the visualization to save the query.`,
         );
       }
       if (!config.yAxis) {
