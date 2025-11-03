@@ -567,7 +567,7 @@ export function DataVisualizationDisplay({
           row[dimensionKey] =
             dimensionKey in group.dimensions
               ? aggregate(group.dimensions[dimensionKey], aggregation)
-              : 0;
+              : undefined;
 
           // Store structured dimension values for this combo
           dimensionValuesByCombo[dimensionKey] = {};

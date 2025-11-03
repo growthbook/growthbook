@@ -35,6 +35,8 @@ function PivotTableTooltip({
   cellData: CellData;
   children: ReactNode;
 }) {
+  if (!cellData.value) return <>{children}</>;
+
   return (
     <Tooltip
       shouldDisplay={cellData.metadata ? true : false}
