@@ -19,6 +19,7 @@ import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
 
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -281,14 +282,26 @@ export default function DashboardWorkspace({
               </Button>
             </Tooltip>
           )}
-          <Button
-            className={clsx({
-              "dashboard-disabled": editSidebarDirty,
-            })}
-            onClick={close}
-          >
-            Done Editing
-          </Button>
+          <Flex align="center" gap="2">
+            {dashboard.id === "new" && blocks.length === 0 && (
+              <Link onClick={close} color="red" type="button" weight="bold">
+                Exit without saving
+              </Link>
+            )}
+            <Button
+              className={clsx({
+                "dashboard-disabled": editSidebarDirty,
+              })}
+              onClick={close}
+              disabled={
+                dashboard.id === "new" && blocks.length === 0
+                  ? true
+                  : editSidebarDirty
+              }
+            >
+              Done Editing
+            </Button>
+          </Flex>
         </Flex>
       </Flex>
       <Flex
@@ -400,6 +413,7 @@ export default function DashboardWorkspace({
           <DashboardEditorSidebar
             dashboardId={dashboard.id}
             experiment={experiment}
+            projects={dashboard.projects || []}
             isGeneralDashboard={isGeneralDashboard}
             open={editSidebarExpanded}
             cancel={clearEditingState}

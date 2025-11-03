@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
@@ -52,6 +53,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const { apiCall } = useAuth();
 
+  const gb = useGrowthBook();
+  const useNewSampleData = gb.isOn("new-sample-data");
+
   const openSampleExperiment = async () => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
@@ -62,9 +66,14 @@ const ExperimentsGetStarted = (): React.ReactElement => {
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>("/demo-datasource-project", {
-        method: "POST",
-      });
+      }>(
+        useNewSampleData
+          ? "/demo-datasource-project/new"
+          : "/demo-datasource-project",
+        {
+          method: "POST",
+        },
+      );
       await mutateDefinitions();
       if (res.experimentId) {
         router.push(`/experiment/${res.experimentId}`);
