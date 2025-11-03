@@ -88,7 +88,65 @@ function extractMetadata(
 
   const formatXValue = (xVal: Date | string): string => {
     if (isDateType && xVal instanceof Date) {
-      return xVal.toLocaleDateString();
+      const unit = xConfig?.dateAggregationUnit || "none";
+      const d = xVal;
+      switch (unit) {
+        case "second":
+          return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }).format(d);
+        case "minute":
+          return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(d);
+        case "hour":
+          return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+            hour: "2-digit",
+          }).format(d);
+        case "day":
+          return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+          }).format(d);
+        case "week": {
+          // Use Monday as the start of the week
+          const day = d.getDay();
+          const diffToMonday = (day + 6) % 7; // 0 for Monday, 6 for Sunday
+          const start = new Date(d);
+          start.setHours(0, 0, 0, 0);
+          start.setDate(d.getDate() - diffToMonday);
+          return `Week of ${new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+          }).format(start)}`;
+        }
+        case "month":
+          return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+          }).format(d);
+        case "year":
+          return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+          }).format(d);
+        case "none":
+        default:
+          return d.toLocaleDateString();
+      }
     }
     return String(xVal);
   };
@@ -368,6 +426,8 @@ function formatDataForPivotTable(
   // Step 1: Extract metadata
   const metadata = extractMetadata(aggregatedRows, dataVizConfig);
 
+  console.log(metadata);
+
   // Step 2: Get sorted x-axis values
   const xValues = getSortedXValues(aggregatedRows, metadata.isDateType);
 
@@ -490,6 +550,8 @@ export default function PivotTable({
     () => formatDataForPivotTable(aggregatedRows, dataVizConfig),
     [aggregatedRows, dataVizConfig],
   );
+
+  console.log(data);
 
   // Fallback to sample data for testing
   // const data = sampleData2;
