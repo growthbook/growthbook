@@ -151,10 +151,10 @@ export default function SqlQueryDetail() {
       <Flex direction="column" gap="4" mb="2">
         {debugResults && (
           <DisplayTestQueryResults
-            duration={debugResults.duration}
-            results={debugResults.results}
-            sql={debugResults.sql}
-            error={debugResults.error}
+            duration={debugResults.duration || 0}
+            results={debugResults.results || []}
+            sql={debugResults.sql || ""}
+            error={debugResults.error || ""}
             allowDownload={false}
             showSampleHeader={false}
             renderedSQLLabel="Refresh Error"
