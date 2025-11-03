@@ -3,9 +3,10 @@ import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
-  DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE,
+  PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
+  getPipelineValidationInsertQuery,
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -535,6 +536,7 @@ export async function putDataSource(
 
 /**
  * Validates the pipeline settings for the given data source.
+ * Ensures we can create, insert and drop tables.
  */
 export async function postValidatePipelineSettings(
   req: AuthRequest<
@@ -566,9 +568,13 @@ export async function postValidatePipelineSettings(
     });
   }
 
-  if (!DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE.includes(datasource.type)) {
+  if (
+    !PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES[pipelineSettings.mode].includes(
+      datasource.type,
+    )
+  ) {
     return res.status(400).json({
-      message: "This data source does not support pipeline mode.",
+      message: `This data source does not support pipeline mode ${pipelineSettings.mode}`,
     });
   }
 
@@ -626,13 +632,40 @@ export async function postValidatePipelineSettings(
   } catch (e) {
     results.create = {
       result: "failed",
-      resultMessage: e instanceof Error ? e.message : String(e),
+      resultMessage: "message" in e ? e.message : String(e),
     };
   }
 
+  // Insert only happens for incremental mode
+  if (pipelineSettings.mode === "incremental") {
+    if (results.create.result !== "success") {
+      results.insert = {
+        result: "skipped",
+        resultMessage: "Skipped due to create failure",
+      };
+    } else {
+      try {
+        await integration.runTestQuery(
+          getPipelineValidationInsertQuery({
+            tableFullName: fullTestTablePath,
+            integration,
+          }),
+        );
+        results.insert = { result: "success" };
+      } catch (e) {
+        results.insert = {
+          result: "failed",
+          resultMessage: "message" in e ? e.message : String(e),
+        };
+      }
+    }
+  }
+
   if (
-    integration.dropUnitsTable() &&
-    pipelineSettings.unitsTableDeletion === true
+    pipelineSettings.mode === "incremental" ||
+    (pipelineSettings.mode === "ephemeral" &&
+      integration.dropUnitsTable() &&
+      pipelineSettings.unitsTableDeletion === true)
   ) {
     if (results.create.result !== "success") {
       results.drop = {
@@ -651,7 +684,7 @@ export async function postValidatePipelineSettings(
       } catch (e) {
         results.drop = {
           result: "failed",
-          resultMessage: e instanceof Error ? e.message : String(e),
+          resultMessage: "message" in e ? e.message : String(e),
         };
       }
     }

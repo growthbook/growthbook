@@ -20,6 +20,7 @@ export type Props = {
   setValue: (value: string) => void;
   gap?: string;
   descriptionSize?: "1" | "2" | "3" | "4";
+  labelSize?: "1" | "2" | "3" | "4";
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
@@ -30,6 +31,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
     setValue,
     gap = "1",
     descriptionSize = "1",
+    labelSize = "2",
     ...containerProps
   }: Props,
   ref,
@@ -71,7 +73,11 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                   >
                     <Text className={disabled ? "rt-TextDisabled" : undefined}>
                       <Flex direction="column" gap={gap}>
-                        <Text weight="medium" className="main-text">
+                        <Text
+                          weight="medium"
+                          className="main-text"
+                          size={labelSize}
+                        >
                           {label || value}
                         </Text>
                         {description ? (

@@ -98,6 +98,8 @@ export default class Databricks extends SqlIntegration {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "hll":
+        return "BINARY";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
