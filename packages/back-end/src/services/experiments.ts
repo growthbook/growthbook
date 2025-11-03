@@ -1962,16 +1962,6 @@ export function postMetricApiPayloadIsValid(
     }
   }
 
-  // Validate for payload.sql
-  if (sql) {
-    // Validate binomial metrics
-    if (type === "binomial" && typeof sql.userAggregationSQL !== "undefined")
-      return {
-        valid: false,
-        error: "Binomial metrics cannot have userAggregationSQL",
-      };
-  }
-
   // Validate payload.mixpanel
   if (mixpanel) {
     // Validate binomial metrics
@@ -2118,16 +2108,6 @@ export function putMetricApiPayloadIsValid(
           "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
       };
     }
-  }
-
-  // Validate for payload.sql
-  if (sql) {
-    // Validate binomial metrics
-    if (type === "binomial" && typeof sql.userAggregationSQL !== "undefined")
-      return {
-        valid: false,
-        error: "Binomial metrics cannot have userAggregationSQL",
-      };
   }
 
   // Validate payload.mixpanel
@@ -2322,7 +2302,8 @@ export function postMetricApiPayloadToMetricInterface(
   }
 
   if (sql) {
-    metric.aggregation = sql.userAggregationSQL;
+    metric.aggregation =
+      metric.type !== "binomial" ? sql.userAggregationSQL : "";
     metric.denominator = sql.denominatorMetricId;
     metric.userIdTypes = sql.identifierTypes;
     metric.sql = sql.conversionSQL;
@@ -2494,7 +2475,8 @@ export function putMetricApiPayloadToMetricInterface(
 
   if (sql) {
     if (typeof sql.userAggregationSQL !== "undefined") {
-      metric.aggregation = sql.userAggregationSQL;
+      metric.aggregation =
+        metric.type !== "binomial" ? sql.userAggregationSQL : "";
     }
     if (typeof sql.denominatorMetricId !== "undefined") {
       metric.denominator = sql.denominatorMetricId;
@@ -2606,7 +2588,7 @@ export function toMetricApiInterface(
         identifierTypes,
         // TODO: if builder mode is selected, use that to generate the SQL here
         conversionSQL: metric.sql || "",
-        userAggregationSQL: metric.aggregation || "SUM(value)",
+        userAggregationSQL: metric.aggregation || "",
         denominatorMetricId: metric.denominator || "",
       };
 
