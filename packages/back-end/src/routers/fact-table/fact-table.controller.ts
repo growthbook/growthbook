@@ -39,6 +39,7 @@ import {
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import { filterFactMetricsFromFactTable } from "back-end/src/services/fact-tables";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -244,6 +245,19 @@ export const archiveFactTable = async (
 
   await updateFactTable(context, factTable, { archived: true });
 
+  // Archive all metrics associated with this fact table
+  const factMetrics = await context.models.factMetrics.getAll();
+  const factTableMetrics = filterFactMetricsFromFactTable(
+    factTable.id,
+    factMetrics
+  );
+
+  for (const factMetric of factTableMetrics) {
+    await context.models.factMetrics.updateById(factMetric.id, {
+      archived: true,
+    });
+  }
+
   res.status(200).json({
     status: 200,
   });
@@ -265,6 +279,19 @@ export const unarchiveFactTable = async (
   }
 
   await updateFactTable(context, factTable, { archived: false });
+
+  // Unarchive all metrics associated with this fact table
+  const factMetrics = await context.models.factMetrics.getAll();
+  const factTableMetrics = filterFactMetricsFromFactTable(
+    factTable.id,
+    factMetrics
+  );
+
+  for (const factMetric of factTableMetrics) {
+    await context.models.factMetrics.updateById(factMetric.id, {
+      archived: false,
+    });
+  }
 
   res.status(200).json({
     status: 200,
