@@ -46,6 +46,12 @@ class BaselineResponse:
 
 
 @dataclass
+class MDEResponse:
+    mde: Optional[float]
+    errorMessage: Optional[str]
+
+
+@dataclass
 class PowerResponse:
     status: str
     errorMessage: Optional[str]
@@ -57,6 +63,7 @@ class PowerResponse:
     priorLiftVariance: Optional[float]
     upperBoundAchieved: Optional[bool]
     scalingFactor: Optional[float]
+    mde: Optional[MDEResponse]
 
 
 ResponseCI = Tuple[Optional[float], Optional[float]]

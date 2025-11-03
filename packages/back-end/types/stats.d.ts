@@ -58,6 +58,10 @@ export interface MetricPowerResponseFromStatsEngine {
   priorLiftVariance?: number;
   upperBoundAchieved?: boolean;
   scalingFactor?: number;
+  mde?: {
+    mde: number;
+    errorMessage?: string;
+  };
 }
 
 interface BaseDimensionResponse {
