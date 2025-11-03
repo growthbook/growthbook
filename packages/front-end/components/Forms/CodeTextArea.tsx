@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, createElement, useMemo } from "react";
 import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
 import { v4 as uuid4 } from "uuid";
+import clsx from "clsx";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
@@ -244,15 +245,10 @@ export default function CodeTextArea({
     if (!editor || !containerRef.current) return;
     if (!fullHeight && !resizable) return;
 
-    const resizeObserver = new ResizeObserver(() => {
-      editor.resize();
-    });
-
+    const resizeObserver = new ResizeObserver(() => editor.resize());
     resizeObserver.observe(containerRef.current);
 
-    return () => {
-      resizeObserver.disconnect();
-    };
+    return () => resizeObserver.disconnect();
   }, [editor, fullHeight, resizable]);
 
   return (
@@ -263,13 +259,16 @@ export default function CodeTextArea({
         return (
           <div
             id={editorUid}
-            className={fieldProps.disabled ? "ace-editor-disabled" : undefined}
+            className={clsx({
+              "ace-editor-disabled": fieldProps.disabled,
+              "h-100": fullHeight,
+            })}
           >
             <div
               ref={containerRef}
-              className={`border rounded ${wrapperClassName} ${
-                fullHeight ? "h-100" : ""
-              }`}
+              className={clsx("border rounded", wrapperClassName, {
+                "h-100": fullHeight,
+              })}
               style={{
                 ...(resizable
                   ? {
