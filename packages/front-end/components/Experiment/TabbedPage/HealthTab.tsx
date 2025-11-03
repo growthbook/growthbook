@@ -4,6 +4,7 @@ import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import SRMCard from "@/components/HealthTab/SRMCard";
+import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -287,7 +288,27 @@ export default function HealthTab({
           />
         )}
       </div>
-
+      <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+        {!isBandit ? (
+          <CovariateImbalanceCard
+            traffic={traffic}
+            variations={variations}
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            dataSource={datasource}
+            exposureQuery={exposureQuery}
+            healthTabConfigParams={healthTabConfigParams}
+            canConfigHealthTab={hasPermissionToConfigHealthTag}
+          />
+        ) : (
+          <BanditSRMCard
+            experiment={experiment}
+            snapshot={snapshot}
+            phase={phaseObj}
+            onNotify={handleHealthNotification}
+          />
+        )}
+      </div>
       <div className="row">
         <div
           className={!isBandit ? "col-8" : "col-12"}
