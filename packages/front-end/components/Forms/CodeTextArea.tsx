@@ -4,10 +4,13 @@ import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
 import { v4 as uuid4 } from "uuid";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
-import { PiCornersOutBold, PiCornersInBold } from "react-icons/pi";
+import { Flex, IconButton } from "@radix-ui/themes";
+import { PiCornersOut, PiCornersIn, PiCopy, PiCheck } from "react-icons/pi";
+import Button from "@/ui/Button";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Field, { FieldProps } from "./Field";
 
 export type AceCompletion = {
@@ -194,6 +197,7 @@ export type Props = Omit<
   completions?: AceCompletion[];
   resizable?: boolean;
   defaultHeight?: number;
+  showCopyButton?: boolean;
   showFullscreenButton?: boolean;
 };
 
@@ -214,6 +218,7 @@ export default function CodeTextArea({
   completions,
   resizable = false,
   defaultHeight = 200, // for resizable
+  showCopyButton = false,
   showFullscreenButton = false,
   ...otherProps
 }: Props) {
@@ -224,6 +229,10 @@ export default function CodeTextArea({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const editorUid = useMemo(() => uuid4(), []);
+
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
 
   const heightProps =
     fullHeight || resizable ? { height: "100%" } : { minLines, maxLines };
@@ -256,20 +265,22 @@ export default function CodeTextArea({
     return () => resizeObserver.disconnect();
   }, [editor, fullHeight, resizable, isFullscreen]);
 
-  // Resize editor when entering/exiting fullscreen
+  // Resize and focus editor when entering/exiting fullscreen
   useEffect(() => {
     if (!editor) return;
     // Small delay to allow CSS transition to complete
     const timer = setTimeout(() => {
       editor.resize();
+      if (isFullscreen) {
+        editor.focus();
+      }
     }, 50);
     return () => clearTimeout(timer);
   }, [editor, isFullscreen]);
 
-  // Handle escape key to exit fullscreen
+  // Escape key to exit fullscreen
   useEffect(() => {
     if (!isFullscreen) return;
-
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -277,18 +288,14 @@ export default function CodeTextArea({
         setIsFullscreen(false);
       }
     };
-
     document.addEventListener("keydown", handleEscape, true);
     return () => document.removeEventListener("keydown", handleEscape, true);
   }, [isFullscreen]);
-
-  const originalHelpText = fieldProps.helpText;
 
   return (
     <Field
       {...fieldProps}
       containerClassName={fullHeight ? "h-100" : ""}
-      helpText={null}
       render={(id) => {
         return (
           <>
@@ -318,12 +325,32 @@ export default function CodeTextArea({
                 "code-editor-fullscreen": isFullscreen,
               })}
             >
+              {isFullscreen ? (
+                <Flex align="center" gap="3" mb="2" justify="between">
+                  <label className="mb-0 d-block font-weight-bold">
+                    {fieldProps.label}
+                  </label>
+                  <Button
+                    type="button"
+                    size="xs"
+                    color="gray"
+                    variant="ghost"
+                    onClick={() => setIsFullscreen(false)}
+                  >
+                    Exit full screen (ESC)
+                  </Button>
+                </Flex>
+              ) : null}
               <div
                 ref={containerRef}
-                className={clsx("border rounded", wrapperClassName, {
-                  "h-100": fullHeight,
-                  "editor-container": isFullscreen,
-                })}
+                className={clsx(
+                  "position-relative border rounded",
+                  wrapperClassName,
+                  {
+                    "h-100": fullHeight,
+                    "editor-container": isFullscreen,
+                  },
+                )}
                 style={{
                   ...(resizable && !isFullscreen
                     ? {
@@ -384,36 +411,68 @@ export default function CodeTextArea({
                     })
                   }
                 />
+                {(showCopyButton || showFullscreenButton) && (
+                  <Flex
+                    align="center"
+                    gap="3"
+                    style={{
+                      position: "absolute",
+                      bottom: isFullscreen ? 0 : -4,
+                      right: 20,
+                    }}
+                  >
+                    {showCopyButton && (
+                      <Tooltip
+                        body={copySuccess ? "Copied" : "Copy to clipboard"}
+                      >
+                        <IconButton
+                          type="button"
+                          radius="full"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!copySuccess) performCopy(value);
+                          }}
+                        >
+                          {copySuccess ? (
+                            <PiCheck size={isFullscreen ? 16 : 12} />
+                          ) : (
+                            <PiCopy size={isFullscreen ? 14 : 12} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {showFullscreenButton && (
+                      <Tooltip
+                        key={isFullscreen ? "exit" : "enter"}
+                        body={
+                          isFullscreen
+                            ? "Exit full screen (ESC)"
+                            : "Edit in full screen"
+                        }
+                      >
+                        <IconButton
+                          type="button"
+                          radius="full"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsFullscreen(!isFullscreen);
+                          }}
+                        >
+                          {isFullscreen ? (
+                            <PiCornersIn size={isFullscreen ? 16 : 12} />
+                          ) : (
+                            <PiCornersOut size={isFullscreen ? 16 : 12} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Flex>
+                )}
               </div>
-              {(originalHelpText || showFullscreenButton) && (
-                <Flex align="center" justify="end" gap="3">
-                  {originalHelpText && (
-                    <small className="form-text text-muted">
-                      {originalHelpText}
-                    </small>
-                  )}
-                  {showFullscreenButton && (
-                    <a
-                      href="#"
-                      className="link-purple"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsFullscreen(!isFullscreen);
-                      }}
-                    >
-                      {isFullscreen ? (
-                        <small className="form-text">
-                          <PiCornersInBold size={16} /> Exit full screen
-                        </small>
-                      ) : (
-                        <small className="form-text">
-                          <PiCornersOutBold size={14} /> Full screen
-                        </small>
-                      )}
-                    </a>
-                  )}
-                </Flex>
-              )}
             </div>
           </>
         );

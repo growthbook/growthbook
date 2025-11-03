@@ -11,7 +11,7 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
@@ -66,46 +66,6 @@ export default function FeatureValueField({
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
   });
-
-  const CopyLink = () => (
-    <a
-      href="#"
-      className={clsx("text-purple", {
-        "text-muted cursor-default no-underline": copySuccess,
-      })}
-      onClick={(e) => {
-        e.preventDefault();
-        if (!copySuccess) performCopy(value);
-      }}
-      style={{ whiteSpace: "nowrap" }}
-    >
-      {copySuccess ? (
-        <>
-          <PiCheck /> Copied
-        </>
-      ) : (
-        <>
-          <PiCopy /> Copy
-        </>
-      )}
-    </a>
-  );
-
-  // Helper to render help text with actions (copy, format, etc)
-  const renderFieldActions = (actions: ReactNode[] = []) => {
-    if (!helpText && actions.length === 0) return undefined;
-
-    return (
-      <Flex align="center" gap="3">
-        {helpText && <div style={{ flex: 1 }}>{helpText}</div>}
-        {actions.length > 0 && (
-          <Flex gap="3" style={{ marginLeft: "auto" }}>
-            {actions}
-          </Flex>
-        )}
-      </Flex>
-    );
-  };
 
   if (
     validationEnabled &&
@@ -183,10 +143,8 @@ export default function FeatureValueField({
         // Ignore
       }
 
-      const actions = [
-        <CopyLink key="copy" />,
+      const formatJSONButton = (
         <a
-          key="format"
           href="#"
           className={clsx("text-purple", {
             "text-muted cursor-default no-underline":
@@ -201,8 +159,17 @@ export default function FeatureValueField({
           style={{ whiteSpace: "nowrap" }}
         >
           <FaMagic /> Format JSON
-        </a>,
-      ];
+        </a>
+      );
+
+      const combinedHelpText = helpText ? (
+        <Flex align="center" gap="3" style={{ width: "100%" }}>
+          <div style={{ flex: 1 }}>{helpText}</div>
+          {formatJSONButton}
+        </Flex>
+      ) : (
+        <Flex justify="end">{formatJSONButton}</Flex>
+      );
 
       return (
         <CodeTextArea
@@ -210,11 +177,12 @@ export default function FeatureValueField({
           language="json"
           value={value}
           setValue={setValue}
-          helpText={renderFieldActions(actions)}
+          helpText={combinedHelpText}
           placeholder={placeholder}
           disabled={disabled}
           resizable={true}
           defaultHeight={codeInputDefaultHeight}
+          showCopyButton={true}
           showFullscreenButton={showFullscreenButton}
         />
       );
@@ -230,6 +198,37 @@ export default function FeatureValueField({
       />
     );
   }
+
+  const copyButton = (
+    <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
+      <IconButton
+        type="button"
+        radius="full"
+        variant="ghost"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!copySuccess) performCopy(value);
+        }}
+      >
+        {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+      </IconButton>
+    </Tooltip>
+  );
+
+  const combinedHelpTextForString =
+    valueType === "string" ? (
+      helpText ? (
+        <Flex align="center" gap="3" style={{ width: "100%" }}>
+          <div style={{ flex: 1 }}>{helpText}</div>
+          {copyButton}
+        </Flex>
+      ) : (
+        <Flex justify="end">{copyButton}</Flex>
+      )
+    ) : (
+      helpText
+    );
 
   return (
     <Field
@@ -252,11 +251,7 @@ export default function FeatureValueField({
               minRows: 1,
             }
           : {})}
-      helpText={
-        valueType === "string"
-          ? renderFieldActions([<CopyLink key="copy" />])
-          : helpText
-      }
+      helpText={combinedHelpTextForString}
       style={
         valueType === undefined
           ? { width: 80 }

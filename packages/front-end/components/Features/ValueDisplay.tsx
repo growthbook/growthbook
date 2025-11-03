@@ -6,7 +6,7 @@ import {
 import React, { CSSProperties, useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
 import { IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCornersOutBold, PiCopy } from "react-icons/pi";
+import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -98,17 +98,20 @@ export default function ValueDisplay({
             className="d-flex"
             style={{
               position: "absolute",
-              bottom: -5,
-              right: 20,
+              bottom: -4,
+              right: 16,
               gap: "0.75rem",
             }}
           >
             {type === "json" || type === "string" ? (
               <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
                 <IconButton
+                  type="button"
                   radius="full"
                   variant="ghost"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (!copySuccess) performCopy(value);
                   }}
                 >
@@ -119,11 +122,16 @@ export default function ValueDisplay({
             {showFullscreenButton && type === "json" && (
               <Tooltip body="View in full screen">
                 <IconButton
+                  type="button"
                   radius="full"
                   variant="ghost"
-                  onClick={() => setModalOpen(true)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setModalOpen(true);
+                  }}
                 >
-                  <PiCornersOutBold size={12} />
+                  <PiCornersOut size={12} />
                 </IconButton>
               </Tooltip>
             )}
