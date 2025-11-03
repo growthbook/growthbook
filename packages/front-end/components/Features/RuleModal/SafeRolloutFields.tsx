@@ -395,6 +395,7 @@ export default function SafeRolloutFields({
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
               useCodeInput={true}
+              showFullscreenButton={true}
               codeInputDefaultHeight={98}
             />
           </Box>
@@ -419,6 +420,7 @@ export default function SafeRolloutFields({
               disabled={disableFields}
               useDropdown={true}
               useCodeInput={true}
+              showFullscreenButton={true}
               codeInputDefaultHeight={98}
             />
           </Box>

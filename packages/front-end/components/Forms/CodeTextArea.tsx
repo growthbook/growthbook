@@ -4,6 +4,8 @@ import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
 import { v4 as uuid4 } from "uuid";
 import clsx from "clsx";
+import { Flex } from "@radix-ui/themes";
+import { PiCornersOutBold, PiCornersInBold } from "react-icons/pi";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
@@ -192,6 +194,7 @@ export type Props = Omit<
   completions?: AceCompletion[];
   resizable?: boolean;
   defaultHeight?: number;
+  showFullscreenButton?: boolean;
 };
 
 const LIGHT_THEME = "textmate";
@@ -211,12 +214,14 @@ export default function CodeTextArea({
   completions,
   resizable = false,
   defaultHeight = 200, // for resizable
+  showFullscreenButton = false,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
   const { theme } = useAppearanceUITheme();
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const editorUid = useMemo(() => uuid4(), []);
 
@@ -243,94 +248,174 @@ export default function CodeTextArea({
   // Auto-resize editor when container size changes
   useEffect(() => {
     if (!editor || !containerRef.current) return;
-    if (!fullHeight && !resizable) return;
+    if (!fullHeight && !resizable && !isFullscreen) return;
 
     const resizeObserver = new ResizeObserver(() => editor.resize());
     resizeObserver.observe(containerRef.current);
 
     return () => resizeObserver.disconnect();
-  }, [editor, fullHeight, resizable]);
+  }, [editor, fullHeight, resizable, isFullscreen]);
+
+  // Resize editor when entering/exiting fullscreen
+  useEffect(() => {
+    if (!editor) return;
+    // Small delay to allow CSS transition to complete
+    const timer = setTimeout(() => {
+      editor.resize();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [editor, isFullscreen]);
+
+  // Handle escape key to exit fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape, true);
+    return () => document.removeEventListener("keydown", handleEscape, true);
+  }, [isFullscreen]);
+
+  const originalHelpText = fieldProps.helpText;
 
   return (
     <Field
       {...fieldProps}
       containerClassName={fullHeight ? "h-100" : ""}
+      helpText={null}
       render={(id) => {
         return (
-          <div
-            id={editorUid}
-            className={clsx({
-              "ace-editor-disabled": fieldProps.disabled,
-              "h-100": fullHeight,
-            })}
-          >
+          <>
+            <style jsx>{`
+              .code-editor-fullscreen {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1050;
+                background-color: ${theme === "light" ? "#fff" : "#1e1e1e"};
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+              }
+              .code-editor-fullscreen .editor-container {
+                flex: 1;
+                overflow: hidden;
+              }
+            `}</style>
             <div
-              ref={containerRef}
-              className={clsx("border rounded", wrapperClassName, {
-                "h-100": fullHeight,
+              id={editorUid}
+              className={clsx({
+                "ace-editor-disabled": fieldProps.disabled,
+                "h-100": fullHeight && !isFullscreen,
+                "code-editor-fullscreen": isFullscreen,
               })}
-              style={{
-                ...(resizable
-                  ? {
-                      resize: "vertical",
-                      overflow: "auto",
-                      height: !fullHeight ? defaultHeight : undefined,
-                    }
-                  : {}),
-              }}
             >
-              {fieldProps.disabled && (
-                <style jsx>{`
-                  #${editorUid}.ace-editor-disabled .ace_content {
-                    background-color: ${theme === "light"
-                      ? "rgba(180, 180, 180, 0.20)"
-                      : "rgba(110, 110, 110, 0.25)"};
-                  }
-                  #${editorUid}.ace-editor-disabled .ace_gutter {
-                    background-color: ${theme === "light"
-                      ? "rgba(180, 180, 180, 0.10)"
-                      : "rgba(110, 110, 110, 0.15)"} !important;
-                  }
-                `}</style>
-              )}
-              <AceEditor
-                name={id}
-                onLoad={(e) => {
-                  setEditor(e);
-                  // Clear auto-selection after editor loads
-                  setTimeout(() => {
-                    e.clearSelection();
-                  }, 100);
-                }}
-                mode={language}
-                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
-                width="inherit"
-                value={value}
-                onChange={(newValue) => setValue(newValue)}
-                placeholder={placeholder}
-                fontSize="1em"
-                completions={completions}
-                {...heightProps}
-                setOptions={
-                  language === "sql"
+              <div
+                ref={containerRef}
+                className={clsx("border rounded", wrapperClassName, {
+                  "h-100": fullHeight,
+                  "editor-container": isFullscreen,
+                })}
+                style={{
+                  ...(resizable && !isFullscreen
                     ? {
-                        enableBasicAutocompletion: true,
-                        enableLiveAutocompletion: true,
+                        resize: "vertical",
+                        overflow: "auto",
+                        height: !fullHeight ? defaultHeight : undefined,
                       }
-                    : undefined
-                }
-                readOnly={fieldProps.disabled}
-                onCursorChange={(e) =>
-                  setCursorData &&
-                  setCursorData({
-                    row: e.cursor.row,
-                    column: e.cursor.column,
-                    input: e.cursor.document.$lines,
-                  })
-                }
-              />
+                    : {}),
+                }}
+              >
+                {fieldProps.disabled && (
+                  <style jsx>{`
+                    #${editorUid}.ace-editor-disabled .ace_content {
+                      background-color: ${theme === "light"
+                        ? "rgba(180, 180, 180, 0.20)"
+                        : "rgba(110, 110, 110, 0.25)"};
+                    }
+                    #${editorUid}.ace-editor-disabled .ace_gutter {
+                      background-color: ${theme === "light"
+                        ? "rgba(180, 180, 180, 0.10)"
+                        : "rgba(110, 110, 110, 0.15)"} !important;
+                    }
+                  `}</style>
+                )}
+                <AceEditor
+                  name={id}
+                  onLoad={(e) => {
+                    setEditor(e);
+                    // Clear auto-selection after editor loads
+                    setTimeout(() => {
+                      e.clearSelection();
+                    }, 100);
+                  }}
+                  mode={language}
+                  theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
+                  width="inherit"
+                  value={value}
+                  onChange={(newValue) => setValue(newValue)}
+                  placeholder={placeholder}
+                  fontSize="1em"
+                  completions={completions}
+                  {...heightProps}
+                  setOptions={
+                    language === "sql"
+                      ? {
+                          enableBasicAutocompletion: true,
+                          enableLiveAutocompletion: true,
+                        }
+                      : undefined
+                  }
+                  readOnly={fieldProps.disabled}
+                  onCursorChange={(e) =>
+                    setCursorData &&
+                    setCursorData({
+                      row: e.cursor.row,
+                      column: e.cursor.column,
+                      input: e.cursor.document.$lines,
+                    })
+                  }
+                />
+              </div>
+              {(originalHelpText || showFullscreenButton) && (
+                <Flex align="center" justify="end" gap="3">
+                  {originalHelpText && (
+                    <small className="form-text text-muted">
+                      {originalHelpText}
+                    </small>
+                  )}
+                  {showFullscreenButton && (
+                    <a
+                      href="#"
+                      className="link-purple"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsFullscreen(!isFullscreen);
+                      }}
+                    >
+                      {isFullscreen ? (
+                        <small className="form-text">
+                          <PiCornersInBold size={16} /> Exit full screen
+                        </small>
+                      ) : (
+                        <small className="form-text">
+                          <PiCornersOutBold size={14} /> Full screen
+                        </small>
+                      )}
+                    </a>
+                  )}
+                </Flex>
+              )}
             </div>
-          </div>
+          </>
         );
       }}
     />

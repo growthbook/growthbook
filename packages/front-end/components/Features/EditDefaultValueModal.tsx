@@ -72,6 +72,7 @@ export default function EditDefaultValueModal({
         feature={feature}
         renderJSONInline={true}
         useCodeInput={true}
+        showFullscreenButton={true}
       />
     </Modal>
   );

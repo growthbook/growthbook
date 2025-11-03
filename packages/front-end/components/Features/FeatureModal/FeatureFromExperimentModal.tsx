@@ -431,6 +431,7 @@ export default function FeatureFromExperimentModal({
               setValue={(v) => form.setValue(`variations.${i}.value`, v)}
               valueType={form.watch("valueType")}
               useCodeInput={true}
+              showFullscreenButton={true}
             />
           ))}
         </div>

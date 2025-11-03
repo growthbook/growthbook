@@ -38,6 +38,7 @@ export interface Props {
   disabled?: boolean;
   useDropdown?: boolean;
   useCodeInput?: boolean;
+  showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
 }
 
@@ -53,6 +54,7 @@ export default function FeatureValueField({
   disabled = false,
   useDropdown = false,
   useCodeInput = false,
+  showFullscreenButton = false,
   codeInputDefaultHeight,
 }: Props) {
   const { hasCommercialFeature } = useUser();
@@ -94,7 +96,7 @@ export default function FeatureValueField({
     if (!helpText && actions.length === 0) return undefined;
 
     return (
-      <Flex align="center" gap="3" style={{ width: "100%" }}>
+      <Flex align="center" gap="3">
         {helpText && <div style={{ flex: 1 }}>{helpText}</div>}
         {actions.length > 0 && (
           <Flex gap="3" style={{ marginLeft: "auto" }}>
@@ -213,6 +215,7 @@ export default function FeatureValueField({
           disabled={disabled}
           resizable={true}
           defaultHeight={codeInputDefaultHeight}
+          showFullscreenButton={showFullscreenButton}
         />
       );
     }

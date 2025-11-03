@@ -57,6 +57,7 @@ export default function ForceValueFields({
           feature={feature}
           renderJSONInline={true}
           useCodeInput={true}
+          showFullscreenButton={true}
         />
       </div>
 

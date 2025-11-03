@@ -147,6 +147,7 @@ export default function BanditRefFields({
                   feature={feature}
                   renderJSONInline={false}
                   useCodeInput={true}
+                  showFullscreenButton={true}
                   codeInputDefaultHeight={80}
                 />
               ))}

@@ -425,6 +425,7 @@ export default function FeatureModal({
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
             useCodeInput={true}
+            showFullscreenButton={true}
           />
         )}
 
