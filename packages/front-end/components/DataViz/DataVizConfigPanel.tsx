@@ -81,6 +81,17 @@ export default function DataVizConfigPanel({
     return Object.keys(rows[0]);
   }, [rows]);
 
+  // For pivot tables, we sort the columns so dates are first, then strings, then numbers
+  const sortedAxisKeys = useMemo(() => {
+    const typeOrder = ["date", "string", "number"];
+    return [...axisKeys].sort((a, b) => {
+      const typeA = getInferredFieldType(a);
+      const typeB = getInferredFieldType(b);
+      const diff = typeOrder.indexOf(typeA) - typeOrder.indexOf(typeB);
+      return diff !== 0 ? diff : a.localeCompare(b);
+    });
+  }, [axisKeys, getInferredFieldType]);
+
   // Get xAxis configurations as array (using first element for now)
   const xAxisConfigs = useMemo(
     () => getXAxisConfig(dataVizConfig),
@@ -556,7 +567,7 @@ export default function DataVizConfigPanel({
                     size="2"
                     placeholder="Select columns"
                   >
-                    {axisKeys.map((key) => (
+                    {sortedAxisKeys.map((key) => (
                       <SelectItem key={key} value={key}>
                         {key}
                       </SelectItem>
