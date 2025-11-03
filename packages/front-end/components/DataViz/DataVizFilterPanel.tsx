@@ -12,6 +12,7 @@ import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import Tooltip from "../Tooltip/Tooltip";
 import { inferFieldType } from "./DataVizConfigPanel";
 import DataVizFilter from "./DataVizFilter";
 
@@ -237,7 +238,9 @@ export default function DataVizFilterPanel({
               >
                 <FaPlusCircle className="mr-1" />
                 <Text as="span" className="font-weight-bold">
-                  Add Filter
+                  <Tooltip body="Filters can be used to filter the data returned by the query, before it is aggregated and displayed.">
+                    Add Filter
+                  </Tooltip>
                 </Text>
               </Link>
             </Flex>

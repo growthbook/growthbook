@@ -488,180 +488,192 @@ export default function DataVizConfigPanel({
         </Box>
       </AreaWithHeader>
       {dataVizConfig.chartType === "pivot-table" ? (
-        <Flex
-          direction="column"
-          height="100%"
-          style={{
-            border: "1px solid var(--gray-a3)",
-            borderRadius: "var(--radius-4)",
-            overflow: "hidden",
-            backgroundColor: "var(--color-panel-translucent)",
-          }}
-        >
-          <Collapsible
-            open={true}
-            trigger={
-              <div
-                style={{
-                  paddingLeft: "12px",
-                  paddingRight: "12px",
-                  paddingTop: "12px",
-                  paddingBottom: "12px",
-                  borderBottom: "1px solid var(--gray-a3)",
-                }}
-              >
-                <Text
-                  style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
-                >
-                  <Flex justify="between" align="center">
-                    <Flex align="center" gap="1">
-                      Columns (X)
-                    </Flex>
-                    <Flex align="center" gap="1">
-                      <FaAngleRight className="chevron" />
-                    </Flex>
-                  </Flex>
-                </Text>
-              </div>
-            }
-            transitionTime={100}
+        <>
+          <DataVizDimensionPanel
+            dataVizConfig={dataVizConfig}
+            onDataVizConfigChange={onDataVizConfigChange}
+            axisKeys={axisKeys}
+            label="Row"
+          />
+          <Flex
+            direction="column"
+            height="100%"
+            style={{
+              border: "1px solid var(--gray-a3)",
+              borderRadius: "var(--radius-4)",
+              overflow: "hidden",
+              backgroundColor: "var(--color-panel-translucent)",
+            }}
           >
-            <Box p="4" height="fit-content">
-              <Flex direction="column" gap="4">
-                <Select
-                  label="Column"
-                  value={xConfig?.fieldName ?? ""}
-                  setValue={(v) => {
-                    if (!v) return;
-                    const type = getInferredFieldType(v);
-                    onDataVizConfigChange(
-                      setXAxisConfig(dataVizConfig, {
-                        fieldName: v,
-                        type,
-                        sort:
-                          type !== "string" ? "asc" : (xConfig?.sort ?? "none"),
-                        dateAggregationUnit: "day",
-                      }),
-                    );
+            <Collapsible
+              open={true}
+              trigger={
+                <div
+                  style={{
+                    paddingLeft: "12px",
+                    paddingRight: "12px",
+                    paddingTop: "12px",
+                    paddingBottom: "12px",
+                    borderBottom: "1px solid var(--gray-a3)",
                   }}
-                  size="2"
-                  placeholder="Select columns"
                 >
-                  {axisKeys.map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {key}
-                    </SelectItem>
-                  ))}
-                </Select>
-                {xConfig && (
-                  <Flex direction="column" gap="2">
-                    <Flex direction="row" justify="between" align="center">
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Type
-                      </Text>
-                      <Select
-                        style={{ flex: 1 }}
-                        value={xConfig.type}
-                        setValue={(v) => {
-                          if (!v || !xConfig) return;
-                          onDataVizConfigChange(
-                            updateXAxisConfig(dataVizConfig, {
-                              type: v as "string" | "number" | "date",
-                            }),
-                          );
-                        }}
-                        size="2"
-                        placeholder="Select type"
-                      >
-                        <SelectItem value="string">String</SelectItem>
-                        <SelectItem value="number">Number</SelectItem>
-                        <SelectItem value="date">Date</SelectItem>
-                      </Select>
+                  <Text
+                    style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
+                  >
+                    <Flex justify="between" align="center">
+                      <Flex align="center" gap="1">
+                        Columns
+                      </Flex>
+                      <Flex align="center" gap="1">
+                        <FaAngleRight className="chevron" />
+                      </Flex>
                     </Flex>
-
-                    {xConfig.type === "date" && (
-                      <>
-                        <Flex direction="row" align="center">
-                          <Box flexGrow="1">
-                            <Text as="label" size="2" mr="2">
-                              Granularity
-                            </Text>
-                          </Box>
-                          <Select
-                            value={xConfig.dateAggregationUnit}
-                            style={{ flex: 1 }}
-                            setValue={(v) => {
-                              if (!xConfig) return;
-                              onDataVizConfigChange(
-                                updateXAxisConfig(dataVizConfig, {
-                                  dateAggregationUnit:
-                                    v as xAxisDateAggregationUnit,
-                                }),
-                              );
-                            }}
-                            size="2"
-                            placeholder="Select granularity"
-                          >
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="second">Second</SelectItem>
-                            <SelectItem value="minute">Minute</SelectItem>
-                            <SelectItem value="hour">Hour</SelectItem>
-                            <SelectItem value="day">Day</SelectItem>
-                            <SelectItem value="week">Week</SelectItem>
-                            <SelectItem value="month">Month</SelectItem>
-                            <SelectItem value="year">Year</SelectItem>
-                          </Select>
-                        </Flex>
-                      </>
-                    )}
-
-                    {xConfig.type === "string" && (
+                  </Text>
+                </div>
+              }
+              transitionTime={100}
+            >
+              <Box p="4" height="fit-content">
+                <Flex direction="column" gap="4">
+                  <Select
+                    label=""
+                    value={xConfig?.fieldName ?? ""}
+                    setValue={(v) => {
+                      if (!v) return;
+                      const type = getInferredFieldType(v);
+                      onDataVizConfigChange(
+                        setXAxisConfig(dataVizConfig, {
+                          fieldName: v,
+                          type,
+                          sort:
+                            type !== "string"
+                              ? "asc"
+                              : (xConfig?.sort ?? "none"),
+                          dateAggregationUnit: "day",
+                        }),
+                      );
+                    }}
+                    size="2"
+                    placeholder="Select columns"
+                  >
+                    {axisKeys.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {key}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  {xConfig && (
+                    <Flex direction="column" gap="2">
                       <Flex direction="row" justify="between" align="center">
                         <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                          Sort
+                          Type
                         </Text>
                         <Select
-                          value={xConfig.sort}
                           style={{ flex: 1 }}
+                          value={xConfig.type}
                           setValue={(v) => {
                             if (!v || !xConfig) return;
                             onDataVizConfigChange(
                               updateXAxisConfig(dataVizConfig, {
-                                sort: v as
-                                  | "none"
-                                  | "asc"
-                                  | "desc"
-                                  | "valueAsc"
-                                  | "valueDesc",
+                                type: v as "string" | "number" | "date",
                               }),
                             );
                           }}
                           size="2"
-                          placeholder="Select sort"
+                          placeholder="Select type"
                         >
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="asc">A to Z</SelectItem>
-                          <SelectItem value="desc">Z to A</SelectItem>
-                          <SelectItem value="valueAsc">Small to Big</SelectItem>
-                          <SelectItem value="valueDesc">
-                            Big to Small
-                          </SelectItem>
+                          <SelectItem value="string">String</SelectItem>
+                          <SelectItem value="number">Number</SelectItem>
+                          <SelectItem value="date">Date</SelectItem>
                         </Select>
                       </Flex>
-                    )}
-                  </Flex>
-                )}
-              </Flex>
-            </Box>
-          </Collapsible>
-        </Flex>
-      ) : null}
-      <DataVizDimensionPanel
-        dataVizConfig={dataVizConfig}
-        onDataVizConfigChange={onDataVizConfigChange}
-        axisKeys={axisKeys}
-        label={dataVizConfig.chartType === "pivot-table" ? "Row" : "Dimension"}
-      />
+
+                      {xConfig.type === "date" && (
+                        <>
+                          <Flex direction="row" align="center">
+                            <Box flexGrow="1">
+                              <Text as="label" size="2" mr="2">
+                                Granularity
+                              </Text>
+                            </Box>
+                            <Select
+                              value={xConfig.dateAggregationUnit}
+                              style={{ flex: 1 }}
+                              setValue={(v) => {
+                                if (!xConfig) return;
+                                onDataVizConfigChange(
+                                  updateXAxisConfig(dataVizConfig, {
+                                    dateAggregationUnit:
+                                      v as xAxisDateAggregationUnit,
+                                  }),
+                                );
+                              }}
+                              size="2"
+                              placeholder="Select granularity"
+                            >
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="second">Second</SelectItem>
+                              <SelectItem value="minute">Minute</SelectItem>
+                              <SelectItem value="hour">Hour</SelectItem>
+                              <SelectItem value="day">Day</SelectItem>
+                              <SelectItem value="week">Week</SelectItem>
+                              <SelectItem value="month">Month</SelectItem>
+                              <SelectItem value="year">Year</SelectItem>
+                            </Select>
+                          </Flex>
+                        </>
+                      )}
+
+                      {xConfig.type === "string" && (
+                        <Flex direction="row" justify="between" align="center">
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            Sort
+                          </Text>
+                          <Select
+                            value={xConfig.sort}
+                            style={{ flex: 1 }}
+                            setValue={(v) => {
+                              if (!v || !xConfig) return;
+                              onDataVizConfigChange(
+                                updateXAxisConfig(dataVizConfig, {
+                                  sort: v as
+                                    | "none"
+                                    | "asc"
+                                    | "desc"
+                                    | "valueAsc"
+                                    | "valueDesc",
+                                }),
+                              );
+                            }}
+                            size="2"
+                            placeholder="Select sort"
+                          >
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="asc">A to Z</SelectItem>
+                            <SelectItem value="desc">Z to A</SelectItem>
+                            <SelectItem value="valueAsc">
+                              Small to Big
+                            </SelectItem>
+                            <SelectItem value="valueDesc">
+                              Big to Small
+                            </SelectItem>
+                          </Select>
+                        </Flex>
+                      )}
+                    </Flex>
+                  )}
+                </Flex>
+              </Box>
+            </Collapsible>
+          </Flex>
+        </>
+      ) : (
+        <DataVizDimensionPanel
+          dataVizConfig={dataVizConfig}
+          onDataVizConfigChange={onDataVizConfigChange}
+          axisKeys={axisKeys}
+        />
+      )}
       {dataVizConfig.chartType === "pivot-table" ? (
         <Flex
           direction="column"
@@ -690,7 +702,7 @@ export default function DataVizConfigPanel({
                 >
                   <Flex justify="between" align="center">
                     <Flex align="center" gap="1">
-                      Value
+                      Measure Value
                     </Flex>
                     <Flex align="center" gap="1">
                       <FaAngleRight className="chevron" />
@@ -704,7 +716,7 @@ export default function DataVizConfigPanel({
             <Box p="4" height="fit-content">
               <Flex direction="column" gap="4">
                 <Select
-                  label="Y Axis"
+                  label=""
                   value={dataVizConfig.yAxis?.[0]?.fieldName ?? ""}
                   setValue={(v) => {
                     if (!v) return;
