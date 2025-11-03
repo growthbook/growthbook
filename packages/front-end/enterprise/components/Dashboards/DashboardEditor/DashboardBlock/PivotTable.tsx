@@ -551,11 +551,6 @@ export default function PivotTable({
     [aggregatedRows, dataVizConfig],
   );
 
-  console.log(data);
-
-  // Fallback to sample data for testing
-  // const data = sampleData2;
-
   return (
     <div className="px-2 py-4">
       <h4 className="text-center mb-4">{dataVizConfig.title}</h4>
