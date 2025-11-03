@@ -65,6 +65,8 @@ export type CommercialFeature =
   | "metric-effects"
   | "metric-correlations"
   | "dashboards"
+  | "product-analytics-dashboards"
+  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
   | "custom-hooks"
   | "metric-slices"
@@ -213,6 +215,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "managed-warehouse",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -244,6 +247,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "managed-warehouse",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   enterprise: new Set<CommercialFeature>([
     "ai-suggestions",
@@ -303,6 +307,8 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-hooks",
     "metric-slices",
     "manage-official-resources",
+    "product-analytics-dashboards",
+    "share-product-analytics-dashboards",
   ]),
 };
 

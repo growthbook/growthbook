@@ -19,6 +19,7 @@ import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
 import { FiChevronRight } from "react-icons/fi";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -53,6 +54,7 @@ import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
 export interface Props {
+  dashboardId?: string;
   close: () => void;
   initial?: {
     sql?: string;
@@ -68,9 +70,12 @@ export interface Props {
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
+  onSave?: (savedQueryId: string | undefined, name: string | undefined) => void;
+  projects?: string[];
 }
 
 export default function SqlExplorerModal({
+  dashboardId,
   close,
   initial,
   id,
@@ -79,6 +84,8 @@ export default function SqlExplorerModal({
   header,
   lockDatasource = false,
   trackingEventModalSource = "",
+  onSave,
+  projects = [],
 }: Props) {
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
@@ -97,12 +104,41 @@ export default function SqlExplorerModal({
   const [informationSchema, setInformationSchema] = useState<
     InformationSchemaInterfaceWithPaths | undefined
   >();
-
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
 
-  const initialDatasourceId =
-    initial?.datasourceId || defaultDataSource || datasources[0]?.id;
+  let filteredDatasources: DataSourceInterfaceWithParams[] = [];
+
+  // If the dashboard has a projects list, only include datasources that are contain all of the projects in the list or are in 'All Projects'
+  if (projects.length) {
+    filteredDatasources = datasources.filter((d) => {
+      if (!d.projects || !d.projects.length) {
+        return true;
+      }
+
+      // Always include the existing datasource if it exists, this will prevent issues if the datasource or the dashboard's projects have changed since the query was created.
+      if (initial?.datasourceId && d.id === initial?.datasourceId) {
+        return true;
+      }
+
+      return projects.every((p) => d.projects?.includes(p));
+    });
+  } else {
+    filteredDatasources = datasources;
+  }
+
+  let initialDatasourceId = filteredDatasources[0]?.id;
+  if (
+    initial?.datasourceId &&
+    filteredDatasources.find((d) => d.id === initial?.datasourceId)
+  ) {
+    initialDatasourceId = initial.datasourceId;
+  } else if (
+    defaultDataSource &&
+    filteredDatasources.find((d) => d.id === defaultDataSource)
+  ) {
+    initialDatasourceId = defaultDataSource;
+  }
 
   const form = useForm<
     Omit<SavedQuery, "dateCreated" | "dateUpdated" | "dataVizConfig"> & {
@@ -126,7 +162,7 @@ export default function SqlExplorerModal({
     },
   });
 
-  const datasourceId = form.watch("datasourceId") || initialDatasourceId;
+  const datasourceId = form.watch("datasourceId");
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -352,18 +388,24 @@ export default function SqlExplorerModal({
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
       try {
-        await apiCall("/saved-queries", {
-          method: "POST",
-          body: JSON.stringify({
-            name: currentName,
-            sql: form.watch("sql"),
-            datasourceId: form.watch("datasourceId"),
-            dateLastRan: form.watch("dateLastRan"),
-            results: form.watch("results"),
-            dataVizConfig,
-          }),
-        });
+        const res = await apiCall<{ id: string; status: number }>(
+          "/saved-queries",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: currentName,
+              sql: form.watch("sql"),
+              datasourceId: form.watch("datasourceId"),
+              dateLastRan: form.watch("dateLastRan"),
+              results: form.watch("results"),
+              dataVizConfig,
+              linkedDashboardIds: dashboardId ? [dashboardId] : [],
+            }),
+          },
+        );
         mutate();
+        // Call the onSave callback if it exists
+        onSave?.(res?.id, currentName);
         close();
       } catch (error) {
         setLoading(false);
@@ -381,6 +423,7 @@ export default function SqlExplorerModal({
 
     // Something changed, so save the updates
     try {
+      const results = form.watch("results");
       await apiCall(`/saved-queries/${id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -389,10 +432,17 @@ export default function SqlExplorerModal({
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
           dataVizConfig: dataVizConfig,
-          results: form.watch("results"),
+          results: {
+            ...results,
+            error: results.error || undefined, // Convert null/empty to undefined
+          },
         }),
       });
       mutate();
+      // Call the onSave callback after successful save
+      if (onSave) {
+        onSave(id, currentName);
+      }
       close();
     } catch (error) {
       setLoading(false);
@@ -528,7 +578,7 @@ export default function SqlExplorerModal({
 
   // Filter datasources to only those that support SQL queries
   // Also only show datasources that the user has permission to query
-  const validDatasources = datasources.filter(
+  const validDatasources = filteredDatasources.filter(
     (d) =>
       d.type !== "google_analytics" &&
       permissionsUtil.canRunSqlExplorerQueries(d),
