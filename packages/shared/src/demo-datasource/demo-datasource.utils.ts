@@ -19,6 +19,23 @@ export function getDemoDatasourceProjectIdForOrganization(
 }
 
 /**
+ * Returns the demo fact table ID to support the demo datasource project.
+ * e.g. ftb_org-abc123_demo-datasource-project
+ * @param organizationId
+ */
+export function getDemoDatasourceFactTableIdForOrganization(
+  organizationId?: string,
+): string {
+  return (
+    "ftb" +
+    DEMO_PROJECT_ID_SEPARATOR +
+    organizationId +
+    DEMO_PROJECT_ID_SEPARATOR +
+    DEMO_PROJECT_ID_SUFFIX
+  );
+}
+
+/**
  * Verifies if the provided project ID is the organization's demo datasource project ID
  * @param projectId
  * @param organizationId
