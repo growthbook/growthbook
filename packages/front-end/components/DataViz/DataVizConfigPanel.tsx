@@ -487,7 +487,6 @@ export default function DataVizConfigPanel({
           </Flex>
         </Box>
       </AreaWithHeader>
-      {/* Column stuff */}
       {dataVizConfig.chartType === "pivot-table" ? (
         <Flex
           direction="column"
@@ -541,7 +540,6 @@ export default function DataVizConfigPanel({
                         type,
                         sort:
                           type !== "string" ? "asc" : (xConfig?.sort ?? "none"),
-                        // TODO: infer date aggregation unit based on data
                         dateAggregationUnit: "day",
                       }),
                     );
@@ -658,14 +656,12 @@ export default function DataVizConfigPanel({
           </Collapsible>
         </Flex>
       ) : null}
-      {/* Dimension stuff */}
       <DataVizDimensionPanel
         dataVizConfig={dataVizConfig}
         onDataVizConfigChange={onDataVizConfigChange}
         axisKeys={axisKeys}
         label={dataVizConfig.chartType === "pivot-table" ? "Row" : "Dimension"}
       />
-      {/* Value (y-axis) stuff */}
       {dataVizConfig.chartType === "pivot-table" ? (
         <Flex
           direction="column"
@@ -821,7 +817,6 @@ export default function DataVizConfigPanel({
           </Collapsible>
         </Flex>
       ) : null}
-      {/* Value (y-axis) selector goes here */}
       <DataVizFilterPanel
         dataVizConfig={dataVizConfig}
         onDataVizConfigChange={onDataVizConfigChange}
