@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import { QueryInterface, QueryType } from "back-end/types/query";
-import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
+import {
+  QUERY_CACHE_TTL_MINS,
+  STALE_QUERY_CLEANUP_BATCH_SIZE,
+} from "back-end/src/util/secrets";
 import { QueryLanguage } from "back-end/types/datasource";
 import { ApiQuery } from "back-end/types/openapi";
 import type { ReqContext } from "back-end/types/organization";
@@ -159,7 +162,7 @@ export async function getStaleQueries(): Promise<
     _id: 1,
     id: 1,
     organization: 1,
-  }).limit(20);
+  }).limit(STALE_QUERY_CLEANUP_BATCH_SIZE);
   if (!docs.length) return [];
 
   await QueryModel.updateMany(

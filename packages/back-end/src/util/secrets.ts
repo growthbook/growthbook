@@ -136,6 +136,9 @@ export const QUERY_CACHE_TTL_MINS =
 export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
 
+export const STALE_QUERY_CLEANUP_BATCH_SIZE =
+  parseInt(process.env.STALE_QUERY_CLEANUP_BATCH_SIZE || "") || 20;
+
 // cache control currently feature only /api/features/*
 export const CACHE_CONTROL_MAX_AGE =
   parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
