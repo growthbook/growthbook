@@ -119,6 +119,7 @@ export default function NewDashboardPage() {
       mutate={mutateDashboards}
       submitDashboard={handleSubmitDashboard}
       close={handleClose}
+      dashboardFirstSave={true}
     />
   );
 }
