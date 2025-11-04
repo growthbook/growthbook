@@ -38,6 +38,7 @@ import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
+import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
@@ -84,6 +85,7 @@ export class ReqContextClass {
     holdout: HoldoutModel;
     dashboards: DashboardModel;
     customHooks: CustomHookModel;
+    incrementalRefresh: IncrementalRefreshModel;
   };
   private initModels() {
     this.models = {
@@ -109,6 +111,7 @@ export class ReqContextClass {
       holdout: new HoldoutModel(this),
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
+      incrementalRefresh: new IncrementalRefreshModel(this),
     };
   }
 
