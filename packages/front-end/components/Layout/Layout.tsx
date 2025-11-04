@@ -344,6 +344,13 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("cdn-usage-data"),
       },
       {
+        name: "Custom Hooks",
+        href: "/settings/custom-hooks",
+        path: /^settings\/custom-hooks/,
+        filter: ({ permissionsUtils, isCloud }) =>
+          !isCloud && permissionsUtils.canCreateCustomHook({ projects: [] }),
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
