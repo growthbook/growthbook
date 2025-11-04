@@ -9,7 +9,10 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentDataForStatusStringDates,
+} from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -233,7 +236,9 @@ const IdeaPage = (): ReactElement => {
             </Link>
             {data.experiment.status && (
               <ExperimentStatusIndicator
-                experimentData={data.experiment}
+                experimentData={
+                  data.experiment as ExperimentDataForStatusStringDates
+                }
                 labelFormat="status-only"
               />
             )}
