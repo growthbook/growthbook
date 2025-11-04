@@ -15,7 +15,6 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
-  expandMetricGroups,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -81,9 +80,9 @@ export default function ResultsTab({
     getDatasourceById,
     getExperimentMetricById,
     getMetricById,
-    getMetricGroupById,
     getProjectById,
     metrics,
+    metricGroups,
     datasources,
   } = useDefinitions();
 
@@ -113,27 +112,12 @@ export default function ResultsTab({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
-  //returns all metric ids from an experiment, including metric group metric ids
-  const metricAndMetricGroupIds = getAllMetricIdsFromExperiment(
+
+  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
+    metricGroups,
   );
-
-  //get all metric groups from the metric ids
-  const metricGroups = metricAndMetricGroupIds.map((m) =>
-    getMetricGroupById(m),
-  );
-
-  //include metric group metric ids to return correct snapshot settings (specically regression adjustment)
-  const filteredMetricGroups = metricGroups.filter(isDefined);
-  let allExperimentMetricIds = metricAndMetricGroupIds;
-  if (filteredMetricGroups.length > 0) {
-    allExperimentMetricIds = expandMetricGroups(
-      metricAndMetricGroupIds,
-      filteredMetricGroups,
-    );
-  }
-
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m),
   );
