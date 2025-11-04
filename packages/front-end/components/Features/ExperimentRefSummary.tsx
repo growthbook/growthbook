@@ -4,11 +4,12 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
 import { includeExperimentInPayload } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
+import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
@@ -125,10 +126,8 @@ export default function ExperimentRefSummary({
         </Callout>
       )}
       {hasCondition && (
-        <Flex align="start" mb="3" gap="3">
-          <Box>
-            <strong>IF</strong>
-          </Box>
+        <Flex direction="row" gap="2" mb="3">
+          <Text weight="medium">IF</Text>
           <Box>
             <ConditionDisplay
               condition={phase.condition}
@@ -139,158 +138,147 @@ export default function ExperimentRefSummary({
         </Flex>
       )}
 
-      <Flex gap="3" mb="3">
-        <Box>
-          <strong>SPLIT</strong>
-        </Box>
-        <Box>
-          {" "}
-          by{" "}
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {experiment.hashAttribute || "id"}
-          </span>
-          {hasNamespace && (
-            <>
-              {" "}
-              <span>in the namespace </span>
-              <Link href={`/namespaces`}>
-                <span className="mr-1 border px-2 py-1 bg-light rounded">
-                  {namespaces?.find((n) => n.name === phase.namespace!.name)
-                    ?.label || (
-                    <span
-                      className="italic text-danger"
-                      title="this namespace is not found"
-                    >
-                      <FaExclamationTriangle /> {phase.namespace!.name}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            </>
-          )}
-        </Box>
-      </Flex>
-      <Flex gap="3" mb="3">
-        <Box>
-          <strong>INCLUDE</strong>
-        </Box>
-        <Box>
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {percentFormatter.format(effectiveCoverage)}
-          </span>{" "}
-          of users in the {isBandit ? "Bandit" : "Experiment"}
-          {hasNamespace && (
-            <>
-              <span> (</span>
-              <span className="border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(namespaceRange)}
-              </span>{" "}
-              of the namespace and{" "}
-              <span className="border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(phase?.coverage || 1)}
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">SPLIT</Text>
+        by{" "}
+        <span className="mr-1 border px-2 py-1 bg-light rounded">
+          {experiment.hashAttribute || "id"}
+        </span>
+        {hasNamespace && (
+          <>
+            {" "}
+            in the namespace{" "}
+            <Link href={`/namespaces`}>
+              <span className="mr-1 border px-2 py-1 bg-light rounded">
+                {namespaces?.find((n) => n.name === phase.namespace!.name)
+                  ?.label || (
+                  <span
+                    className="italic text-danger"
+                    title="this namespace is not found"
+                  >
+                    <FaExclamationTriangle /> {phase.namespace!.name}
+                  </span>
+                )}
               </span>
-              <span> exposure)</span>
-            </>
-          )}
-        </Box>
+            </Link>
+          </>
+        )}
+      </Flex>
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">INCLUDE</Text>
+        <span className="mr-1 border px-2 py-1 bg-light rounded">
+          {percentFormatter.format(effectiveCoverage)}
+        </span>{" "}
+        of users in the {isBandit ? "Bandit" : "Experiment"}
+        {hasNamespace && (
+          <>
+            {" "}
+            (
+            <span className="border px-2 py-1 bg-light rounded">
+              {percentFormatter.format(namespaceRange)}
+            </span>{" "}
+            of the namespace and{" "}
+            <span className="border px-2 py-1 bg-light rounded">
+              {percentFormatter.format(phase?.coverage || 1)}
+            </span>{" "}
+            exposure)
+          </>
+        )}
       </Flex>
       {releasedValue ? (
         <ForceSummary feature={feature} value={releasedValue.value} />
       ) : (
         <>
-          <strong>SERVE</strong>
-          <table className="table mt-1 mb-3 bg-light gbtable">
-            <tbody>
-              {experiment.variations.map((variation, j) => {
-                const value =
-                  variations.find((v) => v.variationId === variation.id)
-                    ?.value ?? "null";
+          <Text weight="medium">SERVE</Text>
+          <Box
+            px="3"
+            style={{
+              border: "1px solid var(--gray-a5)",
+              borderRadius: "var(--radius-2)",
+            }}
+          >
+            <Table>
+              <TableBody>
+                {experiment.variations.map((variation, j) => {
+                  const value =
+                    variations.find((v) => v.variationId === variation.id)
+                      ?.value ?? "null";
 
-                const weight = phase.variationWeights?.[j] || 0;
+                  const weight = phase.variationWeights?.[j] || 0;
 
-                return (
-                  <tr key={j}>
-                    <td
-                      className="text-muted position-relative"
-                      style={{ fontSize: "0.9em", width: 25 }}
-                    >
-                      <div
-                        style={{
-                          width: "6px",
-                          position: "absolute",
-                          top: 0,
-                          bottom: 0,
-                          left: 0,
-                          backgroundColor: getVariationColor(j, true),
-                        }}
-                      />
-                      {j}.
-                    </td>
-                    <td>
-                      <ValueDisplay
-                        value={value}
-                        type={type}
-                        showFullscreenButton={true}
-                      />
-                      <ValidateValue value={value} feature={feature} />
-                    </td>
-                    <td>{variation.name}</td>
-                    {!isBandit && (
-                      <td>
-                        <div className="d-flex">
-                          <div
+                  return (
+                    <TableRow key={j} style={{ color: "var(--color-text-high)" }}>
+                      <TableCell style={{ whiteSpace: "nowrap" }}>
+                        <Flex align="center" gap="2">
+                          <span
                             style={{
-                              width: "4em",
-                              maxWidth: "4em",
-                              margin: "0 0 0 auto",
+                              color: getVariationColor(j, true),
+                              borderColor: getVariationColor(j, true),
+                              fontSize: "14px",
+                              width: 20,
+                              height: 20,
+                              borderRadius: 20,
+                              borderWidth: 1,
+                              borderStyle: "solid",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
                             }}
                           >
-                            {percentFormatter.format(weight)}
-                          </div>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-              {!isBandit && (
-                <tr>
-                  <td colSpan={4}>
-                    <ExperimentSplitVisual
-                      values={experiment.variations.map((variation, j) => {
-                        return {
-                          name: variation.name,
-                          value:
-                            variations.find(
-                              (v) => v.variationId === variation.id,
-                            )?.value ?? "null",
-                          weight: phase.variationWeights?.[j] || 0,
-                        };
-                      })}
-                      coverage={effectiveCoverage}
-                      label="Traffic split"
-                      unallocated="Not included (skips this rule)"
-                      type={type}
-                      showValues={false}
-                      stackLeft={true}
-                      showPercentages={true}
-                    />
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <Flex align="center" gap="3" mb="3">
-            <Box>
-              <strong>TRACK</strong>
+                            {j}
+                          </span>
+                          <Text weight="medium">{variation.name}</Text>
+                        </Flex>
+                      </TableCell>
+                      <TableCell width="100%">
+                        <ValueDisplay
+                          value={value}
+                          type={type}
+                          showFullscreenButton={true}
+                        />
+                        <ValidateValue value={value} feature={feature} />
+                      </TableCell>
+                      {!isBandit && (
+                        <TableCell style={{ color: "var(--color-text-mid)", textAlign: "right" }}>
+                          {percentFormatter.format(weight)}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+          {!isBandit && (
+            <Box mt="3">
+              <ExperimentSplitVisual
+                values={experiment.variations.map((variation, j) => {
+                  return {
+                    name: variation.name,
+                    value:
+                      variations.find(
+                        (v) => v.variationId === variation.id,
+                      )?.value ?? "null",
+                    weight: phase.variationWeights?.[j] || 0,
+                  };
+                })}
+                coverage={effectiveCoverage}
+                label="Traffic split"
+                unallocated="Not included (skips this rule)"
+                type={type}
+                showValues={false}
+                stackLeft={true}
+                showPercentages={true}
+              />
             </Box>
-            <Box>
-              {" "}
-              the result using the key{" "}
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {experiment.trackingKey}
-              </span>{" "}
-            </Box>
+          )}
+          <Flex direction="row" gap="2" mb="3">
+            <Text weight="medium">TRACK</Text>
+            the result using the key{" "}
+            <span className="mr-1 border px-2 py-1 bg-light rounded">
+              {experiment.trackingKey}
+            </span>
           </Flex>
         </>
       )}

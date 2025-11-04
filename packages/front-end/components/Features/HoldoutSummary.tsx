@@ -40,7 +40,7 @@ export default function HoldoutSummary({
           <strong className="font-weight-semibold">SERVE</strong>
         </Box>
         <Box width="100%">
-          <ValueDisplay value={value} type={feature.valueType} />
+          <ValueDisplay value={value} type={feature.valueType} showFullscreenButton={true} />
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />
