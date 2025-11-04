@@ -20,6 +20,7 @@ import {
 } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Field from "@/components/Forms/Field";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
@@ -147,7 +148,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 renderJSONInline={false}
                 useCodeInput={true}
                 showFullscreenButton={true}
-                codeInputDefaultHeight={80}
+                codeInputDefaultHeight={FIVE_LINES_HEIGHT}
               />
             ) : (
               <>{variation.value}</>

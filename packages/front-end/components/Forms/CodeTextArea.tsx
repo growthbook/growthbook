@@ -180,6 +180,8 @@ const AceEditor = dynamic(
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
 
+export const FIVE_LINES_HEIGHT = 98;
+
 type CodeTextAreaFieldProps = Omit<
   FieldProps,
   | "value"
