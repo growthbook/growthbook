@@ -125,7 +125,10 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
           </td>
         )}
         {!hideValueField && (
-          <td key={`${variation.id}__${i}__1`}>
+          <td
+            key={`${variation.id}__${i}__1`}
+            style={valueType === "json" ? { minWidth: 300 } : undefined}
+          >
             {setVariations ? (
               <FeatureValueField
                 id={`value_${i}`}
@@ -142,6 +145,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 valueType={valueType}
                 feature={feature}
                 renderJSONInline={false}
+                useCodeInput={true}
+                showFullscreenButton={true}
               />
             ) : (
               <>{variation.value}</>

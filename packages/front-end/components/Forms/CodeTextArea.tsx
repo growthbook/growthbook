@@ -418,7 +418,7 @@ export default function CodeTextArea({
                     style={{
                       position: "absolute",
                       bottom: 0,
-                      right: 22,
+                      right: 14,
                     }}
                   >
                     {showCopyButton && (
@@ -434,6 +434,7 @@ export default function CodeTextArea({
                             e.stopPropagation();
                             if (!copySuccess) performCopy(value);
                           }}
+                          style={{ position: "relative", zIndex: 1000 }}
                         >
                           {copySuccess ? (
                             <PiCheck size={isFullscreen ? 16 : 12} />
@@ -461,6 +462,7 @@ export default function CodeTextArea({
                             e.stopPropagation();
                             setIsFullscreen(!isFullscreen);
                           }}
+                          style={{ position: "relative", zIndex: 1000 }}
                         >
                           {isFullscreen ? (
                             <PiCornersIn size={isFullscreen ? 16 : 12} />
