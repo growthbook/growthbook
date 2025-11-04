@@ -306,7 +306,7 @@ export default function CodeTextArea({
                 right: 0;
                 bottom: 0;
                 z-index: 1050;
-                background-color: ${theme === "light" ? "#fff" : "#1e1e1e"};
+                background-color: var(--color-surface-solid);
                 padding: 1rem;
                 display: flex;
                 flex-direction: column;
