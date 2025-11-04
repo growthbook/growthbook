@@ -180,7 +180,8 @@ const AceEditor = dynamic(
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
 
-export const FIVE_LINES_HEIGHT = 98;
+export const FIVE_LINES_HEIGHT = 97;
+export const TEN_LINES_HEIGHT = 194;
 
 type CodeTextAreaFieldProps = Omit<
   FieldProps,
@@ -227,7 +228,7 @@ export default function CodeTextArea({
   wrapperClassName,
   completions,
   resizable = false,
-  defaultHeight = 200, // for resizable
+  defaultHeight = TEN_LINES_HEIGHT, // for resizable
   showCopyButton = false,
   showFullscreenButton = false,
   ...otherProps
