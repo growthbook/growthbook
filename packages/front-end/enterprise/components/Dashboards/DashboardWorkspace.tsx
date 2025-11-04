@@ -255,7 +255,7 @@ export default function DashboardWorkspace({
           }}
         >
           <Flex align="center" gap="1">
-            {saveError ? (
+            {dashboard.id === "new" ? null : saveError ? (
               <Tooltip body={saveError} delay={0}>
                 <PiX color="red" />
                 <Text color="red" ml="1" size="1">
