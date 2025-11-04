@@ -147,6 +147,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 renderJSONInline={false}
                 useCodeInput={true}
                 showFullscreenButton={true}
+                codeInputDefaultHeight={80}
               />
             ) : (
               <>{variation.value}</>

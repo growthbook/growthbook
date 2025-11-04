@@ -5,7 +5,7 @@ import {
 } from "back-end/types/feature";
 import React, { CSSProperties, useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
-import { IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
@@ -94,17 +94,20 @@ export default function ValueDisplay({
           <InlineCode language="json" code={formatted} />
         </div>
         {!isFullscreen && (
-          <div
-            className="d-flex"
+          <Flex
+            align="center"
+            gap="3"
             style={{
               position: "absolute",
               bottom: -4,
               right: 16,
-              gap: "0.75rem",
             }}
           >
             {type === "json" || type === "string" ? (
-              <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
+              <Tooltip
+                body={copySuccess ? "Copied" : "Copy to clipboard"}
+                usePortal={true}
+              >
                 <IconButton
                   type="button"
                   radius="full"
@@ -135,7 +138,7 @@ export default function ValueDisplay({
                 </IconButton>
               </Tooltip>
             )}
-          </div>
+          </Flex>
         )}
       </div>
       {modalOpen && (

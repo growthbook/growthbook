@@ -1,8 +1,7 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState, useRef, createElement, useMemo } from "react";
+import { useEffect, useState, useRef, createElement, useId } from "react";
 import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
-import { v4 as uuid4 } from "uuid";
 import clsx from "clsx";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCornersOut, PiCornersIn, PiCopy, PiCheck } from "react-icons/pi";
@@ -228,7 +227,7 @@ export default function CodeTextArea({
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const editorUid = useMemo(() => uuid4(), []);
+  const editorUid = useId();
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
