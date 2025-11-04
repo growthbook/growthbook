@@ -60,35 +60,12 @@ function PivotTableTooltip({
   );
 }
 
-// Helper: Extract metadata from aggregatedRows
-type ExtractedMetadata = {
-  dimensionFields: string[];
-  xAxisFields: string[];
-  dimensionValuesByCombo: Record<string, Record<string, string>>;
-  isDateType: boolean;
-  formatXValue: (xVal: Date | string) => string;
-};
-
-function extractMetadata(
-  aggregatedRows: Record<string, unknown>[],
-  dataVizConfig: Partial<DataVizConfig>,
-): ExtractedMetadata {
-  const firstRow = aggregatedRows[0];
-  const dimensionFields =
-    (firstRow._dimensionFields as string[] | undefined) || [];
-  const xAxisFields = (firstRow._xAxisFields as string[] | undefined) || [];
-  const dimensionValuesByCombo =
-    (firstRow._dimensionValuesByCombo as
-      | Record<string, Record<string, string>>
-      | undefined) || {};
-
-  const xConfig =
-    dataVizConfig.chartType === "pivot-table" && dataVizConfig.xAxes
-      ? dataVizConfig.xAxes[0]
-      : null;
-  const isDateType = xConfig?.type === "date";
-
-  const formatXValue = (xVal: Date | string): string => {
+// Helper: Create a formatter function for x-axis values
+function createFormatXValue(
+  isDateType: boolean,
+  xConfig: { dateAggregationUnit?: string } | null,
+): (xVal: Date | string) => string {
+  return (xVal: Date | string): string => {
     if (isDateType && xVal instanceof Date) {
       const unit = xConfig?.dateAggregationUnit || "none";
       const d = xVal;
@@ -152,6 +129,37 @@ function extractMetadata(
     }
     return String(xVal);
   };
+}
+
+// Helper: Extract metadata from aggregatedRows
+type ExtractedMetadata = {
+  dimensionFields: string[];
+  xAxisFields: string[];
+  dimensionValuesByCombo: Record<string, Record<string, string>>;
+  isDateType: boolean;
+  formatXValue: (xVal: Date | string) => string;
+};
+
+function extractMetadata(
+  aggregatedRows: Record<string, unknown>[],
+  dataVizConfig: Partial<DataVizConfig>,
+): ExtractedMetadata {
+  const firstRow = aggregatedRows[0];
+  const dimensionFields =
+    (firstRow._dimensionFields as string[] | undefined) || [];
+  const xAxisFields = (firstRow._xAxisFields as string[] | undefined) || [];
+  const dimensionValuesByCombo =
+    (firstRow._dimensionValuesByCombo as
+      | Record<string, Record<string, string>>
+      | undefined) || {};
+
+  const xConfig =
+    dataVizConfig.chartType === "pivot-table" && dataVizConfig.xAxes
+      ? dataVizConfig.xAxes[0]
+      : null;
+  const isDateType = xConfig?.type === "date";
+
+  const formatXValue = createFormatXValue(isDateType, xConfig);
 
   return {
     dimensionFields,

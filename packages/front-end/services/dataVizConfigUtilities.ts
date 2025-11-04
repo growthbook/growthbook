@@ -43,10 +43,8 @@ export function setXAxisConfig(
   // If empty array, set to undefined
   return {
     ...config,
-    xAxis: (valueArray.length > 0 ? valueArray[0] : undefined) as Partial<
-      BarChart | LineChart | AreaChart | ScatterChart
-    >["xAxis"],
-  } as Partial<DataVizConfig>;
+    xAxis: valueArray.length > 0 ? valueArray[0] : undefined,
+  };
 }
 
 export function updateXAxisConfig(

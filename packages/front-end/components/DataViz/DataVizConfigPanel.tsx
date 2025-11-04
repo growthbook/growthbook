@@ -172,7 +172,7 @@ export default function DataVizConfigPanel({
                 onDataVizConfigChange({
                   ...dataVizConfig,
                   chartType: v as DataVizConfig["chartType"],
-                } as Partial<DataVizConfig>);
+                });
               }}
             >
               <SelectItem value="bar">Bar</SelectItem>
