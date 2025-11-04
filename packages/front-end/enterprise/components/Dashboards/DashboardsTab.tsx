@@ -47,7 +47,7 @@ export type CreateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
-    projects: string[];
+    projects?: string[];
   };
 };
 export type UpdateDashboardArgs = {
@@ -61,7 +61,7 @@ export type UpdateDashboardArgs = {
     shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
-    projects: string[];
+    projects?: string[];
   }>;
 };
 export type SubmitDashboard<
