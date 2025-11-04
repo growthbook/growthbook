@@ -180,10 +180,19 @@ const AceEditor = dynamic(
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
 
-export type Props = Omit<
+type CodeTextAreaFieldProps = Omit<
   FieldProps,
-  "value" | "onChange" | "options" | "multi" | "initialOption"
-> & {
+  | "value"
+  | "onChange"
+  | "options"
+  | "multi"
+  | "initialOption"
+  | "render"
+  | "containerClassName"
+  | "ref"
+>;
+
+export type Props = CodeTextAreaFieldProps & {
   language: Language;
   value: string;
   setValue: (value: string) => void;
@@ -221,8 +230,7 @@ export default function CodeTextArea({
   showFullscreenButton = false,
   ...otherProps
 }: Props) {
-  // eslint-disable-next-line
-  const fieldProps = otherProps as any;
+  const fieldProps = otherProps as CodeTextAreaFieldProps;
   const { theme } = useAppearanceUITheme();
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);

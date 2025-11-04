@@ -29,7 +29,7 @@ import InlineForm from "@/components/Forms/InlineForm";
 import TagsInput from "@/components/Tags/TagsInput";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -232,9 +232,9 @@ const IdeaPage = (): ReactElement => {
               <FaExternalLinkAlt /> {data.experiment.name}
             </Link>
             {data.experiment.status && (
-              <StatusIndicator
-                status={data.experiment.status}
-                archived={data.experiment.archived || false}
+              <ExperimentStatusIndicator
+                experimentData={data.experiment}
+                labelFormat="status-only"
               />
             )}
           </div>
