@@ -803,7 +803,8 @@ export function DataVisualizationDisplay({
     if (!dataVizConfig.xAxes || !dataVizConfig.yAxis) {
       return (
         <Flex justify="center" align="center" height="100%">
-          Select X and Y axis on the side panel to visualize your data.
+          Select rows, columns, and a measure value on the side panel to
+          visualize your data.
         </Flex>
       );
     }
