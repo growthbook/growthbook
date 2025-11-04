@@ -61,7 +61,7 @@ function PivotTableTooltip({
 }
 
 // Helper: Create a formatter function for x-axis values
-function createFormatXValue(
+function formatXValue(
   isDateType: boolean,
   xConfig: { dateAggregationUnit?: string } | null,
 ): (xVal: Date | string) => string {
@@ -159,14 +159,12 @@ function extractMetadata(
       : null;
   const isDateType = xConfig?.type === "date";
 
-  const formatXValue = createFormatXValue(isDateType, xConfig);
-
   return {
     dimensionFields,
     xAxisFields,
     dimensionValuesByCombo,
     isDateType,
-    formatXValue,
+    formatXValue: formatXValue(isDateType, xConfig),
   };
 }
 

@@ -13,11 +13,11 @@ import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
-import PivotTable from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/PivotTable";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
 import DataVizConfigPanel from "./DataVizConfigPanel";
+import PivotTable from "./PivotTable";
 
 // We need to use any here because the rows are defined only in runtime
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
