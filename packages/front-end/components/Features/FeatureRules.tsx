@@ -120,7 +120,7 @@ export default function FeatureRules({
                     <Badge
                       ml="2"
                       label={
-                        holdout?.environmentSettings[e.id].enabled
+                        holdout?.environmentSettings?.[e.id]?.enabled
                           ? (rulesByEnv[e.id].length + 1).toString()
                           : rulesByEnv[e.id].length.toString()
                       }
@@ -212,7 +212,7 @@ export default function FeatureRules({
         </Container>
         {environments.map((e) => {
           const includeHoldoutRule =
-            holdout && holdout.environmentSettings[e.id].enabled;
+            !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
