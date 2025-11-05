@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.2",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
