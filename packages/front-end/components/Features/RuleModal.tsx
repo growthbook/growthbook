@@ -61,7 +61,7 @@ import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
-import { validateCohort } from "./CohortValidation";
+import { validateCohort, NonExperimentCohortWarning } from "./CohortValidation";
 
 export interface Props {
   close: () => void;
@@ -762,19 +762,23 @@ export default function RuleModal({
         />
       )}
       {type === "force" && (
-        <FeatureValueField
-          label="Value to Force"
-          id="value"
-          value={form.watch("value")}
-          setValue={(v) => form.setValue("value", v)}
-          valueType={feature.valueType}
-          feature={feature}
-          renderJSONInline={true}
-        />
+        <>
+          <NonExperimentCohortWarning value={form.watch("value") || ""} />
+          <FeatureValueField
+            label="Value to Force"
+            id="value"
+            value={form.watch("value")}
+            setValue={(v) => form.setValue("value", v)}
+            valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
+          />
+        </>
       )}
 
       {type === "rollout" && (
         <div>
+          <NonExperimentCohortWarning value={form.watch("value") || ""} />
           <FeatureValueField
             label="Value to roll out"
             id="value"

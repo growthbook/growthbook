@@ -10,7 +10,7 @@ import dJSON from "dirty-json";
 import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt, FaExclamationTriangle } from "react-icons/fa";
 import {
   filterEnvironmentsByExperiment,
   validateFeatureValue,
@@ -31,6 +31,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { validateCohort } from "@/components/Features/CohortValidation";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -429,16 +430,49 @@ export default function FeatureFromExperimentModal({
       <div className="form-group">
         <label>Variation Values</label>
         <div className="mb-3 bg-light border p-3">
-          {experiment.variations.map((v, i) => (
-            <FeatureValueField
-              key={v.id}
-              label={v.name}
-              id={v.id}
-              value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-              valueType={form.watch("valueType")}
-            />
-          ))}
+          {experiment.variations.map((v, i) => {
+            const value = form.watch(`variations.${i}.value`) || "";
+            const validation = validateCohort(value);
+            return (
+              <div key={v.id}>
+                {!validation.valid && (
+                  <div
+                    className="alert alert-warning mb-2"
+                    style={{ fontSize: "0.9em", padding: "0.5rem" }}
+                  >
+                    <FaExclamationTriangle className="mr-1" />
+                    {validation.reason === "not-json" ? (
+                      <>
+                        Invalid experiment setup. Variation {i} does not have a
+                        json payload.
+                      </>
+                    ) : validation.reason === "missing-cohort" ? (
+                      <>
+                        Invalid experiment setup. Variation {i} does not have a{" "}
+                        <code>cohort</code> key.
+                      </>
+                    ) : (
+                      <>
+                        Invalid experiment setup. Variation {i} has an invalid
+                        cohort format. Please follow the experiment naming
+                        format:{" "}
+                        <code>
+                          exp1:&lt;experimentNameInCamelCaseYYMMDD&gt;:&lt;variantName&gt;
+                        </code>
+                      </>
+                    )}
+                  </div>
+                )}
+                <FeatureValueField
+                  label={v.name}
+                  id={v.id}
+                  value={value}
+                  setValue={(v) => form.setValue(`variations.${i}.value`, v)}
+                  valueType={form.watch("valueType")}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
