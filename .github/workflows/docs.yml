@@ -37,8 +37,14 @@ jobs:
       - name: Produce generated files
         run: |
           yarn
+          cd packages/shared
+          yarn
+          cd ../../packages/back-end
+          yarn
+          cd ../../
           yarn build:deps
           cd docs
+          yarn
           yarn gen
 
       - name: Deploy to Vercel
