@@ -19,6 +19,7 @@ import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
 import { FiChevronRight } from "react-icons/fi";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -37,7 +38,11 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
-import { requiresXAxis } from "@/services/dataVizTypeGuards";
+import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
+import {
+  getXAxisConfig,
+  setXAxisConfig,
+} from "@/services/dataVizConfigUtilities";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import Field from "@/components/Forms/Field";
@@ -70,6 +75,7 @@ export interface Props {
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
   onSave?: (savedQueryId: string | undefined, name: string | undefined) => void;
+  projects?: string[];
 }
 
 export default function SqlExplorerModal({
@@ -83,6 +89,7 @@ export default function SqlExplorerModal({
   lockDatasource = false,
   trackingEventModalSource = "",
   onSave,
+  projects = [],
 }: Props) {
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
@@ -101,12 +108,41 @@ export default function SqlExplorerModal({
   const [informationSchema, setInformationSchema] = useState<
     InformationSchemaInterfaceWithPaths | undefined
   >();
-
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
 
-  const initialDatasourceId =
-    initial?.datasourceId || defaultDataSource || datasources[0]?.id;
+  let filteredDatasources: DataSourceInterfaceWithParams[] = [];
+
+  // If the dashboard has a projects list, only include datasources that are contain all of the projects in the list or are in 'All Projects'
+  if (projects.length) {
+    filteredDatasources = datasources.filter((d) => {
+      if (!d.projects || !d.projects.length) {
+        return true;
+      }
+
+      // Always include the existing datasource if it exists, this will prevent issues if the datasource or the dashboard's projects have changed since the query was created.
+      if (initial?.datasourceId && d.id === initial?.datasourceId) {
+        return true;
+      }
+
+      return projects.every((p) => d.projects?.includes(p));
+    });
+  } else {
+    filteredDatasources = datasources;
+  }
+
+  let initialDatasourceId = filteredDatasources[0]?.id;
+  if (
+    initial?.datasourceId &&
+    filteredDatasources.find((d) => d.id === initial?.datasourceId)
+  ) {
+    initialDatasourceId = initial.datasourceId;
+  } else if (
+    defaultDataSource &&
+    filteredDatasources.find((d) => d.id === defaultDataSource)
+  ) {
+    initialDatasourceId = defaultDataSource;
+  }
 
   const form = useForm<
     Omit<SavedQuery, "dateCreated" | "dateUpdated" | "dataVizConfig"> & {
@@ -130,7 +166,7 @@ export default function SqlExplorerModal({
     },
   });
 
-  const datasourceId = form.watch("datasourceId") || initialDatasourceId;
+  const datasourceId = form.watch("datasourceId");
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -219,8 +255,27 @@ export default function SqlExplorerModal({
 
     // If we have an empty object for dataVizConfig, set it to an empty array
     const dataVizConfig = form.watch("dataVizConfig") || [];
+
+    // Normalize dataVizConfig to ensure pivot tables have xAxis as arrays
+    // and other charts have xAxis as single objects (for API compatibility)
+    const normalizedDataVizConfig = dataVizConfig.map((config) => {
+      if (!requiresXAxis(config) || !config.xAxis) {
+        return config as DataVizConfig;
+      }
+
+      // Get xAxis as array (internal representation)
+      const xAxisConfigs = getXAxisConfig(config);
+
+      if (xAxisConfigs.length === 0) {
+        return config as DataVizConfig;
+      }
+
+      // Use setXAxisConfig to ensure correct format for API (array for pivot, single for others)
+      return setXAxisConfig(config, xAxisConfigs) as DataVizConfig;
+    }) as DataVizConfig[];
+
     // Validate each dataVizConfig object
-    dataVizConfig.forEach((config, index) => {
+    normalizedDataVizConfig.forEach((config, index) => {
       // Check if chart type requires xAxis but doesn't have one
       if (requiresXAxis(config) && !config.xAxis) {
         setTab(`visualization-${index}`);
@@ -228,6 +283,14 @@ export default function SqlExplorerModal({
           `X axis is required for Visualization ${
             config.title ? config.title : `${index + 1}`
           }. Please add an X axis or remove the visualization to save the query.`,
+        );
+      }
+      if (requiresXAxes(config) && !config.xAxes) {
+        setTab(`visualization-${index}`);
+        throw new Error(
+          `Columns are required for Visualization ${
+            config.title ? config.title : `${index + 1}`
+          }. Please add a column or remove the visualization to save the query.`,
         );
       }
       if (!config.yAxis) {
@@ -366,7 +429,7 @@ export default function SqlExplorerModal({
               datasourceId: form.watch("datasourceId"),
               dateLastRan: form.watch("dateLastRan"),
               results: form.watch("results"),
-              dataVizConfig,
+              dataVizConfig: normalizedDataVizConfig,
               linkedDashboardIds: dashboardId ? [dashboardId] : [],
             }),
           },
@@ -399,7 +462,7 @@ export default function SqlExplorerModal({
           sql: form.watch("sql"),
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
-          dataVizConfig: dataVizConfig,
+          dataVizConfig: normalizedDataVizConfig,
           results: {
             ...results,
             error: results.error || undefined, // Convert null/empty to undefined
@@ -546,7 +609,7 @@ export default function SqlExplorerModal({
 
   // Filter datasources to only those that support SQL queries
   // Also only show datasources that the user has permission to query
-  const validDatasources = datasources.filter(
+  const validDatasources = filteredDatasources.filter(
     (d) =>
       d.type !== "google_analytics" &&
       permissionsUtil.canRunSqlExplorerQueries(d),

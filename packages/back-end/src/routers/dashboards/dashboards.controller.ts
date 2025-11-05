@@ -36,6 +36,7 @@ import {
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentInterface } from "back-end/types/experiment";
+import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -283,7 +284,12 @@ export async function refreshDashboardData(
         variationNames: experiment.variations.map((v) => v.name),
         metricMap: await getMetricMap(context),
         queryParentId: mainSnapshot.id,
+        experimentId: experiment.id,
         factTableMap: await getFactTableMap(context),
+        experimentQueryMetadata:
+          getAdditionalQueryMetadataForExperiment(experiment),
+        fullRefresh: false,
+        incrementalRefreshStartTime: new Date(),
       });
     } else {
       await deleteSnapshotById(context.org.id, mainSnapshot.id);

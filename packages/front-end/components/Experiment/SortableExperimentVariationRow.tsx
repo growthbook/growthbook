@@ -125,6 +125,8 @@ export const ExperimentVariationRow = forwardRef<
               valueType={valueType}
               feature={feature}
               renderJSONInline={false}
+              useCodeInput={true}
+              showFullscreenButton={true}
             />
           ) : (
             <>{variation.value}</>

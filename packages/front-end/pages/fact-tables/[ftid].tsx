@@ -1,11 +1,12 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   FactTableInterface,
   FactMetricInterface,
 } from "back-end/types/fact-table";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -33,6 +34,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import Callout from "@/ui/Callout";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -65,7 +68,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const {
     getFactTableById,
@@ -94,13 +97,18 @@ export default function FactTablePage() {
     projects: factTable.projects,
   });
 
-  let canEdit = permissionsUtil.canUpdateFactTable(factTable, {});
+  let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
 
   if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
     canEdit = false;
     canDelete = false;
   }
+
+  // Editing columns is less restrictive than editing the whole fact table
+  const canEditColumns = permissionsUtil.canUpdateFactTable(factTable, {
+    columns: [],
+  });
 
   const numMetrics = metrics.length;
   const numFilters = factTable.filters.length;
@@ -207,6 +215,26 @@ export default function FactTablePage() {
           { display: factTable.name },
         ]}
       />
+
+      {factTable.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id),
+      ) && (
+        <Callout status="info" contentsAs="div" mb="2">
+          <Flex align="center" justify="between">
+            <Text>
+              This Fact Table is part of our sample dataset. You can safely
+              delete this once you are done exploring.
+            </Text>
+            <Box ml="auto">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/fact-tables")}
+                source="fact-table"
+              />
+            </Box>
+          </Flex>
+        </Callout>
+      )}
+
       {factTable.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This Fact Table is archived.</strong> Existing references will
@@ -415,7 +443,7 @@ export default function FactTablePage() {
         <div className="col col-md-6 d-flex flex-column">
           <h3>Columns</h3>
           <div className="appbox p-3 flex-1 mb-0">
-            <ColumnList factTable={factTable} canEdit={canEdit} />
+            <ColumnList factTable={factTable} canEdit={canEditColumns} />
           </div>
         </div>
       </div>
@@ -462,7 +490,7 @@ export default function FactTablePage() {
             <h3>Row Filters</h3>
             <Text as="div" mb="2" color="gray">
               Row Filters let you write SQL to limit the rows that are included
-              in a metric. Save commonly used filters here and resue them across
+              in a metric. Save commonly used filters here and reuse them across
               multiple metrics.
             </Text>
             <div className="appbox p-3 flex-1">
