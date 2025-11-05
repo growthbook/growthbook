@@ -123,10 +123,7 @@ export default function ValueDisplay({
               </Tooltip>
             ) : null}
             {showFullscreenButton && type === "json" && (
-              <Tooltip
-                body="View in full screen"
-                usePortal={true}
-              >
+              <Tooltip body="View in full screen" usePortal={true}>
                 <IconButton
                   type="button"
                   radius="full"
