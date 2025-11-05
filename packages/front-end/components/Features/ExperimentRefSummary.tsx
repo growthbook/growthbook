@@ -9,6 +9,7 @@ import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -140,47 +141,70 @@ export default function ExperimentRefSummary({
 
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SPLIT</Text>
-        by{" "}
-        <span className="mr-1 border px-2 py-1 bg-light rounded">
-          {experiment.hashAttribute || "id"}
-        </span>
+        by
+        <Badge
+          color="gray"
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>
+              {experiment.hashAttribute || "id"}
+            </Text>
+          }
+        />
         {hasNamespace && (
           <>
-            {" "}
-            in the namespace{" "}
+            in the namespace
             <Link href={`/namespaces`}>
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {namespaces?.find((n) => n.name === phase.namespace!.name)
-                  ?.label || (
-                  <span
-                    className="italic text-danger"
-                    title="this namespace is not found"
-                  >
-                    <FaExclamationTriangle /> {phase.namespace!.name}
-                  </span>
-                )}
-              </span>
+              <Badge
+                color="gray"
+                label={
+                  <Text style={{ color: "var(--slate-12)" }}>
+                    {namespaces?.find((n) => n.name === phase.namespace!.name)
+                      ?.label || (
+                      <span
+                        className="italic text-danger"
+                        title="this namespace is not found"
+                      >
+                        <FaExclamationTriangle /> {phase.namespace!.name}
+                      </span>
+                    )}
+                  </Text>
+                }
+              />
             </Link>
           </>
         )}
       </Flex>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <span className="mr-1 border px-2 py-1 bg-light rounded">
-          {percentFormatter.format(effectiveCoverage)}
-        </span>{" "}
-        of users in the {isBandit ? "Bandit" : "Experiment"}
+        <Badge
+          color="gray"
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>
+              {percentFormatter.format(effectiveCoverage)}
+            </Text>
+          }
+        />
+        of units in the {isBandit ? "Bandit" : "Experiment"}
         {hasNamespace && (
           <>
-            {" "}
             (
-            <span className="border px-2 py-1 bg-light rounded">
-              {percentFormatter.format(namespaceRange)}
-            </span>{" "}
-            of the namespace and{" "}
-            <span className="border px-2 py-1 bg-light rounded">
-              {percentFormatter.format(phase?.coverage || 1)}
-            </span>{" "}
+            <Badge
+              color="gray"
+              label={
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {percentFormatter.format(namespaceRange)}
+                </Text>
+              }
+            />
+            of the namespace and
+            <Badge
+              color="gray"
+              label={
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {percentFormatter.format(phase?.coverage || 1)}
+                </Text>
+              }
+            />
             exposure)
           </>
         )}
@@ -191,6 +215,7 @@ export default function ExperimentRefSummary({
         <>
           <Text weight="medium">SERVE</Text>
           <Box
+            mt="3"
             px="3"
             style={{
               border: "1px solid var(--gray-a5)",
@@ -207,7 +232,10 @@ export default function ExperimentRefSummary({
                   const weight = phase.variationWeights?.[j] || 0;
 
                   return (
-                    <TableRow key={j} style={{ color: "var(--color-text-high)" }}>
+                    <TableRow
+                      key={j}
+                      style={{ color: "var(--color-text-high)" }}
+                    >
                       <TableCell style={{ whiteSpace: "nowrap" }}>
                         <Flex align="center" gap="2">
                           <span
@@ -240,7 +268,12 @@ export default function ExperimentRefSummary({
                         <ValidateValue value={value} feature={feature} />
                       </TableCell>
                       {!isBandit && (
-                        <TableCell style={{ color: "var(--color-text-mid)", textAlign: "right" }}>
+                        <TableCell
+                          style={{
+                            color: "var(--color-text-mid)",
+                            textAlign: "right",
+                          }}
+                        >
                           {percentFormatter.format(weight)}
                         </TableCell>
                       )}
@@ -257,9 +290,8 @@ export default function ExperimentRefSummary({
                   return {
                     name: variation.name,
                     value:
-                      variations.find(
-                        (v) => v.variationId === variation.id,
-                      )?.value ?? "null",
+                      variations.find((v) => v.variationId === variation.id)
+                        ?.value ?? "null",
                     weight: phase.variationWeights?.[j] || 0,
                   };
                 })}
@@ -275,10 +307,15 @@ export default function ExperimentRefSummary({
           )}
           <Flex direction="row" gap="2" mb="3">
             <Text weight="medium">TRACK</Text>
-            the result using the key{" "}
-            <span className="mr-1 border px-2 py-1 bg-light rounded">
-              {experiment.trackingKey}
-            </span>
+            the result using the key
+            <Badge
+              color="gray"
+              label={
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {experiment.trackingKey}
+                </Text>
+              }
+            />
           </Flex>
         </>
       )}

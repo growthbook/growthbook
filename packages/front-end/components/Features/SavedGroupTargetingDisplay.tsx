@@ -1,6 +1,7 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
-import Link from "next/link";
+import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import LinkButton from "@/ui/LinkButton";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
@@ -30,11 +31,16 @@ export default function SavedGroupTargetingDisplay({
     <>
       {savedGroups?.map((s, i) => {
         return (
-          <div className={"d-flex " + groupClassName} key={"savedGroup-" + i}>
-            {i || initialAnd ? <div className="mr-1">AND</div> : null}
-            <div className="mr-1">{getDescription(s)}</div>
-            <div>
-              {s.ids.length > 1 && "( "}
+          <Flex
+            wrap="wrap"
+            gap="2"
+            className={groupClassName}
+            key={"savedGroup-" + i}
+          >
+            {i || initialAnd ? <Text weight="medium">AND</Text> : null}
+            {getDescription(s)}
+            <Flex wrap="wrap" gap="2">
+              {s.ids.length > 1 && "("}
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
                 const link =
@@ -42,19 +48,21 @@ export default function SavedGroupTargetingDisplay({
                     ? `/saved-groups/${group.id}`
                     : "/saved-groups#conditionGroups";
                 return (
-                  <Link
+                  <LinkButton
                     href={link}
                     key={id}
-                    className={`border px-2 bg-light rounded mr-1`}
                     title="Manage Saved Group"
+                    size="xs"
+                    variant="soft"
+                    external={true}
                   >
                     {group?.groupName || id}
-                  </Link>
+                  </LinkButton>
                 );
               })}
               {s.ids.length > 1 && ")"}
-            </div>
-          </div>
+            </Flex>
+          </Flex>
         );
       })}
     </>
