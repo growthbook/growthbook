@@ -2809,7 +2809,12 @@ export async function createExperimentSnapshot({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
 

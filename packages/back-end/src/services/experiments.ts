@@ -1729,6 +1729,7 @@ export async function toExperimentApiInterface(
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
+  metricGroups: MetricGroupInterface[],
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
@@ -1753,7 +1754,11 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const metricIds = getAllMetricIdsFromExperiment(experiment);
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
 
   const variationIds = experiment.variations.map((v) => v.id);
 
@@ -2980,12 +2985,13 @@ export async function getSettingsForSnapshotMetrics(
 }> {
   let regressionAdjustmentEnabled = false;
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
-
   const metricMap = await getMetricMap(context);
 
+  const metricGroups = await context.models.metricGroups.getAll();
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))

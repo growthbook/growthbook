@@ -91,7 +91,7 @@ export default function AnalysisSettingsBar({
     setDimension: setSnapshotDimension,
     setSnapshotType,
   } = useSnapshot();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
@@ -385,7 +385,11 @@ export default function AnalysisSettingsBar({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={getAllMetricIdsFromExperiment(experiment, false)}
+                metrics={getAllMetricIdsFromExperiment(
+                  experiment,
+                  false,
+                  metricGroups,
+                )}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}

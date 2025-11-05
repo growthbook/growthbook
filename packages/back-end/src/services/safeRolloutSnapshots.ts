@@ -194,9 +194,11 @@ export async function getSettingsForSnapshotMetrics(
 
   const metricMap = await getMetricMap(context);
 
+  const metricGroups = await context.models.metricGroups.getAll();
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     { guardrailMetrics: safeRollout.guardrailMetricIds },
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
