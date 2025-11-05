@@ -15,3 +15,17 @@ export const queryPointerValidator = z
     name: z.string(),
   })
   .strict();
+
+export const sqlResultChunkValidator = z
+  .object({
+    organization: z.string(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+    id: z.string(),
+    queryId: z.string(),
+    chunkNumber: z.number(),
+    numRows: z.number(),
+    columns: z.array(z.string()),
+    data: z.record(z.array(z.unknown())),
+  })
+  .strict();

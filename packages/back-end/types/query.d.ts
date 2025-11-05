@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   queryPointerValidator,
   queryStatusValidator,
+  sqlResultChunkValidator,
 } from "back-end/src/validators/queries";
 import { QueryLanguage } from "./datasource";
 
@@ -87,3 +88,5 @@ export interface QueryInterface {
   statistics?: QueryStatistics;
   externalId?: string;
 }
+
+export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;

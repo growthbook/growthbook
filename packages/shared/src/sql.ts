@@ -1,4 +1,5 @@
 import { format as sqlFormat } from "sql-formatter";
+import { SqlResultChunkInterface } from "back-end/types/query";
 import { FormatDialect, FormatError } from "./types";
 
 export const SQL_ROW_LIMIT = 1000;
@@ -183,29 +184,26 @@ function stripCommentsAndStrings(sql: string): {
   };
 }
 
-export interface EncodedSQLResultChunk {
-  columns: string[];
-  numRows: number;
-  // Keys are column names, values are arrays of column values
-  // Enables better compression
-  data: Record<string, unknown[]>;
-}
+type SqlResultChunkData = Pick<
+  SqlResultChunkInterface,
+  "columns" | "numRows" | "data"
+>;
 
 export function encodeSQLResults(
   // Raw SQL results
   results: Record<string, unknown>[],
   // 4MB default chunk size (document max is 16MB, but leave plenty of room for overhead)
   chunkSize: number = 4000000,
-): EncodedSQLResultChunk[] {
+): SqlResultChunkData[] {
   if (results.length === 0) {
     return [];
   }
 
   const columns = Object.keys(results[0]);
-  const encodedResults: EncodedSQLResultChunk[] = [];
+  const encodedResults: SqlResultChunkData[] = [];
 
-  function createChunk(): EncodedSQLResultChunk {
-    const chunk: EncodedSQLResultChunk = {
+  function createChunk(): SqlResultChunkData {
+    const chunk: SqlResultChunkData = {
       columns,
       numRows: 0,
       data: {},
@@ -253,7 +251,7 @@ export function encodeSQLResults(
 }
 
 export function decodeSQLResults(
-  chunks: EncodedSQLResultChunk[],
+  chunks: SqlResultChunkData[],
 ): Record<string, unknown>[] {
   const results: Record<string, unknown>[] = [];
 
