@@ -510,6 +510,7 @@ function DashboardEditor({
           )}
           <div style={{ flexGrow: 1 }} />
           <DashboardUpdateDisplay
+            dashboardId={id}
             enableAutoUpdates={enableAutoUpdates}
             nextUpdate={nextUpdate}
             dashboardLastUpdated={dashboardLastUpdated}
