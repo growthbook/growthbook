@@ -37,7 +37,6 @@ export class SqlResultChunkModel extends BaseClass {
     queryId: string,
     results: Record<string, unknown>[],
   ) {
-    // Then store new results
     const encodedChunks = encodeSQLResults(results);
     await promiseAllChunks(
       encodedChunks.map((chunk, i) => async () => {

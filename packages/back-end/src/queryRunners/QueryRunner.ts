@@ -78,8 +78,8 @@ export async function getQueryMap(
 ): Promise<QueryMap> {
   // Only fetch queries that are not already in the cache
   const idsToFetch = queries
-    .map((q) => q.query)
-    .filter((qid) => !cache || !cache.has(qid));
+    .filter((p) => !cache || !cache.has(p.name))
+    .map((p) => p.query);
 
   const queryDocs = await getQueriesByIds(context, idsToFetch);
 
@@ -776,8 +776,8 @@ export abstract class QueryRunner<
   }> {
     // No need to re-fetch finished queries
     const idsToFetch = this.model.queries
-      .map((p) => p.query)
-      .filter((qid) => !this.finishedQueryMapCache.has(qid));
+      .filter((p) => !this.finishedQueryMapCache.has(p.name))
+      .map((p) => p.query);
 
     const queries = await getQueriesByIds(this.context, idsToFetch);
 
