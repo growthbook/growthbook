@@ -17,7 +17,6 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 
 export interface Props {
   value: string;
@@ -164,7 +163,7 @@ export default function DimensionChooser({
 
   const [postLoading, setPostLoading] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
-  const { dimensionless: standardSnapshot, experiment } = useSnapshot();
+  const { dimensionless: standardSnapshot } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   // If activation metric is not selected, don't allow using that dimension

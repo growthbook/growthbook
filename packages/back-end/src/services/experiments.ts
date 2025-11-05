@@ -153,6 +153,7 @@ import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunne
 import { ExperimentQueryMetadata } from "back-end/types/query";
 
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -175,7 +176,6 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
-import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 

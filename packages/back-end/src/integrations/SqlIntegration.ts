@@ -1877,6 +1877,7 @@ export default abstract class SqlIntegration
       experimentDimensions: [],
       activationDimension: null,
     };
+
     dimensions.forEach((dimension) => {
       if (dimension?.type === "activation") {
         if (activationMetric) {
@@ -5301,19 +5302,6 @@ export default abstract class SqlIntegration
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
   }
 
-  getDateTable(dateArray: string[]): string {
-    const dateString = dateArray
-      .map((d) => `SELECT ${d} AS day`)
-      .join("\nUNION ALL\n");
-    return `
-      SELECT ${this.dateTrunc(this.castToDate("t.day"))} AS day
-      FROM
-        (
-          ${dateString}
-        ) t
-     `;
-  }
-
   getQuantileGridColumns(
     metricQuantileSettings: MetricQuantileSettings,
     prefix: string,
@@ -7456,7 +7444,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       undefined,
     );
 
-    console.log(params.dimensions);
     const { factTablesWithMetricData } =
       this.parseExperimentFactMetricsParams(params);
 
@@ -7479,7 +7466,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       percentileTableIndices.add(0);
     }
 
-    const { experimentDimensions, unitDimensions } = this.processDimensions(
+    const { unitDimensions } = this.processDimensions(
       params.dimensions,
       params.settings,
       params.activationMetric,
@@ -7498,8 +7485,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       experimentId: params.settings.experimentId,
     });
 
-    const dimensionCols = unitDimensions.map((d) => this.getDimensionCol(d));
+    const unitDimensionCols = unitDimensions.map((d) =>
+      this.getDimensionCol(d),
+    );
+    const nonUnitDimensionCols = params.dimensions
+      .filter((d) => d.type !== "user")
+      .map((d) => this.getDimensionCol(d));
 
+    const allDimensionCols = [...unitDimensionCols, ...nonUnitDimensionCols];
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -7522,7 +7515,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         )
         .join("\n")}
       ${
-        // TODO(incremental-refresh): experiment dimensions cannot coincide with unit
         unitDimensions.length > 0
           ? `
         , __experimentUnits AS (
@@ -7531,6 +7523,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
             ${unitDimensions.map((d) => `, ${this.getDimensionColumn(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
+            ${nonUnitDimensionCols
+              .map((d) => {
+                return `, MIN(${d.value}) AS ${d.alias}`;
+              })
+              .join("")}
           FROM ${params.unitsSourceTableFullName} e
           ${unitDimensions
             .map(
@@ -7550,12 +7547,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           e.${baseIdType} AS ${baseIdType}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
-          ${experimentDimensions
-            .map((d) => {
-              const cols = this.getDimensionCol(d);
-              return `, ${cols.alias} AS ${cols.alias}`;
-            })
-            .join("")}
+            ${nonUnitDimensionCols
+              .map((d) => {
+                return `, ${d.value} AS ${d.alias}`;
+              })
+              .join("")}
         FROM ${params.unitsSourceTableFullName} e
       )`
       }
@@ -7586,7 +7582,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , __joinedData AS (
           SELECT
             u.${baseIdType}
-            ${dimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
+            ${allDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
             , u.variation
             ${metricData
               // TODO(incremental-refresh): here is where we need to nullif 0 for
@@ -7634,7 +7630,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           : ""
       }
       ${this.getExperimentFactMetricStatisticsCTE({
-        dimensionCols,
+        dimensionCols: allDimensionCols,
         metricData,
         eventQuantileData: [], // TODO(incremental-refresh): quantiles
         baseIdType,

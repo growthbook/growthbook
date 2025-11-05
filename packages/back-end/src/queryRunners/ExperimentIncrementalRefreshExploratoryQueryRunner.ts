@@ -1,4 +1,9 @@
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  isRegressionAdjusted,
+} from "shared/experiments";
+import { cloneDeep } from "lodash";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -16,11 +21,7 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  getIncrementalRefreshMetricSources,
-  INCREMENTAL_METRICS_TABLE_PREFIX,
-  INCREMENTAL_UNITS_TABLE_PREFIX,
-} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
@@ -29,14 +30,13 @@ import {
 } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { getMetricSettingsHashForIncrementalRefresh } from "back-end/src/services/experimentTimeSeries";
-import { SegmentInterface } from "back-end/types/segment";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -106,7 +106,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     throw new Error("Integration does not support incremental refresh queries");
   }
 
-  console.log(experimentId);
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
@@ -166,7 +165,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   // Metric Queries
   const existingSources = incrementalRefreshModel?.metricSources;
-  console.log(existingSources);
   const existingCovariateSources =
     incrementalRefreshModel?.metricCovariateSources;
 
@@ -186,12 +184,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const existingSource = existingSources?.find(
       (s) => s.groupId === group.groupId,
     );
-
-    const existingCovariateSource = existingCovariateSources?.find(
-      (s) => s.groupId === group.groupId,
-    );
-
-    // TODO validate covariate source exists if it is supposed to?
     if (!existingSource) {
       throw new Error(
         `Metric source group ${group.groupId} not found in incremental refresh model.`,
@@ -202,23 +194,28 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       group.metrics[0].numerator?.factTableId,
     );
 
+    const existingCovariateSource = existingCovariateSources?.find(
+      (s) => s.groupId === group.groupId,
+    );
+
+    const anyMetricHasCuped = group.metrics.some((m) => {
+      const metric = cloneDeep(m);
+      applyMetricOverrides(metric, snapshotSettings);
+      return (
+        snapshotSettings.regressionAdjustmentEnabled &&
+        isRegressionAdjusted(metric)
+      );
+    });
+
+    if (anyMetricHasCuped && !existingCovariateSource) {
+      throw new Error(
+        `Metric source group ${group.groupId} has CUPED metrics but no covariate source found.`,
+      );
+    }
+
     // TODO(incremental-refresh): add metadata about source
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
-
-    const metricSourceCovariateTableFullName: string | undefined =
-      integration.generateTablePath &&
-      integration.generateTablePath(
-        `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}_covariate`,
-        settings.pipelineSettings?.writeDataset,
-        settings.pipelineSettings?.writeDatabase,
-        true,
-      );
-    if (!metricSourceCovariateTableFullName) {
-      throw new Error(
-        "Unable to generate table; table path generator not specified.",
-      );
-    }
 
     const dimensionObjs: Dimension[] = (
       await Promise.all(
@@ -235,7 +232,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       dimensions: dimensionObjs,
       factTableMap: params.factTableMap,
       metricSourceTableFullName: existingSource.tableFullName,
-      metricSourceCovariateTableFullName: metricSourceCovariateTableFullName,
+      metricSourceCovariateTableFullName:
+        existingCovariateSource?.tableFullName ?? null,
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,

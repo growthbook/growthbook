@@ -351,7 +351,7 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensions: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
-  metricSourceCovariateTableFullName: string;
+  metricSourceCovariateTableFullName: string | null;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;

@@ -16,6 +16,7 @@ export const incrementalRefreshMetricSourceValidator = z.object({
 
 export const incrementalRefreshMetricCovariateSourceValidator = z.object({
   groupId: z.string(),
+  tableFullName: z.string(),
   lastSuccessfulMaxTimestamp: z.date().nullable(),
 });
 
