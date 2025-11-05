@@ -754,6 +754,31 @@ export async function getExperiment(
   });
 }
 
+export async function getExperimentIncrementalRefresh(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+
+  const incrementalRefresh =
+    await context.models.incrementalRefresh.getByExperimentId(id);
+
+  return res.status(200).json({
+    status: 200,
+    incrementalRefresh: incrementalRefresh || null,
+  });
+}
+
 export async function getExperimentPublic(
   req: AuthRequest<null, { uid: string }>,
   res: Response,
@@ -2809,7 +2834,12 @@ export async function createExperimentSnapshot({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
 

@@ -38,7 +38,11 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
-import { requiresXAxis } from "@/services/dataVizTypeGuards";
+import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
+import {
+  getXAxisConfig,
+  setXAxisConfig,
+} from "@/services/dataVizConfigUtilities";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import Field from "@/components/Forms/Field";
@@ -251,8 +255,27 @@ export default function SqlExplorerModal({
 
     // If we have an empty object for dataVizConfig, set it to an empty array
     const dataVizConfig = form.watch("dataVizConfig") || [];
+
+    // Normalize dataVizConfig to ensure pivot tables have xAxis as arrays
+    // and other charts have xAxis as single objects (for API compatibility)
+    const normalizedDataVizConfig = dataVizConfig.map((config) => {
+      if (!requiresXAxis(config) || !config.xAxis) {
+        return config as DataVizConfig;
+      }
+
+      // Get xAxis as array (internal representation)
+      const xAxisConfigs = getXAxisConfig(config);
+
+      if (xAxisConfigs.length === 0) {
+        return config as DataVizConfig;
+      }
+
+      // Use setXAxisConfig to ensure correct format for API (array for pivot, single for others)
+      return setXAxisConfig(config, xAxisConfigs) as DataVizConfig;
+    }) as DataVizConfig[];
+
     // Validate each dataVizConfig object
-    dataVizConfig.forEach((config, index) => {
+    normalizedDataVizConfig.forEach((config, index) => {
       // Check if chart type requires xAxis but doesn't have one
       if (requiresXAxis(config) && !config.xAxis) {
         setTab(`visualization-${index}`);
@@ -260,6 +283,14 @@ export default function SqlExplorerModal({
           `X axis is required for Visualization ${
             config.title ? config.title : `${index + 1}`
           }. Please add an X axis or remove the visualization to save the query.`,
+        );
+      }
+      if (requiresXAxes(config) && !config.xAxes) {
+        setTab(`visualization-${index}`);
+        throw new Error(
+          `Columns are required for Visualization ${
+            config.title ? config.title : `${index + 1}`
+          }. Please add a column or remove the visualization to save the query.`,
         );
       }
       if (!config.yAxis) {
@@ -398,7 +429,7 @@ export default function SqlExplorerModal({
               datasourceId: form.watch("datasourceId"),
               dateLastRan: form.watch("dateLastRan"),
               results: form.watch("results"),
-              dataVizConfig,
+              dataVizConfig: normalizedDataVizConfig,
               linkedDashboardIds: dashboardId ? [dashboardId] : [],
             }),
           },
@@ -431,7 +462,7 @@ export default function SqlExplorerModal({
           sql: form.watch("sql"),
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
-          dataVizConfig: dataVizConfig,
+          dataVizConfig: normalizedDataVizConfig,
           results: {
             ...results,
             error: results.error || undefined, // Convert null/empty to undefined
