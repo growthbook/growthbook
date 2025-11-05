@@ -1,7 +1,7 @@
 import React, { forwardRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { FaArrowsAlt } from "react-icons/fa";
+import { FaArrowsAlt, FaExclamationTriangle } from "react-icons/fa";
 import {
   ExperimentValue,
   FeatureInterface,
@@ -23,6 +23,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
+import { validateCohort } from "./CohortValidation";
 
 export type SortableVariation = ExperimentValue & {
   id: string;
@@ -38,6 +39,7 @@ interface SortableProps {
   customSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
+  showCohortValidation?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -58,6 +60,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       customSplit,
       setWeight,
       feature,
+      showCohortValidation = false,
       ...props
     },
     ref
@@ -93,23 +96,57 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         )}
         <td>
           {setVariations ? (
-            <FeatureValueField
-              id={`value_${i}`}
-              value={variation.value}
-              placeholder={valueAsId ? i + "" : ""}
-              setValue={(value) => {
-                const newVariations = [...variations];
-                newVariations[i] = {
-                  ...variation,
-                  value,
-                };
-                setVariations(newVariations);
-              }}
-              label=""
-              valueType={valueType}
-              feature={feature}
-              renderJSONInline={false}
-            />
+            <>
+              {showCohortValidation &&
+                (() => {
+                  const validation = validateCohort(variation.value);
+                  return !validation.valid ? (
+                    <div
+                      className="alert alert-warning mb-2"
+                      style={{ fontSize: "0.9em", padding: "0.5rem" }}
+                    >
+                      <FaExclamationTriangle className="mr-1" />
+                      {validation.reason === "not-json" ? (
+                        <>
+                          Invalid experiment setup. Variation {i} does not have
+                          a json payload.
+                        </>
+                      ) : validation.reason === "missing-cohort" ? (
+                        <>
+                          Invalid experiment setup. Variation {i} does not have
+                          a <code>cohort</code> key.
+                        </>
+                      ) : (
+                        <>
+                          Invalid experiment setup. Variation {i} has an invalid
+                          cohort format. Please follow the experiment naming
+                          format:{" "}
+                          <code>
+                            exp1:&lt;experimentNameInCamelCaseYYMMDD&gt;:&lt;variantName&gt;
+                          </code>
+                        </>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+              <FeatureValueField
+                id={`value_${i}`}
+                value={variation.value}
+                placeholder={valueAsId ? i + "" : ""}
+                setValue={(value) => {
+                  const newVariations = [...variations];
+                  newVariations[i] = {
+                    ...variation,
+                    value,
+                  };
+                  setVariations(newVariations);
+                }}
+                label=""
+                valueType={valueType}
+                feature={feature}
+                renderJSONInline={false}
+              />
+            </>
           ) : (
             <>{variation.value}</>
           )}

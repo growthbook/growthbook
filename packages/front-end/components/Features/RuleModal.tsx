@@ -61,6 +61,7 @@ import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
+import { validateCohort } from "./CohortValidation";
 
 export interface Props {
   close: () => void;
@@ -694,18 +695,53 @@ export default function RuleModal({
             <div className="form-group">
               <label>Variation Values</label>
               <div className="mb-3 bg-light border p-3">
-                {selectedExperiment.variations.map((v, i) => (
-                  <FeatureValueField
-                    key={v.id}
-                    label={v.name}
-                    id={v.id}
-                    value={form.watch(`variations.${i}.value`) || ""}
-                    setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-                    valueType={feature.valueType}
-                    feature={feature}
-                    renderJSONInline={false}
-                  />
-                ))}
+                {selectedExperiment.variations.map((v, i) => {
+                  const value = form.watch(`variations.${i}.value`) || "";
+                  const validation = validateCohort(value);
+                  return (
+                    <div key={v.id}>
+                      {!validation.valid && (
+                        <div
+                          className="alert alert-warning mb-2"
+                          style={{ fontSize: "0.9em", padding: "0.5rem" }}
+                        >
+                          <FaExclamationTriangle className="mr-1" />
+                          {validation.reason === "not-json" ? (
+                            <>
+                              Invalid experiment setup. Variation {i} does not
+                              have a json payload.
+                            </>
+                          ) : validation.reason === "missing-cohort" ? (
+                            <>
+                              Invalid experiment setup. Variation {i} does not
+                              have a <code>cohort</code> key.
+                            </>
+                          ) : (
+                            <>
+                              Invalid experiment setup. Variation {i} has an
+                              invalid cohort format. Please follow the
+                              experiment naming format:{" "}
+                              <code>
+                                exp1:&lt;experimentNameInCamelCaseYYMMDD&gt;:&lt;variantName&gt;
+                              </code>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      <FeatureValueField
+                        label={v.name}
+                        id={v.id}
+                        value={value}
+                        setValue={(v) =>
+                          form.setValue(`variations.${i}.value`, v)
+                        }
+                        valueType={feature.valueType}
+                        feature={feature}
+                        renderJSONInline={false}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -890,6 +926,7 @@ export default function RuleModal({
             }
             setVariations={(variations) => form.setValue("values", variations)}
             feature={feature}
+            showCohortValidation={true}
           />
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector

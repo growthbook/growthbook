@@ -1,6 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaInfoCircle, FaExclamationTriangle } from "react-icons/fa";
 import {
   decimalToPercent,
   distributeWeights,
@@ -38,6 +38,8 @@ export interface Props {
   label?: string;
   customSplitOn?: boolean;
   feature?: FeatureInterface;
+  showCohortValidation?: boolean;
+  showIdTooltip?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -57,6 +59,8 @@ export default function FeatureVariationsInput({
   label,
   customSplitOn,
   feature,
+  showCohortValidation = false,
+  showIdTooltip = false,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -135,7 +139,18 @@ export default function FeatureVariationsInput({
         <table className="table bg-light mb-0">
           <thead className={`${styles.variationSplitHeader}`}>
             <tr>
-              <th className="pl-3">Id</th>
+              <th className="pl-3">
+                {showIdTooltip ? (
+                  <Tooltip
+                    body="These are the variationNames from the experiment naming format exp1:<experimentName>:<variationName>"
+                    tipPosition="top"
+                  >
+                    Id <FaExclamationTriangle />
+                  </Tooltip>
+                ) : (
+                  "Id"
+                )}
+              </th>
               {!valueAsId && <th>Variation</th>}
               <th>
                 <Tooltip
@@ -188,6 +203,7 @@ export default function FeatureVariationsInput({
                   valueType={valueType}
                   valueAsId={valueAsId}
                   feature={feature}
+                  showCohortValidation={showCohortValidation}
                 />
               ))}
             </SortableVariationsList>
