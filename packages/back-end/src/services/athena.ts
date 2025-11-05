@@ -78,7 +78,7 @@ export async function runAthenaQuery(
   const MAX_QUERY_LENGTH = 262144;
   if (sql.length > MAX_QUERY_LENGTH) {
     throw new Error(
-      `Query string length (${sql.length} characters) exceeds Athena's maximum allowed length of ${MAX_QUERY_LENGTH} characters. Please simplify your query or reduce the date range.`,
+      `Query string length (${sql.length} characters) exceeds Athena's maximum allowed length of ${MAX_QUERY_LENGTH} characters. Please simplify your query.`,
     );
   }
 
