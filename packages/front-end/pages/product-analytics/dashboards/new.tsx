@@ -79,6 +79,7 @@ export default function NewDashboardPage() {
             body: JSON.stringify({
               blocks: args.data.blocks,
               title: args.data.title ?? dashboard.title,
+              shareLevel: args.data.shareLevel ?? dashboard.shareLevel,
               editLevel: args.data.editLevel ?? dashboard.editLevel,
               enableAutoUpdates:
                 args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
