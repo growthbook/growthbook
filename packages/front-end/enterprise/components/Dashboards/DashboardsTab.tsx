@@ -210,8 +210,10 @@ function DashboardsTab({
       });
       if (res.status === 200) {
         mutateDashboards();
-        setDashboardId(res.dashboard.id);
         setBlocks(res.dashboard.blocks);
+        if (dashboardId === "new") {
+          setTemporaryDashboard(res.dashboard);
+        }
       } else {
         console.error(res);
       }
@@ -264,7 +266,7 @@ function DashboardsTab({
             setIsEditing(false);
             setDashboardFirstSave(false);
             if (dashboardId === "new") {
-              setDashboardId("");
+              setDashboardId(dashboard.id === "new" ? "" : dashboard.id);
             }
           }}
           isTabActive={isTabActive}
