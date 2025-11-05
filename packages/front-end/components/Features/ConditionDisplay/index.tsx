@@ -201,7 +201,7 @@ function getConditionParts({
       if (parentId) {
         parentIdEl = (
           <>
-            <Text weight="medium">prerequisite</Text>
+            <Text>prerequisite</Text>
             <ParentIdLink parentId={parentId} />
           </>
         );
@@ -319,7 +319,7 @@ export default function ConditionDisplay({
           parts.push(
             <Flex wrap="wrap" gap="2" key={partId++} className="w-100 col-auto">
               {parts.length > 0 && <Text weight="medium">AND</Text>}
-              <Text weight="medium">prerequisite</Text>
+              <Text>prerequisite</Text>
               <ParentIdLink parentId={p.id} />
               <InlineCode language="json" code={jsonFormattedCondition} />
             </Flex>,

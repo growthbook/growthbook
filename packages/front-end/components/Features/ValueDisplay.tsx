@@ -23,6 +23,7 @@ export default function ValueDisplay({
   fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" },
   fullClassName = "",
   showFullscreenButton: _showFullscreenButton = false,
+  showCopyButton = true,
   isFullscreen = false,
 }: {
   value: string;
@@ -32,6 +33,7 @@ export default function ValueDisplay({
   fullStyle?: CSSProperties;
   fullClassName?: string;
   showFullscreenButton?: boolean;
+  showCopyButton?: boolean;
   isFullscreen?: boolean;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -103,7 +105,7 @@ export default function ValueDisplay({
               right: 16,
             }}
           >
-            {type === "json" || type === "string" ? (
+            {showCopyButton && (type === "json" || type === "string") ? (
               <Tooltip
                 body={copySuccess ? "Copied" : "Copy to clipboard"}
                 usePortal={true}
@@ -193,6 +195,7 @@ export function ArchetypeValueDisplay({
   return (
     <Tooltip
       className="d-inline-block text-left"
+      flipTheme={false}
       body={
         <div className="text-left">
           {!result.enabled ? (
@@ -263,6 +266,7 @@ export function ArchetypeValueDisplay({
               }
               type={feature.valueType}
               full={true}
+              showCopyButton={false}
             />
           ) : (
             <span className="text-muted">disabled</span>
