@@ -11,6 +11,7 @@ import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
+import { validateCohort, CohortValidationWarning } from "./CohortValidation";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -242,48 +243,55 @@ export default function ExperimentRefSummary({
                     ?.value ?? "null";
 
                 const weight = phase.variationWeights?.[j] || 0;
+                const validation = validateCohort(value);
 
                 return (
-                  <tr key={j}>
-                    <td
-                      className="text-muted position-relative"
-                      style={{ fontSize: "0.9em", width: 25 }}
-                    >
-                      <div
-                        style={{
-                          width: "6px",
-                          position: "absolute",
-                          top: 0,
-                          bottom: 0,
-                          left: 0,
-                          backgroundColor: getVariationColor(j),
-                        }}
-                      />
-                      {j}.
-                    </td>
-                    <td>
-                      <ValueDisplay
-                        value={value}
-                        type={type}
-                        defaultVal={featureDefault}
-                      />
-                      <ValidateValue value={value} feature={feature} />
-                    </td>
-                    <td>{variation.name}</td>
-                    <td>
-                      <div className="d-flex">
+                  <React.Fragment key={j}>
+                    <CohortValidationWarning
+                      validation={validation}
+                      variationIndex={j}
+                    />
+                    <tr>
+                      <td
+                        className="text-muted position-relative"
+                        style={{ fontSize: "0.9em", width: 25 }}
+                      >
                         <div
                           style={{
-                            width: "4em",
-                            maxWidth: "4em",
-                            margin: "0 0 0 auto",
+                            width: "6px",
+                            position: "absolute",
+                            top: 0,
+                            bottom: 0,
+                            left: 0,
+                            backgroundColor: getVariationColor(j),
                           }}
-                        >
-                          {percentFormatter.format(weight)}
+                        />
+                        {j}.
+                      </td>
+                      <td>
+                        <ValueDisplay
+                          value={value}
+                          type={type}
+                          defaultVal={featureDefault}
+                        />
+                        <ValidateValue value={value} feature={feature} />
+                      </td>
+                      <td>{variation.name}</td>
+                      <td>
+                        <div className="d-flex">
+                          <div
+                            style={{
+                              width: "4em",
+                              maxWidth: "4em",
+                              margin: "0 0 0 auto",
+                            }}
+                          >
+                            {percentFormatter.format(weight)}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 );
               })}
               <tr>

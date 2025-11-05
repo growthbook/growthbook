@@ -13,6 +13,7 @@ import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
+import { validateCohort, CohortValidationWarning } from "./CohortValidation";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -142,48 +143,57 @@ export default function ExperimentSummary({
 
       <table className="table mt-1 mb-3 bg-light gbtable">
         <tbody>
-          {values.map((r, j) => (
-            <tr key={j}>
-              <td
-                className="text-muted position-relative"
-                style={{ fontSize: "0.9em", width: 25 }}
-              >
-                <div
-                  style={{
-                    width: "6px",
-                    position: "absolute",
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    backgroundColor: getVariationColor(j),
-                  }}
+          {values.map((r, j) => {
+            const validation = validateCohort(r.value);
+            return (
+              <React.Fragment key={j}>
+                <CohortValidationWarning
+                  validation={validation}
+                  variationIndex={j}
                 />
-                {j}.
-              </td>
-              <td>
-                <ValueDisplay
-                  value={r.value}
-                  type={type}
-                  defaultVal={feature.defaultValue}
-                />
-                <ValidateValue value={r.value} feature={feature} />
-              </td>
-              <td>{r?.name}</td>
-              <td>
-                <div className="d-flex">
-                  <div
-                    style={{
-                      width: "4em",
-                      maxWidth: "4em",
-                      margin: "0 0 0 auto",
-                    }}
+                <tr>
+                  <td
+                    className="text-muted position-relative"
+                    style={{ fontSize: "0.9em", width: 25 }}
                   >
-                    {percentFormatter.format(r.weight)}
-                  </div>
-                </div>
-              </td>
-            </tr>
-          ))}
+                    <div
+                      style={{
+                        width: "6px",
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        backgroundColor: getVariationColor(j),
+                      }}
+                    />
+                    {j}.
+                  </td>
+                  <td>
+                    <ValueDisplay
+                      value={r.value}
+                      type={type}
+                      defaultVal={feature.defaultValue}
+                    />
+                    <ValidateValue value={r.value} feature={feature} />
+                  </td>
+                  <td>{r?.name}</td>
+                  <td>
+                    <div className="d-flex">
+                      <div
+                        style={{
+                          width: "4em",
+                          maxWidth: "4em",
+                          margin: "0 0 0 auto",
+                        }}
+                      >
+                        {percentFormatter.format(r.weight)}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </React.Fragment>
+            );
+          })}
           <tr>
             <td colSpan={4}>
               <ExperimentSplitVisual
