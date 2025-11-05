@@ -154,6 +154,7 @@ import { ExperimentQueryMetadata } from "back-end/types/query";
 
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
@@ -1265,14 +1266,40 @@ export async function createSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({ data });
   const integration = getSourceIntegrationObject(context, datasource, true);
+  const incrementalRefreshModel =
+    await context.models.incrementalRefresh.getByExperimentId(experiment.id);
+  const fullRefresh = !useCache || !incrementalRefreshModel;
 
   const isIncrementalRefreshEnabledForExperiment =
     datasource.settings.pipelineSettings?.mode === "incremental" &&
+    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
+      experiment.id,
+    ) &&
     (datasource.settings.pipelineSettings?.includedExperimentIds ===
       undefined ||
       datasource.settings.pipelineSettings?.includedExperimentIds.includes(
         experiment.id,
       ));
+
+  let isExperimentCompatibleWithIncrementalRefresh;
+  try {
+    await validateIncrementalPipeline({
+      org: organization,
+      integration,
+      snapshotSettings: data.settings,
+      metricMap,
+      factTableMap,
+      experiment,
+      incrementalRefreshModel,
+      fullRefresh,
+    });
+    isExperimentCompatibleWithIncrementalRefresh = true;
+  } catch (error) {
+    isExperimentCompatibleWithIncrementalRefresh = false;
+    logger.info(
+      `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
+    );
+  }
 
   let queryRunner:
     | ExperimentResultsQueryRunner
@@ -1281,7 +1308,8 @@ export async function createSnapshot({
   if (
     isIncrementalRefreshEnabledForExperiment &&
     (experiment.type === undefined || experiment.type === "standard") &&
-    snapshot.type === "standard"
+    snapshot.type === "standard" &&
+    isExperimentCompatibleWithIncrementalRefresh
   ) {
     queryRunner = new ExperimentIncrementalRefreshQueryRunner(
       context,
