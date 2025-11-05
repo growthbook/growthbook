@@ -24,23 +24,16 @@ import {
 import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   Dimension,
-  ExperimentAggregateUnitsQueryResponseRows,
   IncrementalRefreshStatisticsQueryParams,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
-import {
-  analyzeExperimentResults,
-  analyzeExperimentTraffic,
-} from "back-end/src/services/stats";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { getMetricSettingsHashForIncrementalRefresh } from "back-end/src/services/experimentTimeSeries";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import {
-  SnapshotResult,
-  TRAFFIC_QUERY_NAME,
-} from "./ExperimentResultsQueryRunner";
+import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
   QueryMap,
@@ -87,8 +80,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
-  // TODO(bryce): refactor the source of truth for metrics so that the expandedMetricMap isn't used to add
-  // metrics to an experiment
   const selectedMetrics = snapshotSettings.metricSettings
     .map((m) => metricMap.get(m.id))
     .filter((m) => m) as ExperimentMetricInterface[];
@@ -112,6 +103,26 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   if (!incrementalRefreshModel) {
     throw new Error(
       "Incremental refresh model not found; required for dimension update.",
+    );
+  }
+
+  const dimensionObjs: Dimension[] = (
+    await Promise.all(
+      snapshotSettings.dimensions.map(
+        async (d) => await parseDimension(d.id, d.slices, org.id),
+      ),
+    )
+  ).filter((d): d is Dimension => d !== null);
+
+  const missingExperimentDimensions = dimensionObjs.filter(
+    (d) =>
+      d.type === "experiment" &&
+      !incrementalRefreshModel.unitsDimensions.includes(d.id),
+  );
+
+  if (missingExperimentDimensions.length) {
+    throw new Error(
+      `Selected dimensions are not in the incremental refresh model; required for dimension update.`,
     );
   }
 
@@ -139,7 +150,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       (m) => isFactMetric(m) && storedMetricIds.has(m.id),
     );
 
-    // TODO deal with changed metric values? Just warn?
     selectedExistingFactMetrics
       .filter((m) => isFactMetric(m))
       .forEach((m) => {
@@ -156,8 +166,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
         if (currentHash !== storedHash) {
           const metricName = m.name ?? m.id;
-          throw new Error(
-            `The metric "${metricName}" configuration is outdated. Please run a Full Refresh.`,
+          context.logger.warn(
+            `The metric "${metricName}" configuration is outdated and the queries may fail unexpectedly or results may not be accurate.`,
           );
         }
       });
@@ -178,16 +188,14 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     selectedMetrics.filter((m) => isFactMetric(m)),
     existingSources ?? [],
   );
-  // TODO ignore new metrics that are not in existing source
 
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
       (s) => s.groupId === group.groupId,
     );
     if (!existingSource) {
-      throw new Error(
-        `Metric source group ${group.groupId} not found in incremental refresh model.`,
-      );
+      // skip in case the group just has new metrics
+      continue;
     }
 
     const factTable = params.factTableMap.get(
@@ -216,14 +224,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // TODO(incremental-refresh): add metadata about source
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
-
-    const dimensionObjs: Dimension[] = (
-      await Promise.all(
-        snapshotSettings.dimensions.map(
-          async (d) => await parseDimension(d.id, d.slices, org.id),
-        ),
-      )
-    ).filter((d): d is Dimension => d !== null);
 
     // Return statistics
     const metricParams: IncrementalRefreshStatisticsQueryParams = {
@@ -284,7 +284,6 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       );
     }
 
-    // TODO full refresh should not be possible with dimension selected
     if (!this.integration.getSourceProperties().hasIncrementalRefresh) {
       throw new Error(
         "Integration does not support incremental refresh queries",
@@ -329,25 +328,6 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       result.unknownVariations = results.unknownVariations || [];
       result.multipleExposures = results.multipleExposures ?? 0;
     });
-
-    // TODO run health checks?
-
-    //Run health checks
-    const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
-    if (healthQuery) {
-      const rows =
-        healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
-      const trafficHealth = analyzeExperimentTraffic({
-        rows: rows,
-        error: healthQuery.error,
-        variations: this.model.settings.variations,
-      });
-
-      result.health = {
-        traffic: trafficHealth,
-      };
-    }
-
     return result;
   }
 

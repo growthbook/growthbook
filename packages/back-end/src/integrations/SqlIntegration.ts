@@ -7496,7 +7496,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
-    // TODO experiment dimensions
     return format(
       `
       WITH 

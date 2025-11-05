@@ -1176,7 +1176,9 @@ export async function createSnapshot({
   reweight?: boolean;
   preventStartingAnalysis?: boolean;
 }): Promise<
-  ExperimentResultsQueryRunner | ExperimentIncrementalRefreshQueryRunner
+  | ExperimentResultsQueryRunner
+  | ExperimentIncrementalRefreshQueryRunner
+  | ExperimentIncrementalRefreshExploratoryQueryRunner
 > {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1293,7 +1295,7 @@ export async function createSnapshot({
         context,
         snapshot,
         integration,
-        false, // always ignore cache for incremental refresh queries
+        false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
       );
     } else {
       queryRunner = new ExperimentIncrementalRefreshQueryRunner(
@@ -1333,8 +1335,6 @@ export async function createSnapshot({
           experiment.id,
         )) !== undefined;
 
-      // TODO: validate dimension will work (e.g. incremental exists and
-      // dimension is in the units table)
       const fullRefresh =
         (!useCache || !hasIncrementalRefreshData) &&
         snapshot.type === "standard";
