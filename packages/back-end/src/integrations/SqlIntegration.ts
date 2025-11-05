@@ -7455,8 +7455,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       params.settings.exposureQueryId || "",
       undefined,
     );
-    const baseIdType = exposureQuery.userIdType;
 
+    console.log(params.dimensions);
     const { factTablesWithMetricData } =
       this.parseExperimentFactMetricsParams(params);
 
@@ -7479,15 +7479,86 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       percentileTableIndices.add(0);
     }
 
+    const { experimentDimensions, unitDimensions } = this.processDimensions(
+      params.dimensions,
+      params.settings,
+      params.activationMetric,
+    );
+
+    const idTypeObjects = [
+      [exposureQuery.userIdType],
+      ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+    ];
+
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: idTypeObjects,
+      from: params.settings.startDate,
+      to: params.settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: params.settings.experimentId,
+    });
+
+    const dimensionCols = unitDimensions.map((d) => this.getDimensionCol(d));
+
+    // TODO(incremental-refresh): Handle activation metric in dimensions
+    // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
+    // TODO experiment dimensions
     return format(
       `
-      WITH __experimentUnits AS (
-        SELECT * FROM ${params.unitsSourceTableFullName}
-      )
-      , __metricSourceData AS (
+      WITH 
+      ${idJoinSQL}
+      __metricSourceData AS (
         SELECT * FROM ${params.metricSourceTableFullName}
       )
+      ${unitDimensions
+        .map(
+          (d) =>
+            `, __dim_unit_${d.dimension.id} AS (${this.getDimensionCTE(
+              d.dimension,
+              baseIdType,
+              idJoinMap,
+            )})`,
+        )
+        .join("\n")}
+      ${
+        // TODO(incremental-refresh): experiment dimensions cannot coincide with unit
+        unitDimensions.length > 0
+          ? `
+        , __experimentUnits AS (
+          SELECT
+            e.${baseIdType} AS ${baseIdType}
+            , MIN(e.variation) AS variation
+            , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
+            ${unitDimensions.map((d) => `, ${this.getDimensionColumn(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
+          FROM ${params.unitsSourceTableFullName} e
+          ${unitDimensions
+            .map(
+              (
+                d,
+              ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+            __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+          )`,
+            )
+            .join("\n")}
+          GROUP BY
+            e.${baseIdType}
+        )
+      `
+          : `, __experimentUnits AS (
+        SELECT
+          e.${baseIdType} AS ${baseIdType}
+          , e.variation AS variation
+          , e.first_exposure_timestamp AS first_exposure_timestamp
+          ${experimentDimensions
+            .map((d) => {
+              const cols = this.getDimensionCol(d);
+              return `, ${cols.alias} AS ${cols.alias}`;
+            })
+            .join("")}
+        FROM ${params.unitsSourceTableFullName} e
+      )`
+      }
       , __metricDataAggregated AS (
         SELECT
           ${baseIdType}
@@ -7515,6 +7586,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , __joinedData AS (
           SELECT
             u.${baseIdType}
+            ${dimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
             , u.variation
             ${metricData
               // TODO(incremental-refresh): here is where we need to nullif 0 for
@@ -7562,7 +7634,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           : ""
       }
       ${this.getExperimentFactMetricStatisticsCTE({
-        dimensionCols: [], // TODO(incremental-refresh): dimensions
+        dimensionCols,
         metricData,
         eventQuantileData: [], // TODO(incremental-refresh): quantiles
         baseIdType,

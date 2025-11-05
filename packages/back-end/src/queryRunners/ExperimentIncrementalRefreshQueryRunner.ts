@@ -104,7 +104,7 @@ function validateFactMetricForIncrementalRefresh(metric: FactMetricInterface) {
   }
 }
 
-function getIncrementalRefreshMetricSources(
+export function getIncrementalRefreshMetricSources(
   metrics: FactMetricInterface[],
   existingMetricSources: IncrementalRefreshInterface["metricSources"],
 ): {
@@ -365,14 +365,18 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   let experimentDimensions: ExperimentDimension[] = [];
   if (exposureQuery?.dimensionMetadata) {
-    experimentDimensions = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
+    experimentDimensions = exposureQuery.dimensions.map((d) => {
+      const dm = exposureQuery.dimensionMetadata?.find(
+        (dm) => dm.dimension === d,
+      );
+      return {
         type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
+        id: d,
+        specifiedSlices: dm?.specifiedSlices,
+      };
+    });
   }
+  console.log(experimentDimensions);
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
@@ -479,6 +483,7 @@ export const startExperimentIncrementalRefreshQueries = async (
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            unitsDimensions: experimentDimensions.map((d) => d.id),
           })
           .catch((e) => context.logger.error(e));
       }
@@ -592,7 +597,6 @@ export const startExperimentIncrementalRefreshQueries = async (
     const metricParams: InsertMetricSourceDataQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      dimensions: [], // TODO(incremental-refresh): experiment dimensions
       factTableMap: params.factTableMap,
       metricSourceTableFullName,
       unitsSourceTableFullName: unitsTableFullName,
@@ -782,6 +786,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
+        dimensions: [],
         metricSourceCovariateTableFullName,
       }),
       dependencies: [

@@ -175,6 +175,7 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -1276,19 +1277,32 @@ export async function createSnapshot({
 
   let queryRunner:
     | ExperimentResultsQueryRunner
-    | ExperimentIncrementalRefreshQueryRunner;
+    | ExperimentIncrementalRefreshQueryRunner
+    | ExperimentIncrementalRefreshExploratoryQueryRunner;
+
+  const eligibleForIncrementalRefresh =
+    snapshot.type === "standard" || snapshot.type === "exploratory";
 
   if (
     isIncrementalRefreshEnabledForExperiment &&
     (experiment.type === undefined || experiment.type === "standard") &&
-    snapshot.type === "standard"
+    eligibleForIncrementalRefresh
   ) {
-    queryRunner = new ExperimentIncrementalRefreshQueryRunner(
-      context,
-      snapshot,
-      integration,
-      false, // always ignore cache for incremental refresh queries
-    );
+    if (snapshot.type === "exploratory") {
+      queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // always ignore cache for incremental refresh queries
+      );
+    } else {
+      queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // always ignore cache for incremental refresh queries
+      );
+    }
   } else {
     queryRunner = new ExperimentResultsQueryRunner(
       context,
@@ -1310,13 +1324,20 @@ export async function createSnapshot({
         getAdditionalQueryMetadataForExperiment(experiment),
     };
 
-    if (queryRunner instanceof ExperimentIncrementalRefreshQueryRunner) {
+    if (
+      queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
+      queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
+    ) {
       const hasIncrementalRefreshData =
         (await context.models.incrementalRefresh.getByExperimentId(
           experiment.id,
         )) !== undefined;
 
-      const fullRefresh = !useCache || !hasIncrementalRefreshData;
+      // TODO: validate dimension will work (e.g. incremental exists and
+      // dimension is in the units table)
+      const fullRefresh =
+        (!useCache || !hasIncrementalRefreshData) &&
+        snapshot.type === "standard";
 
       await queryRunner.startAnalysis({
         ...analysisProps,

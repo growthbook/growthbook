@@ -59,6 +59,7 @@ export function getDimensionOptions({
   userIdType?: string;
   activationMetric?: boolean;
 }): GroupedValue[] {
+  // TODO: load dimensions from incremental refresh object
   // Include user dimensions tied to the datasource
   const filteredDimensions = dimensions
     .filter((d) => d.datasource === datasource?.id)
@@ -188,31 +189,6 @@ export default function DimensionChooser({
     activationMetric,
   });
 
-  const isExperimentIncludedInIncrementalRefresh = experiment
-    ? getIsExperimentIncludedInIncrementalRefresh(
-        datasource ?? undefined,
-        experiment.id,
-      )
-    : false;
-
-  useEffect(() => {
-    if (isExperimentIncludedInIncrementalRefresh && value) {
-      setValue?.("");
-    }
-  }, [isExperimentIncludedInIncrementalRefresh, value, setValue]);
-
-  const incrementalRefreshBetaMessage =
-    "Dimensions are not supported for incremental refresh while in Beta.";
-
-  const effectiveOptions = isExperimentIncludedInIncrementalRefresh
-    ? [
-        {
-          label: incrementalRefreshBetaMessage,
-          value: "__beta_message__",
-        },
-      ]
-    : dimensionOptions;
-
   if (disabled) {
     const dimensionName =
       ssrPolyfills?.getDimensionById?.(value)?.name ||
@@ -237,7 +213,7 @@ export default function DimensionChooser({
           label={newUi ? undefined : "Dimension"}
           labelClassName={labelClassName}
           containerClassName={newUi ? "select-dropdown-underline" : ""}
-          options={effectiveOptions}
+          options={dimensionOptions}
           formatGroupLabel={({ label }) => (
             <div className="pt-2 pb-1 border-bottom">{label}</div>
           )}
@@ -313,9 +289,6 @@ export default function DimensionChooser({
             showHelp ? "Break down results for each metric by a dimension" : ""
           }
           disabled={disabled}
-          isOptionDisabled={(opt) =>
-            opt.label === incrementalRefreshBetaMessage
-          }
         />
         {postLoading && <LoadingSpinner className="ml-1" />}
       </Flex>
