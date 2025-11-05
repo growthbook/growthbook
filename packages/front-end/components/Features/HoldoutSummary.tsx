@@ -39,7 +39,7 @@ export default function HoldoutSummary({
         <Box>
           <strong className="font-weight-semibold">SERVE</strong>
         </Box>
-        <Box>
+        <Box width="100%">
           <ValueDisplay value={value} type={feature.valueType} />
         </Box>
       </Flex>

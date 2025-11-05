@@ -128,6 +128,7 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   cosineSimilarity,
   generateEmbeddings,
@@ -2778,7 +2779,9 @@ export async function createExperimentSnapshot({
   preventStartingAnalysis?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
-  queryRunner: ExperimentResultsQueryRunner;
+  queryRunner:
+    | ExperimentResultsQueryRunner
+    | ExperimentIncrementalRefreshQueryRunner;
 }> {
   const snapshotType =
     type ??
@@ -2806,7 +2809,12 @@ export async function createExperimentSnapshot({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
 

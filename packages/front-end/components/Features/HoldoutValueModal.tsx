@@ -78,6 +78,8 @@ const HoldoutValueModal = ({ feature, close, mutate }: Props) => {
             form.setValue("holdout", { ...form.watch("holdout"), value: v })
           }
           valueType={feature.valueType}
+          useCodeInput={true}
+          showFullscreenButton={true}
         />
       </Box>
     </Modal>

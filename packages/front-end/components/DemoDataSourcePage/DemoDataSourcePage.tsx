@@ -86,7 +86,7 @@ export async function deleteDemoDatasource(
   const demoDataSourceProjectId =
     getDemoDatasourceProjectIdForOrganization(orgId);
   await apiCall(
-    `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1`,
+    `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1&deleteFactTables=1`,
     {
       method: "DELETE",
     },

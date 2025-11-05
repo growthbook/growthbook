@@ -12,6 +12,7 @@ import {
   GBDatabase,
   GBExperiment,
   GBLibrary,
+  GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
@@ -127,6 +128,13 @@ const navlinks: SidebarLinkProps[] = [
         filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
+  },
+  {
+    name: "Product Analytics",
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
+    Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
   },
   {
     name: "Insights",
@@ -431,7 +439,10 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
+  let pageTitle = [...breadcrumb]
+    .reverse()
+    .map((b) => b.display)
+    .join(" - ");
 
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {

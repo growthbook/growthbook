@@ -130,6 +130,52 @@ export async function cancelMetricAnalysis(
   });
 }
 
+export async function refreshMetricAnalysisStatus(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  const metricAnalysis = await context.models.metricAnalysis.getById(
+    req.params.id,
+  );
+
+  if (!metricAnalysis) {
+    throw new Error("Could not refresh metric analysis status");
+  }
+
+  const metric = await context.models.factMetrics.getById(
+    metricAnalysis.metric,
+  );
+
+  if (!metric) {
+    throw new Error(
+      "Could not refresh metric analysis status, metric not found",
+    );
+  }
+  if (!metric.datasource) {
+    throw new Error(
+      "Could not refresh metric analysis status, no datasource provided",
+    );
+  }
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    metric.datasource,
+  );
+
+  const queryRunner = new MetricAnalysisQueryRunner(
+    context,
+    metricAnalysis,
+    integration,
+  );
+  queryRunner.setMetric(metric);
+  await queryRunner.refreshQueryStatuses();
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function getLatestMetricAnalysis(
   req: AuthRequest<
     null,

@@ -52,7 +52,6 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelaySettings } from "./MetricDelaySettings";
@@ -1464,25 +1463,6 @@ const MetricForm: FC<MetricFormProps> = ({
                   </div>
                 )}
               </div>
-              {permissionsUtil.canUpdateOfficialResources(
-                { projects: form.watch("projects") },
-                {},
-              ) && hasCommercialFeature("manage-official-resources") ? (
-                <Checkbox
-                  label="Mark as Official Metric"
-                  disabled={form.watch("managedBy") === "api"}
-                  disabledMessage="This metric is managed by the API, so it can not be edited in the UI."
-                  description="Official Metrics can only be modified by Admins or users
-                      with the ManageOfficialResources policy."
-                  value={form.watch("managedBy") === MANAGED_BY_ADMIN}
-                  setValue={(value) => {
-                    form.setValue(
-                      "managedBy",
-                      value ? MANAGED_BY_ADMIN : MANAGED_BY_EMPTY,
-                    );
-                  }}
-                />
-              ) : null}
             </>
           )}
         </Page>
