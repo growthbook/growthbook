@@ -27,7 +27,7 @@ export function createTemporaryDashboard(
     isDeleted: false,
     userId: userId || "",
     editLevel: "private",
-    shareLevel: "private",
+    shareLevel: experimentId ? "published" : "private",
     enableAutoUpdates: false,
     title: "Untitled Dashboard",
     blocks: [],
