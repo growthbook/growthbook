@@ -6760,7 +6760,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
-              .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
+              .map((d) => `, ${this.castToString(d.id)} AS dim_exp_${d.id}`)
               .join("\n")}
           FROM __newExposures
           WHERE 
