@@ -102,7 +102,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   if (!incrementalRefreshModel) {
     throw new Error(
-      "Incremental refresh model not found; required for dimension update.",
+      "Incremental refresh model not found; the overall results must be created before dimensional analysis can be used.",
     );
   }
 
