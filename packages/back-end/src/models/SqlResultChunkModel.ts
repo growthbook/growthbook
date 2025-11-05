@@ -37,8 +37,9 @@ export class SqlResultChunkModel extends BaseClass {
     queryId: string,
     results: Record<string, unknown>[],
   ) {
+    // Then store new results
     const encodedChunks = encodeSQLResults(results);
-    return promiseAllChunks(
+    await promiseAllChunks(
       encodedChunks.map((chunk, i) => async () => {
         await this.create({
           queryId,
@@ -58,5 +59,12 @@ export class SqlResultChunkModel extends BaseClass {
       },
     );
     return decodeSQLResults(all);
+  }
+
+  public async deleteAllByQueryId(queryId: string) {
+    await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      queryId,
+    });
   }
 }

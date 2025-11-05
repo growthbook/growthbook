@@ -72,19 +72,29 @@ const INITIAL_CONCURRENCY_TIMEOUT = 250;
 const MAX_CONCURRENCY_TIMEOUT = 4000;
 
 export async function getQueryMap(
-  organization: string,
+  context: ReqContext,
   queries: Queries,
+  cache?: QueryMap,
 ): Promise<QueryMap> {
-  const queryDocs = await getQueriesByIds(
-    organization,
-    queries.map((q) => q.query),
-  );
+  // Only fetch queries that are not already in the cache
+  const idsToFetch = queries
+    .map((q) => q.query)
+    .filter((qid) => !cache || !cache.has(qid));
 
-  const map: QueryMap = new Map();
-  queries.forEach((q) => {
-    const query = queryDocs.find((doc) => doc.id === q.query);
-    if (query) {
-      map.set(q.name, query);
+  const queryDocs = await getQueriesByIds(context, idsToFetch);
+
+  const map: QueryMap = new Map(cache);
+  queryDocs.forEach((query) => {
+    const pointer = queries.find((qp) => qp.query === query.id);
+    if (pointer) {
+      map.set(pointer.name, query);
+
+      // If the query succeeded, add it to the cache
+      // We could do this for failed queries too, but we may want to do retries in the future
+      // Also, failed queries are tiny since they don't have result rows, so caching doesn't help much
+      if (query.status === "succeeded" && cache) {
+        cache.set(query.id, query);
+      }
     }
   });
 
@@ -116,6 +126,7 @@ export abstract class QueryRunner<
   } = {};
   private useCache: boolean;
   private queuedQueryTimers: Record<string, NodeJS.Timeout> = {};
+  private finishedQueries: QueryMap = new Map();
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -181,7 +192,7 @@ export abstract class QueryRunner<
   }
 
   private async getQueryMap(pointers: Queries): Promise<QueryMap> {
-    return getQueryMap(this.model.organization, pointers);
+    return getQueryMap(this.context, pointers, this.finishedQueries);
   }
 
   public async startAnalysis(params: Params): Promise<Model> {
@@ -306,7 +317,7 @@ export abstract class QueryRunner<
 
       if (failedDependencies.length) {
         logger.debug(`${query.id}: Dependency failed...`);
-        await updateQuery(query, {
+        await updateQuery(this.context, query, {
           finishedAt: new Date(),
           status: "failed",
           error: `Dependencies failed: ${failedDependencies.map(
@@ -342,7 +353,7 @@ export abstract class QueryRunner<
         const runCallbacks = this.runCallbacks[query.id];
         if (runCallbacks === undefined) {
           logger.debug(`${query.id}: Run callbacks not found..`);
-          await updateQuery(query, {
+          await updateQuery(this.context, query, {
             finishedAt: new Date(),
             status: "failed",
             error: `Run callbacks not found`,
@@ -445,8 +456,9 @@ export abstract class QueryRunner<
 
       if (runningIds.length) {
         const queryDocs = await getQueriesByIds(
-          this.model.organization,
+          this.context,
           runningIds,
+          false,
         );
 
         const externalIds = queryDocs.map((q) => q.externalId).filter(Boolean);
@@ -511,7 +523,7 @@ export abstract class QueryRunner<
     const runCallbacks = this.runCallbacks[doc.id];
     if (runCallbacks === undefined) {
       logger.debug(`${doc.id}: Run callbacks not found..`);
-      await updateQuery(doc, {
+      await updateQuery(this.context, doc, {
         finishedAt: new Date(),
         status: "failed",
         error: `Run callbacks not found`,
@@ -541,7 +553,7 @@ export abstract class QueryRunner<
     // Update heartbeat for the query once every 30 seconds
     // This lets us detect orphaned queries where the thread died
     const timer = setInterval(() => {
-      updateQuery(doc, { heartbeat: new Date() }).catch((e) => {
+      updateQuery(this.context, doc, { heartbeat: new Date() }).catch((e) => {
         logger.error(e);
       });
     }, 30000);
@@ -549,7 +561,7 @@ export abstract class QueryRunner<
     // Run the query in the background
     logger.debug(`Start executing query in background: ${doc.id}`);
     if (doc.status !== "running") {
-      await updateQuery(doc, {
+      await updateQuery(this.context, doc, {
         startedAt: new Date(),
         status: "running",
         heartbeat: new Date(),
@@ -557,7 +569,7 @@ export abstract class QueryRunner<
     }
 
     const setExternalId = async (id: string) => {
-      await updateQuery(doc, {
+      await updateQuery(this.context, doc, {
         externalId: id,
       });
     };
@@ -566,7 +578,7 @@ export abstract class QueryRunner<
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
-        await updateQuery(doc, {
+        await updateQuery(this.context, doc, {
           finishedAt: new Date(),
           status: "succeeded",
           rawResult: rows,
@@ -578,7 +590,7 @@ export abstract class QueryRunner<
       .catch(async (e) => {
         clearInterval(timer);
         logger.debug("Query failed: " + e.message);
-        updateQuery(doc, {
+        updateQuery(this.context, doc, {
           finishedAt: new Date(),
           status: "failed",
           error: e.message,
@@ -626,7 +638,7 @@ export abstract class QueryRunner<
                 ". Currently running, checking every 3 seconds for changes",
             );
             const check = () => {
-              getQueriesByIds(this.model.organization, [existing.id])
+              getQueriesByIds(this.context, [existing.id], false)
                 .then(async (queries) => {
                   const query = queries[0];
                   if (
@@ -762,13 +774,15 @@ export abstract class QueryRunner<
     hasChanges: boolean;
     queryMap: QueryMap;
   }> {
-    const queries = await getQueriesByIds(
-      this.model.organization,
-      this.model.queries.map((p) => p.query),
-    );
+    // No need to re-fetch finished queries
+    const idsToFetch = this.model.queries
+      .map((p) => p.query)
+      .filter((qid) => !this.finishedQueries.has(qid));
+
+    const queries = await getQueriesByIds(this.context, idsToFetch);
 
     let hasChanges = false;
-    const queryMap: QueryMap = new Map();
+    const queryMap: QueryMap = new Map(this.finishedQueries);
     queries.forEach((query) => {
       // Update pointer status to match query status
       const pointer = this.model.queries.find((p) => p.query === query.id);
@@ -780,6 +794,13 @@ export abstract class QueryRunner<
       if (pointer.status !== query.status) {
         hasChanges = true;
         pointer.status = query.status;
+      }
+
+      // If the query succeeded, add it to the finishedQueries cache
+      // We could do this for failed queries too, but we may want to do retries in the future
+      // Also, failed queries are tiny since they don't have result rows, so caching doesn't help much
+      if (query.status === "succeeded") {
+        this.finishedQueries.set(query.id, query);
       }
     });
 

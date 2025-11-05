@@ -87,6 +87,7 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  hasChunkedResults?: boolean;
 }
 
 export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;

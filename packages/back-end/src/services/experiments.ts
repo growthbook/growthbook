@@ -1391,7 +1391,7 @@ async function getSnapshotAnalyses(
 
   // get queryMap for all snapshots
   const queryMap = await getQueryMap(
-    context.org.id,
+    context,
     params.map((p) => p.snapshot.queries).flat(),
   );
 
@@ -1507,6 +1507,7 @@ export async function createSnapshotAnalyses(
 }
 
 export async function createSnapshotAnalysis(
+  context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
 ): Promise<void> {
   const { snapshot, analysisSettings, organization, experiment, metricMap } =
@@ -1537,10 +1538,7 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap: QueryMap = await getQueryMap(
-    organization.id,
-    snapshot.queries,
-  );
+  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
