@@ -79,3 +79,40 @@ export function CohortValidationWarning({
     </tr>
   );
 }
+
+export function hasExperimentFormatCohort(value: string): boolean {
+  try {
+    const parsed = JSON.parse(value);
+    if (typeof parsed !== "object" || parsed === null) {
+      return false;
+    }
+    if (!("cohort" in parsed)) {
+      return false;
+    }
+
+    const cohortValue = parsed.cohort;
+    if (typeof cohortValue !== "string") {
+      return false;
+    }
+
+    const cohortPattern = /^exp1:[^:]+:[^:]+$/;
+    return cohortPattern.test(cohortValue);
+  } catch {
+    return false;
+  }
+}
+
+export function NonExperimentCohortWarning({ value }: { value: string }) {
+  if (!hasExperimentFormatCohort(value)) return null;
+
+  return (
+    <div
+      className="alert alert-warning"
+      style={{ fontSize: "0.9em", padding: "0.5rem" }}
+    >
+      <FaExclamationTriangle className="mr-1" />
+      Experiment naming format detected in non-experiment rule. Please rename so
+      it is not picked up by our experimentation infrastructure.
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
+import { NonExperimentCohortWarning } from "./CohortValidation";
 
 export default function ForceSummary({
   value,
@@ -13,6 +14,7 @@ export default function ForceSummary({
 }) {
   return (
     <>
+      <NonExperimentCohortWarning value={value} />
       <div className="row align-items-top">
         <div className="col-auto">
           <strong>SERVE</strong>
