@@ -91,7 +91,7 @@ export default function AnalysisSettingsBar({
     setDimension: setSnapshotDimension,
     setSnapshotType,
   } = useSnapshot();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
