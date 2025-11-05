@@ -68,7 +68,7 @@ export function CohortValidationWarning({
           ) : (
             <>
               Invalid experiment setup. Variation {variationIndex} has an
-              invalid cohort format. Please follow the experiment naming format:{" "}
+              invalid cohort value. Please follow the experiment naming format:{" "}
               <code>
                 exp1:&lt;experimentNameInCamelCaseYYMMDD&gt;:&lt;variantName&gt;
               </code>

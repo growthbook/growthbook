@@ -22,6 +22,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { NonExperimentCohortWarning } from "@/components/Features/CohortValidation";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -317,6 +318,7 @@ export default function FeatureModal({
       */}
       {!featureToDuplicate && valueType && (
         <>
+          <NonExperimentCohortWarning value={form.watch("defaultValue")} />
           <FeatureValueField
             label={"Default Value when Enabled"}
             id="defaultValue"
