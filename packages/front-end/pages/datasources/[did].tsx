@@ -32,6 +32,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
+import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -48,15 +49,28 @@ const DataSourcePage: FC = () => {
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const router = useRouter();
 
-  const { getDatasourceById, mutateDefinitions, ready, error } =
-    useDefinitions();
+  const {
+    getDatasourceById,
+    mutateDefinitions,
+    ready,
+    error,
+    factTables: allFactTables,
+  } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
+
+  const combinedMetrics = useCombinedMetrics({});
+  const metrics = combinedMetrics.filter((m) => m.datasource === did);
+  const factTables = allFactTables.filter((ft) => ft.datasource === did);
 
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+
+  const queryString = new URLSearchParams(
+    `q=datasource:"${d?.name}"`,
+  ).toString();
 
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
@@ -243,6 +257,18 @@ const DataSourcePage: FC = () => {
           <Text weight="medium">Type:</Text>{" "}
           {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
+        <Box>
+          <Text color="gray" weight="medium">
+            Fact Tables:
+          </Text>{" "}
+          <Link href={"/fact-tables"}>{factTables.length}</Link>
+        </Box>
+        <Box>
+          <Text color="gray" weight="medium">
+            Metrics:{" "}
+          </Text>
+          <Link href={`/metrics?${queryString}`}>{metrics.length}</Link>
+        </Box>
         <Text color="gray">
           <Text weight="medium">Last Updated:</Text>{" "}
           {datetime(d.dateUpdated ?? "")}
@@ -348,7 +374,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               <>
                 {d.dateUpdated === d.dateCreated &&
                   d?.settings?.schemaFormat !== "custom" && (
-                    <Callout status="info" mt="4">
+                    <Callout status="info" mt="4" mb="4">
                       We have prefilled the identifiers and assignment queries
                       below. These queries may require editing to fit your data
                       structure.
