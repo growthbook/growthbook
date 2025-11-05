@@ -6,7 +6,6 @@
     "dev": "docusaurus start --port 3200 --no-open",
     "docusaurus": "docusaurus",
     "start": "docusaurus start --port 3200",
-    "gen": "ts-node -r tsconfig-paths/register ./scripts/gen-event-webhook-doc.ts",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
@@ -15,7 +14,9 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "gen-sdk-resources": "npx -y tsx ./scripts/gen-sdk-resources.ts"
+    "gen": "yarn gen:event-webhook && yarn gen:sdk-resources",
+    "gen:event-webhook": "ts-node -r tsconfig-paths/register ./scripts/gen-event-webhook-doc.ts",
+    "gen:sdk-resources": "ts-node -r tsconfig-paths/register ./scripts/gen-sdk-resources.ts"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.1",
