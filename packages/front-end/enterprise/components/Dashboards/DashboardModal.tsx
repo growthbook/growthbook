@@ -286,7 +286,7 @@ export default function DashboardModal({
             )}
           </>
         )}
-        {mode === "create" ? (
+        {mode === "create" || dashboardFirstSave ? (
           // Creating a dashboard: show view access for general dashboards only, edit access for all
           <>
             {isGeneralDashboard && (
