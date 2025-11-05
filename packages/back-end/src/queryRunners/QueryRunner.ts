@@ -93,7 +93,7 @@ export async function getQueryMap(
       // We could do this for failed queries too, but we may want to do retries in the future
       // Also, failed queries are tiny since they don't have result rows, so caching doesn't help much
       if (query.status === "succeeded" && cache) {
-        cache.set(query.id, query);
+        cache.set(pointer.name, query);
       }
     }
   });
@@ -126,7 +126,7 @@ export abstract class QueryRunner<
   } = {};
   private useCache: boolean;
   private queuedQueryTimers: Record<string, NodeJS.Timeout> = {};
-  private finishedQueries: QueryMap = new Map();
+  private finishedQueryMapCache: QueryMap = new Map();
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -192,7 +192,7 @@ export abstract class QueryRunner<
   }
 
   private async getQueryMap(pointers: Queries): Promise<QueryMap> {
-    return getQueryMap(this.context, pointers, this.finishedQueries);
+    return getQueryMap(this.context, pointers, this.finishedQueryMapCache);
   }
 
   public async startAnalysis(params: Params): Promise<Model> {
@@ -777,12 +777,12 @@ export abstract class QueryRunner<
     // No need to re-fetch finished queries
     const idsToFetch = this.model.queries
       .map((p) => p.query)
-      .filter((qid) => !this.finishedQueries.has(qid));
+      .filter((qid) => !this.finishedQueryMapCache.has(qid));
 
     const queries = await getQueriesByIds(this.context, idsToFetch);
 
     let hasChanges = false;
-    const queryMap: QueryMap = new Map(this.finishedQueries);
+    const queryMap: QueryMap = new Map(this.finishedQueryMapCache);
     queries.forEach((query) => {
       // Update pointer status to match query status
       const pointer = this.model.queries.find((p) => p.query === query.id);
@@ -796,11 +796,11 @@ export abstract class QueryRunner<
         pointer.status = query.status;
       }
 
-      // If the query succeeded, add it to the finishedQueries cache
+      // If the query succeeded, add it to the cache
       // We could do this for failed queries too, but we may want to do retries in the future
       // Also, failed queries are tiny since they don't have result rows, so caching doesn't help much
       if (query.status === "succeeded") {
-        this.finishedQueries.set(query.id, query);
+        this.finishedQueryMapCache.set(pointer.name, query);
       }
     });
 
