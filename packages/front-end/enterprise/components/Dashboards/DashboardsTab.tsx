@@ -30,6 +30,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Callout from "@/ui/Callout";
+import { createTemporaryDashboard } from "@/pages/product-analytics/dashboards/new";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -137,7 +138,14 @@ function DashboardsTab({
     timeout: 1500,
   });
 
-  const dashboard = dashboards.find((d) => d.id === dashboardId);
+  const [temporaryDashboard, setTemporaryDashboard] = useState<
+    DashboardInterface | undefined
+  >(undefined);
+  const [dashboardFirstSave, setDashboardFirstSave] = useState(false);
+  const dashboard =
+    dashboardId === "new"
+      ? temporaryDashboard
+      : dashboards.find((d) => d.id === dashboardId);
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -173,7 +181,8 @@ function DashboardsTab({
   const submitDashboard: SubmitDashboard<
     CreateDashboardArgs | UpdateDashboardArgs
   > = useCallback(
-    async ({ method, dashboardId, data }) => {
+    async ({ method: requestedMethod, dashboardId, data }) => {
+      const method = dashboardId === "new" ? "POST" : requestedMethod;
       const res = await apiCall<{
         status: number;
         dashboard: DashboardInterface;
@@ -225,6 +234,19 @@ function DashboardsTab({
     [blocks, submitDashboard, dashboardId],
   );
 
+  const createOrPromptUpgrade = () => {
+    if (canCreate) {
+      setTemporaryDashboard(
+        createTemporaryDashboard(userId, undefined, experiment.id),
+      );
+      setDashboardId("new");
+      setDashboardFirstSave(true);
+      setIsEditing(true);
+    } else if (!hasCommercialFeature("dashboards")) {
+      setShowUpgradeModal(true);
+    }
+  };
+
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
   return (
     <DashboardSnapshotProvider
@@ -238,8 +260,15 @@ function DashboardsTab({
           dashboard={dashboard}
           submitDashboard={submitDashboard}
           mutate={mutateDashboards}
-          close={() => setIsEditing(false)}
+          close={() => {
+            setIsEditing(false);
+            setDashboardFirstSave(false);
+            if (dashboardId === "new") {
+              setDashboardId("");
+            }
+          }}
           isTabActive={isTabActive}
+          dashboardFirstSave={dashboardFirstSave}
         />
       ) : (
         <div>
@@ -330,13 +359,7 @@ function DashboardsTab({
                 <Flex align="center" justify="center">
                   <Button
                     size="sm"
-                    onClick={() => {
-                      if (canCreate) {
-                        setShowCreateModal(true);
-                      } else {
-                        setShowUpgradeModal(true);
-                      }
-                    }}
+                    onClick={createOrPromptUpgrade}
                     disabled={!canCreate}
                   >
                     Create Dashboard{" "}
@@ -357,11 +380,7 @@ function DashboardsTab({
                           value={dashboardId}
                           setValue={(value) => {
                             if (value === "__create__") {
-                              if (canCreate) {
-                                setShowCreateModal(true);
-                              } else {
-                                setShowUpgradeModal(true);
-                              }
+                              createOrPromptUpgrade();
                               return;
                             }
                             setDashboardId(value);

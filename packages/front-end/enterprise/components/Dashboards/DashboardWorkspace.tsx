@@ -85,14 +85,17 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
-        await submitDashboard(args);
+        await submitDashboard({
+          ...args,
+          data: { ...dashboard, ...args.data },
+        });
       } catch (e) {
         setSaveError(e.message);
       } finally {
         setSaving(false);
       }
     },
-    [submitDashboard],
+    [submitDashboard, dashboard],
   );
 
   const [blocks, setBlocks] = useState<
