@@ -21,10 +21,8 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
-    // filters: z.array(z.string()).optional(), // This is where we can pass in adhoc filters (by id)
-    // inlineFilters: z.array(z.object({})).optional(), // This is where we can pass in adhoc filters (by object) - we'll need to define this shape
-    //MKTODO: Can I add a validator for filterId?
-    //MKTODO: What about adhoc filtering - can I add a validator to take in an actual filter obj?
+    numeratorFilters: z.array(z.string()).optional(),
+    denominatorFilters: z.array(z.string()).optional(),
   })
   .strict();
 export const metricAnalysisSettingsStringDatesValidator =

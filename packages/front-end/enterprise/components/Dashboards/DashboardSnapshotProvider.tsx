@@ -476,6 +476,8 @@ export function useDashboardMetricAnalysis(
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
       source: "metric",
+      numeratorFilters: block.analysisSettings.numeratorFilters,
+      denominatorFilters: block.analysisSettings.denominatorFilters,
     };
 
     setPostLoading(true);
@@ -512,14 +514,21 @@ export function useDashboardMetricAnalysis(
         startDate: getValidDate(block.analysisSettings.startDate),
         endDate: getValidDate(block.analysisSettings.endDate),
         populationId: block.analysisSettings.populationId || "",
+        numeratorFilters: block.analysisSettings.numeratorFilters ?? [],
+        denominatorFilters: block.analysisSettings.denominatorFilters ?? [],
       };
       const metricAnalysisSettings = {
         ...metricAnalysis.settings,
         startDate: getValidDate(metricAnalysis.settings.startDate),
         endDate: getValidDate(metricAnalysis.settings.endDate),
         populationId: metricAnalysis.settings.populationId || "",
+        numeratorFilters: metricAnalysis.settings.numeratorFilters ?? [],
+        denominatorFilters: metricAnalysis.settings.denominatorFilters ?? [],
       };
-      if (isEqual(blockSettings, metricAnalysisSettings)) return;
+      // Check if analysisSettings match (including filters)
+      if (isEqual(blockSettings, metricAnalysisSettings)) {
+        return; // Skip refresh if everything matches
+      }
     }
 
     refreshAnalysis();

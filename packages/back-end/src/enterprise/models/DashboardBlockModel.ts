@@ -125,12 +125,12 @@ const metricExplorerBlockSchema = new mongoose.Schema({
     lookbackDays: Number,
     populationType: String,
     populationId: String,
+    numeratorFilters: [String],
+    denominatorFilters: [String],
   },
   visualizationType: String,
   valueType: String,
   metricAnalysisId: String,
-  numeratorFilters: [String],
-  denominatorFilters: [String],
 });
 
 dashboardBlockSchema.index({

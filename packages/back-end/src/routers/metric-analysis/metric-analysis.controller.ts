@@ -64,6 +64,8 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
+    numeratorFilters: data.numeratorFilters,
+    denominatorFilters: data.denominatorFilters,
   };
 
   console.log("metricBefore", metricObj);
