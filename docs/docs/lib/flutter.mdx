@@ -164,7 +164,7 @@ To run the experiements with `GrowthBook`, use `run` method, which takes a `GBEx
 ```dart
 var exp = GBExperiment()
 exp.key = "my-experiment"
-exp.variations = List.of("control", "variation")
+exp.variations = ["control", "variation"]
 
 var result = gb.run(exp)
 
