@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
+import { FaFileDownload, FaPencilAlt, FaPlay } from "react-icons/fa";
 import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
@@ -22,6 +22,7 @@ import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultMoreMenu({
   experiment,
@@ -65,7 +66,7 @@ export default function ResultMoreMenu({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-
+  const { mutateDefinitions } = useDefinitions();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
   const canDownloadJupyterNotebook =
@@ -76,6 +77,14 @@ export default function ResultMoreMenu({
   const isExperimentIncludedInIncrementalRefresh = experiment
     ? getIsExperimentIncludedInIncrementalRefresh(
         datasource ?? undefined,
+        experiment.id,
+      )
+    : false;
+
+  const isExperimentExcludedFromIncrementalRefresh = experiment
+    ? datasource &&
+      datasource.settings?.pipelineSettings?.mode === "incremental" &&
+      datasource.settings?.pipelineSettings?.excludedExperimentIds?.includes(
         experiment.id,
       )
     : false;
@@ -113,6 +122,36 @@ export default function ResultMoreMenu({
             >
               <BsArrowRepeat className="mr-2" /> {rerunAllQueriesText}
             </button>
+          )}
+        {datasource &&
+          experiment &&
+          isExperimentExcludedFromIncrementalRefresh &&
+          permissionsUtil.canUpdateDataSourceSettings(datasource) && (
+            <Button
+              className="dropdown-item py-2"
+              color="outline-info"
+              onClick={async () => {
+                await apiCall(`/datasource/${datasource.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    settings: {
+                      ...datasource.settings,
+                      pipelineSettings: {
+                        ...datasource.settings.pipelineSettings,
+                        excludedExperimentIds: [
+                          ...(datasource.settings?.pipelineSettings
+                            ?.excludedExperimentIds ?? []),
+                          experiment.id,
+                        ].filter((id) => id !== experiment.id),
+                      },
+                    },
+                  }),
+                });
+                mutateDefinitions();
+              }}
+            >
+              <FaPlay className="mr-2" /> Re-enable Incremental Refresh
+            </Button>
           )}
         {snapshotId &&
         experiment &&

@@ -1,13 +1,10 @@
 import {
   ExperimentMetricInterface,
   isFactMetric,
-  isRatioMetric,
   isRegressionAdjusted,
-  quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
@@ -49,6 +46,8 @@ import {
 } from "back-end/src/services/experimentTimeSeries";
 import { SegmentInterface } from "back-end/types/segment";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
+import { getExperimentById } from "../models/ExperimentModel";
 import {
   MAX_METRICS_PER_QUERY,
   SnapshotResult,
@@ -87,23 +86,6 @@ export interface MetricSourceGroups {
   metrics: FactMetricInterface[];
 }
 
-function validateFactMetricForIncrementalRefresh(metric: FactMetricInterface) {
-  if (
-    isRatioMetric(metric) &&
-    metric.numerator.factTableId !== metric.denominator?.factTableId
-  ) {
-    throw new Error(
-      "Ratio metrics must have the same numerator and denominator fact table with incremental refresh.",
-    );
-  }
-
-  if (quantileMetricType(metric)) {
-    throw new Error(
-      "Quantile metrics are not supported with incremental refresh.",
-    );
-  }
-}
-
 function getIncrementalRefreshMetricSources(
   metrics: FactMetricInterface[],
   existingMetricSources: IncrementalRefreshInterface["metricSources"],
@@ -126,8 +108,6 @@ function getIncrementalRefreshMetricSources(
   > = {};
 
   metrics.forEach((metric) => {
-    validateFactMetricForIncrementalRefresh(metric);
-
     const existingGroup = existingMetricSources.find((group) =>
       group.metrics.some((m) => m.id === metric.id),
     );
@@ -183,7 +163,7 @@ function getIncrementalRefreshMetricSources(
   return finalGroups;
 }
 
-export const startExperimentIncrementalRefreshQueries = async (
+const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
   params: ExperimentIncrementalRefreshQueryParams,
   integration: SourceIntegrationInterface,
@@ -197,10 +177,6 @@ export const startExperimentIncrementalRefreshQueries = async (
   const metricMap = params.metricMap;
 
   const { org } = context;
-  const hasIncrementalRefreshFeature = orgHasPremiumFeature(
-    org,
-    "incremental-refresh",
-  );
 
   const activationMetric = snapshotSettings.activationMetric
     ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
@@ -226,15 +202,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Experiment must have at least 1 metric selected.");
   }
 
-  const canRunIncrementalRefreshQueries =
-    hasIncrementalRefreshFeature &&
-    settings.pipelineSettings?.mode === "incremental";
-
   const queries: Queries = [];
-
-  if (!canRunIncrementalRefreshQueries) {
-    throw new Error("Integration does not support incremental refresh queries");
-  }
 
   const unitsTableName = `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}`;
   const unitsTableFullName =
@@ -276,82 +244,44 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   // If not forcing a full refresh and we have a previous run, ensure the
   // current configuration matches what the incremental pipeline was built with.
-  if (!params.fullRefresh && incrementalRefreshModel) {
-    const currentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
-    if (
-      incrementalRefreshModel.experimentSettingsHash &&
-      currentSettingsHash !== incrementalRefreshModel.experimentSettingsHash
-    ) {
-      throw new Error(
-        "The experiment configuration is outdated. Please run a Full Refresh.",
-      );
+  if (incrementalRefreshModel && incrementalRefreshModel.metricSources.length) {
+    const existingMetricSourcesMetricIds = new Set<string>();
+    incrementalRefreshModel.metricSources.forEach((source) => {
+      source.metrics.forEach((metric) => {
+        existingMetricSourcesMetricIds.add(metric.id);
+      });
+    });
+
+    // New metrics that we don't have incremental data for
+    const addedMetrics = new Set<FactMetricInterface>();
+    for (const m of selectedMetrics) {
+      if (!existingMetricSourcesMetricIds.has(m.id)) {
+        // Should never happen as this only supports fact metrics
+        if (!isFactMetric(m)) {
+          throw new Error(
+            "Only fact metrics are supported with incremental refresh.",
+          );
+        }
+        addedMetrics.add(m);
+      }
     }
 
-    // Validate metric settings hashes for existing metric sources
-    if (incrementalRefreshModel.metricSources?.length) {
-      const existingMetricHashMap = new Map<string, string>();
-      incrementalRefreshModel.metricSources.forEach((source) => {
-        source.metrics.forEach((metric) => {
-          existingMetricHashMap.set(metric.id, metric.settingsHash);
-        });
-      });
+    const selectedMetricIds = new Set<string>(selectedMetrics.map((m) => m.id));
 
-      const storedMetricIds = new Set<string>(
-        Array.from(existingMetricHashMap.keys()),
-      );
-      const selectedFactMetrics = selectedMetrics.filter((m) =>
-        isFactMetric(m),
-      );
-      const selectedFactMetricIds = new Set<string>(
-        selectedFactMetrics.map((m) => m.id),
-      );
-
-      // New metrics that we don't have incremental data for
-      const addedMetrics = new Set<FactMetricInterface>();
-      for (const m of selectedFactMetrics) {
-        if (!storedMetricIds.has(m.id)) {
-          addedMetrics.add(m);
-        }
+    const removedMetricIds = new Set<string>();
+    for (const storedId of existingMetricSourcesMetricIds) {
+      if (!selectedMetricIds.has(storedId)) {
+        removedMetricIds.add(storedId);
       }
-
-      const removedMetricIds = new Set<string>();
-      for (const storedId of storedMetricIds) {
-        if (!selectedFactMetricIds.has(storedId)) {
-          removedMetricIds.add(storedId);
-        }
-      }
-
-      // Ratio metrics must have the same numerator and denominator fact table for now
-      addedMetrics.forEach((m) => {
-        const factTableId = m.numerator?.factTableId;
-        if (factTableId) {
-          factTablesWithNewMetrics.add(factTableId);
-        }
-      });
-
-      selectedMetrics
-        .filter((m) => isFactMetric(m))
-        .forEach((m) => {
-          const storedHash = existingMetricHashMap.get(m.id);
-          if (!storedHash) return;
-
-          const currentHash = getMetricSettingsHashForIncrementalRefresh({
-            factMetric: m,
-            factTableMap: params.factTableMap,
-            metricSettings: snapshotSettings.metricSettings.find(
-              (ms) => ms.id === m.id,
-            ),
-          });
-
-          if (currentHash !== storedHash) {
-            const metricName = m.name ?? m.id;
-            throw new Error(
-              `The metric "${metricName}" configuration is outdated. Please run a Full Refresh.`,
-            );
-          }
-        });
     }
+
+    // Ratio metrics must have the same numerator and denominator fact table for now
+    addedMetrics.forEach((m) => {
+      const factTableId = m.numerator?.factTableId;
+      if (factTableId) {
+        factTablesWithNewMetrics.add(factTableId);
+      }
+    });
   }
 
   // Begin Queries
@@ -521,12 +451,6 @@ export const startExperimentIncrementalRefreshQueries = async (
   if (params.fullRefresh) {
     existingSources = [];
     existingCovariateSources = [];
-  }
-
-  if (selectedMetrics.some((m) => !isFactMetric(m))) {
-    throw new Error(
-      "Only fact metrics are supported with incremental refresh.",
-    );
   }
 
   const metricSourceGroups = getIncrementalRefreshMetricSources(
@@ -844,17 +768,30 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     }
 
-    if (params.snapshotSettings.skipPartialData) {
-      throw new Error(
-        "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
+    const incrementalRefreshModel =
+      await this.context.models.incrementalRefresh.getByExperimentId(
+        params.experimentId,
       );
+
+    const experiment = await getExperimentById(
+      this.context,
+      params.experimentId,
+    );
+    if (!experiment) {
+      throw new Error("Experiment not found");
     }
 
-    if (!this.integration.getSourceProperties().hasIncrementalRefresh) {
-      throw new Error(
-        "Integration does not support incremental refresh queries",
-      );
-    }
+    // Throws if any settings/experiment is not supported
+    await validateIncrementalPipeline({
+      org: this.context.org,
+      integration: this.integration,
+      snapshotSettings: params.snapshotSettings,
+      metricMap: params.metricMap,
+      factTableMap: params.factTableMap,
+      experiment,
+      incrementalRefreshModel,
+      fullRefresh: params.fullRefresh,
+    });
 
     return startExperimentIncrementalRefreshQueries(
       this.context,
