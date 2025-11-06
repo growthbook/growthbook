@@ -7474,7 +7474,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     const idTypeObjects = [
       [exposureQuery.userIdType],
-      ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+      ...unitDimensions.map((d) => [d.dimension.userIdType]),
     ];
 
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
