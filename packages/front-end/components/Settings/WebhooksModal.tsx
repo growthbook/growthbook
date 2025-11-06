@@ -665,12 +665,12 @@ const EditSDKWebhooksModal: FC<{
               },
               { label: "SDK Payload only", value: "sdkPayload" },
               { label: "Vercel Edge Config", value: "edgeConfigUnescaped" },
-              // Only show the old escaped format if it's already selected
+              // Only show the old stringified format if it's already selected
               ...(current?.payloadFormat === "edgeConfig"
                 ? [
                     {
                       label: "Vercel Edge Config (escaped payload)",
-                      value: "edgeConfig" as const,
+                      value: "edgeConfig",
                     },
                   ]
                 : []),
