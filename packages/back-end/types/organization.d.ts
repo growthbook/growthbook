@@ -244,6 +244,8 @@ export interface OrganizationSettings {
   experimentPageMarkdown?: string;
   metricListMarkdown?: string;
   metricPageMarkdown?: string;
+  preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
+  maxMetricSliceLevels?: number;
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
@@ -253,6 +255,10 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
+  disableLegacyMetricCreation?: boolean;
+  blockFileUploads?: boolean;
+  defaultFeatureRulesInAllEnvs?: boolean;
+  savedGroupSizeLimit?: number;
 }
 
 export interface OrganizationConnections {
@@ -325,6 +331,7 @@ export interface OrganizationInterface {
     hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
+  installationName?: string;
   autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
@@ -369,6 +376,7 @@ export type GetOrganizationResponse = {
   licenseError: string;
   commercialFeatures: CommercialFeature[];
   license: Partial<LicenseInterface> | null;
+  installationName: string | null;
   subscription: SubscriptionInfo | null;
   licenseKey?: string;
   currentUserPermissions: UserPermissions;

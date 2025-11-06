@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   Environment,
   NamespaceUsage,
@@ -79,8 +79,27 @@ export type NewExperimentRefRule = {
 
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");
-
+  const { settings } = useUser();
   const environments = useEnvironments();
+  const hasAppliedPreferredEnv = useRef(false);
+
+  // Apply any preferred environment on first load
+  useEffect(() => {
+    if (hasAppliedPreferredEnv.current) return;
+    if (!settings) return;
+
+    const preferredEnv = settings.preferredEnvironment;
+    if (!preferredEnv) {
+      hasAppliedPreferredEnv.current = true;
+      return;
+    }
+
+    const isValidEnv = environments.some((e) => e.id === preferredEnv);
+    if (isValidEnv) {
+      setState(preferredEnv);
+    }
+    hasAppliedPreferredEnv.current = true;
+  }, [settings, state, setState, environments]);
 
   if (!environments.map((e) => e.id).includes(state)) {
     return [environments[0]?.id || "production", setState] as const;
@@ -180,7 +199,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
+    searchFields: ["id^3", "description", "defaultValue"],
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,

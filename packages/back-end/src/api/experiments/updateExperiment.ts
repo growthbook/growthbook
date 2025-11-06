@@ -18,6 +18,7 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   Variation,
 } from "back-end/src/validators/experiments";
+import { validateCustomFields } from "./validation";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
@@ -92,6 +93,15 @@ export const updateExperiment = createApiRequestHandler(
         `Experiment with tracking key already exists: ${req.body.trackingKey}`,
       );
     }
+  }
+
+  // check if the custom fields are valid
+  if (req.body.customFields) {
+    await validateCustomFields(
+      req.body.customFields,
+      req.context,
+      experiment.project,
+    );
   }
 
   // Validate that specified metrics exist and belong to the organization

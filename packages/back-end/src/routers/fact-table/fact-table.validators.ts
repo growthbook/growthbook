@@ -36,14 +36,16 @@ export const jsonColumnFieldsValidator = z.record(
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
-    name: z.string(),
-    description: z.string(),
-    numberFormat: numberFormatValidator,
+    name: z.string().optional(),
+    description: z.string().optional(),
+    numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator,
     jsonFields: jsonColumnFieldsValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -57,6 +59,8 @@ export const updateColumnPropsValidator = z
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -72,8 +76,8 @@ export const createFactTablePropsValidator = z
     userIdTypes: z.array(z.string()),
     sql: z.string(),
     eventName: z.string(),
-    columns: z.array(createColumnPropsValidator),
-    managedBy: z.enum(["", "api"]).optional(),
+    columns: z.array(createColumnPropsValidator).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
   })
   .strict();
 
@@ -88,7 +92,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
   })
@@ -171,7 +175,7 @@ export const factMetricValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     owner: z.string().default(""),
     datasource: z.string(),
     dateCreated: z.date(),
@@ -203,6 +207,8 @@ export const factMetricValidator = z
     regressionAdjustmentOverride: z.boolean(),
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
+
+    metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
   })

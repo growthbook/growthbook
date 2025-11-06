@@ -44,6 +44,10 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
+import {
+  DiffResult,
+  getObjectDiff,
+} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -310,6 +314,20 @@ const experimentSchema = new mongoose.Schema({
   },
   dismissedWarnings: [String],
   holdoutId: String,
+  defaultDashboardId: String,
+  pinnedMetricSlices: [String],
+  customMetricSlices: [
+    {
+      _id: false,
+      slices: [
+        {
+          _id: false,
+          column: String,
+          levels: [String],
+        },
+      ],
+    },
+  ],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -944,6 +962,36 @@ export const logExperimentUpdated = async ({
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
+  let changes: DiffResult | undefined;
+  try {
+    changes = getObjectDiff(previousApiExperiment, currentApiExperiment, {
+      ignoredKeys: ["dateUpdated"],
+      nestedObjectConfigs: [
+        {
+          key: "phases",
+          idField: "__index",
+          ignoredKeys: [
+            "dateStarted",
+            "dateEnded",
+            "bucketVersion",
+            "minBucketVersion",
+          ],
+        },
+        {
+          key: "variations",
+          idField: "variationId",
+          ignoredKeys: ["screenshots"],
+        },
+        {
+          key: "metricOverrides",
+          idField: "id",
+        },
+      ],
+    });
+  } catch (e) {
+    logger.error(e, "error creating change patch");
+  }
+
   await createEvent({
     context,
     object: "experiment",
@@ -952,6 +1000,7 @@ export const logExperimentUpdated = async ({
     data: {
       object: currentApiExperiment,
       previous_object: previousApiExperiment,
+      changes,
     },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project]),

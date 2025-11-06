@@ -7,11 +7,11 @@ import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DataVisualizationDisplay } from "@/components/DataViz/SqlExplorerDataVisualization";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import PageHead from "@/components/Layout/PageHead";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { useAuth } from "@/services/auth";
@@ -151,10 +151,10 @@ export default function SqlQueryDetail() {
       <Flex direction="column" gap="4" mb="2">
         {debugResults && (
           <DisplayTestQueryResults
-            duration={debugResults.duration}
-            results={debugResults.results}
-            sql={debugResults.sql}
-            error={debugResults.error}
+            duration={debugResults.duration || 0}
+            results={debugResults.results || []}
+            sql={debugResults.sql || ""}
+            error={debugResults.error || ""}
             allowDownload={false}
             showSampleHeader={false}
             renderedSQLLabel="Refresh Error"
@@ -163,7 +163,11 @@ export default function SqlQueryDetail() {
         )}
 
         {savedQuery.dataVizConfig?.map((config, index) => (
-          <Box key={index} className="appbox py-4 mb-0">
+          <Box
+            key={index}
+            className="appbox py-4 mb-0"
+            style={{ maxHeight: "500px", overflow: "auto" }}
+          >
             <DataVisualizationDisplay
               dataVizConfig={config}
               rows={savedQuery.results?.results || []}

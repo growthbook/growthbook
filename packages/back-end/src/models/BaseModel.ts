@@ -40,6 +40,9 @@ export type CreateProps<T extends object> = Omit<
   T,
   "id" | "organization" | "dateCreated" | "dateUpdated"
 > & { id?: string };
+export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
+  Omit<z.infer<T>, "organization">
+>;
 
 export type CreateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
@@ -122,6 +125,7 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
+  baseQuery?: ScopedFilterQuery<T>;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -295,8 +299,8 @@ export abstract class BaseModel<
 
     return this._find({ id: { $in: ids } });
   }
-  public getAll() {
-    return this._find();
+  public getAll(filter?: ScopedFilterQuery<T>) {
+    return this._find(filter);
   }
   public create(
     props: CreateProps<z.infer<T>>,
@@ -317,11 +321,25 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, { writeOptions });
   }
-  public dangerousUpdateBypassPermission(
+  public async dangerousUpdateBypassPermission(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      forceCanUpdate: true,
+    });
+  }
+  public async dangerousUpdateByIdBypassPermission(
+    id: string,
+    updates: UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T>> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error("Could not find resource to update");
+    }
     return this._updateOne(existing, updates, {
       writeOptions,
       forceCanUpdate: true,
@@ -365,7 +383,7 @@ export abstract class BaseModel<
     return uniqid(this.config.idPrefix);
   }
   protected async _find(
-    query: FilterQuery<Omit<z.infer<T>, "organization">> = {},
+    query: ScopedFilterQuery<T> = {},
     {
       sort,
       limit,
@@ -380,7 +398,8 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
     } = {},
   ) {
-    const queryWithOrg = {
+    const fullQuery = {
+      ...this.getBaseQuery(),
       ...query,
       organization: this.context.org.id,
     };
@@ -389,7 +408,7 @@ export abstract class BaseModel<
     if (this.useConfigFile()) {
       const docs =
         this.getConfigDocuments().filter((doc) =>
-          evalCondition(doc, queryWithOrg),
+          evalCondition(doc, fullQuery),
         ) || [];
 
       sort &&
@@ -406,7 +425,7 @@ export abstract class BaseModel<
 
       rawDocs = docs;
     } else {
-      const cursor = this._dangerousGetCollection().find(queryWithOrg);
+      const cursor = this._dangerousGetCollection().find(fullQuery);
       sort &&
         cursor.sort(
           sort as {
@@ -430,17 +449,15 @@ export abstract class BaseModel<
     return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
   }
 
-  protected async _findOne(
-    query: FilterQuery<Omit<z.infer<T>, "organization">>,
-  ) {
+  protected async _findOne(query: ScopedFilterQuery<T>) {
+    const fullQuery = {
+      ...this.getBaseQuery(),
+      ...query,
+      organization: this.context.org.id,
+    };
     const doc = this.useConfigFile()
-      ? this.getConfigDocuments().find((doc) =>
-          evalCondition(doc, { ...query, organization: this.context.org.id }),
-        )
-      : await this._dangerousGetCollection().findOne({
-          ...query,
-          organization: this.context.org.id,
-        });
+      ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
+      : await this._dangerousGetCollection().findOne(fullQuery);
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
@@ -847,6 +864,10 @@ export abstract class BaseModel<
         throw new Error("Invalid project");
       }
     }
+  }
+
+  private getBaseQuery(): ScopedFilterQuery<T> {
+    return this.config.baseQuery ?? {};
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

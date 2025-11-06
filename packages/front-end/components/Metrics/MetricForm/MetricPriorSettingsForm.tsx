@@ -2,10 +2,10 @@ import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricDefaults } from "back-end/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
-import Toggle from "@/components/Forms/Toggle";
+import { Box, Flex } from "@radix-ui/themes";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -46,17 +46,12 @@ export function MetricPriorSettingsForm({
           }}
         >
           <div className="d-flex my-2 border-bottom"></div>
-          <div className="form-group mt-3 mb-0 mr-2 form-inline">
-            <label
-              className="mr-1"
-              htmlFor="toggle-regressionAdjustmentEnabled"
-            >
-              Use proper prior for this metric
-            </label>
-            <Toggle
+          <Flex direction="column" className="form-group mt-3 mb-0 mr-2">
+            <Switch
               id={"toggle-properPrior"}
+              label="Use proper prior for this metric"
               value={!!priorSettings.proper}
-              setValue={(value) => {
+              onChange={(value) => {
                 setPriorSettings({ ...priorSettings, proper: value });
               }}
             />
@@ -64,7 +59,7 @@ export function MetricPriorSettingsForm({
               (organization default:{" "}
               {metricDefaults.priorSettings?.proper ? "On" : "Off"})
             </small>
-          </div>
+          </Flex>
 
           {(metricDefaults.priorSettings?.proper && !priorSettings.override) ||
           priorSettings.proper ? (

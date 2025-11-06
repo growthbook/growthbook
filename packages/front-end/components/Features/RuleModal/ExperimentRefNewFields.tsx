@@ -32,30 +32,30 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/hooks/useCustomFields";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 
 export default function ExperimentRefNewFields({
   step,
   source,
   feature,
   project,
-  environment,
   environments,
   defaultValues,
   revisions,
@@ -91,8 +91,7 @@ export default function ExperimentRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   revisions?: FeatureRevisionInterface[];
   version?: number;
@@ -389,7 +388,7 @@ export default function ExperimentRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : (environments ?? [])}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -519,6 +518,20 @@ export default function ExperimentRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
+            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
+            setPinnedMetricSlices={(slices) =>
+              form.setValue("pinnedMetricSlices", slices)
+            }
           />
 
           <hr className="mt-4" />

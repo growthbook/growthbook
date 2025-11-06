@@ -17,8 +17,8 @@ import {
   defaultValue,
   PowerCalculationForm,
 } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
-import HelperText from "@/components/Radix/HelperText";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import HelperText from "@/ui/HelperText";
+import RadioGroup from "@/ui/RadioGroup";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,6 +43,7 @@ export const SelectStep = ({
 }) => {
   const {
     metrics: appMetrics,
+    metricGroups,
     factMetrics: appFactMetrics,
     segments: appSegments,
     project,
@@ -84,7 +85,7 @@ export const SelectStep = ({
           return {
             ...exp,
             exposureQueryUserIdType: exposureQuery?.userIdType,
-            allMetrics: getAllMetricIdsFromExperiment(exp),
+            allMetrics: getAllMetricIdsFromExperiment(exp, false, metricGroups),
           };
         })
         .filter((e) => {
@@ -96,7 +97,7 @@ export const SelectStep = ({
             return false;
           return true;
         }),
-    [experiments, datasources],
+    [experiments, datasources, metricGroups],
   );
 
   const availableSegments = useMemo(

@@ -32,6 +32,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
+  sliceId?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -62,6 +63,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   statsEngine,
   pValueAdjustmentEnabled,
   firstDateToRender,
+  sliceId,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -73,8 +75,10 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     getFactTableById,
   );
 
+  const metricId = sliceId ?? metric.id;
+
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`,
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
   );
 
   const filteredMetricTimeSeries = useMemo(() => {

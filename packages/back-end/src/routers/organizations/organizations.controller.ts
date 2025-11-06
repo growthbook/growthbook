@@ -19,6 +19,7 @@ import {
   findSdkWebhookById,
   updateSdkWebhook,
 } from "back-end/src/models/WebhookModel";
+import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -145,6 +146,10 @@ import {
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
 import { AgreementType } from "back-end/src/validators/agreements";
+import {
+  getInstallation,
+  setInstallationName,
+} from "back-end/src/models/InstallationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -701,6 +706,8 @@ export async function getOrganization(
     }
   }
 
+  const installationName = (await getLicenseMetaData())?.installationName;
+
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
     context.permissions.canReadMultiProjectResource(attribute.projects),
   );
@@ -765,6 +772,7 @@ export async function getOrganization(
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     watching: {
@@ -1322,10 +1330,17 @@ export async function putOrganization(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, ownerEmail, settings, connections, externalId, licenseKey } =
-    req.body;
+  const {
+    name,
+    installationName,
+    ownerEmail,
+    settings,
+    connections,
+    externalId,
+    licenseKey,
+  } = req.body;
 
-  if (connections || name || ownerEmail) {
+  if (connections || name || ownerEmail || installationName) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
@@ -1373,6 +1388,25 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (installationName && !IS_CLOUD) {
+      const installation = await getInstallation();
+      const currentName = installation.name;
+      if (installationName && currentName !== installationName) {
+        await req.audit({
+          event: "installation.update",
+          entity: {
+            object: "installation",
+            id: installation.id,
+          },
+          details: auditDetailsUpdate(
+            { name: currentName },
+            { name: installationName },
+          ),
+        });
+
+        await setInstallationName(installationName);
+      }
     }
     if (ownerEmail && ownerEmail !== org.ownerEmail) {
       // the owner email is being changed
@@ -2053,7 +2087,7 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: string }>,
+  req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2068,22 +2102,40 @@ export async function putDefaultRole(
     );
   }
 
-  if (!isRoleValid(defaultRole, org)) {
-    throw new Error("Invalid role");
-  }
-
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
+  }
+
+  const { memberIsValid, reason } = validateRoleAndEnvs(
+    org,
+    defaultRole.role,
+    defaultRole.limitAccessByEnvironment,
+    defaultRole.environments,
+  );
+
+  if (!memberIsValid) {
+    throw new Error(reason);
+  }
+
+  if (defaultRole.projectRoles?.length) {
+    defaultRole.projectRoles.forEach((p) => {
+      const { memberIsValid, reason } = validateRoleAndEnvs(
+        org,
+        p.role,
+        p.limitAccessByEnvironment,
+        p.environments,
+      );
+
+      if (!memberIsValid) {
+        throw new Error(reason);
+      }
+    });
   }
 
   updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      defaultRole: {
-        role: defaultRole,
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
+      defaultRole,
     },
   });
 

@@ -29,14 +29,9 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 
@@ -927,13 +922,11 @@ const EditMember: FC<{
           />
         </div>
         <div className="mt-4">
-          <label>Verified Email </label>
-          <Toggle
-            label="Verified"
+          <Switch
+            label="Verified Email"
             id="verified"
-            className=" ml-2"
             value={verified}
-            setValue={(e) => setVerified(e)}
+            onChange={(e) => setVerified(e)}
           />
         </div>
       </div>

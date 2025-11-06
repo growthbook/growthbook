@@ -13,6 +13,8 @@ import {
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
 import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
+export * from "./types";
+export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants";
 
 export const resolvers: Record<
   keyof Settings,
@@ -71,6 +73,12 @@ export const resolvers: Record<
     metric: true,
     report: true,
   }),
+  pValueCorrection: genDefaultResolver("pValueCorrection", {
+    project: "settings.pValueCorrection",
+    experiment: true,
+    metric: true,
+    report: true,
+  }),
   regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
   regressionAdjustmentDays: regressionAdjustmentResolver("days"),
   sequentialTestingEnabled: genDefaultResolver("sequentialTestingEnabled", {
@@ -89,6 +97,7 @@ export const resolvers: Record<
     experiment: true,
     report: true,
   }),
+  srmThreshold: genDefaultResolver("srmThreshold"),
   targetMDE: metricTargetMDEResolver(),
   delayHours: genMetricOverrideResolver("delayHours"),
   windowType: genMetricOverrideResolver("windowType"),
@@ -106,6 +115,8 @@ export const resolvers: Record<
   banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
   experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
   experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
+  maxMetricSliceLevels: genDefaultResolver("maxMetricSliceLevels"),
+  useStickyBucketing: genDefaultResolver("useStickyBucketing"),
   // TODO prior resolvers
 };
 
@@ -177,5 +188,3 @@ export const getScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
-
-export type { ScopedSettings } from "./types";

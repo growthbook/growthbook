@@ -45,6 +45,7 @@ export const entityEvents = {
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete", "disable", "enable"],
+  installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
@@ -60,6 +61,7 @@ export const entityEvents = {
   savedQuery: ["create", "update", "delete"],
   dashboard: ["create", "update", "delete"],
   dashboardTemplate: ["create", "update", "delete"],
+  incrementalRefresh: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
 } as const;
 

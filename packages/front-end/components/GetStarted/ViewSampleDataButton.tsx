@@ -1,11 +1,12 @@
 import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const ViewSampleDataButton = ({
   resource = "experiment",
@@ -21,6 +22,9 @@ const ViewSampleDataButton = ({
 
   const { mutateDefinitions } = useDefinitions();
 
+  const gb = useGrowthBook();
+  const useNewSampleData = gb.isOn("new-sample-data");
+
   const openSample = async () => {
     if (exists && demoExperimentId) {
       if (resource === "experiment") {
@@ -35,9 +39,14 @@ const ViewSampleDataButton = ({
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>("/demo-datasource-project", {
-        method: "POST",
-      });
+      }>(
+        useNewSampleData
+          ? "/demo-datasource-project/new"
+          : "/demo-datasource-project",
+        {
+          method: "POST",
+        },
+      );
       await mutateDefinitions();
       if (res.experimentId) {
         if (resource === "experiment") {

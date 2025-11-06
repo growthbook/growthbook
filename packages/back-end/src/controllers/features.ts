@@ -1250,7 +1250,11 @@ export async function postFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, safeRolloutFields } = req.body;
+  const {
+    environments: selectedEnvironments = [],
+    rule,
+    safeRolloutFields,
+  } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1261,9 +1265,24 @@ export async function postFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!environmentIds.includes(environment)) {
-    throw new Error("Invalid environment");
+  if (!selectedEnvironments.length) {
+    // Temporary so this new back-end continues to work with old front-end
+    if (
+      "environment" in req.body &&
+      typeof req.body.environment === "string" &&
+      req.body.environment
+    ) {
+      selectedEnvironments.push(req.body.environment);
+    } else {
+      throw new Error("Must select at least one environment");
+    }
   }
+
+  selectedEnvironments.forEach((env) => {
+    if (!environmentIds.includes(env)) {
+      throw new Error("Invalid environment");
+    }
+  });
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
@@ -1273,6 +1292,13 @@ export async function postFeatureRule(
   }
 
   if (rule.type === "safe-rollout") {
+    const environment = selectedEnvironments[0];
+    if (selectedEnvironments.length > 1) {
+      throw new Error(
+        "Safe Rollout rules can only be applied to a single environment",
+      );
+    }
+
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
@@ -1359,14 +1385,14 @@ export async function postFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: [environment],
+    changedEnvironments: selectedEnvironments,
     defaultValueChanged: false,
     settings: org?.settings,
   });
   await addFeatureRule(
     context,
     revision,
-    environment,
+    selectedEnvironments,
     rule,
     res.locals.eventAudit,
     resetReview,
@@ -2315,7 +2341,7 @@ export async function putFeature(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
-  if (updates.holdout?.id !== feature.holdout?.id) {
+  if (updates.holdout && updates.holdout?.id !== feature.holdout?.id) {
     const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
       async (experimentId) => {
         const experiment = await getExperimentById(context, experimentId);
@@ -2337,7 +2363,11 @@ export async function putFeature(
     }
   }
 
-  if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
+  if (
+    updates.holdout &&
+    updates.holdout.id !== feature.holdout?.id &&
+    feature.holdout?.id
+  ) {
     await context.models.holdout.removeFeatureFromHoldout(
       feature.holdout.id,
       feature.id,

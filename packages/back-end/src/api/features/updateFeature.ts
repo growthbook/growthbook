@@ -30,6 +30,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
+import { validateCustomFields } from "./validation";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -38,7 +39,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
-    const { owner, archived, description, project, tags } = req.body;
+    const { owner, archived, description, project, tags, customFields } =
+      req.body;
 
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
@@ -79,6 +81,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           `Project id ${req.body.project} is not a valid project.`,
         );
       }
+    }
+
+    // check if the custom fields are valid
+    if (customFields) {
+      await validateCustomFields(customFields, req.context, req.body.project);
     }
 
     // ensure environment keys are valid
@@ -152,6 +159,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(environmentSettings != null ? { environmentSettings } : {}),
       ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
+      ...(customFields != null ? { customFields } : {}),
     };
 
     if (

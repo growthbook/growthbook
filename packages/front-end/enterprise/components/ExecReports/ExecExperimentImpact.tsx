@@ -16,10 +16,11 @@ import {
 } from "@/components/HomePage/ExperimentImpact";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
+import DSTooltip from "@/ui/Tooltip";
 
 interface ExperimentSummaryType {
   experiment: ExperimentInterfaceStringDates;
@@ -544,10 +545,20 @@ export default function ExecExperimentImpact({
                     </Box>
                     <Box>
                       <Flex gap="5" align="center" justify="start">
-                        <label className="nowrap mb-0">
-                          De-bias?
+                        <Flex align="center" gap="1">
+                          <DSTooltip
+                            content="Disabled as there are not enough experiments to shrink estimates"
+                            enabled={nExpsUsedForAdjustment < 5}
+                          >
+                            <Switch
+                              id="adjust-scaled-impact"
+                              label="De-bias?"
+                              disabled={nExpsUsedForAdjustment < 5}
+                              onChange={(v) => form.setValue("adjusted", v)}
+                              value={adjusted && nExpsUsedForAdjustment >= 5}
+                            />
+                          </DSTooltip>
                           <Tooltip
-                            className="ml-1"
                             body={
                               <>
                                 <div className="mb-2">
@@ -562,19 +573,7 @@ export default function ExecExperimentImpact({
                               </>
                             }
                           />
-                        </label>
-                        <Box>
-                          <Toggle
-                            id="adjust-scaled-impact"
-                            className="form-check-input"
-                            disabled={nExpsUsedForAdjustment < 5}
-                            disabledMessage={
-                              "Disabled as there are not enough experiments to shrink estimates"
-                            }
-                            setValue={(v) => form.setValue("adjusted", v)}
-                            value={adjusted && nExpsUsedForAdjustment >= 5}
-                          />
-                        </Box>
+                        </Flex>
                       </Flex>
                     </Box>
                   </>

@@ -121,7 +121,7 @@
     },
     {
       "files": ["./packages/front-end/**/*.ts*"],
-      "excludedFiles": ["./packages/front-end/components/Radix/**/*.ts*"],
+      "excludedFiles": ["./packages/front-end/ui/**/*.ts*"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -129,7 +129,7 @@
             "paths": [
               {
                 "name": "@radix-ui/themes",
-                "message": "Use the component from @/components/Radix/ instead.",
+                "message": "Don't import Radix directly. Use our design system wrappers from @/ui/ instead.",
                 "importNames": [
                   "Avatar",
                   "Badge",
@@ -142,6 +142,8 @@
                   "RadioCards",
                   "RadioGroup",
                   "Select",
+                  "Switch",
+                  "Table",
                   "Tabs"
                 ]
               }

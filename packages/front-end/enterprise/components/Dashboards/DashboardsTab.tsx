@@ -1,12 +1,9 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  DashboardInterface,
+  DashboardUpdateSchedule,
+} from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -14,23 +11,25 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { dashboardCanAutoUpdate, getBlockData } from "shared/enterprise";
-import Button from "@/components/Radix/Button";
+import { getBlockData } from "shared/enterprise";
+import { withErrorBoundary } from "@sentry/nextjs";
+import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EditButton from "@/components/EditButton/EditButton";
-import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
+import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { DropdownMenuSeparator } from "@/components/Radix/DropdownMenu";
-import { useDashboards } from "@/hooks/useDashboards";
+import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Callout from "@/ui/Callout";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -43,8 +42,12 @@ export type CreateDashboardArgs = {
   data: {
     title: string;
     editLevel: DashboardInterface["editLevel"];
+    shareLevel: DashboardInterface["shareLevel"];
+    userId: string;
     enableAutoUpdates: boolean;
+    updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
+    projects?: string[];
   };
 };
 export type UpdateDashboardArgs = {
@@ -54,7 +57,11 @@ export type UpdateDashboardArgs = {
     title: string;
     blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     editLevel: DashboardInterface["editLevel"];
+    userId: string;
+    shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
+    updateSchedule?: DashboardUpdateSchedule;
+    projects?: string[];
   }>;
 };
 export type SubmitDashboard<
@@ -62,18 +69,25 @@ export type SubmitDashboard<
 > = (args: T) => Promise<void>;
 
 export const autoUpdateDisabledMessage =
-  "Automatic updates are disabled for dashboards with Dimension Analyses or SQL Explorer blocks, or when experiment updates are disabled";
-
+  "Your organization settings have disabled automatic refreshing of experiment results";
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
   isTabActive: boolean;
+  showDashboardView?: boolean;
+  updateTabPath: (path: string) => void;
+  switchToExperimentView?: () => void;
+  mutateExperiment?: () => void;
 }
 
-export default function DashboardsTab({
+function DashboardsTab({
   experiment,
   initialDashboardId,
   isTabActive,
+  showDashboardView = false,
+  updateTabPath,
+  switchToExperimentView,
+  mutateExperiment,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
@@ -85,7 +99,7 @@ export default function DashboardsTab({
     dashboards,
     mutateDashboards,
     loading: loadingDashboards,
-  } = useDashboards(experiment.id);
+  } = useExperimentDashboards(experiment.id);
   const defaultDashboard = dashboards.find((dash) => dash.isDefault);
   const [dashboardMounted, setDashboardMounted] = useState(false);
 
@@ -100,6 +114,12 @@ export default function DashboardsTab({
     }
   }, [dashboardId, dashboards, defaultDashboard]);
 
+  useEffect(() => {
+    if (isTabActive) {
+      updateTabPath(dashboardId);
+    }
+  }, [isTabActive, updateTabPath, dashboardId]);
+
   const {
     userId,
     settings: { updateSchedule },
@@ -107,6 +127,7 @@ export default function DashboardsTab({
   const [isEditing, setIsEditing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const { apiCall } = useAuth();
   const [blocks, setBlocks] = useState<
@@ -121,18 +142,25 @@ export default function DashboardsTab({
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const hasDashboardFeature = hasCommercialFeature("dashboards");
-  const canCreate = permissionsUtil.canCreateReport(experiment);
-  const canUpdateDashboard = experiment
-    ? permissionsUtil.canViewReportModal(experiment.project)
-    : true;
-  const isOwner = userId === dashboard?.userId || !dashboard?.userId;
-  const isAdmin = permissionsUtil.canSuperDeleteReport();
-  const canEdit =
-    isOwner ||
-    isAdmin ||
-    (dashboard.editLevel === "organization" && canUpdateDashboard);
-  const canManage = isOwner || isAdmin;
+  const canCreate =
+    permissionsUtil.canCreateReport(experiment) &&
+    hasCommercialFeature("dashboards");
+  let canEdit =
+    permissionsUtil.canViewReportModal(experiment.project) &&
+    hasCommercialFeature("dashboards");
+  const canUpdateExperiment = permissionsUtil.canViewExperimentModal(
+    experiment.project,
+  );
+  const isOwner = userId === dashboard?.userId;
+  const isAdmin = permissionsUtil.canManageOrgSettings();
+  const canDelete =
+    permissionsUtil.canDeleteGeneralDashboards({
+      projects: experiment.project ? [experiment.project] : [],
+    }) &&
+    (isOwner || isAdmin);
+  if (dashboard?.editLevel === "private" && !isOwner && !isAdmin) {
+    canEdit = false;
+  }
 
   useEffect(() => {
     if (dashboard) {
@@ -142,9 +170,9 @@ export default function DashboardsTab({
     }
   }, [dashboard]);
 
-  const submitDashboard = useCallback<
-    SubmitDashboard<CreateDashboardArgs | UpdateDashboardArgs>
-  >(
+  const submitDashboard: SubmitDashboard<
+    CreateDashboardArgs | UpdateDashboardArgs
+  > = useCallback(
     async ({ method, dashboardId, data }) => {
       const res = await apiCall<{
         status: number;
@@ -158,12 +186,15 @@ export default function DashboardsTab({
                 title: data.title,
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                shareLevel: data.shareLevel,
+                userId: data.userId,
               }
             : {
                 blocks: data.blocks ?? [],
                 title: data.title,
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                shareLevel: data.shareLevel,
                 experimentId: experiment.id,
               },
         ),
@@ -179,13 +210,19 @@ export default function DashboardsTab({
     [apiCall, experiment.id, mutateDashboards],
   );
 
-  const autoUpdateDisabled = useMemo(
-    () =>
-      dashboard &&
-      (!experiment.autoSnapshots ||
-        !dashboardCanAutoUpdate(dashboard) ||
-        updateSchedule?.type === "never"),
-    [experiment, updateSchedule, dashboard],
+  const memoizedSetBlock = useCallback(
+    (i: number, block: (typeof blocks)[number]) => {
+      const newBlocks = [...blocks.slice(0, i), block, ...blocks.slice(i + 1)];
+      setBlocks(newBlocks);
+      submitDashboard({
+        method: "PUT",
+        dashboardId,
+        data: {
+          blocks: newBlocks,
+        },
+      });
+    },
+    [blocks, submitDashboard, dashboardId],
   );
 
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
@@ -195,7 +232,7 @@ export default function DashboardsTab({
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      {isEditing && dashboard ? (
+      {canEdit && isEditing && dashboard ? (
         <DashboardWorkspace
           experiment={experiment}
           dashboard={dashboard}
@@ -223,16 +260,39 @@ export default function DashboardsTab({
               }}
             />
           )}
+          {dashboard && showEditModal && (
+            <DashboardModal
+              mode="edit"
+              close={() => setShowEditModal(false)}
+              initial={{
+                editLevel: dashboard.editLevel,
+                shareLevel: dashboard.shareLevel || "published",
+                enableAutoUpdates: dashboard.enableAutoUpdates,
+                title: dashboard.title,
+                projects: dashboard.projects || [],
+                userId: dashboard.userId,
+              }}
+              submit={async (data) => {
+                await submitDashboard({
+                  method: "PUT",
+                  dashboardId: dashboard.id,
+                  data,
+                });
+              }}
+            />
+          )}
           {dashboard && showDuplicateModal && (
             <DashboardModal
               mode="duplicate"
               close={() => setShowDuplicateModal(false)}
               initial={{
                 editLevel: dashboard.editLevel,
+                shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: `Copy of ${dashboard.title}`,
+                projects: dashboard.projects || [],
+                userId: dashboard.userId,
               }}
-              disableAutoUpdate={autoUpdateDisabled}
               submit={async (data) => {
                 await submitDashboard({
                   method: "POST",
@@ -262,13 +322,25 @@ export default function DashboardsTab({
                     Build a Custom Dashboard
                   </Heading>
                   <Text align="center">
-                    Build a shareable story block-by-block using experiment
-                    data.
+                    Create a tailored view of your experiment. Highlight key
+                    insights, add context, and share a clear story with your
+                    team.
                   </Text>
                 </Flex>
                 <Flex align="center" justify="center">
-                  <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                    Create Dashboard
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (canCreate) {
+                        setShowCreateModal(true);
+                      } else {
+                        setShowUpgradeModal(true);
+                      }
+                    }}
+                    disabled={!canCreate}
+                  >
+                    Create Dashboard{" "}
+                    <PaidFeatureBadge commercialFeature="dashboards" />
                   </Button>
                 </Flex>
               </Flex>
@@ -276,7 +348,7 @@ export default function DashboardsTab({
               <>
                 <Flex align="center" justify="between" mb="1">
                   <Flex gap="1" align="center">
-                    {dashboards.length > 0 ? (
+                    {dashboards.length > 0 && !showDashboardView ? (
                       <Flex gap="4" align="center">
                         <Select
                           style={{
@@ -285,7 +357,7 @@ export default function DashboardsTab({
                           value={dashboardId}
                           setValue={(value) => {
                             if (value === "__create__") {
-                              if (hasDashboardFeature) {
+                              if (canCreate) {
                                 setShowCreateModal(true);
                               } else {
                                 setShowUpgradeModal(true);
@@ -305,24 +377,28 @@ export default function DashboardsTab({
                               <SelectSeparator />
                             </>
                           )}
-                          {dashboards.map((dash, i) => (
-                            <Fragment key={`dash-${i}`}>
-                              {dash.id === defaultDashboard?.id ? null : (
-                                <SelectItem key={dash.id} value={dash.id}>
-                                  <OverflowText maxWidth={400}>
-                                    {dash.title}
-                                  </OverflowText>
-                                </SelectItem>
-                              )}
-                            </Fragment>
-                          ))}
-                          {dashboards.length > 0 && <SelectSeparator />}
-                          <SelectItem value="__create__">
-                            <Flex align="center">
-                              <PiPlus className="rt-SelectItemIndicator" />
-                              <Text weight="regular">Create new dashboard</Text>
-                            </Flex>
-                          </SelectItem>
+                          {dashboards.map((dash) =>
+                            dash.id === defaultDashboard?.id ? null : (
+                              <SelectItem key={dash.id} value={dash.id}>
+                                <OverflowText maxWidth={400}>
+                                  {dash.title}
+                                </OverflowText>
+                              </SelectItem>
+                            ),
+                          )}
+                          {canCreate && (
+                            <>
+                              {dashboards.length > 0 && <SelectSeparator />}
+                              <SelectItem value="__create__">
+                                <Flex align="center">
+                                  <PiPlus className="rt-SelectItemIndicator" />
+                                  <Text weight="regular">
+                                    Create new dashboard
+                                  </Text>
+                                </Flex>
+                              </SelectItem>
+                            </>
+                          )}
                         </Select>
                         <PaidFeatureBadge commercialFeature="dashboards" />
                       </Flex>
@@ -330,7 +406,7 @@ export default function DashboardsTab({
                       <></>
                     )}
                   </Flex>
-                  {dashboard ? (
+                  {dashboard && !showDashboardView ? (
                     <Flex gap="4" align="center">
                       <Tooltip
                         state={copySuccess}
@@ -341,7 +417,7 @@ export default function DashboardsTab({
                         innerClassName="px-2 py-1"
                       >
                         <MoreMenu>
-                          {canEdit && hasDashboardFeature && (
+                          {canEdit && (
                             <>
                               <EditButton
                                 useIcon={false}
@@ -350,19 +426,65 @@ export default function DashboardsTab({
                                   setIsEditing(true);
                                 }}
                               />
+                              <Button
+                                className="dropdown-item"
+                                onClick={() => setShowEditModal(true)}
+                              >
+                                <Text weight="regular">
+                                  Edit Dashboard Settings
+                                </Text>
+                              </Button>
+                              {mutateExperiment && canUpdateExperiment && (
+                                <Tooltip
+                                  body={
+                                    experiment.defaultDashboardId ===
+                                    dashboard.id
+                                      ? "Remove this dashboard as the default view for the experiment"
+                                      : "Set this dashboard as the default view for the experiment"
+                                  }
+                                >
+                                  <Button
+                                    className="dropdown-item"
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/experiment/${experiment.id}`,
+                                        {
+                                          method: "POST",
+                                          body: JSON.stringify({
+                                            defaultDashboardId:
+                                              experiment.defaultDashboardId ===
+                                              dashboard.id
+                                                ? ""
+                                                : dashboard.id,
+                                          }),
+                                        },
+                                      );
+                                      mutateExperiment();
+                                    }}
+                                  >
+                                    <Text weight="regular">
+                                      {experiment.defaultDashboardId ===
+                                      dashboard.id
+                                        ? "Remove as Default View"
+                                        : "Set as Default View"}
+                                    </Text>
+                                  </Button>
+                                </Tooltip>
+                              )}
+
                               <Container px="5">
                                 <DropdownMenuSeparator />
                               </Container>
                             </>
                           )}
-                          {canManage && hasDashboardFeature && (
+                          {canEdit && (
                             <Tooltip
                               body={autoUpdateDisabledMessage}
-                              shouldDisplay={autoUpdateDisabled}
+                              shouldDisplay={updateSchedule?.type === "never"}
                             >
                               <Button
                                 className="dropdown-item"
-                                disabled={autoUpdateDisabled}
+                                disabled={updateSchedule?.type === "never"}
                                 onClick={() =>
                                   submitDashboard({
                                     method: "PUT",
@@ -375,8 +497,7 @@ export default function DashboardsTab({
                                 }
                               >
                                 <Text weight="regular">{`${
-                                  dashboard.enableAutoUpdates &&
-                                  !autoUpdateDisabled
+                                  dashboard.enableAutoUpdates
                                     ? "Disable"
                                     : "Enable"
                                 } Auto-update`}</Text>
@@ -408,11 +529,7 @@ export default function DashboardsTab({
                           {canCreate && (
                             <Button
                               className="dropdown-item"
-                              onClick={() =>
-                                hasDashboardFeature
-                                  ? setShowDuplicateModal(true)
-                                  : setShowUpgradeModal(true)
-                              }
+                              onClick={() => setShowDuplicateModal(true)}
                             >
                               <Flex align="center" gap="2">
                                 <Text weight="regular">Duplicate</Text>
@@ -420,7 +537,7 @@ export default function DashboardsTab({
                               </Flex>
                             </Button>
                           )}
-                          {canManage && hasDashboardFeature && (
+                          {canDelete && (
                             <>
                               <DeleteButton
                                 displayName="Dashboard"
@@ -485,37 +602,23 @@ export default function DashboardsTab({
                     ) : (
                       <DashboardEditor
                         isTabActive={isTabActive}
-                        experiment={experiment}
+                        id={dashboard.id}
                         title={dashboard.title}
+                        initialEditLevel={dashboard.editLevel}
+                        ownerId={dashboard.userId}
+                        initialShareLevel={dashboard.shareLevel}
+                        dashboardOwnerId={dashboard.userId}
                         blocks={blocks}
+                        projects={
+                          experiment.project ? [experiment.project] : []
+                        }
                         isEditing={false}
-                        scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
-                        setBlock={(i, block) => {
-                          const newBlocks = [
-                            ...blocks.slice(0, i),
-                            block,
-                            ...blocks.slice(i + 1),
-                          ];
-                          setBlocks(newBlocks);
-                          submitDashboard({
-                            method: "PUT",
-                            dashboardId,
-                            data: {
-                              blocks: newBlocks,
-                            },
-                          });
-                        }}
-                        // TODO: reduce unnecessary props
-                        stagedBlockIndex={undefined}
-                        editSidebarDirty={false}
-                        moveBlock={(_i, _direction) => {}}
-                        addBlockType={() => {}}
-                        editBlock={() => {}}
-                        duplicateBlock={() => {}}
-                        deleteBlock={() => {}}
-                        focusedBlockIndex={undefined}
+                        nextUpdate={experiment.nextSnapshotAttempt}
+                        isGeneralDashboard={false}
+                        setBlock={canEdit ? memoizedSetBlock : undefined}
                         mutate={mutateDashboards}
+                        switchToExperimentView={switchToExperimentView}
                       />
                     )}
                   </>
@@ -528,3 +631,7 @@ export default function DashboardsTab({
     </DashboardSnapshotProvider>
   );
 }
+
+export default withErrorBoundary(DashboardsTab, {
+  fallback: <Callout status="error">Failed to load dashboards</Callout>,
+});

@@ -12,10 +12,10 @@ import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import RadioCards from "@/components/Radix/RadioCards";
+import RadioCards from "@/ui/RadioCards";
 import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -282,6 +282,8 @@ export default function UpgradeModal({
   };
 
   const bullets: Partial<Record<CommercialFeature, string>> = {
+    "share-product-analytics-dashboards":
+      "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
     "encrypt-features-endpoint": "SDK endpoint encryption",
@@ -330,6 +332,7 @@ export default function UpgradeModal({
       "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
+    holdouts: "Measure aggregate impact with Holdouts",
   };
 
   const upgradeHeader = (

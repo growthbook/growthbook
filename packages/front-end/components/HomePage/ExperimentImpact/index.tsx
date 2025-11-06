@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { datetime, getValidDate } from "shared/dates";
@@ -13,16 +14,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Avatar from "@/components/Radix/Avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Avatar from "@/ui/Avatar";
+import DSTooltip from "@/ui/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
@@ -134,9 +131,12 @@ export function scaleImpactAndSetMissingExperiments({
 
       const fitsDateFilter =
         (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
-      const hasMetric = getAllMetricIdsFromExperiment(e, false).includes(
-        metric,
-      );
+      const { metricGroups } = useDefinitions();
+      const hasMetric = getAllMetricIdsFromExperiment(
+        e,
+        false,
+        metricGroups,
+      ).includes(metric);
       const inSelectedProject =
         selectedProjects.includes(e.project ?? "") || !selectedProjects.length;
 
@@ -512,10 +512,20 @@ export default function ExperimentImpact({
           </div>
         </div>
         <div className="col pl-3">
-          <label className="mb-1 nowrap">
-            De-bias?
+          <Flex align="center" gap="1">
+            <DSTooltip
+              content="Disabled as there are not enough experiments to shrink estimates"
+              enabled={nExpsUsedForAdjustment < 5}
+            >
+              <Switch
+                id="adjust-scaled-impact"
+                label="De-bias?"
+                disabled={nExpsUsedForAdjustment < 5}
+                onChange={(v) => form.setValue("adjusted", v)}
+                value={adjusted && nExpsUsedForAdjustment >= 5}
+              />
+            </DSTooltip>
             <Tooltip
-              className="ml-1"
               body={
                 <>
                   <div className="mb-2">
@@ -530,19 +540,7 @@ export default function ExperimentImpact({
                 </>
               }
             />
-          </label>
-          <div className="d-flex pl-3">
-            <Toggle
-              id="adjust-scaled-impact"
-              className="form-check-input"
-              disabled={nExpsUsedForAdjustment < 5}
-              disabledMessage={
-                "Disabled as there are not enough experiments to shrink estimates"
-              }
-              setValue={(v) => form.setValue("adjusted", v)}
-              value={adjusted && nExpsUsedForAdjustment >= 5}
-            />
-          </div>
+          </Flex>
         </div>
       </div>
 

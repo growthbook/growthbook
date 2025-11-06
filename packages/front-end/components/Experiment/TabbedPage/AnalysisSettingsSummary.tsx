@@ -12,11 +12,15 @@ import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import clsx from "clsx";
+import { Box, Text } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
   isMetricJoinable,
+  expandAllSliceMetricsInMap,
+  ExperimentMetricInterface,
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -38,8 +42,11 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
+import Callout from "@/ui/Callout";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -51,7 +58,6 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
-  differenceType: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
   reportArgs?: ExperimentSnapshotReportArgs;
 }
@@ -65,7 +71,6 @@ export default function AnalysisSettingsSummary({
   baselineRow,
   setVariationFilter,
   setBaselineRow,
-  differenceType,
   setDifferenceType,
   reportArgs,
 }: Props) {
@@ -75,6 +80,9 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
     factTables,
     metricGroups,
+    factMetrics,
+    metrics,
+    mutateDefinitions,
   } = useDefinitions();
 
   const datasourceSettings = experiment.datasource
@@ -104,6 +112,8 @@ export default function AnalysisSettingsSummary({
     phase,
   } = useSnapshot();
 
+  const { mutateDashboards } = useExperimentDashboards(experiment.id);
+
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
     experiment,
     {},
@@ -130,6 +140,35 @@ export default function AnalysisSettingsSummary({
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const [analysisModal, setAnalysisModal] = useState(false);
+
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
+
+  const handleDisableIncrementalRefresh = async () => {
+    if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;
+
+    await apiCall(`/datasource/${datasource.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: {
+          ...datasource.settings,
+          pipelineSettings: {
+            ...datasource.settings.pipelineSettings,
+            excludedExperimentIds: [
+              ...(datasource.settings?.pipelineSettings
+                ?.excludedExperimentIds ?? []),
+              experiment.id,
+            ],
+          },
+        },
+      }),
+    });
+    setRefreshError("");
+    mutateDefinitions();
+  };
 
   const allExpandedMetrics = Array.from(
     new Set(
@@ -421,6 +460,7 @@ export default function AnalysisSettingsSummary({
                       mutate={() => {
                         mutateSnapshot();
                         mutate();
+                        mutateDashboards();
                       }}
                       model={latest}
                       icon="refresh"
@@ -474,6 +514,7 @@ export default function AnalysisSettingsSummary({
                       experiment={experiment}
                       lastAnalysis={analysis}
                       dimension={dimension}
+                      setError={(error) => setRefreshError(error ?? "")}
                       setAnalysisSettings={setAnalysisSettings}
                       resetFilters={() => {
                         if (baselineRow !== 0) {
@@ -533,7 +574,6 @@ export default function AnalysisSettingsSummary({
             <div className="col-auto px-0">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={differenceType}
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={
@@ -563,9 +603,11 @@ export default function AnalysisSettingsSummary({
                             );
                             mutateSnapshot();
                             mutate();
+                            setRefreshError("");
                           })
                           .catch((e) => {
                             console.error(e);
+                            setRefreshError(e.message);
                           });
                       }
                     : undefined
@@ -582,7 +624,40 @@ export default function AnalysisSettingsSummary({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={getAllMetricIdsFromExperiment(experiment, false)}
+                metrics={useMemo(() => {
+                  const metricMap = new Map<
+                    string,
+                    ExperimentMetricInterface
+                  >();
+                  const allBaseMetrics = [...metrics, ...factMetrics];
+                  allBaseMetrics.forEach((metric) =>
+                    metricMap.set(metric.id, metric),
+                  );
+                  const factTableMap = new Map(
+                    factTables.map((table) => [table.id, table]),
+                  );
+
+                  // Expand slice metrics and add them to the map
+                  expandAllSliceMetricsInMap({
+                    metricMap,
+                    factTableMap,
+                    experiment,
+                    metricGroups,
+                  });
+
+                  return getAllExpandedMetricIdsFromExperiment({
+                    exp: experiment,
+                    expandedMetricMap: metricMap,
+                    includeActivationMetric: false,
+                    metricGroups,
+                  });
+                }, [
+                  experiment,
+                  metrics,
+                  factMetrics,
+                  factTables,
+                  metricGroups,
+                ])}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}
@@ -594,9 +669,23 @@ export default function AnalysisSettingsSummary({
         </div>
       </div>
       {refreshError && (
-        <div className="alert alert-danger mt-2">
-          <strong>Error updating data: </strong> {refreshError}
-        </div>
+        <>
+          <Callout status="error" mt="2">
+            <strong>Error updating data: </strong> {refreshError}
+          </Callout>
+          {isExperimentIncludedInIncrementalRefresh && (
+            <Box mt="2" mb="2" style={{ color: "var(--color-text-low)" }}>
+              <Text size="1">
+                If this error persists, you can try disabling Incremental
+                Refresh for this experiment by{" "}
+                <Link onClick={handleDisableIncrementalRefresh}>
+                  clicking here
+                </Link>
+                .
+              </Text>
+            </Box>
+          )}
+        </>
       )}
     </div>
   );

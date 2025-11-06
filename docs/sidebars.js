@@ -291,6 +291,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/sql-templates",
+          label: "SQL Templates",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
@@ -298,7 +303,16 @@ const sidebars = {
           type: "doc",
           id: "experimentation-analysis/managed-warehouse",
           label: "Managed Warehouse",
-          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/event-forwarder",
+          label: "Event Forwarder",
+        },
+        {
+          type: "doc",
+          id: "official-resources",
+          label: "Official Resources",
         },
       ],
     },
@@ -383,6 +397,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "running-experiments/running-holdouts",
+          label: "Holdouts",
+        },
+        {
+          type: "doc",
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
         },
@@ -400,6 +419,11 @@ const sidebars = {
           type: "doc",
           id: "running-experiments/pre-launch-checklist",
           label: "Pre-Launch Checklists",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-dashboards",
+          label: "Experiment Dashboards",
         },
         {
           type: "doc",
@@ -555,17 +579,20 @@ const sidebars = {
       type: "category",
       label: "Self-Hosting",
       collapsed: true,
-      link: {
-        type: "doc",
-        id: "self-host/index",
-      },
       items: [
+        "self-host/index",
         "self-host/environment-variables",
-        "self-host/config-yml",
         "self-host/production",
+        "self-host/kubernetes",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        {
+          type: "doc",
+          id: "self-host/remote-evaluation",
+          label: "Remote Evaluation",
+        },
         { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
+        "self-host/config-yml",
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
@@ -716,6 +743,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/migrate-from-statsig",
+          label: "Migrate from Statsig",
+        },
         {
           type: "doc",
           id: "guide/sanity",

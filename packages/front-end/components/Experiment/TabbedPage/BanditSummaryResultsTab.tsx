@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useEffect, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "back-end/src/validators/experiments";
@@ -14,7 +15,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -131,7 +132,7 @@ export default function BanditSummaryResultsTab({
         ) : null}
 
         {!isPublic && (
-          <div className="mx-3">
+          <Flex direction="column" gap="2" mx="3">
             <SRMWarning
               srm={
                 latest
@@ -146,7 +147,7 @@ export default function BanditSummaryResultsTab({
               totalUsers={totalUsers}
               multipleExposures={multipleExposures ?? 0}
             />
-          </div>
+          </Flex>
         )}
 
         {showVisualizations && (
@@ -154,11 +155,14 @@ export default function BanditSummaryResultsTab({
             <div className="d-flex mx-3 align-items-center">
               <div className="h4 mb-0">
                 {metric
-                  ? getRenderLabelColumn(
-                      false,
-                      "bayesian",
-                      isPublic,
-                    )("", metric)
+                  ? getRenderLabelColumn({
+                      statsEngine: "bayesian",
+                      hideDetails: isPublic,
+                      className: "",
+                    })({
+                      label: metric.name,
+                      metric,
+                    })
                   : null}
               </div>
               <div className="flex-1" />

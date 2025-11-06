@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
-  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "back-end/src/types/Integration";
 import { TemplateVariables } from "back-end/types/sql";
@@ -17,7 +17,7 @@ import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
-import RadixButton from "@/components/Radix/Button";
+import RadixButton from "@/ui/Button";
 import {
   usesEventName,
   usesValueColumn,
@@ -32,12 +32,9 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Checkbox from "../Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import { AreaWithHeader } from "./SqlExplorerModal";
 import styles from "./EditSqlModal.module.scss";
@@ -81,7 +78,7 @@ export default function EditSqlModal({
   const [apply5RowLimit, setApply5RowLimit] = useState(true);
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterface | undefined
+    InformationSchemaInterfaceWithPaths | undefined
   >();
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
@@ -223,7 +220,7 @@ export default function EditSqlModal({
       }
       try {
         const response = await apiCall<{
-          informationSchema: InformationSchemaInterface;
+          informationSchema: InformationSchemaInterfaceWithPaths;
         }>(`/datasource/${datasourceId}/schema`);
         setInformationSchema(response.informationSchema);
       } catch (error) {

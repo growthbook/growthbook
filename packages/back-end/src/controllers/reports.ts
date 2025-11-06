@@ -45,6 +45,7 @@ import {
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -104,6 +105,8 @@ export async function postReportFromSnapshot(
       "dimension",
       "dateStarted",
       "dateEnded",
+      "customMetricSlices",
+      "pinnedMetricSlices",
     ]),
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
@@ -329,6 +332,7 @@ export async function refreshReport(
 
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
   const useCache = !req.query["force"];
 
   if (report.type === "experiment-snapshot") {
@@ -390,6 +394,8 @@ export async function refreshReport(
     const updatedReport = await queryRunner.startAnalysis({
       metricMap,
       factTableMap,
+      metricGroups,
+      experimentQueryMetadata: null,
     });
 
     return res.status(200).json({
@@ -477,6 +483,8 @@ export async function putReport(
           "dimension",
           "dateStarted",
           "dateEnded",
+          "customMetricSlices",
+          "pinnedMetricSlices",
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(
@@ -549,6 +557,7 @@ export async function putReport(
     if (needsRun) {
       const metricMap = await getMetricMap(context);
       const factTableMap = await getFactTableMap(context);
+      const metricGroups = await context.models.metricGroups.getAll();
 
       const integration = await getIntegrationFromDatasourceId(
         context,
@@ -565,6 +574,10 @@ export async function putReport(
       await queryRunner.startAnalysis({
         metricMap,
         factTableMap,
+        metricGroups,
+        experimentQueryMetadata: experiment
+          ? getAdditionalQueryMetadataForExperiment(experiment)
+          : null,
       });
     }
 

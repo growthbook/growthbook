@@ -1,4 +1,4 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, SliceLevelsData } from "shared/experiments";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
@@ -49,6 +49,13 @@ export type ExperimentSnapshotReportArgs = {
   dimension?: string;
   dateStarted?: Date;
   dateEnded?: Date | null;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  pinnedMetricSlices?: string[];
 };
 
 export interface ExperimentReportMetadata {
@@ -172,6 +179,17 @@ export type ExperimentReportSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;
+  factMetricSlices: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      baseMetricId: string;
+      sliceLevels: SliceLevelsData[];
+      allSliceLevels: string[];
+    }>
+  >;
   settings: OrganizationSettings;
   projects: Record<string, ProjectInterface>;
   dimensions: DimensionInterface[];
