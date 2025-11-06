@@ -1294,7 +1294,11 @@ export async function createSnapshot({
       factTableMap,
       experiment,
       incrementalRefreshModel,
-      fullRefresh,
+      analysisType: fullRefresh
+        ? "main-fullRefresh"
+        : snapshot.type === "standard"
+          ? "main-update"
+          : "exploratory",
     });
     isExperimentCompatibleWithIncrementalRefresh = true;
   } catch (error) {
