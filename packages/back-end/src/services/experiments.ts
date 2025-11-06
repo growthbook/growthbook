@@ -1354,10 +1354,11 @@ export async function createSnapshot({
       queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
       queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
     ) {
-      const hasIncrementalRefreshData =
-        (await context.models.incrementalRefresh.getByExperimentId(
+      const incrementalRefreshData =
+        await context.models.incrementalRefresh.getByExperimentId(
           experiment.id,
-        )) !== undefined;
+        );
+      const hasIncrementalRefreshData = !!incrementalRefreshData;
 
       const fullRefresh =
         (!useCache || !hasIncrementalRefreshData) &&

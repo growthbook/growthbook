@@ -124,12 +124,14 @@ function AddBlockDropdown({
   onDropdownOpen,
   onDropdownClose,
   isGeneralDashboard = false,
+  isIncrementalRefreshExperiment = false,
 }: {
   trigger: React.ReactNode;
   addBlockType: (bType: DashboardBlockType) => void;
   onDropdownOpen?: () => void;
   onDropdownClose?: () => void;
   isGeneralDashboard?: boolean;
+  isIncrementalRefreshExperiment?: boolean;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
@@ -153,7 +155,11 @@ function AddBlockDropdown({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
+          isBlockTypeAllowed(
+            bType,
+            isGeneralDashboard,
+            isIncrementalRefreshExperiment,
+          ),
         );
 
         // Don't render the subgroup if no block types are allowed
@@ -224,6 +230,7 @@ interface Props {
   mutate: () => void;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
+  isIncrementalRefreshExperiment: boolean;
   setIsEditing?: (v: boolean) => void;
   editBlockProps?: EditBlockProps;
 }

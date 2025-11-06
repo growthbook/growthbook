@@ -21,8 +21,7 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import useExperimentalRefreshMode from "@/hooks/useExperimentalRefreshMode";
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
@@ -89,7 +88,6 @@ export default function DashboardEditorSidebar({
   duplicateBlock,
   deleteBlock,
 }: Props) {
-  const { getDatasourceById } = useDefinitions();
   const [draggingBlockIndex, setDraggingBlockIndex] = useState<
     number | undefined
   >(undefined);
@@ -98,12 +96,9 @@ export default function DashboardEditorSidebar({
   >(undefined);
 
   // TODO(incremental-refresh): remove when dimensions supported in dashboard
-  const datasource = getDatasourceById(experiment?.datasource ?? "");
-  const isIncrementalRefreshExperiment =
-    getIsExperimentIncludedInIncrementalRefresh(
-      datasource ?? undefined,
-      experiment?.id,
-    );
+  const experimentalRefreshMode = useExperimentalRefreshMode(
+    experiment ?? undefined,
+  );
 
   const resetDragState = () => {
     setDraggingBlockIndex(undefined);
@@ -136,7 +131,7 @@ export default function DashboardEditorSidebar({
           isBlockTypeAllowed(
             bType,
             isGeneralDashboard,
-            isIncrementalRefreshExperiment,
+            experimentalRefreshMode === "incremental-refresh",
           ),
         );
 
