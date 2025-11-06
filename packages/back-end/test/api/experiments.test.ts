@@ -741,6 +741,11 @@ describe("experiments API", () => {
     it("returns experiment results", async () => {
       setReqContext({
         org,
+        models: {
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+          },
+        },
         permissions: {
           canViewExperiment: () => true,
         },
