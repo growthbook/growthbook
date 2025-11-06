@@ -135,6 +135,7 @@ export interface ExperimentSnapshotAnalysisSettings {
     start: Date;
     end: Date;
   };
+  useCovariateAsResponse?: boolean;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
