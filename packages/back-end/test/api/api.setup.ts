@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import merge from "lodash/merge";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import app from "back-end/src/app";
@@ -77,6 +78,9 @@ export const setupApp = () => {
     isReady,
     setReqContext: (v) => {
       reqContext = v;
+    },
+    updateReqContext: (v) => {
+      reqContext = merge({}, reqContext, v);
     },
   };
 };

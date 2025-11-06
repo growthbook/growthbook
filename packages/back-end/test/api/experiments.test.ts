@@ -35,7 +35,7 @@ jest.mock("../../src/models/DataSourceModel", () => ({
 }));
 
 describe("experiments API", () => {
-  const { app, setReqContext } = setupApp();
+  const { app, setReqContext, updateReqContext } = setupApp();
   const org = {
     id: "org_1",
     settings: {},
@@ -51,6 +51,9 @@ describe("experiments API", () => {
       org,
       organization: org,
       models: {
+        metricGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+        },
         decisionCriteria: {
           getById: jest.fn().mockResolvedValue(null),
         },
@@ -463,7 +466,7 @@ describe("experiments API", () => {
 
   describe("POST /api/v1/experiments", () => {
     it("creates experiment with signed screenshot URLs", async () => {
-      setReqContext({
+      updateReqContext({
         org,
         models: {
           projects: {
@@ -556,7 +559,7 @@ describe("experiments API", () => {
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
       (getDataSourceById as jest.Mock).mockResolvedValue(null); // Mock datasource not found
 
-      setReqContext({
+      updateReqContext({
         org,
         organization: org,
         models: {
@@ -652,7 +655,7 @@ describe("experiments API", () => {
     });
 
     it("updates experiment variations with signed URLs", async () => {
-      setReqContext({
+      updateReqContext({
         org,
         models: {
           projects: {
@@ -739,7 +742,7 @@ describe("experiments API", () => {
 
   describe("GET /api/v1/experiments/:id/results", () => {
     it("returns experiment results", async () => {
-      setReqContext({
+      updateReqContext({
         org,
         permissions: {
           canViewExperiment: () => true,
