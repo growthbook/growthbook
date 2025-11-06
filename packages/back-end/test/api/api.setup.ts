@@ -9,7 +9,7 @@ import { getAgendaInstance } from "back-end/src/services/queueing";
 
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
-  CRON_ENABLED: 1,
+  CRON_ENABLED: 0,
 }));
 
 jest.mock("back-end/src/services/auth", () => ({
@@ -44,6 +44,7 @@ export const setupApp = () => {
       authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
         req.audit = auditMock;
         req.context = reqContext;
+        req.organization = reqContext?.org;
         next();
       });
 
