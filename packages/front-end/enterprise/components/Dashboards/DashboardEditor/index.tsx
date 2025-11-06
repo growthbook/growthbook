@@ -106,7 +106,11 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
 export const isBlockTypeAllowed = (
   blockType: DashboardBlockType,
   isGeneralDashboard: boolean,
+  isIncrementalRefreshExperiment: boolean,
 ): boolean => {
+  if (isIncrementalRefreshExperiment && blockType === "experiment-dimension") {
+    return false;
+  }
   if (isGeneralDashboard) {
     return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
   } else {

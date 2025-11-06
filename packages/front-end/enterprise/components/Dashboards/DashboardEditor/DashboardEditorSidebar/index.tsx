@@ -21,6 +21,8 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
@@ -87,12 +89,21 @@ export default function DashboardEditorSidebar({
   duplicateBlock,
   deleteBlock,
 }: Props) {
+  const { getDatasourceById } = useDefinitions();
   const [draggingBlockIndex, setDraggingBlockIndex] = useState<
     number | undefined
   >(undefined);
   const [previewBlockPlacement, setPreviewBlockPlacement] = useState<
     number | undefined
   >(undefined);
+
+  // TODO(incremental-refresh): remove when dimensions supported in dashboard
+  const datasource = getDatasourceById(experiment?.datasource ?? "");
+  const isIncrementalRefreshExperiment =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment?.id,
+    );
 
   const resetDragState = () => {
     setDraggingBlockIndex(undefined);
@@ -122,7 +133,11 @@ export default function DashboardEditorSidebar({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
+          isBlockTypeAllowed(
+            bType,
+            isGeneralDashboard,
+            isIncrementalRefreshExperiment,
+          ),
         );
 
         // Don't render the subgroup if no block types are allowed
