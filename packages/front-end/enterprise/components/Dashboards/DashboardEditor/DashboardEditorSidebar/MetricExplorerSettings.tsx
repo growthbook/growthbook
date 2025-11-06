@@ -3,11 +3,17 @@ import {
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React, { useEffect, useState } from "react";
-import { Flex, TextField, Text } from "@radix-ui/themes";
+import { Flex, TextField, Text, Box } from "@radix-ui/themes";
+import Collapsible from "react-collapsible";
+import { PiSlidersHorizontal, PiWrench } from "react-icons/pi";
+import { FaAngleRight } from "react-icons/fa";
+import { FactTableInterface } from "back-end/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -19,6 +25,17 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   const { getFactMetricById, getFactTableById } = useDefinitions();
   const metric = getFactMetricById(block.factMetricId);
   const factTable = getFactTableById(metric?.numerator?.factTableId || "");
+  let denominatorFactTable: FactTableInterface | null = null;
+
+  if (metric?.denominator?.factTableId) {
+    if (metric?.numerator?.factTableId !== metric?.denominator?.factTableId) {
+      denominatorFactTable = getFactTableById(
+        metric?.denominator?.factTableId || "",
+      );
+    } else {
+      denominatorFactTable = factTable;
+    }
+  }
 
   // Preset values that appear in the dropdown
   const presetDays = [7, 14, 30, 90, 180, 365];
@@ -56,198 +73,365 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   // TODO: reset invalid values when metric changes
   return (
     <Flex direction="column" gap="3" mb="3">
-      {metric && factTable && (
-        <Select
-          label="Unit"
-          size="2"
-          value={block.analysisSettings.userIdType}
-          placeholder="Select unit"
-          setValue={(v) =>
-            setBlock({
-              ...block,
-              analysisSettings: {
-                ...block.analysisSettings,
-                userIdType: v,
-                populationType: "factTable",
-                populationId: "",
-              },
-            })
-          }
-        >
-          {factTable.userIdTypes.map((type) => (
-            <SelectItem key={type} value={type}>
-              {type}
-            </SelectItem>
-          ))}
-        </Select>
-      )}
-
-      {metric && factTable && (
-        <PopulationChooser
-          datasourceId={factTable.datasource}
-          value={block.analysisSettings.populationType ?? "factTable"}
-          setValue={(v, populationId) =>
-            setBlock({
-              ...block,
-              analysisSettings: {
-                ...block.analysisSettings,
-                populationId,
-                populationType: v,
-              },
-            })
-          }
-          userIdType={block.analysisSettings.userIdType}
-          newStyle
-        />
-      )}
-
-      {metric && factTable && factTable.filters?.length > 0 && (
-        <MultiSelectField
-          label={
-            <Text as="label" size="3" weight="medium">
-              Filters
-            </Text>
-          }
-          value={block.filters ?? []}
-          containerClassName="mb-0"
-          labelClassName="mb-0"
-          onChange={(filters) =>
-            setBlock({
-              ...block,
-              filters,
-            })
-          }
-          placeholder="Apply filters..."
-          options={factTable.filters.map((f) => ({
-            value: f.id,
-            label: f.name,
-          }))}
-        />
-      )}
-
-      {metric && metric?.metricType !== "ratio" && (
-        <Select
-          label="Metric Value"
-          size="2"
-          value={block.valueType}
-          placeholder="Select value"
-          setValue={(v) =>
-            setBlock({ ...block, valueType: v as "sum" | "avg" })
-          }
-        >
-          <SelectItem value="avg">
-            {metric?.metricType === "proportion" ? "Proportion" : "Average"}
-          </SelectItem>
-          <SelectItem value="sum">
-            {metric?.metricType === "proportion" ? "Unit Count" : "Sum"}
-          </SelectItem>
-        </Select>
-      )}
-      <Select
-        label="Date Range"
-        size="2"
-        value={
-          isCustomLookback ? "-1" : block.analysisSettings.lookbackDays + ""
-        }
-        placeholder="Select value"
-        setValue={(v) => {
-          const days = parseInt(v);
-
-          if (days === -1) {
-            // User selected "Custom Lookback"
-            setIsCustomLookback(true);
-            // Set a default value to start with
-            setCustomDaysInput("60");
-            const start = new Date();
-            const end = new Date();
-            start.setDate(end.getDate() - 60);
-
-            setBlock({
-              ...block,
-              analysisSettings: {
-                ...block.analysisSettings,
-                lookbackDays: 60,
-                startDate: start,
-                endDate: end,
-              },
-            });
-          } else {
-            // User selected a preset value
-            setIsCustomLookback(false);
-            const start = new Date();
-            const end = new Date();
-            start.setDate(end.getDate() - days);
-
-            setBlock({
-              ...block,
-              analysisSettings: {
-                ...block.analysisSettings,
-                lookbackDays: days,
-                startDate: start,
-                endDate: end,
-              },
-            });
-          }
+      <Flex
+        direction="column"
+        height="100%"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          overflow: "hidden",
+          backgroundColor: "var(--color-panel-translucent)",
         }}
       >
-        {presetDays.map((days) => (
-          <SelectItem key={days} value={days.toString()}>
-            Last {days} Days
-          </SelectItem>
-        ))}
-        <SelectItem value="-1">Custom Lookback</SelectItem>
-      </Select>
+        <Collapsible
+          open={true}
+          transitionTime={100}
+          trigger={
+            <div
+              style={{
+                paddingLeft: "12px",
+                paddingRight: "12px",
+                paddingTop: "12px",
+                paddingBottom: "12px",
+                borderBottom: "1px solid var(--gray-a3)",
+              }}
+            >
+              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+                <Flex justify="between" align="center">
+                  <Flex align="center" gap="1">
+                    <PiWrench style={{ color: "var(--violet-11)" }} size={20} />
+                    Configuration
+                  </Flex>
+                  <FaAngleRight className="chevron" />
+                </Flex>
+              </Text>
+            </div>
+          }
+        >
+          <Box p="4" height="fit-content">
+            <Flex direction="column" gap="4">
+              {metric && factTable && (
+                <Select
+                  label="Unit"
+                  size="2"
+                  value={block.analysisSettings.userIdType}
+                  placeholder="Select unit"
+                  setValue={(v) =>
+                    setBlock({
+                      ...block,
+                      analysisSettings: {
+                        ...block.analysisSettings,
+                        userIdType: v,
+                        populationType: "factTable",
+                        populationId: "",
+                      },
+                    })
+                  }
+                >
+                  {factTable.userIdTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </Select>
+              )}
 
-      {isCustomLookback && (
-        <TextField.Root
-          size="2"
-          type="number"
-          min="1"
-          placeholder="Enter number of days"
-          value={customDaysInput}
-          onChange={(e) => {
-            const value = e.target.value;
-            setCustomDaysInput(value); // Always update local state for typing
+              {metric && factTable && (
+                <PopulationChooser
+                  datasourceId={factTable.datasource}
+                  value={block.analysisSettings.populationType ?? "factTable"}
+                  setValue={(v, populationId) =>
+                    setBlock({
+                      ...block,
+                      analysisSettings: {
+                        ...block.analysisSettings,
+                        populationId,
+                        populationType: v,
+                      },
+                    })
+                  }
+                  userIdType={block.analysisSettings.userIdType}
+                  newStyle
+                />
+              )}
 
-            const days = parseInt(value);
-            // Update block state when we have a valid positive number
-            if (days > 0 && !isNaN(days)) {
-              const start = new Date();
-              const end = new Date();
-              start.setDate(end.getDate() - days);
+              {metric && metric?.metricType !== "ratio" && (
+                <Select
+                  label="Metric Value"
+                  size="2"
+                  value={block.valueType}
+                  placeholder="Select value"
+                  setValue={(v) =>
+                    setBlock({ ...block, valueType: v as "sum" | "avg" })
+                  }
+                >
+                  <SelectItem value="avg">
+                    {metric?.metricType === "proportion"
+                      ? "Proportion"
+                      : "Average"}
+                  </SelectItem>
+                  <SelectItem value="sum">
+                    {metric?.metricType === "proportion" ? "Unit Count" : "Sum"}
+                  </SelectItem>
+                </Select>
+              )}
+              {/* // Should this be it's own collapsible component? */}
+              <Select
+                label="Date Range"
+                size="2"
+                value={
+                  isCustomLookback
+                    ? "-1"
+                    : block.analysisSettings.lookbackDays + ""
+                }
+                placeholder="Select value"
+                setValue={(v) => {
+                  const days = parseInt(v);
 
-              setBlock({
-                ...block,
-                analysisSettings: {
-                  ...block.analysisSettings,
-                  lookbackDays: days,
-                  startDate: start,
-                  endDate: end,
-                },
-              });
-            }
-          }}
-        />
-      )}
+                  if (days === -1) {
+                    // User selected "Custom Lookback"
+                    setIsCustomLookback(true);
+                    // Set a default value to start with
+                    setCustomDaysInput("60");
+                    const start = new Date();
+                    const end = new Date();
+                    start.setDate(end.getDate() - 60);
 
-      <Select
-        label="Graph Type"
-        size="2"
-        value={block.visualizationType}
-        placeholder="Select value"
-        setValue={(v) =>
-          setBlock({
-            ...block,
-            visualizationType: v as "bigNumber" | "timeseries" | "histogram",
-          })
-        }
+                    setBlock({
+                      ...block,
+                      analysisSettings: {
+                        ...block.analysisSettings,
+                        lookbackDays: 60,
+                        startDate: start,
+                        endDate: end,
+                      },
+                    });
+                  } else {
+                    // User selected a preset value
+                    setIsCustomLookback(false);
+                    const start = new Date();
+                    const end = new Date();
+                    start.setDate(end.getDate() - days);
+
+                    setBlock({
+                      ...block,
+                      analysisSettings: {
+                        ...block.analysisSettings,
+                        lookbackDays: days,
+                        startDate: start,
+                        endDate: end,
+                      },
+                    });
+                  }
+                }}
+              >
+                {presetDays.map((days) => (
+                  <SelectItem key={days} value={days.toString()}>
+                    Last {days} Days
+                  </SelectItem>
+                ))}
+                <SelectItem value="-1">Custom Lookback</SelectItem>
+              </Select>
+
+              {isCustomLookback && (
+                <TextField.Root
+                  size="2"
+                  type="number"
+                  min="1"
+                  placeholder="Enter number of days"
+                  value={customDaysInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCustomDaysInput(value); // Always update local state for typing
+
+                    const days = parseInt(value);
+                    // Update block state when we have a valid positive number
+                    if (days > 0 && !isNaN(days)) {
+                      const start = new Date();
+                      const end = new Date();
+                      start.setDate(end.getDate() - days);
+
+                      setBlock({
+                        ...block,
+                        analysisSettings: {
+                          ...block.analysisSettings,
+                          lookbackDays: days,
+                          startDate: start,
+                          endDate: end,
+                        },
+                      });
+                    }
+                  }}
+                />
+              )}
+
+              <Select
+                label="Graph Type"
+                size="2"
+                value={block.visualizationType}
+                placeholder="Select value"
+                setValue={(v) =>
+                  setBlock({
+                    ...block,
+                    visualizationType: v as
+                      | "bigNumber"
+                      | "timeseries"
+                      | "histogram",
+                  })
+                }
+              >
+                <SelectItem value="bigNumber">Big Number</SelectItem>
+                <SelectItem value="timeseries">Timeseries</SelectItem>
+                {metric?.metricType === "mean" && (
+                  <SelectItem value="histogram">Histogram</SelectItem>
+                )}
+              </Select>
+            </Flex>
+          </Box>
+        </Collapsible>
+      </Flex>
+
+      <Flex
+        direction="column"
+        height="100%"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          overflow: "hidden",
+          backgroundColor: "var(--color-panel-translucent)",
+        }}
       >
-        <SelectItem value="bigNumber">Big Number</SelectItem>
-        <SelectItem value="timeseries">Timeseries</SelectItem>
-        {metric?.metricType === "mean" && (
-          <SelectItem value="histogram">Histogram</SelectItem>
-        )}
-      </Select>
+        {/* //MKTODO: When these change, we need to kick off a new metric analysis. */}
+        <Collapsible
+          trigger={
+            <div
+              style={{
+                paddingLeft: "12px",
+                paddingRight: "12px",
+                paddingTop: "12px",
+                paddingBottom: "12px",
+                borderBottom: "1px solid var(--gray-a3)",
+              }}
+            >
+              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+                <Flex justify="between" align="center">
+                  <Flex align="center" gap="1">
+                    <PiSlidersHorizontal
+                      style={{
+                        color: "var(--violet-11)",
+                      }}
+                      size={20}
+                    />
+                    Filters
+                    <Badge
+                      label={
+                        (
+                          (block.numeratorFilters?.length || 0) +
+                          (block.denominatorFilters?.length || 0)
+                        ).toString() || "0"
+                      }
+                      color="violet"
+                      radius="full"
+                      variant="soft"
+                    />
+                  </Flex>
+                  <Flex align="center" gap="1">
+                    <Button
+                      variant="ghost"
+                      color="red"
+                      disabled={
+                        block.numeratorFilters?.length === 0 &&
+                        block.denominatorFilters?.length === 0
+                      }
+                      onClick={() => {
+                        setBlock({
+                          ...block,
+                          numeratorFilters: [],
+                          denominatorFilters: [],
+                        });
+                      }}
+                    >
+                      Clear
+                    </Button>
+                    <FaAngleRight className="chevron" />
+                  </Flex>
+                </Flex>
+              </Text>
+            </div>
+          }
+          transitionTime={100}
+        >
+          <Box p="4" height="fit-content">
+            <Flex direction="column" gap="4">
+              <MultiSelectField
+                label={
+                  <Flex align="center" gap="1">
+                    <Text as="label" size="3" weight="medium">
+                      Row Filters
+                    </Text>
+                    {metric?.denominator?.factTableId ? (
+                      <Text as="span" size="2" mb="2">
+                        {" "}
+                        (Numerator)
+                      </Text>
+                    ) : null}
+                  </Flex>
+                }
+                value={block.numeratorFilters ?? []}
+                containerClassName="mb-0"
+                labelClassName="mb-0"
+                onChange={(filters) =>
+                  setBlock({
+                    ...block,
+                    numeratorFilters: filters,
+                  })
+                }
+                placeholder="Apply filters..."
+                options={
+                  factTable?.filters?.map((f) => ({
+                    value: f.id,
+                    label: f.name,
+                  })) || []
+                }
+              />
+              {metric?.denominator?.factTableId ? (
+                <MultiSelectField
+                  label={
+                    <Flex align="center" gap="1">
+                      <Text as="label" size="3" weight="medium">
+                        Row Filters
+                      </Text>
+
+                      <Text as="span" size="2" mb="2">
+                        {" "}
+                        (Denominator)
+                      </Text>
+                    </Flex>
+                  }
+                  value={block.denominatorFilters ?? []}
+                  containerClassName="mb-0"
+                  labelClassName="mb-0"
+                  onChange={(filters) =>
+                    setBlock({
+                      ...block,
+                      denominatorFilters: filters,
+                    })
+                  }
+                  placeholder="Apply filters..."
+                  options={
+                    denominatorFactTable?.filters?.map((f) => ({
+                      value: f.id,
+                      label: f.name,
+                    })) || []
+                  }
+                />
+              ) : null}
+              {/* Also need to support user filters here? */}
+              {/* Also need to identify how to support ad-hoc filters here */}
+            </Flex>
+          </Box>
+        </Collapsible>
+      </Flex>
     </Flex>
   );
 }

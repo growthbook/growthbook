@@ -44,7 +44,8 @@ export const createMetricAnalysisPropsValidator = z
     populationId: z.string().nullable(),
     source: metricAnalysisSourceValidator,
     force: z.boolean().optional(),
-    filters: z.array(z.string()).optional(),
+    numeratorFilters: z.array(z.string()).optional(),
+    denominatorFilters: z.array(z.string()).optional(),
     // inlineFilters: z.array(z.object({})).optional(),
   })
   .strict();

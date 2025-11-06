@@ -251,7 +251,6 @@ export const CREATE_BLOCK_TYPE: {
     visualizationType: "timeseries",
     valueType: "avg",
     metricAnalysisId: "",
-    filters: [],
     ...(initialValues || {}),
   }),
 };

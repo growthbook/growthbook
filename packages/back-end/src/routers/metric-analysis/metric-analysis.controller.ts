@@ -64,16 +64,22 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
-    // filters: data.filters ?? [],
   };
 
   console.log("metricBefore", metricObj);
 
   // This is just a test to see if we can add filters to the metric obj in an adhoc manner
-  if (data.filters) {
+  if (data.numeratorFilters) {
     metricObj.numerator.filters = [
       ...metricObj.numerator.filters,
-      ...data.filters,
+      ...data.numeratorFilters,
+    ];
+  }
+
+  if (data.denominatorFilters && metricObj.denominator) {
+    metricObj.denominator.filters = [
+      ...metricObj.denominator.filters,
+      ...data.denominatorFilters,
     ];
   }
 
