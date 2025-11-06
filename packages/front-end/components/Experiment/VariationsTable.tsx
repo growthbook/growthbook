@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { FC, useState } from "react";
+import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -20,8 +20,52 @@ const ScreenshotCarousel: FC<{
   variation: Variation;
   maxChildHeight?: number;
   onClick?: (i: number) => void;
-}> = ({ variation, maxChildHeight, onClick }) => {
+  isPublic?: boolean;
+  experimentUid?: string;
+}> = ({
+  variation,
+  maxChildHeight,
+  onClick,
+  isPublic = false,
+  experimentUid,
+}) => {
   const [allowClick, setAllowClick] = useState(true);
+  const hasErrorRef = useRef(false);
+
+  const handleError = useCallback(
+    (msg: string) => {
+      // Only update state if we haven't already set the error
+      if (!hasErrorRef.current) {
+        hasErrorRef.current = true;
+        // Use setTimeout to defer the state update to avoid setState during render
+        setTimeout(() => {
+          setAllowClick(false);
+        }, 0);
+      }
+
+      return (
+        <Flex
+          title={msg}
+          align="center"
+          justify="center"
+          className="appbox mb-0"
+          width="100%"
+          style={{
+            backgroundColor: "var(--slate-a3)",
+            height: maxChildHeight + "px",
+            width: "100%",
+            color: "var(--slate-a9)",
+          }}
+        >
+          <Text size="8">
+            <PiCameraLight />
+          </Text>
+        </Flex>
+      );
+    },
+    [maxChildHeight],
+  );
+
   return (
     <Carousel
       onClick={(i) => {
@@ -42,28 +86,9 @@ const ScreenshotCarousel: FC<{
             height: "100%",
             objectFit: "contain",
           }}
-          onErrorMsg={(msg) => {
-            setAllowClick(false);
-            return (
-              <Flex
-                title={msg}
-                align="center"
-                justify="center"
-                className="appbox mb-0"
-                width="100%"
-                style={{
-                  backgroundColor: "var(--slate-a3)",
-                  height: maxChildHeight + "px",
-                  width: "100%",
-                  color: "var(--slate-a9)",
-                }}
-              >
-                <Text size="8">
-                  <PiCameraLight />
-                </Text>
-              </Flex>
-            );
-          }}
+          onErrorMsg={handleError}
+          isPublic={isPublic}
+          experimentUid={experimentUid}
         />
       ))}
     </Carousel>
@@ -78,6 +103,8 @@ interface Props {
   allowImages?: boolean;
   mutate?: () => void;
   noMargin?: boolean;
+  isPublic?: boolean;
+  experimentUid?: string;
 }
 
 function NoImageBox({
@@ -119,6 +146,8 @@ export function VariationBox({
   mutate,
   percent,
   minWidth,
+  isPublic = false,
+  experimentUid,
 }: {
   i: number;
   v: Variation;
@@ -132,6 +161,8 @@ export function VariationBox({
   mutate?: () => void;
   percent?: number;
   minWidth?: string | number;
+  isPublic?: boolean;
+  experimentUid?: string;
 }) {
   const { blockFileUploads } = useOrgSettings();
 
@@ -178,6 +209,8 @@ export function VariationBox({
                     if (!openCarousel) return;
                     openCarousel(v.id, j);
                   }}
+                  isPublic={isPublic}
+                  experimentUid={experimentUid}
                 />
               ) : (
                 <>
@@ -246,6 +279,8 @@ const VariationsTable: FC<Props> = ({
   allowImages = true,
   noMargin = false,
   mutate,
+  isPublic = false,
+  experimentUid,
 }) => {
   const { apiCall } = useAuth();
   const { variations } = experiment;
@@ -297,6 +332,8 @@ const VariationsTable: FC<Props> = ({
               }}
               mutate={mutate}
               percent={percentages?.[i]}
+              isPublic={isPublic}
+              experimentUid={experimentUid}
             />
           ),
         )}

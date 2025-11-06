@@ -1,4 +1,4 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, SliceLevelsData } from "shared/experiments";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
@@ -185,12 +185,8 @@ export type ExperimentReportSSRData = {
       id: string;
       name: string;
       description: string;
-      parentMetricId: string;
-      sliceLevels: Array<{
-        column: string;
-        columnName: string;
-        level: string | null;
-      }>;
+      baseMetricId: string;
+      sliceLevels: SliceLevelsData[];
       allSliceLevels: string[];
     }>
   >;

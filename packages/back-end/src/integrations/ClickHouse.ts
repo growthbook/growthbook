@@ -66,6 +66,9 @@ export default class ClickHouse extends SqlIntegration {
       .substr(0, 19)
       .replace("T", " ")}', 'UTC')`;
   }
+  getCurrentTimestamp(): string {
+    return `now()`;
+  }
   addTime(
     col: string,
     unit: "hour" | "minute",
@@ -133,6 +136,10 @@ if(
 )
       `;
     }
+  }
+  evalBoolean(col: string, value: boolean): string {
+    // Clickhouse does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "true" : "false"}`;
   }
 
   getInformationSchemaWhereClause(): string {

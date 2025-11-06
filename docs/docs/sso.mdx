@@ -9,9 +9,7 @@ import MaxWidthImage from '@site/src/components/MaxWidthImage';
 
 # Enterprise SSO
 
-:::note
-
-SSO is available as part of our Enterprise plan.
+:::info SSO is available as part of our Enterprise plan
 
 :::
 
@@ -32,7 +30,7 @@ JSON encoded and then set to the environment variable `SSO_CONFIG`.
 - **SSO_CONFIG** - A JSON-encoded string that configures SSO (using OpenID Connect). It should be an object with the following keys:
 - `clientId` (string)
 - `clientSecret` (string)
-- `emailDomain` (string, optional) - Allow [auto-joining](/account/user-permissions#self-registering-and-automatic-approvals) from a specified email domain.
+- `emailDomains` (array of strings, optional) - Allow [auto-joining](/account/user-permissions#self-registering-and-automatic-approvals) from a specified email domain.
 - `metadata` (object)
 - `issuer` (string)
 - `authorization_endpoint` (string)
@@ -50,7 +48,7 @@ For SSO, make sure the following callback URL is whitelisted:
 
 For the best SSO user experience, enable offline access and refresh tokens in your Identity Provider.
 
-:::info Note
+:::info Configuring SSO
 
 With all the SSO providers listed below, replace the all caps values with values from the provider, JSON encode the object, and set to the `SSO_CONFIG` environment variable for GrowthBook.
 
@@ -64,7 +62,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "additionalScope": "offline_access",
     "metadata": {
         "issuer": "BASE_URL",
@@ -130,7 +128,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "metadata": {
         "issuer": "https://accounts.google.com",
         "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
@@ -156,7 +154,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "additionalScope": "offline_access",
     "metadata": {
         "issuer": "https://TENANT.auth0.com/",
@@ -177,8 +175,10 @@ With all the SSO providers listed below, replace the all caps values with values
 }
 ```
 
-:::note
+:::note Enabling offline access and OIDC compliance
+
 When setting up Auth0, please ensure that you've enabled offline access, and check the `OIDC Compliant` checkbox.
+
 :::
 
 ### Azure AD
@@ -187,7 +187,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
 {
   "clientId": "CLIENT_ID",
   "clientSecret": "CLIENT_SECRET",
-  "emailDomain": "EMAIL_DOMAIN",
+  "emailDomains": ["EMAIL_DOMAIN"],
   "additionalScope": "offline_access",
   "metadata": {
     "token_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/token",
@@ -201,7 +201,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
 }
 ```
 
-:::note
+:::note Registering an Application in Azure
 
 In Azure, register an Application, instead of Enterprise, as we use OpenID Connect, not SAML.
 

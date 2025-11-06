@@ -62,8 +62,10 @@ export default function EditSavedGroupPage() {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const [showReferencesModal, setShowReferencesModal] =
     useState<boolean>(false);
+  const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
+  const { savedGroupSizeLimit } = useOrgSettings();
 
-  const values = savedGroup?.values || [];
+  const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
   const filteredValues = values.filter((v) => v.match(filter));
@@ -132,6 +134,14 @@ export default function EditSavedGroupPage() {
     (attr) => attr.property === savedGroup?.attributeKey,
   );
 
+  const listAboveSizeLimit = useMemo(
+    () =>
+      savedGroupSizeLimit
+        ? [...new Set(itemsToAdd.concat(values))].length > savedGroupSizeLimit
+        : false,
+    [savedGroupSizeLimit, itemsToAdd, values],
+  );
+
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
   }
@@ -179,7 +189,10 @@ export default function EditSavedGroupPage() {
               : "Overwrite List Contents"
           }
           cta="Save"
-          ctaEnabled={itemsToAdd.length > 0}
+          ctaEnabled={
+            itemsToAdd.length > 0 &&
+            (!listAboveSizeLimit || adminBypassSizeLimit)
+          }
           submit={async () => {
             let newValues: Set<string>;
             if (importOperation === "append") {
@@ -212,6 +225,10 @@ export default function EditSavedGroupPage() {
               values={itemsToAdd}
               setValues={(newValues) => setItemsToAdd(newValues)}
               openUpgradeModal={() => setUpgradeModal(true)}
+              listAboveSizeLimit={listAboveSizeLimit}
+              bypassSizeLimit={adminBypassSizeLimit}
+              setBypassSizeLimit={setAdminBypassSizeLimit}
+              projects={savedGroup.projects}
             />
           </>
         </Modal>

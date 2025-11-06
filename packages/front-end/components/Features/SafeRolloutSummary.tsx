@@ -69,12 +69,13 @@ export default function SafeRolloutSummary({
           <Box>
             <strong className="font-weight-semibold">SERVE</strong>
           </Box>
-          <Box>
+          <Box flexGrow="1">
             <ValueDisplay
               value={
                 rule.status === "rolled-back" ? controlValue : variationValue
               }
               type={type}
+              showFullscreenButton={true}
             />
           </Box>
         </Flex>
@@ -159,11 +160,15 @@ function ValueRow({
 }) {
   return (
     <TableRow style={{ color: "var(--color-text-high)" }}>
-      <TableCell>
+      <TableCell style={{ whiteSpace: "nowrap" }}>
         <Text weight="medium">{label}</Text>
       </TableCell>
-      <TableCell>
-        <ValueDisplay value={value} type={valueType} />
+      <TableCell width="100%">
+        <ValueDisplay
+          value={value}
+          type={valueType}
+          showFullscreenButton={true}
+        />
       </TableCell>
       <TableCell style={{ color: "var(--color-text-mid)", width: "65%" }}>
         {percentFormatter.format(coverage)}

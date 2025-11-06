@@ -25,14 +25,31 @@ describe("backend", () => {
       );
     });
 
-    it("replaces valueColumn and eventName", () => {
+    it("replaces valueColumn and eventName and phase", () => {
       expect(
         compileSqlTemplate(
-          `SELECT {{valueColumn}} as value from db.{{eventName}}`,
+          `SELECT {{valueColumn}} as value from db.{{eventName}} where phase = '{{phase.index}}'`,
           {
             startDate,
             endDate,
-            templateVariables: { eventName: "purchase", valueColumn: "amount" },
+            phase: { index: "0" },
+            templateVariables: {
+              eventName: "purchase",
+              valueColumn: "amount",
+            },
+          },
+        ),
+      ).toEqual("SELECT amount as value from db.purchase where phase = '0'");
+    });
+
+    it("replaces nested template variables", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT {{customFields.foo}} as value from db.{{customFields.bar}}`,
+          {
+            startDate,
+            endDate,
+            customFields: { foo: "amount", bar: "purchase" },
           },
         ),
       ).toEqual("SELECT amount as value from db.purchase");
@@ -60,15 +77,62 @@ describe("backend", () => {
       );
     });
 
-    it("throws error listing avialable variables when using an unknown one", () => {
+    it("throws error listing available variables when using an unknown nested variable", () => {
+      expect(() => {
+        compileSqlTemplate(`SELECT {{ customFields.unknown }}`, {
+          startDate,
+          endDate,
+          customFields: { foo: "bar" },
+        });
+      }).toThrowError(
+        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+      );
+    });
+
+    it("throws error when using an unknown nested variable with a helper", () => {
+      expect(() => {
+        compileSqlTemplate(`SELECT {{ snakecase customFields.unknown }}`, {
+          startDate,
+          endDate,
+          customFields: { foo: "bar" },
+        });
+      }).toThrowError(
+        "Error compiling SQL template: Missing variable passed to helper 'snakecase'",
+      );
+    });
+
+    it("throws error listing available variables when using an unknown one", () => {
       expect(() => {
         compileSqlTemplate(`SELECT {{ unknown }}`, {
           startDate,
           endDate,
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
+    });
+
+    it("throws error when using an unknown variable with a helper", () => {
+      expect(() => {
+        compileSqlTemplate(`SELECT {{ snakecase unknown }}`, {
+          startDate,
+          endDate,
+        });
+      }).toThrowError(
+        "Error compiling SQL template: Missing variable passed to helper 'snakecase'",
+      );
+    });
+
+    it("does not throw when checking for existence of a variable that is not used", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT * WHERE 1=1{{#if unknown}} AND foo = '{{unknown}}' {{/if}}`,
+          {
+            startDate,
+            endDate,
+          },
+        ),
+      ).toEqual("SELECT * WHERE 1=1");
     });
 
     it("compiles and runs a helper function", () => {

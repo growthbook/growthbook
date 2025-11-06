@@ -3,7 +3,7 @@ import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -51,7 +51,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -177,6 +177,7 @@ function getColumnOptions({
   includeNumericColumns = true,
   includeStringColumns = false,
   includeJSONFields = false,
+  includeBooleanColumns = false,
   showColumnsAsSums = false,
   excludeColumns,
   groupPrefix = "",
@@ -187,6 +188,7 @@ function getColumnOptions({
   includeCountDistinct?: boolean;
   includeNumericColumns?: boolean;
   includeStringColumns?: boolean;
+  includeBooleanColumns?: boolean;
   includeJSONFields?: boolean;
   showColumnsAsSums?: boolean;
   excludeColumns?: Set<string>;
@@ -220,6 +222,19 @@ function getColumnOptions({
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
+        label: col.name,
+        value: col.column,
+      })),
+    );
+  }
+
+  const booleanColumnOptions: SingleValue[] = [];
+  const booleanColumns = factTable?.columns.filter(
+    (col) => col.datatype === "boolean" && !col.deleted,
+  );
+  if (booleanColumns) {
+    booleanColumnOptions.push(
+      ...booleanColumns.map((col) => ({
         label: col.name,
         value: col.column,
       })),
@@ -281,6 +296,14 @@ function getColumnOptions({
     ret.push({
       label: `${groupPrefix}String Columns`,
       options: stringColumnOptions.filter((v) => !excludeColumns?.has(v.value)),
+    });
+  }
+  if (includeBooleanColumns && booleanColumnOptions.length > 0) {
+    ret.push({
+      label: `${groupPrefix}Boolean Columns`,
+      options: booleanColumnOptions.filter(
+        (v) => !excludeColumns?.has(v.value),
+      ),
     });
   }
   return ret;
@@ -442,6 +465,7 @@ function ColumnRefSelector({
     includeCountDistinct: false,
     includeNumericColumns: false,
     includeStringColumns: true,
+    includeBooleanColumns: true,
     includeJSONFields: true,
     showColumnsAsSums: false,
     excludeColumns: new Set([...(factTable?.userIdTypes || [])]),
@@ -451,14 +475,14 @@ function ColumnRefSelector({
       factTable ? canInlineFilterColumn(factTable, option.value) : false,
     );
 
-  const unfilteredStringColumns = eligibleColumns.filter(
+  const unfilteredEligibleColumns = eligibleColumns.filter(
     (c) => !value.inlineFilters?.[c.value]?.length,
   );
 
-  if (unfilteredStringColumns.length > 0) {
+  if (unfilteredEligibleColumns.length > 0) {
     addFilterOptions.push({
       label: "Filter by Column",
-      options: unfilteredStringColumns.map((o) => ({
+      options: unfilteredEligibleColumns.map((o) => ({
         label: o.label,
         value: `col::${o.value}`,
       })),
@@ -619,12 +643,12 @@ function ColumnRefSelector({
                       className="border rounded mr-1 d-flex align-items-center bg-white"
                       key={k}
                     >
-                      {colAlert && unfilteredStringColumns.length > 0 ? (
+                      {colAlert && unfilteredEligibleColumns.length > 0 ? (
                         <SelectField
                           value={k}
                           options={[
                             { label: col?.name || k, value: k },
-                            ...unfilteredStringColumns,
+                            ...unfilteredEligibleColumns,
                           ]}
                           onChange={(newKey) => {
                             if (k === newKey || !value.inlineFilters) return;
@@ -653,7 +677,19 @@ function ColumnRefSelector({
                           {colAlert}
                         </span>
                       )}
-                      {col?.topValues?.length ? (
+                      {col?.datatype === "boolean" ? (
+                        <SelectField
+                          value={v?.[0] + ""}
+                          onChange={(val) => onValuesChange(val ? [val] : [])}
+                          options={[
+                            { label: "Remove", value: "" },
+                            { label: "Is True", value: "true" },
+                            { label: "Is False", value: "false" },
+                          ]}
+                          sort={false}
+                          autoFocus
+                        />
+                      ) : col?.topValues?.length ? (
                         <MultiSelectField
                           value={v}
                           onChange={onValuesChange}
@@ -678,6 +714,7 @@ function ColumnRefSelector({
                           value={v}
                           onChange={onValuesChange}
                           placeholder="Any"
+                          delimiters={["Enter", "Tab"]}
                           autoFocus
                         />
                       )}
@@ -693,11 +730,19 @@ function ColumnRefSelector({
                         onChange={(v) => {
                           if (v) {
                             if (v.startsWith("col::")) {
+                              const column = v.replace("col::", "");
+                              const dataType = getSelectedColumnDatatype({
+                                factTable,
+                                column,
+                              });
+
                               setValue({
                                 ...value,
                                 inlineFilters: {
                                   ...value.inlineFilters,
-                                  [v.replace("col::", "")]: [""],
+                                  [column]: [
+                                    dataType === "boolean" ? "true" : "",
+                                  ],
                                 },
                               });
                             } else {
@@ -885,14 +930,15 @@ function getWHERE({
 }) {
   const whereParts =
     factTable && columnRef
-      ? getColumnRefWhereClause(
+      ? getColumnRefWhereClause({
           factTable,
           columnRef,
-          (s) => s.replace(/'/g, "''"),
-          // This isn't real SQL syntax, but it should get the point across
-          (jsonCol, path) => `${jsonCol}.${path}`,
-          true,
-        )
+          escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          // This isn't real SQL syntax for most dialects, but it should get the point across
+          jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+          evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+          showSourceComment: true,
+        })
       : [];
 
   if (type === "retention") {
@@ -1234,7 +1280,10 @@ function FieldMappingModal({
 
   const stringColumnOptions =
     factTable?.columns
-      ?.filter((c) => canInlineFilterColumn(factTable, c.column))
+      ?.filter(
+        (c) =>
+          canInlineFilterColumn(factTable, c.column) && c.datatype === "string",
+      )
       .map((c) => ({
         label: c.name || c.column,
         value: c.column,
@@ -2100,14 +2149,15 @@ export default function FactMetricModal({
               ) : type === "quantile" ? (
                 <div>
                   <div className="form-group">
-                    <Toggle
+                    <Switch
                       id="quantileTypeSelector"
                       label="Aggregate by User First"
+                      description="Aggregate by Experiment User before taking quantile?"
                       value={
                         !canUseEventQuantile ||
                         quantileSettings.type !== "event"
                       }
-                      setValue={(unit) => {
+                      onChange={(unit) => {
                         // Event-level quantiles must select a numeric column
                         if (!unit && numerator?.column?.startsWith("$$")) {
                           const column =
@@ -2124,12 +2174,6 @@ export default function FactMetricModal({
                       }}
                       disabled={!canUseEventQuantile}
                     />
-                    <label
-                      htmlFor="quantileTypeSelector"
-                      className="ml-2 cursor-pointer"
-                    >
-                      Aggregate by Experiment User before taking quantile?
-                    </label>
                   </div>
                   <label>
                     {quantileSettings.type === "unit"
@@ -2168,10 +2212,10 @@ export default function FactMetricModal({
                                 />
                               </label>
                               <div style={{ padding: "6px 0" }}>
-                                <Toggle
+                                <Switch
                                   id="quantileIgnoreZeros"
                                   value={quantileSettings.ignoreZeros}
-                                  setValue={(ignoreZeros) =>
+                                  onChange={(ignoreZeros) =>
                                     form.setValue("quantileSettings", {
                                       ...quantileSettings,
                                       ignoreZeros,
@@ -2451,21 +2495,19 @@ export default function FactMetricModal({
                                 }}
                               >
                                 <div className="d-flex my-2 border-bottom"></div>
-                                <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                                  <label
-                                    className="mr-1"
-                                    htmlFor="toggle-regressionAdjustmentEnabled"
-                                  >
-                                    Apply regression adjustment for this metric
-                                  </label>
-                                  <Toggle
+                                <Flex
+                                  direction="column"
+                                  className="form-group mt-3 mb-0 mr-2"
+                                >
+                                  <Switch
                                     id={"toggle-regressionAdjustmentEnabled"}
+                                    label="Apply regression adjustment for this metric"
                                     value={
                                       !!form.watch(
                                         "regressionAdjustmentEnabled",
                                       )
                                     }
-                                    setValue={(value) => {
+                                    onChange={(value) => {
                                       form.setValue(
                                         "regressionAdjustmentEnabled",
                                         value,
@@ -2480,7 +2522,7 @@ export default function FactMetricModal({
                                       : "Off"}
                                     )
                                   </small>
-                                </div>
+                                </Flex>
                                 <div
                                   className="form-group mt-3 mb-1 mr-2"
                                   style={{

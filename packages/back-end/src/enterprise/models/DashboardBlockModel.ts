@@ -84,6 +84,8 @@ const experimentMetricBlockSchema = new mongoose.Schema({
   baselineRow: Number,
   differenceType: String,
   columnsFilter: [String],
+  pinSource: String,
+  pinnedMetricSlices: [String],
 });
 
 const experimentDimensionBlockSchema = new mongoose.Schema({
@@ -104,11 +106,29 @@ const experimentTimeSeriesBlockSchema = new mongoose.Schema({
   metricSelector: String,
   metricIds: [String],
   variationIds: [String],
+  pinSource: String,
+  pinnedMetricSlices: [String],
 });
 
 const sqlExplorerBlockSchema = new mongoose.Schema({
   savedQueryId: String,
   dataVizConfigIndex: Number,
+  blockConfig: [String],
+});
+
+const metricExplorerBlockSchema = new mongoose.Schema({
+  factMetricId: String,
+  analysisSettings: {
+    userIdType: String,
+    startDate: Date,
+    endDate: Date,
+    lookbackDays: Number,
+    populationType: String,
+    populationId: String,
+  },
+  visualizationType: String,
+  valueType: String,
+  metricAnalysisId: String,
 });
 
 dashboardBlockSchema.index({
@@ -162,6 +182,7 @@ DashboardBlockModel.discriminator(
   experimentTrafficBlockSchema,
 );
 DashboardBlockModel.discriminator("sql-explorer", sqlExplorerBlockSchema);
+DashboardBlockModel.discriminator("metric-explorer", metricExplorerBlockSchema);
 
 export const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
   return removeMongooseFields<DashboardBlockInterface>(doc);
@@ -182,13 +203,18 @@ export async function createDashboardBlock(
 }
 
 export function migrate(
-  doc: LegacyDashboardBlockInterface,
-): DashboardBlockInterface {
+  doc:
+    | LegacyDashboardBlockInterface
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
     case "experiment-metric":
       return {
         ...doc,
         metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
     case "experiment-dimension":
       return {
@@ -198,9 +224,11 @@ export function migrate(
     case "experiment-time-series":
       return {
         ...doc,
-        metricIds: doc.metricIds || [doc.metricId],
+        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
         metricId: undefined,
         metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
     case "experiment-description":
       return {

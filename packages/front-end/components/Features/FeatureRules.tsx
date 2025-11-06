@@ -64,7 +64,7 @@ export default function FeatureRules({
     i: number;
     environment: string;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -120,7 +120,7 @@ export default function FeatureRules({
                     <Badge
                       ml="2"
                       label={
-                        holdout?.environmentSettings[e.id].enabled
+                        holdout?.environmentSettings?.[e.id]?.enabled
                           ? (rulesByEnv[e.id].length + 1).toString()
                           : rulesByEnv[e.id].length.toString()
                       }
@@ -212,7 +212,7 @@ export default function FeatureRules({
         </Container>
         {environments.map((e) => {
           const includeHoldoutRule =
-            holdout && holdout.environmentSettings[e.id].enabled;
+            !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
@@ -250,6 +250,7 @@ export default function FeatureRules({
                           setRuleModal({
                             environment: env,
                             i: getRules(feature, env).length,
+                            mode: "create",
                           });
                           track("Viewed Rule Modal", {
                             source: "add-rule",
@@ -306,7 +307,7 @@ export default function FeatureRules({
           version={currentVersion}
           setVersion={setVersion}
           revisions={revisions}
-          duplicate={ruleModal?.duplicate || false}
+          mode={ruleModal.mode}
         />
       )}
       {copyRuleModal !== null && (

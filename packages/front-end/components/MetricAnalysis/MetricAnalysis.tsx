@@ -21,7 +21,7 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import DateGraph from "@/components/Metrics/DateGraph";
 import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import IdentifierChooser from "@/components/MetricAnalysis/IdentifierChooser";
@@ -383,13 +383,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               <div className="col-auto form-inline pr-5">
                 <PopulationChooser
                   value={populationValue ?? "factTable"}
-                  setValue={(v) =>
+                  setValue={(v, populationId) => {
                     setValue(
                       "populationType",
                       v as MetricAnalysisPopulationType,
-                    )
-                  }
-                  setPopulationValue={(v) => setValue("populationId", v)}
+                    );
+                    setValue("populationId", populationId);
+                  }}
                   userIdType={watch("userIdType")}
                   datasourceId={factMetric.datasource}
                 />
@@ -642,17 +642,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                                 <div className="col">
                                   <div className="float-right mr-2">
-                                    <label
-                                      className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-avg"
-                                    >
-                                      Smoothing
-                                      <br />
-                                      (7 day trailing)
-                                    </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothByAvg === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothByAvg(
                                           smoothByAvg === "week"
                                             ? "day"
@@ -660,7 +652,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         )
                                       }
                                       id="toggle-group-by-avg"
-                                      className="align-middle"
+                                      label="Smoothing"
+                                      description="7 day trailing"
                                     />
                                   </div>
                                 </div>
@@ -731,17 +724,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                                 <div className="col">
                                   <div className="float-right mr-2">
-                                    <label
-                                      className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-sum"
-                                    >
-                                      Smoothing
-                                      <br />
-                                      (7 day trailing)
-                                    </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothBySum === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothBySum(
                                           smoothBySum === "week"
                                             ? "day"
@@ -749,7 +734,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         )
                                       }
                                       id="toggle-group-by-sum"
-                                      className="align-middle"
+                                      label="Smoothing"
+                                      description="7 day trailing"
                                     />
                                   </div>
                                 </div>

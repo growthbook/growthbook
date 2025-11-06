@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
-import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -154,12 +154,6 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  // This method is called with an empty object when we just want to refresh columns
-  let bypassManagedByCheck = false;
-  if (Object.keys(data).length === 0) {
-    bypassManagedByCheck = true;
-  }
-
   // Update the columns
   if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
     const originalColumns = cloneDeep(factTable.columns || []);
@@ -190,7 +184,11 @@ export const putFactTable = async (
     const columnName = req.query.dim;
     const column = factTable.columns.find((col) => col.column === columnName);
 
-    if (column && canInlineFilterColumn(factTable, column.column)) {
+    if (
+      column &&
+      canInlineFilterColumn(factTable, column.column) &&
+      column.datatype === "string"
+    ) {
       try {
         const topValues = await runColumnTopValuesQuery(
           context,
@@ -199,11 +197,10 @@ export const putFactTable = async (
           column,
         );
 
-        // Constrain top values to MAX_METRIC_SLICE_LEVELS
-        const constrainedTopValues = topValues.slice(
-          0,
-          MAX_METRIC_SLICE_LEVELS,
-        );
+        const maxSliceLevels =
+          context.org.settings?.maxMetricSliceLevels ??
+          DEFAULT_MAX_METRIC_SLICE_LEVELS;
+        const constrainedTopValues = topValues.slice(0, maxSliceLevels);
 
         // Update the column with new top values
         await updateColumn({
@@ -221,7 +218,7 @@ export const putFactTable = async (
     }
   }
 
-  await updateFactTable(context, factTable, data, { bypassManagedByCheck });
+  await updateFactTable(context, factTable, data);
 
   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
 
@@ -315,7 +312,7 @@ export const putColumn = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
     context.permissions.throwPermissionError();
   }
 
@@ -341,7 +338,8 @@ export const putColumn = async (
   if (
     !col.alwaysInlineFilter &&
     data.alwaysInlineFilter &&
-    canInlineFilterColumn(factTable, updatedCol.column)
+    canInlineFilterColumn(factTable, updatedCol.column) &&
+    updatedCol.datatype === "string"
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {

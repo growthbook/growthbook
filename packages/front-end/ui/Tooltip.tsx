@@ -5,11 +5,11 @@ import {
 } from "@radix-ui/themes";
 
 type TooltipProps = RadixTooltipProps & {
-  enabled: boolean;
+  enabled?: boolean;
 };
 
 const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
-  ({ children, enabled, ...props }, ref) => {
+  ({ children, enabled = true, ...props }, ref) => {
     if (!enabled) {
       return <>{children}</>;
     }

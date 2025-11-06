@@ -43,7 +43,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDashboards } from "@/hooks/useDashboards";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -108,7 +108,7 @@ export default function AnalysisSettingsSummary({
     phase,
   } = useSnapshot();
 
-  const { mutateDashboards } = useDashboards(experiment.id);
+  const { mutateDashboards } = useExperimentDashboards(experiment.id);
 
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
     experiment,
@@ -569,9 +569,11 @@ export default function AnalysisSettingsSummary({
                             );
                             mutateSnapshot();
                             mutate();
+                            setRefreshError("");
                           })
                           .catch((e) => {
                             console.error(e);
+                            setRefreshError(e.message);
                           });
                       }
                     : undefined

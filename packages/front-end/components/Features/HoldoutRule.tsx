@@ -77,7 +77,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
               <Box>
                 <Badge label={<>1</>} radius="full" color="gray" />
               </Box>
-              <Box flexGrow="1" flexShrink="5" overflowX="auto">
+              <Box flexGrow="1" flexShrink="5">
                 <Flex align="center" mb="3" flexGrow="1">
                   <Box flexGrow="1">
                     <Heading as="h4" size="3" weight="medium" mb="0">

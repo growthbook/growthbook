@@ -8,6 +8,8 @@ import LoadingSpinner from "./LoadingSpinner";
 interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
   imageCache?: Record<string, { url: string; expiresAt: string }>;
   onErrorMsg?: (msg: string) => JSX.Element | null;
+  isPublic?: boolean;
+  experimentUid?: string;
 }
 
 /**
@@ -20,6 +22,8 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   imageCache = {},
   onErrorMsg,
   src = "",
+  isPublic = false,
+  experimentUid,
   ...props
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -41,9 +45,35 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
 
     const fetchSignedUrl = async (originalSrc: string, path: string) => {
       try {
-        const response = await apiCall<SignedImageUrlResponse>(
-          `/upload/signed-url/${path}`,
-        );
+        let endpoint = isPublic
+          ? `/upload/public-signed-url/${path}`
+          : `/upload/signed-url/${path}`;
+
+        // Add experimentUid as query parameter for public endpoints
+        if (isPublic && experimentUid) {
+          endpoint += `?experimentUid=${encodeURIComponent(experimentUid)}`;
+        }
+
+        let response: SignedImageUrlResponse;
+
+        if (isPublic) {
+          // For public endpoints, use fetch without credentials to avoid CORS issues
+          const res = await fetch(getApiHost() + endpoint);
+          if (!res.ok) {
+            const errorData = await res
+              .json()
+              .catch(() => ({ message: res.statusText }));
+            throw new Error(
+              errorData.message ||
+                `Failed to fetch signed URL: ${res.statusText}`,
+            );
+          }
+          response = await res.json();
+        } else {
+          // For authenticated endpoints, use apiCall which includes credentials
+          response = await apiCall<SignedImageUrlResponse>(endpoint);
+        }
+
         const { signedUrl, expiresAt } = response;
 
         imageCache[originalSrc] = { url: signedUrl, expiresAt };
@@ -88,34 +118,35 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
         // This is a local upload - serve directly (no signed URL needed for local files)
         await fetchData(src);
       } else {
-        // External images or already public URLs - use directly (never expire)
-        imageCache[src] = { url: src, expiresAt: "never" };
+        // External images or already public URLs - use directly (don't cache to avoid issues)
+        // Note: We don't cache these because they might be signed URLs or external URLs
+        // that could change or expire
         setImageSrc(src);
       }
     });
-  }, [src, imageCache, apiCall]);
+  }, [src, imageCache, apiCall, isPublic, experimentUid]);
 
   if (errorMsg) {
     if (onErrorMsg) {
       return onErrorMsg(errorMsg);
     }
     return (
-      <div {...props}>
+      <span {...props} style={{ ...props.style, display: "inline-block" }}>
         <FaExclamationTriangle
           size={14}
           className="text-danger ml-1"
           style={{ marginTop: -2 }}
         />
         <span className="ml-2"> Error: {errorMsg} </span>{" "}
-      </div>
+      </span>
     );
   }
 
   if (!imageSrc) {
     return (
-      <div {...props}>
+      <span {...props} style={{ ...props.style, display: "inline-block" }}>
         <LoadingSpinner className={"center"} />
-      </div>
+      </span>
     );
   }
 

@@ -83,12 +83,14 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        false,
-        new Date(),
-      ).replace(/\s+/g, " "),
+      bqIntegration["addCaseWhenTimeFilter"]({
+        col: "val",
+        metric: normalSqlMetric,
+        overrideConversionWindows: false,
+        endDate: new Date(),
+        metricTimestampColExpr: "m.timestamp",
+        exposureTimestampColExpr: "d.timestamp",
+      }).replace(/\s+/g, " "),
     ).toEqual(
       "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)",
     );
@@ -98,12 +100,14 @@ describe("bigquery integration", () => {
       date,
     )}`;
     expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        true,
-        date,
-      ).replace(/\s+/g, " "),
+      bqIntegration["addCaseWhenTimeFilter"]({
+        col: "val",
+        metric: normalSqlMetric,
+        overrideConversionWindows: true,
+        endDate: date,
+        metricTimestampColExpr: "m.timestamp",
+        exposureTimestampColExpr: "d.timestamp",
+      }).replace(/\s+/g, " "),
     ).toEqual(
       `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`,
     );
@@ -261,13 +265,12 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([[factTable.id, factTable]]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metrics: [factMetric],
-      factTableMap,
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -325,15 +328,15 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metrics: [factMetric, factMetric2],
-      factTableMap,
+      metricsWithIndices: [factMetric, factMetric2].map((metric, index) => ({
+        metric,
+        index,
+      })),
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -369,8 +372,10 @@ describe("bigquery integration", () => {
     });
 
     const result2 = bqIntegration["getFactMetricCTE"]({
-      metrics: [factMetric, factMetric2, factMetric3],
-      factTableMap,
+      metricsWithIndices: [factMetric, factMetric2, factMetric3].map(
+        (metric, index) => ({ metric, index }),
+      ),
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -429,15 +434,15 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metrics: [factMetric1, factMetric2],
-      factTableMap,
+      metricsWithIndices: [factMetric1, factMetric2].map((metric, index) => ({
+        metric,
+        index,
+      })),
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -501,15 +506,12 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metrics: [ratioMetric],
-      factTableMap,
+      metricsWithIndices: [{ metric: ratioMetric, index: 0 }],
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -564,15 +566,14 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metrics: [ratioMetricWithDenominatorNoFilter],
-      factTableMap,
+      metricsWithIndices: [
+        { metric: ratioMetricWithDenominatorNoFilter, index: 0 },
+      ],
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -615,8 +616,10 @@ describe("bigquery integration", () => {
     });
 
     const result2 = bqIntegration["getFactMetricCTE"]({
-      metrics: [ratioMetricWithNumeratorNoFilter],
-      factTableMap,
+      metricsWithIndices: [
+        { metric: ratioMetricWithNumeratorNoFilter, index: 0 },
+      ],
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -663,6 +666,22 @@ describe("full fact metric experiment query - bigquery", () => {
         dateUpdated: new Date("2023-01-01"),
         name: "Mobile App Orders",
         description: "Filter for mobile app orders",
+        value: "app = 'mobile'",
+      },
+    ],
+  });
+
+  const eventsFactTable = factTableFactory.build({
+    id: "events",
+    name: "Events Fact Table",
+    sql: "*",
+    filters: [
+      {
+        id: "events.mobile",
+        dateCreated: new Date("2023-01-01"),
+        dateUpdated: new Date("2023-01-01"),
+        name: "Mobile App Events",
+        description: "Filter for mobile app events",
         value: "app = 'mobile'",
       },
     ],
@@ -877,6 +896,22 @@ describe("full fact metric experiment query - bigquery", () => {
                       metrics.push(metric);
                     }
                   }
+
+                  // cross cross table ratio with only one denominator/aggregation combo
+                  const metric = createMetric({
+                    metricType: "ratio",
+                    cappingType,
+                    aggregationType,
+                    column,
+                    inlineFilter: undefined,
+                    filter: undefined,
+                    windowSetting,
+                    regressionSetting,
+                    denominatorColumn: "$$count",
+                    denominatorAggregation: undefined,
+                    denominatorFactTableId: "events",
+                  });
+                  metrics.push(metric);
                 }
               }
             }
@@ -945,6 +980,7 @@ describe("full fact metric experiment query - bigquery", () => {
     quantileSetting?: FactMetricInterface["quantileSettings"];
     denominatorColumn?: string;
     denominatorAggregation?: ColumnRef["aggregation"];
+    denominatorFactTableId?: string;
     aggregateFilter?: ColumnRef["aggregateFilter"];
     aggregateFilterColumn?: ColumnRef["aggregateFilterColumn"];
   }): FactMetricInterface {
@@ -962,6 +998,7 @@ describe("full fact metric experiment query - bigquery", () => {
       denominatorAggregation,
       aggregateFilter,
       aggregateFilterColumn,
+      denominatorFactTableId,
     } = config;
 
     // Generate unique ID based on all settings
@@ -998,6 +1035,10 @@ describe("full fact metric experiment query - bigquery", () => {
       idParts.push(
         `denom_${denominatorAggregation?.replace(" ", "_")}_${denominatorColumn.replace("$$", "special_")}`,
       );
+    }
+
+    if (denominatorFactTableId) {
+      idParts.push(`denom_facttable_${denominatorFactTableId}`);
     }
 
     const id = idParts.join("__");
@@ -1045,7 +1086,7 @@ describe("full fact metric experiment query - bigquery", () => {
       return factMetricFactory.build({
         ...baseConfig,
         denominator: {
-          factTableId: "orders",
+          factTableId: denominatorFactTableId || "orders",
           column: denominatorColumn || "amount",
           aggregation: denominatorAggregation || "sum",
           filters: [],
@@ -1080,7 +1121,10 @@ describe("full fact metric experiment query - bigquery", () => {
     }
   }
 
-  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+  const factTableMap = new Map([
+    [ordersFactTable.id, ordersFactTable],
+    [eventsFactTable.id, eventsFactTable],
+  ]);
 
   const exposureQuery: ExposureQuery = {
     id: "exposure",

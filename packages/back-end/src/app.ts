@@ -81,6 +81,9 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
 );
 
+import * as uploadControllerRaw from "./routers/upload/upload.controller";
+const uploadController = wrapController(uploadControllerRaw);
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -302,6 +305,16 @@ app.get(
     origin: "*",
   }),
   experimentsController.getExperimentPublic,
+);
+
+// public image signed URLs for shared experiments
+app.get(
+  "/upload/public-signed-url/:path*",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  uploadController.getSignedPublicImageToken,
 );
 
 // Secret API routes (no JWT or CORS)
@@ -598,6 +611,10 @@ app.post(
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
+app.get(
+  "/experiment/:id/incremental-refresh",
+  experimentsController.getExperimentIncrementalRefresh,
+);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post(
   "/experiment/:id/targeting",

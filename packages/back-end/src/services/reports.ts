@@ -16,6 +16,8 @@ import {
   expandMetricGroups,
   generateSliceString,
   expandAllSliceMetricsInMap,
+  parseSliceMetricId,
+  SliceLevelsData,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -57,6 +59,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
+  getAdditionalQueryMetadataForExperiment,
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
@@ -346,13 +349,17 @@ export function getMetricForSnapshot({
   if (metric.windowSettings.type === "conversion" && phaseLookbackWindow) {
     return null;
   }
-  const overrides = metricOverrides?.find((o) => o.id === id);
+
+  // For slice metrics, use the base metric ID for lookups
+  const { baseMetricId } = parseSliceMetricId(id);
+  const overrides = metricOverrides?.find((o) => o.id === baseMetricId);
+
   const decisionFrameworkMetricOverride =
     decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
-      (o) => o.id === id,
+      (o) => o.id === baseMetricId,
     );
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
-    (s) => s.metric === id,
+    (s) => s.metric === baseMetricId,
   );
 
   return {
@@ -514,6 +521,7 @@ export async function createReportSnapshot({
     factTableMap,
     metricGroups,
     datasource,
+    experiment,
   });
 
   const snapshotType = "report";
@@ -571,6 +579,9 @@ export async function createReportSnapshot({
     metricMap,
     queryParentId: snapshot.id,
     factTableMap,
+    experimentQueryMetadata: experiment
+      ? getAdditionalQueryMetadataForExperiment(experiment)
+      : null,
   });
 
   return snapshot;
@@ -586,6 +597,7 @@ export function getReportSnapshotSettings({
   factTableMap,
   metricGroups,
   datasource,
+  experiment,
 }: {
   report: ExperimentSnapshotReportInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -596,6 +608,7 @@ export function getReportSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
+  experiment?: ExperimentInterface | null;
 }): ExperimentSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -683,6 +696,10 @@ export function getReportSnapshotSettings({
       report?.dateCreated,
     endDate: report.experimentAnalysisSettings.dateEnded || new Date(),
     experimentId: report.experimentAnalysisSettings.trackingKey,
+    phase: {
+      index: phaseIndex + "",
+    },
+    customFields: experiment?.customFields,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
@@ -821,12 +838,8 @@ export async function generateExperimentReportSSRData({
       id: string;
       name: string;
       description: string;
-      parentMetricId: string;
-      sliceLevels: Array<{
-        column: string;
-        columnName: string;
-        level: string | null;
-      }>;
+      baseMetricId: string;
+      sliceLevels: SliceLevelsData[];
       allSliceLevels: string[];
     }>
   > = {};
@@ -846,12 +859,8 @@ export async function generateExperimentReportSSRData({
             id: string;
             name: string;
             description: string;
-            parentMetricId: string;
-            sliceLevels: Array<{
-              column: string;
-              columnName: string;
-              level: string | null;
-            }>;
+            baseMetricId: string;
+            sliceLevels: SliceLevelsData[];
             allSliceLevels: string[];
           }> = [];
 
@@ -867,12 +876,12 @@ export async function generateExperimentReportSSRData({
                 id: `${factMetric.id}?${dimensionString}`,
                 name: `${factMetric.name} (${col.name || col.column}: ${value})`,
                 description: `Slice analysis of ${factMetric.name} for ${col.name || col.column} = ${value}`,
-                parentMetricId: factMetric.id,
+                baseMetricId: factMetric.id,
                 sliceLevels: [
                   {
                     column: col.column,
-                    columnName: col.name || col.column,
-                    level: value,
+                    datatype: col.datatype === "boolean" ? "boolean" : "string",
+                    levels: [value],
                   },
                 ],
                 allSliceLevels: col.autoSlices || [],
@@ -888,12 +897,12 @@ export async function generateExperimentReportSSRData({
                 id: `${factMetric.id}?${dimensionString}`,
                 name: `${factMetric.name} (${col.name || col.column}: other)`,
                 description: `Slice analysis of ${factMetric.name} for ${col.name || col.column} = other`,
-                parentMetricId: factMetric.id,
+                baseMetricId: factMetric.id,
                 sliceLevels: [
                   {
                     column: col.column,
-                    columnName: col.name || col.column,
-                    level: null,
+                    datatype: col.datatype === "boolean" ? "boolean" : "string",
+                    levels: [], // Empty array for "other" slice
                   },
                 ],
                 allSliceLevels: col.autoSlices || [],

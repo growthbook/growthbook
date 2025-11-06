@@ -233,12 +233,13 @@ final sub = exposures.stream.listen((e) {
 await sub.cancel();
 ```
 
-:::note
-When subscriptions fire vs. don’t fire
+:::info When subscriptions fire vs. don't fire
+When subscriptions fire vs. don't fire
 
 - Fire: on first assignment per experiment key and after assignments change due to attribute updates or payload changes.
-- Don’t fire: repeated reads of the same assignment that hasn’t changed.
-  :::
+- Don't fire: repeated reads of the same assignment that hasn't changed.
+
+:::
 
 #### Efficient subscription patterns
 
@@ -383,9 +384,13 @@ await storage.write(key: 'gb_last_event_id', value: lastEventId);
 
 ## Remote Evaluation
 
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
+
 Run GrowthBook in Remote Evaluation mode to evaluate flags on a private server (e.g., GrowthBook Proxy). Sensitive rules never reach the client.
 
-:::note
+:::note Sticky Bucketing with Remote Evaluation
 If you want Sticky Bucketing with Remote Evaluation, configure your remote backend (e.g., GrowthBook Proxy) with a persistent store (e.g., Redis). You do not need to provide a sticky service on the client.
 :::
 
@@ -454,13 +459,9 @@ Sticky bucketing ensures users see the same experiment variant across sessions. 
 
 - Enable Sticky Bucketing on the experiment or feature rule in GrowthBook.
 - Provide a stable identity in attributes (e.g., `id`) after login; use a device-scoped fallback when logged out.
-
-:::note
-
 - Use a globally unique `id` for logged-in users; avoid mutable identifiers.
 - For logged-out sessions, use a device/install identifier and switch to `id` on login.
 - When identity changes (login/logout), update attributes immediately to avoid cross-user assignment mixing.
-  :::
 
 Implement a `GBStickyBucketService` to persist assignments. Attach your `GBStickyBucketService` when building the SDK to persist assignments across sessions.
 
