@@ -23,7 +23,7 @@ export type AiModel =
   | "claude-3-haiku-20240307";
 
 // Available models for each provider
-export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AI_MODELS[]> = {
+export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AiModel[]> = {
   openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
   anthropic: [
     "claude-3-5-sonnet-20241022",
