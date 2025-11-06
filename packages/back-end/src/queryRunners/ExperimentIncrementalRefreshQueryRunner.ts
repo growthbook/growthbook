@@ -804,7 +804,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       factTableMap: params.factTableMap,
       experiment,
       incrementalRefreshModel,
-      fullRefresh: params.fullRefresh,
+      analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
     return startExperimentIncrementalRefreshQueries(

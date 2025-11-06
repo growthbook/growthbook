@@ -4,7 +4,6 @@ import {
   isRegressionAdjusted,
 } from "shared/experiments";
 import { cloneDeep } from "lodash";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
@@ -31,9 +30,9 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
-import { getMetricSettingsHashForIncrementalRefresh } from "back-end/src/services/experimentTimeSeries";
+import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
   QueryMap,
@@ -41,6 +40,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   snapshotType: SnapshotType;
@@ -67,42 +67,25 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const metricMap = params.metricMap;
 
   const { org } = context;
-  const hasIncrementalRefreshFeature = orgHasPremiumFeature(
-    org,
-    "incremental-refresh",
-  );
 
   const activationMetric = snapshotSettings.activationMetric
     ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
-
-  const settings = integration.datasource.settings;
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   const selectedMetrics = snapshotSettings.metricSettings
     .map((m) => metricMap.get(m.id))
     .filter((m) => m) as ExperimentMetricInterface[];
-  if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
-  }
-
-  const canRunIncrementalRefreshQueries =
-    hasIncrementalRefreshFeature &&
-    settings.pipelineSettings?.mode === "incremental";
 
   const queries: Queries = [];
-
-  if (!canRunIncrementalRefreshQueries) {
-    throw new Error("Integration does not support incremental refresh queries");
-  }
 
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
   if (!incrementalRefreshModel) {
     throw new Error(
-      "Incremental refresh model not found; the overall results must be created before dimensional analysis can be used.",
+      "Incremental refresh model not found; the overall results must be created before exploratory analyses can be run.",
     );
   }
 
@@ -122,7 +105,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   if (missingExperimentDimensions.length) {
     throw new Error(
-      `Selected dimensions are not in the incremental refresh model; required for dimension update.`,
+      `Selected dimensions are not in the incremental refresh model; required for exploratory analysis.`,
     );
   }
 
@@ -130,59 +113,14 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   if (!unitsTableFullName) {
     throw new Error(
-      "Units table not found in incremental refresh model; required for dimension update.",
+      "Units table not found in incremental refresh model; required for exploratory analysis.",
     );
-  }
-
-  // Validate metric settings hashes for existing metric sources
-  if (incrementalRefreshModel.metricSources?.length) {
-    const existingMetricHashMap = new Map<string, string>();
-    incrementalRefreshModel.metricSources.forEach((source) => {
-      source.metrics.forEach((metric) => {
-        existingMetricHashMap.set(metric.id, metric.settingsHash);
-      });
-    });
-
-    const storedMetricIds = new Set<string>(
-      Array.from(existingMetricHashMap.keys()),
-    );
-    const selectedExistingFactMetrics = selectedMetrics.filter(
-      (m) => isFactMetric(m) && storedMetricIds.has(m.id),
-    );
-
-    selectedExistingFactMetrics
-      .filter((m) => isFactMetric(m))
-      .forEach((m) => {
-        const storedHash = existingMetricHashMap.get(m.id);
-        if (!storedHash) return;
-
-        const currentHash = getMetricSettingsHashForIncrementalRefresh({
-          factMetric: m,
-          factTableMap: params.factTableMap,
-          metricSettings: snapshotSettings.metricSettings.find(
-            (ms) => ms.id === m.id,
-          ),
-        });
-
-        if (currentHash !== storedHash) {
-          const metricName = m.name ?? m.id;
-          context.logger.warn(
-            `The metric "${metricName}" configuration is outdated and the queries may fail unexpectedly or results may not be accurate.`,
-          );
-        }
-      });
   }
 
   // Metric Queries
   const existingSources = incrementalRefreshModel?.metricSources;
   const existingCovariateSources =
     incrementalRefreshModel?.metricCovariateSources;
-
-  if (selectedMetrics.some((m) => !isFactMetric(m))) {
-    throw new Error(
-      "Only fact metrics are supported with incremental refresh.",
-    );
-  }
 
   const metricSourceGroups = getIncrementalRefreshMetricSources(
     selectedMetrics.filter((m) => isFactMetric(m)),
@@ -278,17 +216,29 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       );
     }
 
-    if (params.snapshotSettings.skipPartialData) {
-      throw new Error(
-        "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
+    const incrementalRefreshModel =
+      await this.context.models.incrementalRefresh.getByExperimentId(
+        params.experimentId,
       );
+
+    const experiment = await getExperimentById(
+      this.context,
+      params.experimentId,
+    );
+    if (!experiment) {
+      throw new Error("Experiment not found");
     }
 
-    if (!this.integration.getSourceProperties().hasIncrementalRefresh) {
-      throw new Error(
-        "Integration does not support incremental refresh queries",
-      );
-    }
+    await validateIncrementalPipeline({
+      org: this.context.org,
+      integration: this.integration,
+      snapshotSettings: params.snapshotSettings,
+      metricMap: params.metricMap,
+      factTableMap: params.factTableMap,
+      experiment,
+      incrementalRefreshModel,
+      analysisType: "exploratory",
+    });
 
     return startExperimentIncrementalRefreshExploratoryQueries(
       this.context,
