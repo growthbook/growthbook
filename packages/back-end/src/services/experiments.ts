@@ -153,6 +153,7 @@ import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunne
 import { ExperimentQueryMetadata } from "back-end/types/query";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
@@ -1176,7 +1177,9 @@ export async function createSnapshot({
   reweight?: boolean;
   preventStartingAnalysis?: boolean;
 }): Promise<
-  ExperimentResultsQueryRunner | ExperimentIncrementalRefreshQueryRunner
+  | ExperimentResultsQueryRunner
+  | ExperimentIncrementalRefreshQueryRunner
+  | ExperimentIncrementalRefreshExploratoryQueryRunner
 > {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1291,7 +1294,11 @@ export async function createSnapshot({
       factTableMap,
       experiment,
       incrementalRefreshModel,
-      fullRefresh,
+      analysisType: fullRefresh
+        ? "main-fullRefresh"
+        : snapshot.type === "standard"
+          ? "main-update"
+          : "exploratory",
     });
     isExperimentCompatibleWithIncrementalRefresh = true;
   } catch (error) {
@@ -1303,20 +1310,29 @@ export async function createSnapshot({
 
   let queryRunner:
     | ExperimentResultsQueryRunner
-    | ExperimentIncrementalRefreshQueryRunner;
+    | ExperimentIncrementalRefreshQueryRunner
+    | ExperimentIncrementalRefreshExploratoryQueryRunner;
 
   if (
     isIncrementalRefreshEnabledForExperiment &&
     (experiment.type === undefined || experiment.type === "standard") &&
-    snapshot.type === "standard" &&
     isExperimentCompatibleWithIncrementalRefresh
   ) {
-    queryRunner = new ExperimentIncrementalRefreshQueryRunner(
-      context,
-      snapshot,
-      integration,
-      false, // always ignore cache for incremental refresh queries
-    );
+    if (snapshot.type === "exploratory") {
+      queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
+      );
+    } else {
+      queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // always ignore cache for incremental refresh queries
+      );
+    }
   } else {
     queryRunner = new ExperimentResultsQueryRunner(
       context,
@@ -1338,13 +1354,19 @@ export async function createSnapshot({
         getAdditionalQueryMetadataForExperiment(experiment),
     };
 
-    if (queryRunner instanceof ExperimentIncrementalRefreshQueryRunner) {
-      const hasIncrementalRefreshData =
-        (await context.models.incrementalRefresh.getByExperimentId(
+    if (
+      queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
+      queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
+    ) {
+      const incrementalRefreshData =
+        await context.models.incrementalRefresh.getByExperimentId(
           experiment.id,
-        )) !== undefined;
+        );
+      const hasIncrementalRefreshData = !!incrementalRefreshData;
 
-      const fullRefresh = !useCache || !hasIncrementalRefreshData;
+      const fullRefresh =
+        (!useCache || !hasIncrementalRefreshData) &&
+        snapshot.type === "standard";
 
       await queryRunner.startAnalysis({
         ...analysisProps,
