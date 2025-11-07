@@ -218,6 +218,11 @@ export type DataSourcePipelineSettings = {
    * If not specified, we will use the configured pipeline mode for all experiments.
    */
   includedExperimentIds?: string[];
+  /**
+   * If specified, these experiment IDs will NOT use incremental refresh
+   * even when mode is "incremental". They will fall back to standard queries.
+   */
+  excludedExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";
