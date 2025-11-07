@@ -230,6 +230,7 @@ const ArchetypeResults: FC<{
                           <Code code={attrDisplay} language="json" />
                         </>
                       }
+                      flipTheme={false}
                     >
                       {archetype.name}
                       {archetype.description && (

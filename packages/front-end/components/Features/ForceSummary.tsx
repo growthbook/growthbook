@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
 
@@ -12,10 +12,8 @@ export default function ForceSummary({
 }) {
   return (
     <>
-      <Flex gap="3">
-        <Box>
-          <strong className="font-weight-semibold">SERVE</strong>
-        </Box>
+      <Flex direction="row" gap="2">
+        <Text weight="medium">SERVE</Text>
         <Box width="100%">
           <ValueDisplay
             value={value}
