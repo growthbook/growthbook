@@ -283,10 +283,18 @@ export function getMatchingRules(
 
         if (omitDisabledEnvironments && !settings.enabled) return;
 
-        const rules = revision ? revision.rules[environmentId] : settings.rules;
+        // Get rules for this environment
+        // Revisions still use legacy format (rules per environment)
+        // Modern features use top-level rules array
+        const rules = revision
+          ? revision.rules[environmentId]
+          : feature.rules.filter(
+              (rule) =>
+                rule.allEnvironments || rule.environments?.includes(environmentId)
+            );
 
         if (rules) {
-          rules.forEach((rule, i) => {
+          rules.forEach((rule: FeatureRule, i: number) => {
             if (filter(rule)) {
               matches.push({
                 rule,

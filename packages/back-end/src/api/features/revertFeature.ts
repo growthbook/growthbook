@@ -72,11 +72,20 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
 
     const changedEnvs: string[] = [];
     environmentIds.forEach((env) => {
+      // Get rules for this environment from top-level rules array (convert to legacy format for comparison)
+      const envRules = feature.rules
+        .filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(env)
+        )
+        .map((rule) => {
+          const { uid, environments, allEnvironments, ...legacyRule } = rule;
+          return legacyRule;
+        });
       if (
         revision.rules[env] &&
         !isEqual(
           revision.rules[env],
-          feature.environmentSettings?.[env]?.rules || [],
+          envRules,
         )
       ) {
         changedEnvs.push(env);

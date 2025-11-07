@@ -26,6 +26,7 @@ import {
   JSONSchemaDef,
   FeatureUsageData,
   FeatureUsageDataPoint,
+  LegacyFeatureRule,
 } from "back-end/types/feature";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -551,6 +552,7 @@ export async function postFeatures(
     description: "",
     project: "",
     environmentSettings: {},
+    rules: [],
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -592,7 +594,7 @@ export async function postFeatures(
     context.permissions.throwPermissionError();
   }
 
-  addIdsToRules(feature.environmentSettings, feature.id);
+  addIdsToRules(feature.rules, feature.id);
 
   await createFeature(context, feature);
   await upsertWatch({
@@ -701,7 +703,8 @@ export async function postFeatureRebase(
     throw new Error("Please resolve conflicts before saving");
   }
 
-  const newRules: Record<string, FeatureRule[]> = {};
+  // Revisions use legacy format (rules per environment, without uid/environments/allEnvironments)
+  const newRules: Record<string, LegacyFeatureRule[]> = {};
   environmentIds.forEach((env) => {
     newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
@@ -1094,11 +1097,20 @@ export async function postFeatureRevert(
 
   const changedEnvs: string[] = [];
   environmentIds.forEach((env) => {
+    // Get rules for this environment from top-level rules array (convert to legacy format for comparison)
+    const envRules = feature.rules
+      .filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      )
+      .map((rule) => {
+        const { uid, environments, allEnvironments, ...legacyRule } = rule;
+        return legacyRule;
+      });
     if (
       revision.rules[env] &&
       !isEqual(
         revision.rules[env],
-        feature.environmentSettings?.[env]?.rules || [],
+        envRules,
       )
     ) {
       changedEnvs.push(env);
@@ -1479,23 +1491,42 @@ export async function postFeatureSync(
 
   environments.forEach((env) => {
     // Revision Changes
-    changes.rules[env] =
-      data.environmentSettings?.[env]?.rules ??
-      feature.environmentSettings?.[env]?.rules ??
-      [];
+    // Get rules from data (if provided in legacy format) or from feature's top-level rules array
+    // API might send legacy format with environmentSettings[env].rules
+    const dataEnvSettings = data.environmentSettings?.[env] as any;
+    const dataRules = dataEnvSettings?.rules as LegacyFeatureRule[] | undefined;
+    const featureRules = feature.rules
+      .filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      )
+      .map((rule): LegacyFeatureRule => {
+        const { uid, environments, allEnvironments, ...legacyRule } = rule;
+        return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
+      });
+    changes.rules[env] = (dataRules ?? featureRules ?? []) as LegacyFeatureRule[];
 
-    // Feature updates
+    // Feature updates (modern format - top-level rules array)
     updates.environmentSettings = updates.environmentSettings || {};
     updates.environmentSettings[env] = updates.environmentSettings[env] || {
       enabled: feature.environmentSettings?.[env]?.enabled ?? false,
-      rules: changes.rules[env],
     };
+    // Rules are now in top-level rules array, not in environmentSettings
 
+    // Get current rules for this environment from top-level rules array (convert to legacy format for comparison)
+    const currentEnvRules = feature.rules
+      .filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      )
+      .map((rule): LegacyFeatureRule => {
+        const { uid, environments, allEnvironments, ...legacyRule } = rule;
+        return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
+      });
     if (
-      data.environmentSettings?.[env] &&
+      dataEnvSettings &&
       !isEqual(
-        data.environmentSettings[env].rules || [],
-        feature.environmentSettings?.[env]?.rules || [],
+        // data.environmentSettings[env].rules is legacy format from API request
+        (dataEnvSettings.rules as LegacyFeatureRule[] | undefined) || [],
+        currentEnvRules,
       )
     ) {
       needsNewRevision = true;
@@ -1590,26 +1621,44 @@ export async function postFeatureExperimentRefRule(
   const changes: Pick<FeatureRevisionInterface, "rules"> = {
     rules: {},
   };
+  const { v4: uuidv4 } = require("uuid");
+  
+  // Collect all updated environments
+  const updatedEnvs = new Set<string>();
+  const newRules: FeatureRule[] = [];
+  
   environments.forEach((env) => {
+    updatedEnvs.add(env);
     const envRule = {
       ...rule,
       id: generateRuleId(),
-    };
+      uid: uuidv4(),
+      environments: [env],
+      allEnvironments: false,
+    } as FeatureRule;
 
-    // Revision changes
-    changes.rules[env] = [...(feature.environmentSettings?.[env]?.rules || [])];
+    // Revision changes (legacy format - rules per environment)
+    const currentEnvRules = feature.rules
+      .filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      )
+      .map((rule): LegacyFeatureRule => {
+        const { uid, environments, allEnvironments, ...legacyRule } = rule;
+        return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
+      });
+    changes.rules[env] = [...currentEnvRules] as LegacyFeatureRule[];
     changes.rules[env].push(envRule);
 
-    // Feature updates
-    updates.environmentSettings = updates.environmentSettings || {};
-    updates.environmentSettings[env] = updates.environmentSettings[env] || {
-      enabled: false,
-      rules: [],
-    };
-    updates.environmentSettings[env].rules =
-      updates.environmentSettings[env].rules || [];
-    updates.environmentSettings[env].rules.push(envRule);
+    // Collect new rules for feature update
+    newRules.push(envRule);
   });
+  
+  // Feature updates (modern format - top-level rules array)
+  // Remove existing rules for updated environments, add new ones
+  const otherRules = feature.rules.filter(
+    (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+  );
+  updates.rules = [...otherRules, ...newRules];
 
   const revision = await createRevision({
     context,
@@ -2351,10 +2400,9 @@ export async function putFeature(
         );
       },
     );
-    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
-      (env) => {
-        return env.rules.some((rule) => rule.type === "safe-rollout");
-      },
+    // Check if feature has any safe rollout rules in top-level rules array
+    const hasSafeRollouts = feature.rules.some(
+      (rule) => rule.type === "safe-rollout"
     );
     if (hasNonDraftExperimentsOrBandits || hasSafeRollouts) {
       throw new Error(
@@ -2890,7 +2938,16 @@ export async function getFeatureById(
       environments.forEach((env) => {
         const settings = feature.environmentSettings?.[env];
         if (!settings) return;
-        if (!isEqual(settings.rules || [], live.rules[env] || [])) {
+        // Get rules for this environment from top-level rules array (convert to legacy format for comparison)
+        const envRules = feature.rules
+          .filter(
+            (rule) => rule.allEnvironments || rule.environments?.includes(env)
+          )
+          .map((rule) => {
+            const { uid, environments, allEnvironments, ...legacyRule } = rule;
+            return legacyRule;
+          });
+        if (!isEqual(envRules, live.rules[env] || [])) {
           throw new Error(
             `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`,
           );

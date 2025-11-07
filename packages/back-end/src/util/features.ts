@@ -182,9 +182,12 @@ export function getEnabledEnvironments(
       .filter((e) => settings[e].enabled)
       .filter((e) => {
         if (!ruleFilter) return true;
-        const env = settings[e];
-        if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
+        // Get rules for this environment from top-level rules array
+        const envRules = feature.rules.filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(e)
+        );
+        if (!envRules.length) return false;
+        return envRules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -354,9 +357,24 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
-  const rules = revision
-    ? (revision.rules?.[environment] ?? settings.rules)
-    : settings.rules;
+  // Get rules for this environment
+  // Revisions still use legacy format (rules per environment), so handle both
+  let rules: FeatureRule[];
+  if (revision && revision.rules?.[environment]) {
+    // Convert legacy rules from revision to modern format
+    const { v4: uuidv4 } = require("uuid");
+    rules = revision.rules[environment].map((legacyRule) => ({
+      ...legacyRule,
+      uid: legacyRule.uid || uuidv4(),
+      environments: [environment],
+      allEnvironments: false,
+    } as FeatureRule));
+  } else {
+    // Use modern format from feature
+    rules = feature.rules.filter(
+      (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+    );
+  }
 
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
   // pseudo force rule with a prerequisite condition. The environment being enabled is

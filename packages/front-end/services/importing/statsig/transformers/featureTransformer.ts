@@ -50,9 +50,11 @@ export function transformStatsigFeatureGateToGB(
   availableEnvironments.forEach((envKey) => {
     environmentSettings[envKey] = {
       enabled: isEnabled,
-      rules: [],
     };
   });
+
+  const featureRules: FeatureRule[] = [];
+  const { v4: uuidv4 } = require("uuid");
 
   // Process each Statsig rule and assign to appropriate environments
   rules.forEach((rule, ruleIndex) => {
@@ -96,14 +98,13 @@ export function transformStatsigFeatureGateToGB(
             savedGroups: transformedCondition.savedGroups,
             prerequisites: transformedCondition.prerequisites,
             scheduleRules: transformedCondition.scheduleRules || [],
+            uid: uuidv4(),
+            environments: targetEnvironments,
+            allEnvironments: rule.environments === null,
           };
 
-          // Add the variant rule to all target environments
-          targetEnvironments.forEach((envKey) => {
-            if (environmentSettings[envKey]) {
-              environmentSettings[envKey].rules.push(variantRule);
-            }
-          });
+          // Add the variant rule to top-level rules array
+          featureRules.push(variantRule);
 
           cumulativeCoverage += variantCoverage;
         });
@@ -150,11 +151,12 @@ export function transformStatsigFeatureGateToGB(
         };
       }
 
-      // Add the rule to all target environments
-      targetEnvironments.forEach((envKey) => {
-        if (environmentSettings[envKey]) {
-          environmentSettings[envKey].rules.push(gbRule);
-        }
+      // Add the rule to top-level rules array with environment tags
+      featureRules.push({
+        ...gbRule,
+        uid: uuidv4(),
+        environments: targetEnvironments,
+        allEnvironments: rule.environments === null,
       });
     } catch (error) {
       console.error(`Error transforming rule ${rule.id}:`, error);
@@ -170,6 +172,7 @@ export function transformStatsigFeatureGateToGB(
     valueType,
     defaultValue,
     environmentSettings,
+    rules: featureRules,
     owner: ownerString,
     tags: tags || [],
     project: project || "",

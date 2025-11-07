@@ -183,6 +183,8 @@ export const findOrCreateGeneratedHypothesis = async (
       environmentSettings: {
         production: {
           enabled: true,
+        },
+      },
           rules: [
             {
               id: uniqid("fr_"),
@@ -200,10 +202,11 @@ export const findOrCreateGeneratedHypothesis = async (
                 },
               ],
               type: "experiment-ref",
+              uid: require("uuid").v4(),
+              environments: ["production"],
+              allEnvironments: false,
             },
           ],
-        },
-      },
       linkedExperiments: [createdExperiment.id],
     });
     await upsertWatch({

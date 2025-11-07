@@ -57,8 +57,7 @@ const genEnvironmentSettings = ({
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;
@@ -98,6 +97,7 @@ const genFormDefaultValues = ({
     project,
     tags: experiment.tags || [],
     environmentSettings,
+    rules: [], // Top-level rules array
     variations: experiment.variations.map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
@@ -297,12 +297,17 @@ export default function FeatureFromExperimentModal({
             },
           );
         } else {
-          // Add experiment rule to all environments
-          Object.values(featureToCreate.environmentSettings).forEach(
-            (settings) => {
-              settings.rules.push(rule);
+          // Add experiment rule to top-level rules array, tagged for all environments
+          const { v4: uuidv4 } = require("uuid");
+          const allEnvIds = Object.keys(featureToCreate.environmentSettings);
+          featureToCreate.rules = [
+            {
+              ...rule,
+              uid: uuidv4(),
+              environments: allEnvIds,
+              allEnvironments: false,
             },
-          );
+          ];
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {
             method: "POST",

@@ -135,7 +135,8 @@ export default function PrerequisiteTargetingField({
 
       // check if selecting this would be cyclic:
       let wouldBeCyclic = false;
-      if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
+      const envId = environments?.[0];
+      if (envId && feature?.rules) {
         const newFeature = cloneDeep(feature);
         const revision = revisions?.find((r) => r.version === version);
         const newRevision = cloneDeep(revision);
@@ -151,13 +152,17 @@ export default function PrerequisiteTargetingField({
             },
           ],
           enabled: true,
+          uid: `fake-${Date.now()}`,
+          environments: [envId],
+          allEnvironments: false,
         };
         if (newRevision) {
-          newRevision.rules[environments[0]] =
-            newRevision.rules[environments[0]] || [];
-          newRevision.rules[environments[0]].push(fakeRule);
+          newRevision.rules[envId] =
+            newRevision.rules[envId] || [];
+          newRevision.rules[envId].push(fakeRule);
         } else {
-          newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
+          // Add fake rule to top-level rules array
+          newFeature.rules = [...(newFeature.rules || []), fakeRule];
         }
 
         wouldBeCyclic = isFeatureCyclic(

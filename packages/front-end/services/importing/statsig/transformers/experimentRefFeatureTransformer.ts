@@ -72,9 +72,11 @@ export function transformStatsigExperimentToFeature(
   availableEnvironments.forEach((envKey) => {
     environmentSettings[envKey] = {
       enabled: true,
-      rules: [],
     };
   });
+
+  const featureRules: FeatureRule[] = [];
+  const { v4: uuidv4 } = require("uuid");
 
   // Process targeting rules
   targetingRules.forEach((rule, ruleIndex) => {
@@ -110,11 +112,12 @@ export function transformStatsigExperimentToFeature(
         scheduleRules: transformedCondition.scheduleRules || [],
       };
 
-      // Add the rule to all target environments
-      targetEnvironments.forEach((envKey) => {
-        if (environmentSettings[envKey]) {
-          environmentSettings[envKey].rules.push(gbRule);
-        }
+      // Add the rule to top-level rules array with environment tags
+      featureRules.push({
+        ...gbRule,
+        uid: uuidv4(),
+        environments: targetEnvironments,
+        allEnvironments: false,
       });
     } catch (error) {
       console.error(`Error transforming targeting rule ${rule.id}:`, error);
@@ -141,11 +144,12 @@ export function transformStatsigExperimentToFeature(
     }),
   };
 
-  // Add experiment-ref rule to all environments
-  availableEnvironments.forEach((envKey) => {
-    if (environmentSettings[envKey]) {
-      environmentSettings[envKey].rules.push(experimentRefRule);
-    }
+  // Add experiment-ref rule to top-level rules array, tagged for all environments
+  featureRules.push({
+    ...experimentRefRule,
+    uid: uuidv4(),
+    environments: availableEnvironments,
+    allEnvironments: false,
   });
 
   // Format owner information
@@ -157,6 +161,7 @@ export function transformStatsigExperimentToFeature(
     valueType,
     defaultValue: valueType === "json" ? "{}" : "0",
     environmentSettings,
+    rules: featureRules,
     owner: ownerString,
     tags: tags || [],
     project: project || "",

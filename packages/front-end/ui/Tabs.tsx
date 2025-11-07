@@ -97,7 +97,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
     rootProps = {
       defaultValue,
     };
-  } else if (value) {
+  } else if (value !== undefined) {
+    // Allow empty string as a valid value
     rootProps = {
       value,
       onValueChange,

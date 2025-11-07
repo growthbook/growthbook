@@ -12,6 +12,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   getAffectedRevisionEnvs,
+  getRules,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
@@ -188,10 +189,18 @@ export default function DraftModal({
     }
     if (result.rules) {
       environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
+        const liveRules = getRules(feature, env.id);
         const processedLiveRules = processRulesForDiff(liveRules);
         const resultRules = result.rules?.[env.id];
-        const processedResultRules = processRulesForDiff(resultRules || []);
+        // Convert legacy rules to modern format for processRulesForDiff
+        const { v4: uuidv4 } = require("uuid");
+        const modernResultRules = (resultRules || []).map((legacyRule: any) => ({
+          ...legacyRule,
+          uid: legacyRule.uid || uuidv4(),
+          environments: legacyRule.environments || [env.id],
+          allEnvironments: legacyRule.allEnvironments ?? false,
+        }));
+        const processedResultRules = processRulesForDiff(modernResultRules);
 
         if (resultRules) {
           diffs.push({

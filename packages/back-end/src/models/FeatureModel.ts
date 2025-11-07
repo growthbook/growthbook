@@ -2,13 +2,16 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import { v4 as uuidv4 } from "uuid";
 import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import {
   FeatureEnvironment,
+  LegacyFeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
+  LegacyFeatureRule,
 } from "back-end/types/feature";
 import { ExperimentInterface } from "back-end/types/experiment";
 import {
@@ -87,55 +90,7 @@ const featureSchema = new mongoose.Schema({
   defaultValue: String,
   environments: [String],
   tags: [String],
-  rules: [
-    {
-      _id: false,
-      id: String,
-      type: {
-        type: String,
-      },
-      trackingKey: String,
-      value: String,
-      coverage: Number,
-      hashAttribute: String,
-      fallbackAttribute: String,
-      disableStickyBucketing: Boolean,
-      bucketVersion: Number,
-      minBucketVersion: Number,
-      enabled: Boolean,
-      condition: String,
-      savedGroups: [
-        {
-          _id: false,
-          ids: [String],
-          match: String,
-        },
-      ],
-      description: String,
-      experimentId: String,
-      values: [
-        {
-          _id: false,
-          value: String,
-          weight: Number,
-        },
-      ],
-      variations: [
-        {
-          _id: false,
-          variationId: String,
-          value: String,
-        },
-      ],
-      namespace: {},
-      scheduleRules: [
-        {
-          timestamp: String,
-          enabled: Boolean,
-        },
-      ],
-    },
-  ],
+  rules: [{}],
   prerequisites: [
     {
       _id: false,
@@ -161,7 +116,15 @@ const featureSchema = new mongoose.Schema({
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
 
-type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
+// Database documents may have very old format fields (environments, top-level rules, etc.)
+// These are handled by upgradeFeatureInterface
+type FeatureDocument = mongoose.Document &
+  LegacyFeatureInterface & {
+    environments?: string[];
+    rules?: LegacyFeatureRule[];
+    revision?: any;
+    draft?: any;
+  };
 
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
@@ -169,18 +132,29 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
 );
 
 /**
- * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
+ * Convert the Mongo document to a LegacyFeatureInterface (before multi-env migration),
+ * omitting Mongo default fields __v, _id
  * @param doc
  */
 const toInterface = (
   doc: FeatureDocument,
   context: ReqContext | ApiReqContext,
-): FeatureInterface => {
-  const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+): LegacyFeatureInterface & {
+  environments?: string[];
+  rules?: LegacyFeatureRule[];
+  revision?: any;
+  draft?: any;
+} => {
+  const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]) as LegacyFeatureInterface & {
+    environments?: string[];
+    rules?: LegacyFeatureRule[];
+    revision?: any;
+    draft?: any;
+  };
   featureInterface.environmentSettings = applyEnvironmentInheritance(
     context.org.settings?.environments || [],
     featureInterface.environmentSettings,
-  );
+  ) as Record<string, LegacyFeatureEnvironment>;
   return featureInterface;
 };
 
@@ -343,7 +317,7 @@ export async function createFeature(
 
   await createInitialRevision(
     context,
-    toInterface(feature, context),
+    upgradeFeatureInterface(toInterface(feature, context)),
     context.auditUser,
     getEnvironmentIdsFromOrg(org),
   );
@@ -356,7 +330,10 @@ export async function createFeature(
     );
   }
 
-  onFeatureCreate(context, feature).catch((e) => {
+  onFeatureCreate(
+    context,
+    upgradeFeatureInterface(toInterface(feature, context))
+  ).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature create");
   });
 }
@@ -403,7 +380,7 @@ export async function deleteAllFeaturesForAProject({
   });
 
   for (const feature of featuresToDelete) {
-    await deleteFeature(context, feature);
+    await deleteFeature(context, upgradeFeatureInterface(toInterface(feature, context)));
   }
 }
 
@@ -905,14 +882,16 @@ export async function removeTagInFeature(
   const query = { organization: context.org.id, tags: tag };
 
   const featureDocs = await FeatureModel.find(query);
-  const features = (featureDocs || []).map((m) => toInterface(m, context));
+  const features = (featureDocs || []).map((m) =>
+    upgradeFeatureInterface(toInterface(m, context))
+  );
 
   await FeatureModel.updateMany(query, {
     $pull: { tags: tag },
   });
 
   features.forEach((feature) => {
-    const updatedFeature = {
+    const updatedFeature: FeatureInterface = {
       ...feature,
       tags: (feature.tags || []).filter((t) => t !== tag),
     };
@@ -941,12 +920,14 @@ export async function removeProjectFromFeatures(
   const query = { organization: context.org.id, project };
 
   const featureDocs = await FeatureModel.find(query);
-  const features = (featureDocs || []).map((m) => toInterface(m, context));
+  const features = (featureDocs || []).map((m) =>
+    upgradeFeatureInterface(toInterface(m, context))
+  );
 
   await FeatureModel.updateMany(query, { $set: { project: "" } });
 
   features.forEach((feature) => {
-    const updatedFeature = {
+    const updatedFeature: FeatureInterface = {
       ...feature,
       project: "",
     };
@@ -1010,13 +991,10 @@ const updateSafeRolloutStatuses = async (
       }),
   );
   // stop safe rollouts that have been removed from the in the revision
-  Object.keys(feature.environmentSettings)
-    .flatMap((env) => feature.environmentSettings[env].rules)
-    .forEach((rule: FeatureRule) => {
-      if (
-        rule.type === "safe-rollout" &&
-        !safeRolloutStatusesMap[rule.safeRolloutId]
-      ) {
+  feature.rules
+    .filter((rule: FeatureRule) => rule.type === "safe-rollout")
+    .forEach((rule: SafeRolloutRule) => {
+      if (!safeRolloutStatusesMap[rule.safeRolloutId]) {
         safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
       }
     });
@@ -1060,27 +1038,62 @@ export async function applyRevisionChanges(
 
   const environments = getEnvironmentIdsFromOrg(context.org);
 
-  environments.forEach((env) => {
-    const rules = result.rules?.[env];
-    if (!rules) return;
+  // Revision rules are now in modern format (FeatureRule[] with uid/environments/allEnvironments)
+  // Upgrade if still in legacy format (for backward compatibility)
+  let revisionRules: FeatureRule[] = [];
+  if (result.rules) {
+    if (Array.isArray(result.rules)) {
+      // Already modern format
+      revisionRules = result.rules;
+    } else {
+      // Legacy format - upgrade (shouldn't happen after migration, but handle for safety)
+      const { upgradeRevisionRules } = require("back-end/src/util/migrations");
+      revisionRules = upgradeRevisionRules(result.rules as Record<string, LegacyFeatureRule[]>);
+    }
+  }
 
+  if (revisionRules.length > 0) {
+    hasChanges = true;
+    // Collect environments that have rule changes
+    const updatedEnvs = new Set<string>();
+    revisionRules.forEach((rule) => {
+      if (rule.allEnvironments) {
+        environments.forEach((env) => updatedEnvs.add(env));
+      } else {
+        rule.environments?.forEach((env) => updatedEnvs.add(env));
+      }
+    });
+
+    // Start with existing rules, remove rules from updated environments, add new ones
+    const existingRules = feature.rules.filter(
+      (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+    );
+    changes.rules = [...existingRules, ...revisionRules];
+
+    // Update environmentSettings (just enabled flags)
     changes.environmentSettings =
       changes.environmentSettings ||
       cloneDeep(feature.environmentSettings || {});
-    changes.environmentSettings[env] = changes.environmentSettings[env] || {};
-    changes.environmentSettings[env].enabled =
-      changes.environmentSettings[env].enabled || false;
-    changes.environmentSettings[env].rules = rules;
-    hasChanges = true;
+    updatedEnvs.forEach((env) => {
+      changes.environmentSettings![env] = changes.environmentSettings![env] || {};
+      changes.environmentSettings![env].enabled =
+        changes.environmentSettings![env].enabled ?? false;
   });
+  }
 
   if (!hasChanges) {
     throw new Error("No changes to publish");
   }
 
-  if (changes.environmentSettings) {
+  if (changes.environmentSettings || changes.rules) {
+    // Create a temporary feature object with the changes to calculate nextScheduledUpdate
+    const tempFeature: FeatureInterface = {
+      ...feature,
+      ...changes,
+      rules: changes.rules || feature.rules,
+    };
     changes.nextScheduledUpdate = getNextScheduledUpdate(
-      changes.environmentSettings,
+      tempFeature,
       environments,
     );
   }
@@ -1129,14 +1142,16 @@ function getLinkedExperiments(
   const expIds: Set<string> = new Set(feature.linkedExperiments || []);
 
   // Add any missing one from the published rules
-  environments.forEach((env) => {
-    const rules = feature.environmentSettings?.[env]?.rules;
-    if (!rules) return;
-    rules.forEach((rule) => {
+  feature.rules.forEach((rule) => {
       if (rule.type === "experiment-ref") {
+      // Only include if rule applies to at least one of the requested environments
+      if (
+        rule.allEnvironments ||
+        rule.environments.some((env: string) => environments.includes(env))
+      ) {
         expIds.add(rule.experimentId);
       }
-    });
+      }
   });
 
   return [...expIds];

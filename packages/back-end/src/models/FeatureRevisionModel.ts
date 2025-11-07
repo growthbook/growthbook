@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule, LegacyFeatureRule } from "back-end/types/feature";
 import {
   FeatureRevisionInterface,
+  LegacyFeatureRevisionInterface,
   RevisionLog,
 } from "back-end/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
@@ -12,6 +13,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import { logger } from "back-end/src/util/logger";
+import { upgradeRevisionRules } from "back-end/src/util/migrations";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -48,9 +50,10 @@ featureRevisionSchema.index(
 );
 featureRevisionSchema.index({ organization: 1, status: 1 });
 
-type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
+// DB document may be in legacy format (before migration)
+type FeatureRevisionDocument = mongoose.Document & (LegacyFeatureRevisionInterface | FeatureRevisionInterface);
 
-const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
+const FeatureRevisionModel = mongoose.model<LegacyFeatureRevisionInterface | FeatureRevisionInterface>(
   "FeatureRevision",
   featureRevisionSchema,
 );
@@ -59,7 +62,7 @@ function toInterface(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
 ): FeatureRevisionInterface {
-  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
+  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]) as LegacyFeatureRevisionInterface | FeatureRevisionInterface;
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
@@ -81,11 +84,18 @@ function toInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  revision.rules = applyEnvironmentInheritance(
-    context.org.settings?.environments || [],
-    revision.rules,
-  );
-  return revision;
+  // JIT migration: upgrade legacy revision to modern format
+  if (!Array.isArray(revision.rules)) {
+    // Legacy format - convert to modern
+    const legacyRevision = revision as LegacyFeatureRevisionInterface;
+    return {
+      ...legacyRevision,
+      rules: upgradeRevisionRules(legacyRevision.rules),
+    } as FeatureRevisionInterface;
+  }
+  
+  // Already modern format
+  return revision as FeatureRevisionInterface;
 }
 
 export async function countDocuments(
@@ -227,10 +237,13 @@ export async function createInitialRevision(
   environments: string[],
   date?: Date,
 ) {
-  const rules: Record<string, FeatureRule[]> = {};
-  environments.forEach((env) => {
-    rules[env] = feature.environmentSettings?.[env]?.rules || [];
-  });
+  // Store rules in modern format (top-level array with uid/environments/allEnvironments)
+  // Filter rules that apply to any of the specified environments
+  const rules: FeatureRule[] = feature.rules.filter(
+    (rule) => 
+      rule.allEnvironments || 
+      rule.environments?.some((env) => environments.includes(env))
+  );
 
   date = date || new Date();
 
@@ -286,7 +299,7 @@ export async function createRevision({
   canBypassApprovalChecks?: boolean;
 }) {
   // Get max version number
-  const lastRevision = (
+  const lastRevisionDoc = (
     await FeatureRevisionModel.find({
       organization: feature.organization,
       featureId: feature.id,
@@ -294,6 +307,7 @@ export async function createRevision({
       .sort({ version: -1 })
       .limit(1)
   )[0];
+  const lastRevision = lastRevisionDoc ? toInterface(lastRevisionDoc, context) : null;
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
   const defaultValue =
@@ -301,14 +315,26 @@ export async function createRevision({
       ? changes.defaultValue
       : feature.defaultValue;
 
-  const rules: Record<string, FeatureRule[]> = {};
-  environments.forEach((env) => {
+  // Revisions now use modern format (top-level array with uid/environments/allEnvironments)
+  let rules: FeatureRule[] = [];
+  
     if (changes && changes.rules) {
-      rules[env] = changes.rules[env] || [];
+    // Changes may be in legacy format (Record<string, LegacyFeatureRule[]>) or modern format (FeatureRule[])
+    if (Array.isArray(changes.rules)) {
+      // Already modern format
+      rules = changes.rules;
     } else {
-      rules[env] = feature.environmentSettings?.[env]?.rules || [];
+      // Legacy format - upgrade to modern
+      rules = upgradeRevisionRules(changes.rules as Record<string, LegacyFeatureRule[]>);
     }
-  });
+  } else {
+    // No changes - use feature's current rules, filtered by environments
+    rules = feature.rules.filter(
+      (rule) => 
+        rule.allEnvironments || 
+        rule.environments?.some((env) => environments.includes(env))
+    );
+    }
 
   if (!baseVersion) baseVersion = lastRevision?.version;
   const baseRevision =

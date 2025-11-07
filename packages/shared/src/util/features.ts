@@ -8,6 +8,7 @@ import {
   FeatureInterface,
   FeatureRule,
   ForceRule,
+  LegacyFeatureRule,
   RolloutRule,
   SchemaField,
   SimpleSchema,
@@ -81,13 +82,39 @@ export function mergeRevision(
 
   newFeature.defaultValue = revision.defaultValue;
 
+  // Update environmentSettings (just enabled flags)
   const envSettings = newFeature.environmentSettings;
   environments.forEach((env) => {
     envSettings[env] = envSettings[env] || {};
     envSettings[env].enabled = envSettings[env].enabled || false;
-    envSettings[env].rules =
-      revision.rules?.[env] || envSettings[env].rules || [];
   });
+
+  // Convert revision rules (legacy format) to modern format and merge with feature rules
+  // Revisions use legacy format (rules per environment), so we need to convert
+  const revisionRules: FeatureRule[] = [];
+  const updatedEnvs = new Set<string>();
+  
+  environments.forEach((env) => {
+    const revRules = revision.rules?.[env];
+    if (revRules) {
+      updatedEnvs.add(env);
+      // Convert legacy rules to modern format
+      revRules.forEach((legacyRule: any) => {
+        revisionRules.push({
+          ...legacyRule,
+          uid: legacyRule.uid || `rev_${env}_${Date.now()}_${Math.random()}`,
+          environments: legacyRule.environments || [env],
+          allEnvironments: legacyRule.allEnvironments ?? false,
+        } as FeatureRule);
+  });
+    }
+  });
+
+  // Remove existing rules for updated environments, add revision rules
+  const existingRules = newFeature.rules.filter(
+    (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+  );
+  newFeature.rules = [...existingRules, ...revisionRules];
 
   return newFeature;
 }
@@ -253,9 +280,10 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
 export type StaleFeatureReason = "error" | "no-rules" | "rules-one-sided";
 
 // type guards
-const isRolloutRule = (rule: FeatureRule): rule is RolloutRule =>
+// Note: FeatureRule now includes uid/environments/allEnvironments, so we narrow to FeatureRule & { type: "rollout" }
+const isRolloutRule = (rule: FeatureRule): rule is FeatureRule & { type: "rollout" } =>
   rule.type === "rollout";
-const isForceRule = (rule: FeatureRule): rule is ForceRule =>
+const isForceRule = (rule: FeatureRule): rule is FeatureRule & { type: "force" } =>
   rule.type === "force";
 
 const areRulesOneSided = (
@@ -267,7 +295,10 @@ const areRulesOneSided = (
   const rolloutRulesOnesided =
     !rolloutRules.length ||
     rolloutRules.every(
-      (r) => r.coverage === 1 && !r.condition && !r.savedGroups?.length,
+      (r) => {
+        if (r.type !== "rollout") return false;
+        return r.coverage === 1 && !r.condition && !r.savedGroups?.length;
+      }
     );
 
   const forceRulesOnesided =
@@ -360,13 +391,18 @@ export function isFeatureStale({
         return { stale: false };
       }
 
-      const envSettings = Object.values(feature.environmentSettings ?? {});
+      const envSettings = feature.environmentSettings ?? {};
+      const enabledEnvIds = Object.keys(envSettings).filter(
+        (envId) => envSettings[envId].enabled
+      );
 
-      const enabledEnvs = envSettings.filter((e) => e.enabled);
-      const enabledRules = enabledEnvs
-        .map((e) => e.rules)
-        .flat()
-        .filter((r) => r.enabled);
+      // Get rules for enabled environments from top-level rules array
+      const enabledRules = feature.rules.filter(
+        (rule) =>
+          rule.enabled &&
+          (rule.allEnvironments ||
+            rule.environments?.some((env) => enabledEnvIds.includes(env)))
+      );
 
       if (enabledRules.length === 0) return { stale, reason: "no-rules" };
 
@@ -399,7 +435,8 @@ export interface MergeConflict {
 export type MergeStrategy = "" | "overwrite" | "discard";
 export type MergeResultChanges = {
   defaultValue?: string;
-  rules?: Record<string, FeatureRule[]>;
+  // Revisions use legacy format (rules per environment, without uid/environments/allEnvironments)
+  rules?: Record<string, LegacyFeatureRule[]>;
 };
 export type AutoMergeResult =
   | {
@@ -450,9 +487,10 @@ export function autoMerge(
   environments: string[],
   strategies: Record<string, MergeStrategy>,
 ): AutoMergeResult {
+  // Revisions use legacy format (rules per environment, without uid/environments/allEnvironments)
   const result: {
     defaultValue?: string;
-    rules?: Record<string, FeatureRule[]>;
+    rules?: Record<string, LegacyFeatureRule[]>;
   } = {};
 
   // If the base and feature have not diverged, no need to merge anything
@@ -661,9 +699,29 @@ export function isFeatureCyclic(
 
   const newFeature = cloneDeep(feature);
   if (revision) {
+    // Convert revision rules (legacy format) to modern format
+    const revisionRules: FeatureRule[] = [];
     for (const env of Object.keys(newFeature.environmentSettings || {})) {
-      newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
+      const revRules = revision?.rules?.[env] || [];
+      revRules.forEach((legacyRule: any) => {
+        revisionRules.push({
+          ...legacyRule,
+          uid: legacyRule.uid || `rev_${env}_${Date.now()}_${Math.random()}`,
+          environments: legacyRule.environments || [env],
+          allEnvironments: legacyRule.allEnvironments ?? false,
+        } as FeatureRule);
+      });
     }
+    // Replace rules for environments that have revision rules
+    const updatedEnvs = new Set(
+      Object.keys(revision?.rules || {}).filter(
+        (env) => (revision?.rules?.[env] || []).length > 0
+      )
+    );
+    const existingRules = newFeature.rules.filter(
+      (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+    );
+    newFeature.rules = [...existingRules, ...revisionRules];
   }
   if (!envs) {
     envs = Object.keys(newFeature.environmentSettings || {});
@@ -679,9 +737,12 @@ export function isFeatureCyclic(
     const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
     for (const eid in feature.environmentSettings || {}) {
       if (!envs?.includes(eid)) continue;
-      const env = feature.environmentSettings?.[eid];
-      if (!env?.rules) continue;
-      for (const rule of env.rules || []) {
+      // Get rules for this environment from top-level rules array
+      const envRules = feature.rules.filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(eid)
+      );
+      if (!envRules.length) continue;
+      for (const rule of envRules) {
         if (rule?.prerequisites?.length) {
           const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
           prerequisiteIds.push(...rulePrerequisiteIds);
@@ -750,10 +811,11 @@ export function evaluatePrerequisiteState(
     }
 
     if (!skipRootConditions || !isTopLevel) {
-      if (
-        feature.environmentSettings[env].rules?.filter((r) => !!r.enabled)
-          ?.length
-      ) {
+      // Get rules for this environment from top-level rules array
+      const envRules = feature.rules.filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      );
+      if (envRules.filter((r) => !!r.enabled).length) {
         state = "conditional";
         value = undefined;
       }

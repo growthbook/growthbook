@@ -20,7 +20,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useEnvironments, useFeaturesList } from "@/services/features";
+import { getRules, useEnvironments, useFeaturesList } from "@/services/features";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
@@ -245,7 +245,8 @@ export default function FeaturePage() {
     // This is for old features that don't have any revision history saved
     const rules: Record<string, FeatureRule[]> = {};
     environments.forEach((env) => {
-      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
+      // Get rules for this environment from top-level rules array
+      rules[env.id] = getRules(baseFeature, env.id);
     });
     return {
       baseVersion: baseFeature.version,

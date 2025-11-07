@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
@@ -18,15 +18,21 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { Environment } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import {
-  getRules,
   getUnreachableRuleIndex,
   isRuleInactive,
 } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
+import PremiumCallout from "@/ui/PremiumCallout";
+import track from "@/services/track";
 
 export default function RuleList({
   feature,
@@ -43,9 +49,13 @@ export default function RuleList({
   safeRolloutsMap,
   holdout,
   openHoldoutModal,
+  canEditDrafts,
+  isSafeRolloutPromoEnabled,
+  hasSafeRollout,
+  environments,
 }: {
   feature: FeatureInterface;
-  environment: string;
+  environment: string; // empty string "" means all environments, otherwise specific environment id
   mutate: () => void;
   setRuleModal: (args: {
     environment: string;
@@ -66,15 +76,36 @@ export default function RuleList({
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
   openHoldoutModal: () => void;
+  canEditDrafts: boolean;
+  isSafeRolloutPromoEnabled: boolean;
+  hasSafeRollout: boolean;
+  environments: Environment[];
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
 
+  // Get all rules - filtering happens during render
+  const allRules = feature?.rules ?? [];
+  
+  // Compute filtered items for drag-and-drop (needs stable array)
+  // This is used for the SortableContext items array
+  const filteredItems = useMemo(() => {
+    if (environment === "") {
+      return allRules;
+    }
+    return allRules.filter(
+      (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+    );
+  }, [allRules, environment]);
+  
+  // Use state for drag-and-drop reordering (optimistic updates)
+  const [items, setItems] = useState(filteredItems);
+  
+  // Update items when filtered items change (but not during drag)
   useEffect(() => {
-    setItems(getRules(feature, environment));
-  }, [getRules(feature, environment)]);
+    setItems(filteredItems);
+  }, [filteredItems]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -85,10 +116,81 @@ export default function RuleList({
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdout) {
+  // Check if holdout rule should be included
+  // Show in "All Rules" tab (environment === "") or if enabled for the current environment
+  const currentEnv = environment === "" ? null : environments.find((e) => e.id === environment);
+  const includeHoldoutRule =
+    !!holdout &&
+    (environment === "" ||
+      (currentEnv && !!holdout?.environmentSettings?.[currentEnv.id]?.enabled));
+
+  const canEdit =
+    !locked &&
+    permissionsUtil.canViewFeatureModal(feature.project) &&
+    permissionsUtil.canManageFeatureDrafts(feature);
+
+  // Early return for empty state
+  if (!items.length && !includeHoldoutRule) {
     return (
-      <div className="px-3 mb-3">
-        <em>None</em>
+      <div className="mt-2">
+        <Box py="4" className="text-muted">
+          <em>
+            {environment === ""
+              ? "No rules have been added yet"
+              : "No rules have been added to this environment yet"}
+          </em>
+        </Box>
+
+        {canEditDrafts && !locked && (
+          <>
+            <Flex pt="4" justify="between" align="center">
+              <Text weight="bold" size="3">
+                {environment === "" ? "Add rule" : `Add rule to ${environment}`}
+              </Text>
+              <Button
+                onClick={() => {
+                  setRuleModal({
+                    environment: environment === "" ? environments[0]?.id || "" : environment,
+                    i: items.length,
+                    mode: "create",
+                  });
+                  track("Viewed Rule Modal", {
+                    source: "add-rule",
+                    type: "force",
+                  });
+                }}
+              >
+                Add Rule
+              </Button>
+            </Flex>
+            {isSafeRolloutPromoEnabled && !hasSafeRollout ? (
+              <PremiumCallout
+                id="feature-rules-add-rule"
+                commercialFeature="safe-rollout"
+                mt="5"
+              >
+                <Flex direction="row" gap="3">
+                  <Text>
+                    <strong>Safe Rollouts</strong> can be used to
+                    release new values while monitoring for errors.
+                  </Text>
+                </Flex>
+              </PremiumCallout>
+            ) : isSafeRolloutPromoEnabled && hasSafeRollout ? (
+              <Callout
+                mt="5"
+                status="info"
+                icon={<Badge label="NEW!" />}
+                dismissible
+                id="safe-rollout-promo"
+              >
+                Use <strong>Safe Rollouts</strong> to test for guardrail
+                errors while releasing a new value. Click &lsquo;Add
+                Rule&rsquo; to get started.
+              </Callout>
+            ) : null}
+          </>
+        )}
       </div>
     );
   }
@@ -105,12 +207,10 @@ export default function RuleList({
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
-  const canEdit =
-    !locked &&
-    permissionsUtil.canViewFeatureModal(feature.project) &&
-    permissionsUtil.canManageFeatureDrafts(feature);
+  console.log({environment});
 
   return (
+    <div className="mt-2">
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
@@ -134,7 +234,6 @@ export default function RuleList({
             {
               method: "POST",
               body: JSON.stringify({
-                environment,
                 from: oldIndex,
                 to: newIndex,
               }),
@@ -157,42 +256,55 @@ export default function RuleList({
           <em>No Active Rules</em>
         </div>
       )}
-      {holdout && (
+      {includeHoldoutRule && holdout ? (
         <HoldoutRule
           feature={feature}
           setRuleModal={openHoldoutModal}
           mutate={mutate}
           ruleCount={items.length}
         />
-      )}
+      ) : null}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        {items.map(({ ...rule }, i) => (
-          <SortableRule
-            key={i + rule.id}
-            environment={environment}
-            i={i}
-            rule={rule}
-            feature={feature}
-            mutate={mutate}
-            setRuleModal={setRuleModal}
-            setCopyRuleModal={setCopyRuleModal}
-            unreachable={!!unreachableIndex && i >= unreachableIndex}
-            version={version}
-            setVersion={setVersion}
-            locked={locked}
-            experimentsMap={experimentsMap}
-            hideInactive={hideInactive}
-            isDraft={isDraft}
-            safeRolloutsMap={safeRolloutsMap}
-            holdout={holdout}
-          />
-        ))}
+        {allRules.map((rule, i) => {
+          // Filter: return null if rule doesn't match current environment
+          if (environment !== "") {
+            if (!rule.allEnvironments && !rule.environments?.includes(environment)) {
+              return null;
+            }
+          }
+          
+          // Find the index in the filtered items array for this rule
+          const filteredIndex = items.findIndex((r) => r.uid === rule.uid);
+          if (filteredIndex === -1) return null;
+
+          return (
+            <SortableRule
+              key={rule.uid || i + rule.id}
+              environment={environment}
+              i={filteredIndex}
+              rule={rule}
+              feature={feature}
+              mutate={mutate}
+              setRuleModal={setRuleModal}
+              setCopyRuleModal={setCopyRuleModal}
+              unreachable={!!unreachableIndex && filteredIndex >= unreachableIndex}
+              version={version}
+              setVersion={setVersion}
+              locked={locked}
+              experimentsMap={experimentsMap}
+              hideInactive={hideInactive}
+              isDraft={isDraft}
+              safeRolloutsMap={safeRolloutsMap}
+              holdout={holdout}
+            />
+          );
+        })}
       </SortableContext>
       <DragOverlay>
         {activeRule ? (
           <Rule
             i={getRuleIndex(activeId as string)}
-            environment={environment}
+            environment={environment || ""}
             rule={activeRule}
             feature={feature}
             mutate={mutate}
@@ -214,5 +326,58 @@ export default function RuleList({
         ) : null}
       </DragOverlay>
     </DndContext>
+
+    {canEditDrafts && !locked && (
+      <>
+        <Flex pt="4" justify="between" align="center">
+          <Text weight="bold" size="3">
+            {environment === "" ? "Add rule" : `Add rule to ${environment}`}
+          </Text>
+          <Button
+            onClick={() => {
+              setRuleModal({
+                environment: environment === "" ? environments[0]?.id || "" : environment,
+                i: items.length,
+                mode: "create",
+              });
+              track("Viewed Rule Modal", {
+                source: "add-rule",
+                type: "force",
+              });
+            }}
+          >
+            Add Rule
+          </Button>
+        </Flex>
+        {/* TODO: This if/else should be handled by PremiumCallout component */}
+        {isSafeRolloutPromoEnabled && !hasSafeRollout ? (
+          <PremiumCallout
+            id="feature-rules-add-rule"
+            commercialFeature="safe-rollout"
+            mt="5"
+          >
+            <Flex direction="row" gap="3">
+              <Text>
+                <strong>Safe Rollouts</strong> can be used to
+                release new values while monitoring for errors.
+              </Text>
+            </Flex>
+          </PremiumCallout>
+        ) : isSafeRolloutPromoEnabled && hasSafeRollout ? (
+          <Callout
+            mt="5"
+            status="info"
+            icon={<Badge label="NEW!" />}
+            dismissible
+            id="safe-rollout-promo"
+          >
+            Use <strong>Safe Rollouts</strong> to test for guardrail
+            errors while releasing a new value. Click &lsquo;Add
+            Rule&rsquo; to get started.
+          </Callout>
+        ) : null}
+      </>
+    )}
+    </div>
   );
 }

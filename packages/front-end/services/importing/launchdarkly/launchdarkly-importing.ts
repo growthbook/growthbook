@@ -379,10 +379,12 @@ export const transformLDFeatureFlag = (
   const defaultValue = variationValues[defaultValueIndex];
 
   const gbEnvironments: FeatureInterface["environmentSettings"] = {};
+  const rulesByEnv: Record<string, any[]> = {};
   envKeys.forEach((envKey) => {
     const envData = environments[envKey];
 
-    const rules: FeatureRule[] = [];
+    // Rules will be converted to FeatureRule[] with uid/environments/allEnvironments later
+    const rules: any[] = [];
 
     // If there are prerequisites, add force rules to the top
     if (envData.prerequisites?.length) {
@@ -537,8 +539,21 @@ export const transformLDFeatureFlag = (
 
     gbEnvironments[envKey] = {
       enabled: environments[envKey].on,
-      rules: rules,
     };
+    rulesByEnv[envKey] = rules;
+  });
+
+  // Convert rules to top-level rules array with environment tags
+  const { v4: uuidv4 } = require("uuid");
+  const featureRules: FeatureRule[] = [];
+  Object.entries(rulesByEnv).forEach(([envKey, envRules]) => {
+    const taggedRules = envRules.map((rule) => ({
+      ...rule,
+      uid: uuidv4(),
+      environments: [envKey],
+      allEnvironments: false,
+    } as FeatureRule));
+    featureRules.push(...taggedRules);
   });
 
   const owner = _maintainer
@@ -547,6 +562,7 @@ export const transformLDFeatureFlag = (
 
   return {
     environmentSettings: gbEnvironments,
+    rules: featureRules,
     defaultValue: defaultValue,
     project,
     id: key,

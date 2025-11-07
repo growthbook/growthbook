@@ -11,6 +11,7 @@ type Props = {
   radius?: "none" | "small" | "medium" | "large" | "full";
   style?: CSSProperties;
   className?: string;
+  size?: "1" | "2" | "3";
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function Badge(

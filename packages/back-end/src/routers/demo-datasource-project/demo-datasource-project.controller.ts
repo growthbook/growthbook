@@ -23,7 +23,7 @@ import {
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { DataSourceSettings } from "back-end/types/datasource";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
+import { ExperimentRefRule, FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { ProjectInterface } from "back-end/types/project";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
@@ -347,6 +347,8 @@ spacing and headings.`,
     });
 
     // Create feature
+    const { v4: uuidv4 } = require("uuid");
+    const featureRules: FeatureRule[] = [];
     const featureToCreate: FeatureInterface = {
       id: getDemoDataSourceFeatureId(),
       version: 1,
@@ -361,12 +363,15 @@ spacing and headings.`,
       defaultValue: "current",
       tags: DEMO_TAGS,
       environmentSettings: {},
+      rules: [],
     };
 
     environments.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,
-        rules: [
+      };
+      
+      const envRules: FeatureRule[] = [
           {
             type: "force",
             description: "",
@@ -396,15 +401,24 @@ spacing and headings.`,
               },
             ],
           },
-        ],
-      };
-
-      featureToCreate.environmentSettings[env].rules.forEach((rule) => {
+        ].map((rule) => ({
+          ...rule,
+          uid: uuidv4(),
+          environments: [env],
+          allEnvironments: false,
+        } as FeatureRule));
+      
+      featureRules.push(...envRules);
+    });
+    
+    // Update experiment-ref rules with the created experiment ID
+    featureRules.forEach((rule) => {
         if (rule.type === "experiment-ref") {
           (rule as ExperimentRefRule).experimentId = createdExperiment.id;
         }
-      });
     });
+    
+    featureToCreate.rules = featureRules;
 
     await createFeature(context, featureToCreate);
 
