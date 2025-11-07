@@ -18,7 +18,7 @@ import { cloneDeep, pick } from "lodash";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
 
-import useExperimentalRefreshMode from "@/hooks/useExperimentalRefreshMode";
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -57,7 +57,7 @@ export default function DashboardWorkspace({
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
   const isIncrementalRefreshExperiment =
-    useExperimentalRefreshMode(experiment ?? undefined) ===
+    useExperimentPipelineMode(experiment ?? undefined) ===
     "incremental-refresh";
   useEffect(() => {
     const bodyElements = window.document.getElementsByTagName("body");

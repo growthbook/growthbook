@@ -21,7 +21,7 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
-import useExperimentalRefreshMode from "@/hooks/useExperimentalRefreshMode";
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
@@ -96,7 +96,7 @@ export default function DashboardEditorSidebar({
   >(undefined);
 
   // TODO(incremental-refresh): remove when dimensions supported in dashboard
-  const experimentalRefreshMode = useExperimentalRefreshMode(
+  const experimentalRefreshMode = useExperimentPipelineMode(
     experiment ?? undefined,
   );
 

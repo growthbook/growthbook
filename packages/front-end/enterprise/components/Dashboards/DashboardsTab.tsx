@@ -25,7 +25,7 @@ import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
-import useExperimentalRefreshMode from "@/hooks/useExperimentalRefreshMode";
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -164,7 +164,7 @@ function DashboardsTab({
   }
 
   const isIncrementalRefreshExperiment =
-    useExperimentalRefreshMode(experiment ?? undefined) ===
+    useExperimentPipelineMode(experiment ?? undefined) ===
     "incremental-refresh";
 
   useEffect(() => {
