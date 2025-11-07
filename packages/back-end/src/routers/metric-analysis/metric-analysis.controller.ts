@@ -51,7 +51,7 @@ export const postMetricAnalysis = async (
   ) {
     throw new Error("Custom metric populations are a premium feature");
   }
-  // And then I can spread in the partial metricAnalysisSettings object with this
+
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,
@@ -63,7 +63,8 @@ export const postMetricAnalysis = async (
     denominatorFilters: data.denominatorFilters,
   };
 
-  // This is just a test to see if we can add filters to the metric obj in an adhoc manner
+  // The MetricExplorer can add filters to a metric analysis in an adhoc manner
+  // If included, add them to any existing filters on the metric
   if (data.numeratorFilters) {
     metricObj.numerator.filters = [
       ...metricObj.numerator.filters,
