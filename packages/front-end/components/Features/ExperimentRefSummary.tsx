@@ -284,26 +284,26 @@ export default function ExperimentRefSummary({
             </Table>
           </Box>
           <Box mt="3">
-          {!isBandit && (
-            <ExperimentSplitVisual
-              values={experiment.variations.map((variation, j) => {
-                return {
-                  name: variation.name,
-                  value:
-                    variations.find((v) => v.variationId === variation.id)
-                      ?.value ?? "null",
-                  weight: phase.variationWeights?.[j] || 0,
-                };
-              })}
-              coverage={effectiveCoverage}
-              label="Traffic split"
-              unallocated="Not included (skips this rule)"
-              type={type}
-              showValues={false}
-              stackLeft={true}
-              showPercentages={true}
-            />
-          )}
+            {!isBandit && (
+              <ExperimentSplitVisual
+                values={experiment.variations.map((variation, j) => {
+                  return {
+                    name: variation.name,
+                    value:
+                      variations.find((v) => v.variationId === variation.id)
+                        ?.value ?? "null",
+                    weight: phase.variationWeights?.[j] || 0,
+                  };
+                })}
+                coverage={effectiveCoverage}
+                label="Traffic split"
+                unallocated="Not included (skips this rule)"
+                type={type}
+                showValues={false}
+                stackLeft={true}
+                showPercentages={true}
+              />
+            )}
           </Box>
 
           <Flex direction="row" gap="2" mb="3">
