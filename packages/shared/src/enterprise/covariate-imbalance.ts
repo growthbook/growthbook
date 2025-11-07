@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
+import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 
 export const MetricVariationCovariateImbalanceResultValidator = z.object({
   metricId: z.string(),
@@ -17,6 +18,7 @@ export type MetricVariationCovariateImbalanceResult = z.infer<
 
 export const CovariateImbalanceResultValidator = z.object({
   isImbalanced: z.boolean(),
+  pValueThreshold: z.number(),
   numGoalMetrics: z.number(),
   numGoalMetricsImbalanced: z.number(),
   numGuardrailMetrics: z.number(),
@@ -40,6 +42,8 @@ export function tabulateCovariateImbalance(
 ): CovariateImbalanceResult {
   return {
     isImbalanced: analysis.status === "success",
+    pValueThreshold:
+      analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: goalMetrics.length,
     numGoalMetricsImbalanced: goalMetrics.length,
     numGuardrailMetrics: guardrailMetrics.length,
