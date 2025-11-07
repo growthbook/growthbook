@@ -12,7 +12,7 @@ import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
-import LinkButton from "@/ui/LinkButton";
+import Link from "@/ui/Link";
 import SavedGroupTargetingDisplay from "../SavedGroupTargetingDisplay";
 import styles from "./ConditionDisplay.module.scss";
 
@@ -236,15 +236,20 @@ function getConditionParts({
 
 function ParentIdLink({ parentId }: { parentId: string }) {
   return (
-    <LinkButton
-      href={`/features/${parentId}`}
-      title="Manage Feature"
-      size="xs"
-      variant="soft"
-      external={true}
-    >
-      {parentId}
-    </LinkButton>
+    <Badge
+      color="gray"
+      label={
+        <Link
+          href={`/features/${parentId}`}
+          title="Manage Feature"
+          size="1"
+          target="_blank"
+          color="violet"
+        >
+          {parentId}
+        </Link>
+      }
+    />
   );
 }
 

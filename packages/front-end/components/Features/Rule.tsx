@@ -241,7 +241,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     mr="3"
                     align="center"
                   >
-                    <Heading as="h4" size="3" weight="medium" mb="0">
+                    <Heading
+                      as="h4"
+                      size="3"
+                      weight="medium"
+                      mb="0"
+                      className="w-100"
+                    >
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
                           {linkedExperiment.type === "multi-armed-bandit"
@@ -265,9 +271,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
-                          {!locked && rule.enabled !== false && (
-                            <div
-                              className="ml-auto"
+                          {!locked && rule.enabled !== false ? (
+                            <Flex
+                              flexGrow="1"
+                              justify="end"
                               style={{ marginBottom: -10 }}
                             >
                               <DecisionCTA
@@ -276,8 +283,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   setSafeRolloutStatusModalOpen(true);
                                 }}
                               />
-                            </div>
-                          )}
+                            </Flex>
+                          ) : null}
                         </Flex>
                       ) : (
                         title

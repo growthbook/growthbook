@@ -1,7 +1,8 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import LinkButton from "@/ui/LinkButton";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
@@ -48,16 +49,21 @@ export default function SavedGroupTargetingDisplay({
                     ? `/saved-groups/${group.id}`
                     : "/saved-groups#conditionGroups";
                 return (
-                  <LinkButton
-                    href={link}
+                  <Badge
                     key={id}
-                    title="Manage Saved Group"
-                    size="xs"
-                    variant="soft"
-                    external={true}
-                  >
-                    {group?.groupName || id}
-                  </LinkButton>
+                    color="gray"
+                    label={
+                      <Link
+                        href={link}
+                        title="Manage Saved Group"
+                        size="1"
+                        target="_blank"
+                        color="violet"
+                      >
+                        {group?.groupName || id}
+                      </Link>
+                    }
+                  />
                 );
               })}
               {s.ids.length > 1 && ")"}
