@@ -44,7 +44,6 @@ export const createMetricAnalysisPropsValidator = z
     force: z.boolean().optional(),
     numeratorFilters: z.array(z.string()).optional(),
     denominatorFilters: z.array(z.string()).optional(),
-    // inlineFilters: z.array(z.object({})).optional(),
   })
   .strict();
 

@@ -15,16 +15,11 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { metricAnalysisSettingsValidator } from "./metric-analysis.validators";
 
-// So I think I need to update this to also take in a partial metricAnalysisSettings object
-// Or, I can just update the CreateMetricAnalysisProps validator to take in filters[] and inlineFilters[{}]
-// We can start with just filters[] for now?
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
   res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>,
 ) => {
-  console.log("postMetricAnalysis was called");
   const data = req.body;
-  console.log("data", data);
   const context = getContextFromReq(req);
 
   const metricObj = await getExperimentMetricById(context, data.id);
@@ -68,8 +63,6 @@ export const postMetricAnalysis = async (
     denominatorFilters: data.denominatorFilters,
   };
 
-  console.log("metricBefore", metricObj);
-
   // This is just a test to see if we can add filters to the metric obj in an adhoc manner
   if (data.numeratorFilters) {
     metricObj.numerator.filters = [
@@ -85,12 +78,6 @@ export const postMetricAnalysis = async (
     ];
   }
 
-  console.log("metricAfter", metricObj);
-  console.log("metricAnalysisSettings", metricAnalysisSettings);
-  console.log("about to call createMetricAnalysis from postMetricAnalysis");
-  //MKTODO: This is called from the metric id page
-  //MKTODO: This is also what's called when creating a metric block on a general dashboard
-  //MKTODO: This is also what's called when a user manually refreshes a dashboard
   const metricAnalysis = await createMetricAnalysis(
     context,
     metricObj,
@@ -166,7 +153,6 @@ export async function refreshMetricAnalysisStatus(
   req: AuthRequest<null, { id: string }>,
   res: Response,
 ) {
-  console.log("refreshMetricAnalysisStatus was called");
   const context = getContextFromReq(req);
 
   const metricAnalysis = await context.models.metricAnalysis.getById(

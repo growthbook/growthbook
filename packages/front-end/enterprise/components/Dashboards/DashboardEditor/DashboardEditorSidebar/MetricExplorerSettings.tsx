@@ -301,7 +301,6 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           backgroundColor: "var(--color-panel-translucent)",
         }}
       >
-        {/* //MKTODO: When these change, we need to kick off a new metric analysis. */}
         <Collapsible
           trigger={
             <div
