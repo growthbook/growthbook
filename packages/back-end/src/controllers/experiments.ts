@@ -239,10 +239,9 @@ export async function postAIExperimentAnalysis(
 
   const allMetricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment, false),
+    getAllMetricIdsFromExperiment(experiment, false, allMetricGroups),
     allMetricGroups,
   );
-
   const allOrgMetrics = await getMetricMap(context);
   const experimentMetrics = experimentMetricIds
     .map((id) => allOrgMetrics.get(id))
@@ -1346,10 +1345,17 @@ export async function postExperiment(
     }
   }
   // Validate that specified metrics exist and belong to the organization
-  const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
-  const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
-    (m) => !oldMetricIds.includes(m),
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const oldMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    allMetricGroups,
   );
+  const newMetricIds = getAllMetricIdsFromExperiment(
+    data,
+    false,
+    allMetricGroups,
+  ).filter((m) => !oldMetricIds.includes(m));
 
   const metricMap = await getMetricMap(context);
 

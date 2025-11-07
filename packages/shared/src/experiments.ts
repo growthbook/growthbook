@@ -1075,8 +1075,8 @@ export function getAllMetricIdsFromExperiment(
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   },
-  includeActivationMetric: boolean = true,
-  metricGroups: MetricGroupInterface[] = [],
+  includeActivationMetric: boolean,
+  metricGroups: MetricGroupInterface[],
 ) {
   return Array.from(
     new Set(

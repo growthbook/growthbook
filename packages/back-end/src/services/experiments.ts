@@ -3482,7 +3482,8 @@ export async function validateExperimentData(
   }
 
   // Validate that specified metrics exist and belong to the organization
-  const metricIds = getAllMetricIdsFromExperiment(data);
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(data, true, allMetricGroups);
   if (metricIds.length) {
     const map = await getMetricMap(context);
     for (let i = 0; i < metricIds.length; i++) {
