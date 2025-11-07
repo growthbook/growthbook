@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import { Box, Text } from "@radix-ui/themes";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
@@ -20,10 +21,13 @@ export default function SubscriptionInfo() {
     accountPlan,
     users,
     refreshOrganization,
+    email,
   } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
+  const [showCancellationSurveyModal, setShowCancellationSurveyModal] =
+    useState(false);
   const [updateOrbSubscriptionModal, setUpdateOrbSubscriptionModal] =
     useState(false);
 
@@ -46,6 +50,37 @@ export default function SubscriptionInfo() {
           commercialFeature={null}
         />
       )}
+      {showCancellationSurveyModal && (
+        <Modal
+          open={true}
+          header={null}
+          trackingEventModalType="cancellation-survey"
+          close={() => setShowCancellationSurveyModal(false)}
+          submit={async () => {
+            const surveyUrl = new URL("https://form.typeform.com/to/kL75SA6F");
+            if (email) {
+              surveyUrl.searchParams.set("email", email);
+            }
+            window.open(surveyUrl.toString(), "_blank");
+            refreshOrganization();
+            setShowCancellationSurveyModal(false);
+          }}
+          cta="Share Feedback"
+          closeCta="No thanks"
+          showHeaderCloseButton={false}
+        >
+          <Box mr="5">
+            <Text as="p" size="3" weight="medium">
+              Spare 30 seconds to share your thoughts?
+            </Text>
+            <Text as="span">
+              While no platform is perfect, we&apos;re eager to learn how we can
+              improve. We&apos;d love to hear your feedback via this super short
+              survey.
+            </Text>
+          </Box>
+        </Modal>
+      )}
       {cancelSubscriptionModal && (
         <Modal
           open={true}
@@ -58,6 +93,8 @@ export default function SubscriptionInfo() {
           submit={async () => {
             await apiCall("/subscription/cancel", { method: "POST" });
             refreshOrganization();
+            setCancelSubscriptionModal(false);
+            setShowCancellationSurveyModal(true);
           }}
         >
           <>
