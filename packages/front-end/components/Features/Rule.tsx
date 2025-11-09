@@ -5,7 +5,7 @@ import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
@@ -241,7 +241,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     mr="3"
                     align="center"
                   >
-                    <Heading as="h4" size="3" weight="medium" mb="0">
+                    <Heading
+                      as="h4"
+                      size="3"
+                      weight="medium"
+                      mb="0"
+                      className="w-100"
+                    >
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
                           {linkedExperiment.type === "multi-armed-bandit"
@@ -265,9 +271,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
-                          {!locked && rule.enabled !== false && (
-                            <div
-                              className="ml-auto"
+                          {!locked && rule.enabled !== false ? (
+                            <Flex
+                              flexGrow="1"
+                              justify="end"
                               style={{ marginBottom: -10 }}
                             >
                               <DecisionCTA
@@ -276,8 +283,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   setSafeRolloutStatusModalOpen(true);
                                 }}
                               />
-                            </div>
-                          )}
+                            </Flex>
+                          ) : null}
                         </Flex>
                       ) : (
                         title
@@ -398,17 +405,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </>
                   ) : null}
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <Flex align="center" justify="start" gap="3">
-                      <Box pb="3">
-                        <strong className="font-weight-semibold">IF</strong>
-                      </Box>
-                      <Box
-                        width="100%"
-                        flexShrink="4"
-                        flexGrow="1"
-                        overflowX="auto"
-                        pb="3"
-                      >
+                    <Flex direction="row" gap="2" mb="3">
+                      <Text weight="medium">IF</Text>
+                      <Box>
                         <ConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
@@ -493,6 +492,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         </Box>
       </Box>
     );
+
     return safeRollout ? (
       <SafeRolloutSnapshotProvider
         safeRollout={safeRollout}

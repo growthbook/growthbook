@@ -25,6 +25,7 @@ import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -47,7 +48,7 @@ export type CreateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
-    projects: string[];
+    projects?: string[];
   };
 };
 export type UpdateDashboardArgs = {
@@ -61,7 +62,7 @@ export type UpdateDashboardArgs = {
     shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
-    projects: string[];
+    projects?: string[];
   }>;
 };
 export type SubmitDashboard<
@@ -161,6 +162,10 @@ function DashboardsTab({
   if (dashboard?.editLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
+
+  const isIncrementalRefreshExperiment =
+    useExperimentPipelineMode(experiment ?? undefined) ===
+    "incremental-refresh";
 
   useEffect(() => {
     if (dashboard) {
@@ -616,6 +621,9 @@ function DashboardsTab({
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
                         isGeneralDashboard={false}
+                        isIncrementalRefreshExperiment={
+                          isIncrementalRefreshExperiment
+                        }
                         setBlock={canEdit ? memoizedSetBlock : undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}
