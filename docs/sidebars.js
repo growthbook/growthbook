@@ -88,6 +88,11 @@ const sidebars = {
           id: "features/approval-flows",
           label: "Approval Flows",
         },
+        {
+          type: "doc",
+          id: "features/custom-hooks",
+          label: "Custom Hooks",
+        },
       ],
     },
     {
@@ -707,7 +712,6 @@ const sidebars = {
     {
       type: "category",
       label: "Security",
-      collapsed: false,
       items: [
         {
           type: "doc",
