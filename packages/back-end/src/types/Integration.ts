@@ -66,29 +66,6 @@ import { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
 
-export class MissingDatasourceParamsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MissingDatasourceParamsError";
-  }
-}
-
-export class DataSourceNotSupportedError extends Error {
-  constructor() {
-    super("This data source is not supported yet.");
-    this.name = "DataSourceNotSupportedError";
-  }
-}
-
-export class SQLExecutionError extends Error {
-  query: string;
-  constructor(message: string, query: string) {
-    super(message);
-    this.name = "SQLExecutionError";
-    this.query = query;
-  }
-}
-
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
