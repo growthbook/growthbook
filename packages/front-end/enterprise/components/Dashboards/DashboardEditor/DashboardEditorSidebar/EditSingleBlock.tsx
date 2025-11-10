@@ -34,6 +34,7 @@ import Avatar from "@/ui/Avatar";
 import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { BLOCK_TYPE_INFO } from "..";
 import {
   useDashboardSnapshot,
@@ -181,6 +182,8 @@ export default function EditSingleBlock({
     updateAllSnapshots,
     savedQueriesMap,
   } = useContext(DashboardSnapshotContext);
+
+  const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
 
   // Get block context from workspace level
   const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
@@ -454,6 +457,7 @@ export default function EditSingleBlock({
 
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
+      incrementalRefresh,
       precomputedDimensions: getPrecomputedDimensions(
         defaultSnapshot,
         dimensionless,
@@ -476,6 +480,7 @@ export default function EditSingleBlock({
     getDatasourceById,
     defaultSnapshot,
     dimensionless,
+    incrementalRefresh,
   ]);
 
   const savedQueryOptions = useMemo(

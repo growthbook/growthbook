@@ -285,7 +285,6 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     // snapshotSettings
     activationMetric: snapshotSettings.activationMetric,
     attributionModel: snapshotSettings.attributionModel,
-    dimensions: snapshotSettings.dimensions,
     queryFilter: snapshotSettings.queryFilter,
     segment: snapshotSettings.segment,
     skipPartialData: snapshotSettings.skipPartialData,

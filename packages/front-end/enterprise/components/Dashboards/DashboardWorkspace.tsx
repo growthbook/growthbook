@@ -18,6 +18,7 @@ import { cloneDeep, pick } from "lodash";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
 
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -55,6 +56,9 @@ export default function DashboardWorkspace({
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
+  const isIncrementalRefreshExperiment =
+    useExperimentPipelineMode(experiment ?? undefined) ===
+    "incremental-refresh";
   useEffect(() => {
     const bodyElements = window.document.getElementsByTagName("body");
     for (const element of bodyElements) {
@@ -149,7 +153,13 @@ export default function DashboardWorkspace({
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     // Validate that the block type is allowed for this dashboard type
-    if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
+    if (
+      !isBlockTypeAllowed(
+        bType,
+        isGeneralDashboard,
+        isIncrementalRefreshExperiment,
+      )
+    ) {
       console.warn(
         `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
       );
@@ -356,6 +366,7 @@ export default function DashboardWorkspace({
               blocks={effectiveBlocks}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
+              isIncrementalRefreshExperiment={isIncrementalRefreshExperiment}
               enableAutoUpdates={dashboard.enableAutoUpdates}
               nextUpdate={
                 experiment
