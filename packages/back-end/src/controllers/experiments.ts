@@ -135,6 +135,7 @@ import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -2806,7 +2807,8 @@ export async function createExperimentSnapshot({
   snapshot: ExperimentSnapshotInterface;
   queryRunner:
     | ExperimentResultsQueryRunner
-    | ExperimentIncrementalRefreshQueryRunner;
+    | ExperimentIncrementalRefreshQueryRunner
+    | ExperimentIncrementalRefreshExploratoryQueryRunner;
 }> {
   const snapshotType =
     type ??
