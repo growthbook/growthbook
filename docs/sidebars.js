@@ -586,6 +586,11 @@ const sidebars = {
         "self-host/kubernetes",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        {
+          type: "doc",
+          id: "self-host/remote-evaluation",
+          label: "Remote Evaluation",
+        },
         { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
         "self-host/config-yml",
       ],

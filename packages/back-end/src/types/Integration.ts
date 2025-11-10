@@ -322,7 +322,6 @@ export interface CreateMetricSourceTableQueryParams {
 export interface InsertMetricSourceDataQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
-  dimensions: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
   unitsSourceTableFullName: string;
@@ -339,7 +338,6 @@ export interface CreateMetricSourceCovariateTableQueryParams {
 export interface InsertMetricSourceCovariateDataQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
-  dimensions: Dimension[];
   factTableMap: FactTableMap;
   metricSourceCovariateTableFullName: string;
   unitsSourceTableFullName: string;
@@ -353,7 +351,7 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensions: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
-  metricSourceCovariateTableFullName: string;
+  metricSourceCovariateTableFullName: string | null;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
