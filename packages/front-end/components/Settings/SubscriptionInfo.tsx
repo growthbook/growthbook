@@ -71,12 +71,10 @@ export default function SubscriptionInfo() {
         >
           <Box mr="5">
             <Text as="p" size="3" weight="medium">
-              Spare 30 seconds to share your thoughts?
+              How can we improve?
             </Text>
             <Text as="span">
-              While no platform is perfect, we&apos;re eager to learn how we can
-              improve. We&apos;d love to hear your feedback via this super short
-              survey.
+              Can you spare 30 seconds to let us know what we can do better?
             </Text>
           </Box>
         </Modal>
