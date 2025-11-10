@@ -27,7 +27,7 @@ fi
 echo "#### Linting typescript, scss, and markdown files"
 yarn lint-staged
 
-docchanged=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src\|docs/scripts" || true)
+docchanged=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/events/\|docs/scripts/gen-event-webhook-doc.ts" || true)
 
 if [ -n "$docchanged" ]
   then

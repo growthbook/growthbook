@@ -16,6 +16,7 @@ import {
   getMetricSnapshotSettings,
   isBinomialMetric,
   isFactMetric,
+  parseSliceMetricId,
 } from "shared/experiments";
 import { getSafeRolloutSRMValue } from "shared/health";
 import {
@@ -32,7 +33,6 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
-  SnapshotTriggeredBy,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
@@ -68,13 +68,15 @@ import { computeResultsStatus, isJoinableMetric } from "./experiments";
 export function getMetricForSafeRolloutSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settingsForSnapshotMetrics: MetricSnapshotSettings[]
+  settingsForSnapshotMetrics: MetricSnapshotSettings[],
 ): MetricForSafeRolloutSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
+  // For slice metrics, use the base metric ID for lookups
+  const { baseMetricId } = parseSliceMetricId(id);
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
-    (s) => s.metric === id
+    (s) => s.metric === baseMetricId,
   );
   return {
     id,
@@ -114,7 +116,7 @@ export function getMetricForSafeRolloutSnapshot(
 }
 
 export function getAnalysisSettingsFromSafeRolloutArgs(
-  args: SafeRolloutSnapshotAnalysisSettings
+  args: SafeRolloutSnapshotAnalysisSettings,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: [],
@@ -132,7 +134,7 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
 }
 
 export function getSnapshotSettingsFromSafeRolloutArgs(
-  args: SafeRolloutSnapshotInterface
+  args: SafeRolloutSnapshotInterface,
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -170,17 +172,19 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
       weight: v.weight,
     })),
     coverage: settings.coverage,
+    customFields: settings.customFields,
+    phase: settings.phase,
   };
 
   const analysisSettings = getAnalysisSettingsFromSafeRolloutArgs(
-    args.analyses[0].settings
+    args.analyses[0].settings,
   );
   return { snapshotSettings, analysisSettings };
 }
 
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  safeRollout: SafeRolloutInterface
+  safeRollout: SafeRolloutInterface,
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -190,9 +194,11 @@ export async function getSettingsForSnapshotMetrics(
 
   const metricMap = await getMetricMap(context);
 
+  const metricGroups = await context.models.metricGroups.getAll();
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     { guardrailMetrics: safeRollout.guardrailMetricIds },
-    false
+    false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
@@ -201,7 +207,7 @@ export async function getSettingsForSnapshotMetrics(
   const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
     .map((m: ExperimentMetricInterface) =>
-      metricMap.get(m.denominator as string)
+      metricMap.get(m.denominator as string),
     )
     .filter(Boolean) as MetricInterface[];
 
@@ -226,7 +232,7 @@ export async function getSettingsForSnapshotMetrics(
 
 export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   organization: OrganizationInterface,
-  regressionAdjustmentEnabled?: boolean
+  regressionAdjustmentEnabled?: boolean,
 ): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -241,7 +247,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
       hasRegressionAdjustmentFeature &&
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
-        : organization.settings?.regressionAdjustmentEnabled ?? false),
+        : (organization.settings?.regressionAdjustmentEnabled ?? false)),
     sequentialTesting:
       hasSequentialTestingFeature &&
       !!organization.settings?.sequentialTestingEnabled,
@@ -266,6 +272,7 @@ function getSafeRolloutSnapshotSettings({
   factTableMap,
   metricGroups,
   datasource,
+  customFields,
 }: {
   safeRollout: SafeRolloutInterface;
   safeRolloutRule: SafeRolloutRule;
@@ -276,6 +283,7 @@ function getSafeRolloutSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
+  customFields?: Record<string, unknown>;
 }): SafeRolloutSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -286,13 +294,13 @@ function getSafeRolloutSnapshotSettings({
 
   const queries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = queries.find(
-    (q) => q.id === safeRollout.exposureQueryId
+    (q) => q.id === safeRollout.exposureQueryId,
   );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
     safeRollout.guardrailMetricIds,
-    metricGroups
+    metricGroups,
   ).filter((m) =>
     isJoinableMetric({
       metricId: m,
@@ -300,23 +308,27 @@ function getSafeRolloutSnapshotSettings({
       factTableMap,
       exposureQuery,
       datasource,
-    })
+    }),
   );
 
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment({
       guardrailMetrics: safeRollout.guardrailMetricIds,
     }),
-    metricGroups
+    metricGroups,
   )
     .map((m) =>
-      getMetricForSafeRolloutSnapshot(m, metricMap, settingsForSnapshotMetrics)
+      getMetricForSafeRolloutSnapshot(m, metricMap, settingsForSnapshotMetrics),
     )
     .filter(isDefined);
 
   return {
     queryFilter: "",
     experimentId: safeRolloutRule.trackingKey,
+    phase: {
+      index: "0",
+    },
+    customFields,
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
@@ -336,6 +348,7 @@ function getSafeRolloutSnapshotSettings({
 
 export async function _createSafeRolloutSnapshot({
   safeRollout,
+  customFields,
   context,
   triggeredBy,
   useCache = false,
@@ -345,8 +358,9 @@ export async function _createSafeRolloutSnapshot({
   factTableMap,
 }: {
   safeRollout: SafeRolloutInterface;
+  customFields?: Record<string, unknown>;
   context: ReqContext | ApiReqContext;
-  triggeredBy: SnapshotTriggeredBy;
+  triggeredBy: SafeRolloutSnapshotInterface["triggeredBy"];
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -361,7 +375,7 @@ export async function _createSafeRolloutSnapshot({
   }
   const safeRolloutRule = getSafeRolloutRuleFromFeature(
     feature,
-    safeRollout.id
+    safeRollout.id,
   );
   if (!safeRolloutRule) {
     throw new Error("Could not find safe rollout rule");
@@ -382,6 +396,7 @@ export async function _createSafeRolloutSnapshot({
     factTableMap,
     metricGroups,
     datasource,
+    customFields,
   });
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
     safeRolloutId: safeRollout.id,
@@ -404,7 +419,7 @@ export async function _createSafeRolloutSnapshot({
 
   const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
     safeRollout,
-    organization
+    organization,
   );
   await context.models.safeRollout.update(safeRollout, {
     nextSnapshotAttempt: nextSnapshot,
@@ -418,7 +433,7 @@ export async function _createSafeRolloutSnapshot({
     context,
     snapshot,
     integration,
-    useCache
+    useCache,
   );
 
   await queryRunner.startAnalysis({
@@ -432,13 +447,15 @@ export async function _createSafeRolloutSnapshot({
 export async function createSafeRolloutSnapshot({
   context,
   safeRollout,
+  customFields,
   useCache = true,
   triggeredBy,
 }: {
   context: ReqContext;
   safeRollout: SafeRolloutInterface;
+  customFields?: Record<string, unknown>;
   useCache?: boolean;
-  triggeredBy?: SnapshotTriggeredBy;
+  triggeredBy?: SafeRolloutSnapshotInterface["triggeredBy"];
 }): Promise<{
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;
@@ -448,14 +465,12 @@ export async function createSafeRolloutSnapshot({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const {
-    settingsForSnapshotMetrics,
-    regressionAdjustmentEnabled,
-  } = await getSettingsForSnapshotMetrics(context, safeRollout);
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    await getSettingsForSnapshotMetrics(context, safeRollout);
 
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,
-    regressionAdjustmentEnabled
+    regressionAdjustmentEnabled,
   );
 
   const queryRunner = await _createSafeRolloutSnapshot({
@@ -467,6 +482,7 @@ export async function createSafeRolloutSnapshot({
     factTableMap,
     triggeredBy: triggeredBy ?? "manual",
     safeRollout,
+    customFields,
   });
   const snapshot = queryRunner.model;
 
@@ -493,7 +509,7 @@ export async function getSafeRolloutAnalysisSummary({
       ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
       : safeRolloutSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
           (acc, a) => acc + a.users,
-          0
+          0,
         )) ?? null;
 
   const srm = getSafeRolloutSRMValue(safeRolloutSnapshot);
@@ -555,14 +571,17 @@ const memoizeSafeRolloutNotification = async ({
   types: SafeRolloutNotification[];
   safeRollout: SafeRolloutInterface;
   dispatch: () => Promise<void>;
-}) => {
-  if (types.every((t) => safeRollout.pastNotifications?.includes(t))) return;
+}): Promise<boolean> => {
+  if (types.every((t) => safeRollout.pastNotifications?.includes(t)))
+    return false;
 
   await dispatch();
 
   await context.models.safeRollout.update(safeRollout, {
     pastNotifications: types,
   });
+
+  return true;
 };
 
 export async function notifySafeRolloutChange({
@@ -573,15 +592,18 @@ export async function notifySafeRolloutChange({
   context: ReqContext;
   updatedSafeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
-}): Promise<void> {
-  if (updatedSafeRollout.status !== "running") return;
+}): Promise<boolean> {
+  if (updatedSafeRollout.status !== "running") return false;
+
+  let notificationSent = false;
+
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: updatedSafeRollout,
     snapshotWithResults: safeRolloutSnapshot,
   });
   const healthSettings = getHealthSettings(
     context.org.settings,
-    orgHasPremiumFeature(context.org, "decision-framework")
+    orgHasPremiumFeature(context.org, "decision-framework"),
   );
   const safeRolloutStatus = getSafeRolloutResultStatus({
     safeRollout: updatedSafeRollout,
@@ -610,7 +632,7 @@ export async function notifySafeRolloutChange({
       unhealthyReasons.push("multipleExposures");
     }
 
-    await memoizeSafeRolloutNotification({
+    const unhealthyNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: unhealthyReasons,
       safeRollout: updatedSafeRollout,
@@ -628,10 +650,11 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || unhealthyNotificationSent;
   }
 
   if (safeRolloutStatus?.status === "rollback-now") {
-    await memoizeSafeRolloutNotification({
+    const rollbackNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: ["rollback"],
       safeRollout: updatedSafeRollout,
@@ -646,9 +669,10 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || rollbackNotificationSent;
   }
   if (safeRolloutStatus?.status === "ship-now") {
-    await memoizeSafeRolloutNotification({
+    const shipNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: ["ship"],
       safeRollout: updatedSafeRollout,
@@ -663,5 +687,8 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || shipNotificationSent;
   }
+
+  return notificationSent;
 }

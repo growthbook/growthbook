@@ -10,10 +10,7 @@ import React, {
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -106,9 +103,10 @@ export const FilterDropdown: FC<{
   heading,
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
-  const showSearchFilter = useMemo(() => USE_SEARCH_BOX && items.length > 10, [
-    items,
-  ]);
+  const showSearchFilter = useMemo(
+    () => USE_SEARCH_BOX && items.length > 10,
+    [items],
+  );
   const filteredItems = useMemo(
     () =>
       filterSearch
@@ -121,10 +119,10 @@ export const FilterDropdown: FC<{
               (typeof i.name === "string"
                 ? i.name.toLowerCase()
                 : i.searchValue.toLowerCase()
-              ).includes(filterSearch.toLowerCase())
+              ).includes(filterSearch.toLowerCase()),
           )
         : items,
-    [items, filterSearch]
+    [items, filterSearch],
   );
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -215,7 +213,7 @@ function doesFilterExistInSearch({
         filter.field === field &&
         filter.operator === operator &&
         filter.values.includes(value) &&
-        filter.negated === negated
+        filter.negated === negated,
     );
   }
   if (operator !== undefined) {
@@ -223,11 +221,11 @@ function doesFilterExistInSearch({
       (filter) =>
         filter.field === field &&
         filter.operator === operator &&
-        filter.values.includes(value)
+        filter.values.includes(value),
     );
   } else {
     return syntaxFilters.some(
-      (filter) => filter.field === field && filter.values.includes(value)
+      (filter) => filter.field === field && filter.values.includes(value),
     );
   }
 }
@@ -262,10 +260,10 @@ export const useSearchFiltersBase = ({
         (searchInputProps.value.length > 0
           ? searchInputProps.value + " " + term
           : term
-        ).trim()
+        ).trim(),
       );
     },
-    [filterToString, searchInputProps.value, setSearchValue]
+    [filterToString, searchInputProps.value, setSearchValue],
   );
 
   const updateFilterToSearch = useCallback(
@@ -275,11 +273,11 @@ export const useSearchFiltersBase = ({
         filter.field + ":" + (filter.negated ? "!" : "") + filter.operator;
       const newValue = searchInputProps.value.replace(
         new RegExp(`${startsWith}(?:"[^"]*"|[^\\s])*`, "g"),
-        term
+        term,
       );
       setSearchValue(newValue.trim());
     },
-    [filterToString, searchInputProps, setSearchValue]
+    [filterToString, searchInputProps, setSearchValue],
   );
 
   const removeFilterToSearch = useCallback(
@@ -288,11 +286,11 @@ export const useSearchFiltersBase = ({
         filter.field + ":" + (filter.negated ? "!" : "") + filter.operator;
       const newValue = searchInputProps.value.replace(
         new RegExp(`${startsWith}(?:"[^"]*"|[^\\s])*`, "g"),
-        ""
+        "",
       );
       setSearchValue(newValue.trim());
     },
-    [searchInputProps.value, setSearchValue]
+    [searchInputProps.value, setSearchValue],
   );
 
   const updateQuery = useCallback(
@@ -301,17 +299,17 @@ export const useSearchFiltersBase = ({
         (f) =>
           f.field === filter.field &&
           f.operator === filter.operator &&
-          f.negated === filter.negated
+          f.negated === filter.negated,
       );
 
       if (existingFilter) {
         const valueExists = existingFilter.values.some(
-          (v) => v === filter.values[0]
+          (v) => v === filter.values[0],
         );
 
         if (valueExists) {
           existingFilter.values = existingFilter.values.filter(
-            (v) => v !== filter.values[0]
+            (v) => v !== filter.values[0],
           );
 
           if (existingFilter.values.length === 0) {
@@ -332,7 +330,7 @@ export const useSearchFiltersBase = ({
       addFilterToSearch,
       updateFilterToSearch,
       removeFilterToSearch,
-    ]
+    ],
   );
 
   return {
@@ -350,7 +348,7 @@ export const useSearchFiltersBase = ({
           operator,
           negated,
         }),
-      [syntaxFilters]
+      [syntaxFilters],
     ),
   };
 };

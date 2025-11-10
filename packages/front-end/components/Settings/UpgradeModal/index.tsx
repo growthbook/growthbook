@@ -12,10 +12,10 @@ import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import RadioCards from "@/components/Radix/RadioCards";
+import RadioCards from "@/ui/RadioCards";
 import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -37,32 +37,24 @@ export default function UpgradeModal({
   const { apiCall } = useAuth();
 
   const [loading, setLoading] = useState(false);
-  const [
-    trialAndUpgradePreference,
-    setTrialAndUpgradePreference,
-  ] = useState<string>("upgrade");
+  const [trialAndUpgradePreference, setTrialAndUpgradePreference] =
+    useState<string>("upgrade");
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
-  const [
-    showSHEnterpriseTrialSuccess,
-    setShowSHEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showSHEnterpriseTrialSuccess, setShowSHEnterpriseTrialSuccess] =
+    useState(false);
 
-  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] = useState(
-    false
-  );
-  const [
-    showCloudEnterpriseTrialSuccess,
-    setShowCloudEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] =
+    useState(false);
+  const [showCloudEnterpriseTrialSuccess, setShowCloudEnterpriseTrialSuccess] =
+    useState(false);
   const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
     clientSecret: string;
   } | null>(null);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
-  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
-    false
-  );
+  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] =
+    useState(false);
   const {
     name,
     email,
@@ -77,6 +69,8 @@ export default function UpgradeModal({
   const permissionsUtil = usePermissionsUtil();
 
   const { organization, refreshOrganization } = useUser();
+
+  const orgIsManagedByVercel = organization.isVercelIntegration;
 
   function shouldShowEnterpriseTreatment(): boolean {
     // if no commercialFeature is provided, determine what plan to show based on org's current plan
@@ -110,7 +104,7 @@ export default function UpgradeModal({
   const notice =
     license?.dateExpires && new Date(license?.dateExpires) < now
       ? `${licensePlanText} license expired ${date(
-          license.dateExpires || ""
+          license.dateExpires || "",
         )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
       : null;
 
@@ -129,15 +123,6 @@ export default function UpgradeModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (
-      ["enterprise"].includes(effectiveAccountPlan || "") &&
-      !license?.isTrial
-    ) {
-      close();
-    }
-  }, [effectiveAccountPlan, license, close]);
-
   const startPro = async () => {
     setError("");
     setLoading(true);
@@ -149,7 +134,7 @@ export default function UpgradeModal({
         if (res && res.url) {
           track(
             "Start Stripe Checkout For Pro With Existing Subscription",
-            trackContext
+            trackContext,
           );
           await redirectWithTimeout(res.url);
         } else {
@@ -180,7 +165,7 @@ export default function UpgradeModal({
         if (resp.session?.url) {
           track(
             "Start Stripe Checkout For Pro Without Existing Subscription",
-            trackContext
+            trackContext,
           );
           await redirectWithTimeout(resp.session.url);
         } else {
@@ -198,7 +183,7 @@ export default function UpgradeModal({
     const newWindow = window.open(
       "https://www.growthbook.io/demo",
       "_blank",
-      "noreferrer"
+      "noreferrer",
     );
     if (newWindow) newWindow.opener = null;
   }
@@ -234,7 +219,7 @@ export default function UpgradeModal({
         ...trackContext,
       });
       setError(
-        `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`
+        `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`,
       );
     }
   };
@@ -280,23 +265,25 @@ export default function UpgradeModal({
       switch (txt) {
         case "active license exists":
           setError(
-            "You already have an active license key. Contact us at sales@growthbook.io for more information."
+            "You already have an active license key. Contact us at sales@growthbook.io for more information.",
           );
           break;
         case "expired license exists":
           setError(
-            "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
+            "Your license key has already expired. Please contact us at sales@growthbook.io for more information.",
           );
           break;
         default:
           setError(
-            `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`
+            `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`,
           );
       }
     }
   };
 
   const bullets: Partial<Record<CommercialFeature, string>> = {
+    "share-product-analytics-dashboards":
+      "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
     "encrypt-features-endpoint": "SDK endpoint encryption",
@@ -341,6 +328,11 @@ export default function UpgradeModal({
     "require-approvals":
       "Reduce errors by requiring approval flows when changing feature flag values",
     "audit-logging": "Easily export historical audit logs",
+    "managed-warehouse":
+      "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
+    saveSqlExplorerQueries:
+      "Save query results and visualizations from the SQL Explorer.",
+    holdouts: "Measure aggregate impact with Holdouts",
   };
 
   const upgradeHeader = (
@@ -541,29 +533,60 @@ export default function UpgradeModal({
                   ${numOfCurrentMembers * 20} / month
                 </Text>
               </Flex>
-              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-                $20 per seat (Includes 2 million CDN requests and 20GB of
-                bandwidth per month)
-              </Text>
+              <Box mb="5">
+                <Text size="2">
+                  $20 per seat per month, {numOfCurrentMembers} current seat
+                  {numOfCurrentMembers > 1 ? "s" : ""}
+                </Text>
+              </Box>
 
-              <Text
-                as="div"
-                size="2"
-                weight={"bold"}
-                mt="3"
-                style={{ color: "var(--color-text-high)" }}
-              >
-                Additional usage:
-              </Text>
-              <ul
-                className="pl-4"
-                style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
-              >
-                <li> $10 per million CDN requests</li>
-                <li> $1 per GB </li>
-              </ul>
-
-              <hr style={{ borderColor: "var(--slate-a6)" }} />
+              <table className="table table-sm border-bottom mb-3">
+                <thead>
+                  <tr>
+                    <th>Usage Breakdown</th>
+                    <th>
+                      Included <small>(per month)</small>
+                    </th>
+                    <th>Additional</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commercialFeature === "managed-warehouse" && (
+                    <tr>
+                      <td>
+                        Managed Warehouse{" "}
+                        <Tooltip
+                          body={
+                            <>
+                              <div className="mb-2">
+                                Use our fully-managed data warehouse and event
+                                pipeline.
+                              </div>
+                              <div>
+                                OR bring your own for free (no usage charges).
+                              </div>
+                            </>
+                          }
+                        />
+                      </td>
+                      <td>2 million tracked events</td>
+                      <td>$0.03 per thousand</td>
+                    </tr>
+                  )}
+                  <tr style={{ borderBottom: 0 }}>
+                    <td rowSpan={2}>
+                      Global CDN{" "}
+                      <Tooltip body="Stream feature flags to users with minimal latency. You also have the option to cache locally to reduce usage and costs." />
+                    </td>
+                    <td>2 million requests</td>
+                    <td>$10 per million</td>
+                  </tr>
+                  <tr>
+                    <td>20GB bandwidth</td>
+                    <td>$1 per GB</td>
+                  </tr>
+                </tbody>
+              </table>
               <p className="mb-0">
                 <a
                   href="/settings/usage"
@@ -573,7 +596,7 @@ export default function UpgradeModal({
                   onClick={() => {
                     track(
                       "Clicked See Recent Usage From Upgrade Modal",
-                      trackContext
+                      trackContext,
                     );
                   }}
                 >
@@ -649,6 +672,28 @@ export default function UpgradeModal({
     }
   }
 
+  // Safety check in case an Enterprise org found themselves here
+  if (accountPlan === "enterprise") {
+    return (
+      <Modal
+        trackingEventModalType="upgrade-modal"
+        allowlistedTrackingEventProps={trackContext}
+        open={true}
+        includeCloseCta={true}
+        closeCta="Close"
+        close={close}
+        size="lg"
+        header={null}
+        showHeaderCloseButton={false}
+        ctaEnabled={permissionsUtil.canManageBilling()}
+      >
+        <Callout status="info" mr="5" mb="2">
+          Your organization is already on GrowthBook&apos;s highest plan.
+        </Callout>
+      </Modal>
+    );
+  }
+
   return (
     <>
       {showSHProTrial ? (
@@ -720,6 +765,49 @@ export default function UpgradeModal({
             closeParent={close}
           />
         </StripeProvider>
+      ) : orgIsManagedByVercel ? (
+        <Modal
+          trackingEventModalType="upgrade-modal"
+          allowlistedTrackingEventProps={trackContext}
+          open={true}
+          includeCloseCta={true}
+          closeCta="Close"
+          close={close}
+          size="md"
+          header={null}
+          showHeaderCloseButton={false}
+        >
+          <div>
+            <h3 className="pb-2">
+              Upgrade to {showEnterpriseTreatment ? "Enterprise" : "Pro"}
+            </h3>
+            <Callout status="info">
+              You organization is currently managed by Vercel.
+              {showEnterpriseTreatment ? (
+                <span className="pl-1">
+                  To upgrade to Enterprise, please email{" "}
+                  <b>
+                    <a
+                      href="mailto:sales@growthbook.io"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="link-purple"
+                    >
+                      sales@growthbook.io
+                    </a>
+                  </b>
+                  .
+                </span>
+              ) : (
+                <span className="pl-1">
+                  Please go to your Vercel Integration Dashboard and locate the
+                  GrowthBook integration. From there, you can upgrade your
+                  GrowthBook subscription via the <b>Settings </b>tab.
+                </span>
+              )}
+            </Callout>
+          </div>
+        </Modal>
       ) : (
         <Modal
           trackingEventModalType="upgrade-modal"
@@ -737,8 +825,8 @@ export default function UpgradeModal({
               {showEnterpriseTreatment
                 ? "Schedule Call"
                 : trialAndUpgradePreference === "upgrade"
-                ? "Continue"
-                : "Start Trial"}
+                  ? "Continue"
+                  : "Start Trial"}
               <PiCaretRight />
             </>
           }
@@ -749,7 +837,7 @@ export default function UpgradeModal({
           <div
             className={clsx(
               "container-fluid dashboard p-3 ",
-              styles.upgradeModal
+              styles.upgradeModal,
             )}
           >
             {showEnterpriseTreatment ? enterpriseTreatment() : proTreatment()}

@@ -9,8 +9,8 @@ interface Props {
 export default function SafeRolloutDetails({ safeRollout }: Props) {
   return (
     <div>
-      <div className="container-fluid pagecontents px-0 mt-4">
-        <Box mb="6">
+      <div className="container-fluid pagecontents p-0">
+        <Box mb="2">
           <SafeRolloutResults safeRollout={safeRollout} />
         </Box>
       </div>

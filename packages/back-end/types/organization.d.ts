@@ -13,12 +13,14 @@ import {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
+import { TiktokenModel } from "@dqbd/tiktoken";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { TeamInterface } from "back-end/types/team";
+import { AgreementType } from "back-end/src/validators/agreements";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -27,9 +29,10 @@ import {
   MetricWindowSettings,
 } from "./fact-table";
 
-export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
-export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
-export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
+export type EnvScopedPermission = (typeof ENV_SCOPED_PERMISSIONS)[number];
+export type ProjectScopedPermission =
+  (typeof PROJECT_SCOPED_PERMISSIONS)[number];
+export type GlobalPermission = (typeof GLOBAL_PERMISSIONS)[number];
 
 export type Permission =
   | GlobalPermission
@@ -160,7 +163,7 @@ export interface Namespaces {
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 
-export type SDKAttributeType = typeof attributeDataTypes[number];
+export type SDKAttributeType = (typeof attributeDataTypes)[number];
 
 export type SDKAttribute = {
   property: string;
@@ -171,6 +174,7 @@ export type SDKAttribute = {
   archived?: boolean;
   format?: SDKAttributeFormat;
   projects?: string[];
+  disableEqualityConditions?: boolean;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -211,6 +215,8 @@ export interface OrganizationSettings {
   regressionAdjustmentDays?: number;
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
+  aiEnabled?: boolean;
+  openAIDefaultModel?: TiktokenModel;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
@@ -223,6 +229,7 @@ export interface OrganizationSettings {
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
+  disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
   codeReferencesEnabled?: boolean;
@@ -237,6 +244,8 @@ export interface OrganizationSettings {
   experimentPageMarkdown?: string;
   metricListMarkdown?: string;
   metricPageMarkdown?: string;
+  preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
+  maxMetricSliceLevels?: number;
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
@@ -246,11 +255,14 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
+  disableLegacyMetricCreation?: boolean;
+  blockFileUploads?: boolean;
+  defaultFeatureRulesInAllEnvs?: boolean;
+  savedGroupSizeLimit?: number;
 }
 
 export interface OrganizationConnections {
   slack?: SlackConnection;
-  vercel?: VercelConnection;
 }
 
 export interface SlackConnection {
@@ -297,6 +309,7 @@ export interface OrganizationInterface {
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
+  isVercelIntegration?: boolean;
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;
@@ -318,6 +331,7 @@ export interface OrganizationInterface {
     hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
+  installationName?: string;
   autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
@@ -353,6 +367,7 @@ export type GetOrganizationResponse = {
   members: ExpandedMember[];
   seatsInUse: number;
   roles: Role[];
+  agreements: AgreementType[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;
@@ -361,6 +376,7 @@ export type GetOrganizationResponse = {
   licenseError: string;
   commercialFeatures: CommercialFeature[];
   license: Partial<LicenseInterface> | null;
+  installationName: string | null;
   subscription: SubscriptionInfo | null;
   licenseKey?: string;
   currentUserPermissions: UserPermissions;

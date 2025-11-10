@@ -19,10 +19,9 @@ import {
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { LOCALSTORAGE_PROJECT_KEY } from "@/services/DefinitionsContext";
+import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Checkbox from "@/ui/Checkbox";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -53,8 +52,7 @@ const CreateOrJoinOrganization: FC<{
 
   const { apiCall, logout, setOrgId } = useAuth();
   const { updateUser } = useUser();
-
-  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [, setProject] = useProject();
 
   const { data: recommendedOrgsData } = useApi<{
     organizations: {
@@ -128,8 +126,8 @@ const CreateOrJoinOrganization: FC<{
           {showCreate && showJoin
             ? `Create or join one here.`
             : showCreate
-            ? `Create a new one here.`
-            : `Join one here.`}
+              ? `Create a new one here.`
+              : `Join one here.`}
         </p>
       ) : (
         <p>Ask your admin to invite you to the organization.</p>
@@ -237,12 +235,12 @@ const CreateOrJoinOrganization: FC<{
                       };
                       if (value.ownerFeatureFlagUsageIntent) {
                         body.demographicData?.ownerUsageIntents?.push(
-                          "featureFlags"
+                          "featureFlags",
                         );
                       }
                       if (value.ownerExperimentUsageIntent) {
                         body.demographicData?.ownerUsageIntents?.push(
-                          "experiments"
+                          "experiments",
                         );
                       }
                       const resp = await apiCall<{
@@ -303,7 +301,7 @@ const CreateOrJoinOrganization: FC<{
                       ([key, title]) => ({
                         label: title,
                         value: key,
-                      })
+                      }),
                     )}
                     onChange={(value: OwnerJobTitle) => {
                       newOrgForm.setValue("ownerJobTitle", value);
@@ -322,7 +320,7 @@ const CreateOrJoinOrganization: FC<{
                       setValue={(v) => {
                         newOrgForm.setValue(
                           "ownerFeatureFlagUsageIntent",
-                          v === true
+                          v === true,
                         );
                       }}
                     />
@@ -337,7 +335,7 @@ const CreateOrJoinOrganization: FC<{
                       setValue={(v) => {
                         newOrgForm.setValue(
                           "ownerExperimentUsageIntent",
-                          v === true
+                          v === true,
                         );
                       }}
                     />

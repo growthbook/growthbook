@@ -17,7 +17,7 @@ export function isSingleValue(option: Option): option is SingleValue {
 }
 export type FormatOptionLabelType = (
   value: SingleValue,
-  meta: FormatOptionLabelMeta<SingleValue>
+  meta: FormatOptionLabelMeta<SingleValue>,
 ) => ReactNode;
 
 export type SelectFieldProps = Omit<
@@ -45,7 +45,7 @@ export type SelectFieldProps = Omit<
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
   initialOption?: string,
-  sort?: boolean
+  sort?: boolean,
 ) {
   return useMemo(() => {
     const m = new Map<string, SingleValue>();
@@ -123,10 +123,17 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
-    option: (styles, { isFocused }) => {
+    option: (styles, { isFocused, isDisabled }) => {
       return {
         ...styles,
         color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+        ...(isDisabled
+          ? {
+              opacity: 0.5,
+              color: "var(--text-color-muted)",
+              cursor: "not-allowed",
+            }
+          : {}),
       };
     },
     input: (styles) => {
@@ -216,7 +223,7 @@ const SelectField: FC<SelectFieldProps> = ({
             className={clsx(
               "gb-select-wrapper position-relative",
               disabled ? "disabled" : "",
-              className
+              className,
             )}
           >
             {createable ? (
@@ -232,7 +239,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 options={sorted}
                 formatCreateLabel={formatCreateLabel}
                 isValidNewOption={(value) => {
-                  if (!otherProps.pattern) return true;
+                  if (!otherProps.pattern) return !!value;
                   return new RegExp(otherProps.pattern).test(value);
                 }}
                 autoFocus={autoFocus}
@@ -292,7 +299,9 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 onBlur={onBlur}
                 autoFocus={autoFocus}
-                value={forceUndefinedValueToNull ? selected ?? null : selected}
+                value={
+                  forceUndefinedValueToNull ? (selected ?? null) : selected
+                }
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}

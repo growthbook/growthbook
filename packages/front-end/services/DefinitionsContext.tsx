@@ -11,6 +11,7 @@ import {
   ReactNode,
   useCallback,
   ReactElement,
+  useEffect,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
 import {
@@ -27,6 +28,7 @@ import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
+import { useUser } from "./UserContext";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -110,15 +112,14 @@ const defaultValue: DefinitionContextValue = {
   getDecisionCriteriaById: () => null,
 };
 
-export const DefinitionsContext = createContext<DefinitionContextValue>(
-  defaultValue
-);
+export const DefinitionsContext =
+  createContext<DefinitionContextValue>(defaultValue);
 
 interface IndexableItem {
   id: string;
 }
 function useGetById<T extends IndexableItem>(
-  items?: T[]
+  items?: T[],
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
@@ -142,14 +143,45 @@ export function useDefinitions() {
 
 export const LOCALSTORAGE_PROJECT_KEY = "gb_current_project" as const;
 
+// Applies user's team(s) default project constraint once per browser session
+let teamConstraintApplied = false;
+function useTeamProjectConstraint() {
+  const { user, teams } = useUser();
+  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
+  useEffect(() => {
+    if (!user?.teams || !teams || teamConstraintApplied) return;
+
+    const defaultProjects = new Set<string>();
+    (teams || []).forEach((team) => {
+      if (team?.defaultProject && user?.teams?.includes(team.id)) {
+        defaultProjects.add(team.defaultProject);
+      }
+    });
+
+    // Apply default project if applicable
+    teamConstraintApplied = true;
+    if (defaultProjects.size > 0 && !defaultProjects.has(project)) {
+      const firstAllowedProject = Array.from(defaultProjects)[0];
+      setProject(firstAllowedProject);
+    }
+  }, [user?.teams, teams, project, setProject]);
+
+  return [project, setProject] as const;
+}
+
+export const useProject = () => {
+  return useTeamProjectConstraint();
+};
+
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
-    "/organization/definitions"
+    "/organization/definitions",
   );
 
-  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [project, setProject] = useProject();
 
   const activeMetrics = useMemo(() => {
     if (!data || !data.metrics) {
@@ -185,7 +217,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     }
     return data.factMetrics.filter((m) => {
       const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId
+        (f) => f.id === m.denominator?.factTableId,
       );
       const denominatorFactTable = m.denominator?.factTableId
         ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
@@ -245,6 +277,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+
   const getMetricGroupById = useGetById(data?.metricGroups);
   const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
 
@@ -255,7 +288,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       }
       return getMetricById(id);
     },
-    [getMetricById, getFactMetricById]
+    [getMetricById, getFactMetricById],
   );
 
   let value: DefinitionContextValue;
@@ -313,10 +346,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
                   id: t,
                   color: "blue",
                   description: "",
-                }))
+                })),
               ),
             },
-            false
+            false,
           );
         }
       },

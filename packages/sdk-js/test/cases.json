@@ -6411,6 +6411,249 @@
       }
     ],
     [
+      "uses a sticky bucket when sticky bucket version == experiment.minBucketVersion === experiment.bucketVersion",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__3": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "2",
+        "stickyBucketUsed": true,
+        "value": "blue",
+        "variationId": 2
+      },
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__3": "2" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "skips assignment when sticky bucket version < experiment.minBucketVersion",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__2": "2"
+          }
+        }
+      ],
+      "exp1",
+      null,
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__2": "2" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "resets sticky bucketing when bucket version > experiment.bucketVersion (invalid version)",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__4": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": false,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "deviceId||d123": {
+          "assignments": {
+            "feature-exp__3": "1",
+            "feature-exp__4": "2"
+          },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "resets sticky bucketing when bucket version < experiment.bucketVersion (invalid version)",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 4,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__3": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": false,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "deviceId||d123": {
+          "assignments": {
+            "feature-exp__3": "2",
+            "feature-exp__4": "1"
+          },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
       "disables sticky bucketing when disabled by experiment",
       {
         "attributes": {

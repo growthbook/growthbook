@@ -10,7 +10,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
@@ -19,10 +19,8 @@ export const ArchetypeList: FC<{
   archetypeErrors: Error | undefined;
   mutate: () => void;
 }> = ({ archetypes, archetypeErrors, mutate }) => {
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
   const { getUserDisplay, hasCommercialFeature } = useUser();
@@ -109,7 +107,7 @@ export const ArchetypeList: FC<{
               {archetypes.map((archetype: ArchetypeInterface) => {
                 const canEdit = permissionsUtil.canUpdateArchetype(
                   archetype,
-                  {}
+                  {},
                 );
                 let parsedAttributes = {};
                 try {
@@ -117,7 +115,7 @@ export const ArchetypeList: FC<{
                 } catch {
                   console.error(
                     "Failed to parse attributes. Invalid JSON string: " +
-                      archetype.attributes
+                      archetype.attributes,
                   );
                 }
                 const canDelete = permissionsUtil.canDeleteArchetype(archetype);

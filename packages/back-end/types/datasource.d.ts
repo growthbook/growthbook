@@ -10,6 +10,7 @@ import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
+import { FactTableColumnType } from "./fact-table";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -85,11 +86,11 @@ export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
     userId: string,
-    options?: GetExperimentSqlOptions
+    options?: GetExperimentSqlOptions,
   ): string;
   getIdentitySQL(
     tablePrefix: string,
-    options?: Record<string, string | number>
+    options?: Record<string, string | number>,
   ): IdentityJoinQuery[];
   experimentDimensions: string[];
   userIdTypes: string[];
@@ -137,6 +138,7 @@ export interface DataSourceProperties {
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasIncrementalRefresh?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {
@@ -153,6 +155,7 @@ export type IdentityJoinQuery = {
 export interface ExperimentDimensionMetadata {
   dimension: string;
   specifiedSlices: string[];
+  customSlices?: boolean;
 }
 
 export interface ExposureQuery {
@@ -180,12 +183,55 @@ export type DataSourceEvents = {
   extraUserIdProperty?: string;
 };
 
+export type DataSourcePipelineMode = "ephemeral" | "incremental";
+
 export type DataSourcePipelineSettings = {
-  allowWriting?: boolean;
-  writeDatabase?: string; // the top level directory
-  writeDataset?: string; // the mid level name (aka schema)
-  unitsTableRetentionHours?: number;
+  /**
+   * Controls if we run Pipeline Mode at all or not.
+   */
+  allowWriting: boolean;
+  /**
+   * If allowWriting is true, this controls how the pipeline is run.
+   */
+  mode: DataSourcePipelineMode;
+  /**
+   * The top level directory.
+   * If undefined, we use the default.
+   */
+  writeDatabase?: string;
+  /**
+   * The mid level name (aka schema).
+   */
+  writeDataset: string;
+  /**
+   * The number of hours to keep the units table.
+   * Note: For some datasources we use this to automatically expire tables.
+   */
+  unitsTableRetentionHours: number;
+  /**
+   * Only used for ephemeral mode.
+   * Controls if we drop the units table when the analysis finishes.
+   */
   unitsTableDeletion?: boolean;
+  /**
+   * If specified, we will use the configured pipeline mode only for these experiment IDs.
+   * If not specified, we will use the configured pipeline mode for all experiments.
+   */
+  includedExperimentIds?: string[];
+  /**
+   * If specified, these experiment IDs will NOT use incremental refresh
+   * even when mode is "incremental". They will fall back to standard queries.
+   */
+  excludedExperimentIds?: string[];
+};
+
+export type MaterializedColumnType = "" | "identifier" | "dimension";
+
+export type MaterializedColumn = {
+  columnName: string;
+  sourceField: string;
+  datatype: FactTableColumnType;
+  type?: MaterializedColumnType;
 };
 
 export type DataSourceSettings = {
@@ -231,6 +277,10 @@ export type DataSourceSettings = {
   maxConcurrentQueries?: string;
 };
 
+export interface GrowthbookClickhouseSettings extends DataSourceSettings {
+  materializedColumns?: MaterializedColumn[];
+}
+
 interface DataSourceBase {
   id: string;
   name: string;
@@ -241,10 +291,13 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
+  lockUntil?: Date | null;
+  type: DataSourceType;
 }
 
 export interface GrowthbookClickhouseDataSource extends DataSourceBase {
   type: "growthbook_clickhouse";
+  settings: GrowthbookClickhouseSettings;
 }
 interface RedshiftDataSource extends DataSourceBase {
   type: "redshift";

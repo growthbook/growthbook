@@ -74,7 +74,7 @@ export default function NewExperimentChecklistItem({
       label: `Add a value for "${field.name}"`,
       customFieldId: field.id,
       propertyKey: "customField",
-    })
+    }),
   );
 
   const combinedChecklistOptions = [
@@ -101,7 +101,7 @@ export default function NewExperimentChecklistItem({
           classNamePrefix="gb-select"
           options={combinedChecklistOptions.filter((option) => {
             return !experimentLaunchChecklist.some(
-              (index) => index.task === option.value
+              (index) => index.task === option.value,
             );
           })}
           placeholder="Choose from pre-defined tasks or create your own custom task"
@@ -159,7 +159,7 @@ export default function NewExperimentChecklistItem({
               addNewTask(newTaskInput);
             }}
           >
-            Add Task
+            Add To Checklist
           </button>
           <button
             className="btn btn-link"

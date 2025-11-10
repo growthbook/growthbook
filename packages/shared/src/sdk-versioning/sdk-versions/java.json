@@ -1,6 +1,9 @@
 {
   "versions": [
     {
+      "version": "0.10.2"
+    },
+    {
       "version": "0.10.1"
     },
     {
@@ -19,7 +22,8 @@
       "version": "0.9.93"
     },
     {
-      "version": "0.9.92"
+      "version": "0.9.92",
+      "capabilities": ["remoteEvaluation"]
     },
     {
       "version": "0.9.91"

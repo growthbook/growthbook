@@ -17,6 +17,22 @@ def check_gbstats_compatibility(nb_version: str) -> None:
         )
 
 
+def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
+    if not mean_a_unadjusted:
+        mean_a_unadjusted = mean_a
+    if relative:
+        return (mean_b - mean_a) / mean_a_unadjusted
+    else:
+        return mean_b - mean_a
+
+
+def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> float:
+    if relative:
+        return variance_of_ratios(mean_b, var_b / n_b, mean_a, var_a / n_a, 0)
+    else:
+        return var_b / n_b + var_a / n_a
+
+
 def truncated_normal_mean(mu, sigma, a, b) -> float:
     # parameterized in scipy.stats as number of sds from mu
     # rescaling for readability
@@ -29,6 +45,8 @@ def truncated_normal_mean(mu, sigma, a, b) -> float:
 # denominator random variable D (mean = mean_d, var = var_d),
 # and covariance cov_m_d, what is the variance of M / D?
 def variance_of_ratios(mean_m, var_m, mean_d, var_d, cov_m_d) -> float:
+    if mean_d == 0:
+        return 0
     return (
         var_m / mean_d**2
         + var_d * mean_m**2 / mean_d**4

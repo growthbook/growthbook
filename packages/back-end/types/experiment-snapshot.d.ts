@@ -4,6 +4,7 @@ import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
 } from "back-end/src/services/stats";
+import { PhaseSQLVar } from "back-end/types/sql";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import {
@@ -111,6 +112,8 @@ export interface DimensionForSnapshot {
   // The same format we use today that encodes both the type and id
   // For example: `exp:country` or `pre:date`
   id: string;
+  // Pre-defined dimension levels, if they exist
+  slices?: string[];
   // Dimension settings at the time the snapshot was created
   // Used to show an "out-of-date" warning on the front-end
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
@@ -128,10 +131,18 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
   numGoalMetrics: number;
   oneSidedIntervals?: boolean;
+  holdoutAnalysisWindow?: {
+    start: Date;
+    end: Date;
+  };
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
-export type SnapshotTriggeredBy = "schedule" | "manual";
+export type SnapshotTriggeredBy =
+  | "schedule"
+  | "manual"
+  | "manual-dashboard"
+  | "update-dashboards";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
@@ -181,6 +192,8 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;

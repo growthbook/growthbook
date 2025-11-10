@@ -70,6 +70,7 @@ const organizationSchema = new mongoose.Schema({
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
+  isVercelIntegration: Boolean,
   members: [
     {
       ...baseMemberFields,
@@ -135,11 +136,6 @@ const organizationSchema = new mongoose.Schema({
       team: String,
       token: String,
     },
-    vercel: {
-      token: String,
-      configurationId: String,
-      teamId: String,
-    },
   },
   settings: {},
   getStartedChecklistItems: [String],
@@ -147,13 +143,14 @@ const organizationSchema = new mongoose.Schema({
   deactivatedRoles: [],
   disabled: Boolean,
   setupEventTracker: String,
+  trackingDisabled: Boolean,
 });
 
 organizationSchema.index({ "members.id": 1 });
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
-  organizationSchema
+  organizationSchema,
 );
 const COLLECTION = "organizations";
 
@@ -168,6 +165,8 @@ export async function createOrganization({
   url = "",
   verifiedDomain = "",
   externalId = "",
+  isVercelIntegration = false,
+  restrictLoginMethod,
 }: {
   email: string;
   userId: string;
@@ -176,6 +175,8 @@ export async function createOrganization({
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
+  isVercelIntegration?: boolean;
+  restrictLoginMethod?: string;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -207,6 +208,7 @@ export async function createOrganization({
         },
       ],
       killswitchConfirmation: true,
+      runHealthTrafficQuery: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },
@@ -226,16 +228,32 @@ export async function createOrganization({
         { property: "utmTerm", datatype: "string" },
         { property: "utmContent", datatype: "string" },
       ],
+      disablePrecomputedDimensions: false,
     },
     getStartedChecklistItems: [],
+    isVercelIntegration,
+    ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
+}
+
+export async function getOrganizationIdsWithTrackingDisabled(
+  organizationIds: string[],
+) {
+  const orgs = await OrganizationModel.find(
+    {
+      id: { $in: organizationIds },
+      trackingDisabled: true,
+    },
+    { id: 1, _id: 0 },
+  );
+  return new Set(orgs.map((org) => org.id));
 }
 
 export async function findAllOrganizations(
   page: number,
   search: string,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const regex = new RegExp(search, "i");
 
@@ -268,9 +286,15 @@ export async function findOrganizationById(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
+type DeletableKeys = Extract<
+  keyof OrganizationInterface,
+  "restrictLoginMethod"
+>;
+
 export async function updateOrganization(
   id: string,
-  update: Partial<OrganizationInterface>
+  update: Partial<OrganizationInterface>,
+  unset?: Partial<Record<DeletableKeys, 1>>,
 ) {
   await OrganizationModel.updateOne(
     {
@@ -278,7 +302,8 @@ export async function updateOrganization(
     },
     {
       $set: update,
-    }
+      ...(unset ? { $unset: unset } : {}),
+    },
   );
 }
 
@@ -295,7 +320,7 @@ export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
       "members.role": 1,
       "members.projectRoles.role": 1,
       "members.teams": 1,
-    }
+    },
   );
 }
 
@@ -372,7 +397,7 @@ export async function getOrganizationsWithNorthStars() {
 
 export async function removeProjectFromProjectRoles(
   project: string,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ) {
   if (!org) return;
 
@@ -414,7 +439,7 @@ export async function findOrganizationsByDomain(domain: string) {
 
 export async function setOrganizationMessages(
   orgId: string,
-  messages: OrganizationMessage[]
+  messages: OrganizationMessage[],
 ): Promise<void> {
   await OrganizationModel.updateOne(
     {
@@ -423,12 +448,12 @@ export async function setOrganizationMessages(
     { messages },
     {
       runValidators: true,
-    }
+    },
   );
 }
 
 export function toOrganizationApiInterface(
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): ApiOrganization {
   const { id, externalId, name, ownerEmail, dateCreated } = org;
   return {
@@ -443,7 +468,7 @@ export function toOrganizationApiInterface(
 export async function updateMember(
   org: OrganizationInterface,
   userId: string,
-  updates: Partial<Member>
+  updates: Partial<Member>,
 ) {
   if (updates.id) throw new Error("Cannot update member id");
 
@@ -489,7 +514,7 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
   // Validate custom role id format
   if (!/^[a-zA-Z0-9_]+$/.test(role.id)) {
     throw new Error(
-      "Role id must only include letters, numbers, and underscores."
+      "Role id must only include letters, numbers, and underscores.",
     );
   }
 
@@ -502,7 +527,7 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
 export async function editCustomRole(
   org: OrganizationInterface,
   id: string,
-  updates: Omit<Role, "id">
+  updates: Omit<Role, "id">,
 ) {
   // Validation
   updates = customRoleValidator.omit({ id: true }).parse(updates);
@@ -536,12 +561,12 @@ function usingRole(member: MemberRoleWithProjects, role: string): boolean {
 export async function removeCustomRole(
   org: OrganizationInterface,
   teams: TeamInterface[],
-  id: string
+  id: string,
 ) {
   // Make sure the id isn't the org's default
   if (org.settings?.defaultRole?.role === id) {
     throw new Error(
-      "Cannot delete role. This role is set as the organization's default role."
+      "Cannot delete role. This role is set as the organization's default role.",
     );
   }
   // Make sure no members, invites, pending members, or teams are using the role
@@ -550,12 +575,12 @@ export async function removeCustomRole(
   }
   if (org.pendingMembers?.some((m) => usingRole(m, id))) {
     throw new Error(
-      "Role is currently being used by at least one pending member"
+      "Role is currently being used by at least one pending member",
     );
   }
   if (org.invites?.some((m) => usingRole(m, id))) {
     throw new Error(
-      "Role is currently being used by at least one invited member"
+      "Role is currently being used by at least one invited member",
     );
   }
   if (teams.some((team) => usingRole(team, id))) {
@@ -563,7 +588,7 @@ export async function removeCustomRole(
   }
 
   const newCustomRoles = (org.customRoles || []).filter(
-    (role) => role.id !== id
+    (role) => role.id !== id,
   );
 
   if (newCustomRoles.length === (org.customRoles || []).length) {
@@ -583,7 +608,7 @@ export async function removeCustomRole(
 
 export async function deactivateRoleById(
   org: OrganizationInterface,
-  id: string
+  id: string,
 ) {
   if (
     !RESERVED_ROLE_IDS.includes(id) &&
@@ -606,7 +631,7 @@ export async function activateRoleById(org: OrganizationInterface, id: string) {
   }
 
   const newDeactivatedRoles = org.deactivatedRoles.filter(
-    (role) => role !== id
+    (role) => role !== id,
   );
 
   await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
@@ -619,6 +644,6 @@ export async function addGetStartedChecklistItem(id: string, item: string) {
     },
     {
       $addToSet: { getStartedChecklistItems: item },
-    }
+    },
   );
 }

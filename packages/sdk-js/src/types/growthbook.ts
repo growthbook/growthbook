@@ -169,41 +169,41 @@ export interface TrackingDataWithUser {
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
-  user: UserContext
+  user: UserContext,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (
   key: string,
-  result: FeatureResult<any>
+  result: FeatureResult<any>,
 ) => void;
 
 export type FeatureUsageCallbackWithUser = (
   key: string,
   result: FeatureResult<any>,
-  user: UserContext
+  user: UserContext,
 ) => void;
 
 export type Plugin = (
-  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
 ) => void;
 
 export type EventProperties = Record<string, unknown>;
 export type EventLogger = (
   eventName: string,
   properties: EventProperties,
-  userContext: UserContext
+  userContext: UserContext,
 ) => void | Promise<void>;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
-  changes: AutoExperimentVariation
+  changes: AutoExperimentVariation,
 ) => () => void;
 
 export type RenderFunction = () => void;
@@ -288,7 +288,7 @@ export type ClientOptions = {
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
-    user: UserContext
+    user: UserContext,
   ) => void;
   eventLogger?: EventLogger;
   apiHost?: string;
@@ -343,7 +343,7 @@ export type UserContext = {
     StickyAssignmentsDocument
   >;
   saveStickyBucketAssignmentDoc?: (
-    doc: StickyAssignmentsDocument
+    doc: StickyAssignmentsDocument,
   ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
@@ -381,7 +381,7 @@ export type PrefetchOptions = Pick<
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
 ) => void;
 
 export type VariationRange = [number, number];
@@ -414,10 +414,10 @@ export type JSONValue =
 export type WidenPrimitives<T> = T extends string
   ? string
   : T extends number
-  ? number
-  : T extends boolean
-  ? boolean
-  : T;
+    ? number
+    : T extends boolean
+      ? boolean
+      : T;
 
 export type DOMMutation = {
   selector: string;
@@ -539,6 +539,10 @@ export type LoadFeaturesOptions = {
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
+};
+
+export type DestroyOptions = {
+  destroyAllStreams?: boolean;
 };
 
 export interface Filter {

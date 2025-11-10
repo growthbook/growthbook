@@ -2,6 +2,7 @@ import React from "react";
 import SelectField from "@/components/Forms/SelectField";
 
 const eventTrackerOptions = [
+  { label: "GrowthBook Managed Warehouse", value: "growthbook" },
   { label: "Google Analytics 4", value: "GA4" },
   { label: "Google Analytics 4 via GTM", value: "GTM" },
   { label: "Segment.io", value: "segment" },
@@ -14,7 +15,7 @@ const eventTrackerOptions = [
 ];
 
 // expand as we add more supported trackers:
-export const pluginSupportedTrackers = ["segment", "GA4", "GTM"];
+export const pluginSupportedTrackers = ["segment", "GA4", "GTM", "growthbook"];
 
 const EventTrackerSelector: React.FC<{
   eventTracker: string;
@@ -26,6 +27,7 @@ const EventTrackerSelector: React.FC<{
         label="Event Tracking System"
         labelClassName="mr-2"
         options={eventTrackerOptions}
+        defaultValue="GA4"
         sort={false}
         value={eventTracker}
         onChange={(value) => setEventTracker(value)}

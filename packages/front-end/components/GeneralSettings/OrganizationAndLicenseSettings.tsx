@@ -6,8 +6,8 @@ import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -16,20 +16,24 @@ export default function OrganizationAndLicenseSettings({
   org: Partial<OrganizationInterface>;
   refreshOrg: () => Promise<void>;
 }) {
+  const { installationName, license } = useUser();
   const [editOpen, setEditOpen] = useState(false);
   const permissions = usePermissions();
   // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
   const canEdit = permissions.check("organizationSettings");
   const { users } = useUser();
   const ownerEmailExists = !!Array.from(users).find(
-    (e) => e[1].email === org.ownerEmail
+    (e) => e[1].email === org.ownerEmail,
   );
+  const showInstallationName =
+    license?.plan === "enterprise" && !isCloud() && isMultiOrg();
 
   return (
     <>
       {editOpen && (
         <EditOrganizationModal
           name={org.name || ""}
+          installationName={installationName || ""}
           ownerEmail={org.ownerEmail || ""}
           close={() => setEditOpen(false)}
           mutate={refreshOrg}
@@ -65,9 +69,13 @@ export default function OrganizationAndLicenseSettings({
                     </a>
                   )}
                 </Box>
-                {!isCloud() && !isMultiOrg() && (
+                <Box>
+                  <Text weight="medium">Organization Id: </Text> {org.id}
+                </Box>
+                {showInstallationName && (
                   <Box>
-                    <Text weight="medium">Organization Id: </Text> {org.id}
+                    <Text weight="medium">Installation Name: </Text>{" "}
+                    {installationName}
                   </Box>
                 )}
               </Flex>

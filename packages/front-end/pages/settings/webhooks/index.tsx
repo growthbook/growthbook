@@ -3,7 +3,7 @@ import { datetime } from "shared/dates";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -23,7 +23,11 @@ const WebhooksPage: FC = () => {
   const { webhookSecrets, mutateDefinitions } = useDefinitions();
 
   const [editSecretId, setEditSecretId] = useState<string | null>(null);
-  const [newSecretOpen, setNewSecretOpen] = useState(false);
+
+  const queryParams = new URLSearchParams(window.location.search);
+  const [newSecretOpen, setNewSecretOpen] = useState<boolean>(
+    queryParams.has("newSecret") || false,
+  );
 
   if (!canManageWebhooks) {
     return (
@@ -52,6 +56,7 @@ const WebhooksPage: FC = () => {
               <tr>
                 <th>Key</th>
                 <th>Description</th>
+                <th>Allowed Origins</th>
                 <th>Created</th>
                 <th>Updated</th>
                 <th></th>
@@ -64,6 +69,13 @@ const WebhooksPage: FC = () => {
                     <ClickToCopy>{secret.key}</ClickToCopy>
                   </td>
                   <td>{secret.description}</td>
+                  <td>
+                    {secret.allowedOrigins?.length ? (
+                      secret.allowedOrigins.join(", ")
+                    ) : (
+                      <em>Any</em>
+                    )}
+                  </td>
                   <td>{datetime(secret.dateCreated)}</td>
                   <td>{datetime(secret.dateUpdated)}</td>
                   <td>

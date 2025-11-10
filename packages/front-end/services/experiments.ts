@@ -9,43 +9,178 @@ import {
   SDKAttributeSchema,
 } from "back-end/types/organization";
 import {
+  ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ExperimentTemplateInterface,
   MetricOverride,
 } from "back-end/types/experiment";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isNil, omit } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
+  getEqualWeights,
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
   isBinomialMetric,
+  isRatioMetric,
   isSuspiciousUplift,
   quantileMetricType,
-  isRatioMetric,
-  getEqualWeights,
 } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+import { ReactElement } from "react";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
+export const compareRows = (
+  a: ExperimentTableRow,
+  b: ExperimentTableRow,
+  options: {
+    sortBy: "significance" | "change";
+    variationFilter: number[];
+    metricDefaults: MetricDefaults;
+    sortDirection: "asc" | "desc";
+  },
+) => {
+  const { sortBy, variationFilter, metricDefaults, sortDirection } = options;
+
+  const aVisibleVariations =
+    a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+  const bVisibleVariations =
+    b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+
+  const aBaseline = a?.variations?.[0];
+  const bBaseline = b?.variations?.[0];
+
+  const aVariationsWithEnoughData = aVisibleVariations.filter((v) => {
+    const originalIndex = a?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(aBaseline, v, a?.metric, metricDefaults)
+    );
+  });
+  const bVariationsWithEnoughData = bVisibleVariations.filter((v) => {
+    const originalIndex = b?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(bBaseline, v, b?.metric, metricDefaults)
+    );
+  });
+
+  if (
+    aVariationsWithEnoughData.length === 0 &&
+    bVariationsWithEnoughData.length === 0
+  )
+    return 0;
+  if (aVariationsWithEnoughData.length === 0) return 1;
+  if (bVariationsWithEnoughData.length === 0) return -1;
+
+  const aSignificanceValues = aVariationsWithEnoughData.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
+  });
+  const bSignificanceValues = bVariationsWithEnoughData.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
+  });
+
+  if (aSignificanceValues.length === 0 && bSignificanceValues.length === 0)
+    return 0;
+  if (aSignificanceValues.length === 0) return 1;
+  if (bSignificanceValues.length === 0) return -1;
+
+  const aAggregatedValue =
+    sortBy === "change"
+      ? Math.max(...aSignificanceValues)
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...aSignificanceValues)
+        : Math.max(...aSignificanceValues);
+  const bAggregatedValue =
+    sortBy === "change"
+      ? Math.max(...bSignificanceValues)
+      : bVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...bSignificanceValues)
+        : Math.max(...bSignificanceValues);
+
+  const comparisonResult =
+    sortBy === "change"
+      ? bAggregatedValue - aAggregatedValue
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? aAggregatedValue - bAggregatedValue
+        : bAggregatedValue - aAggregatedValue;
+
+  return sortDirection === "desc" ? -comparisonResult : comparisonResult;
+};
+
+export function experimentDate(exp: ExperimentInterfaceStringDates): string {
+  return (
+    (exp.archived
+      ? exp.dateUpdated
+      : exp.status === "running"
+        ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+        : exp.status === "stopped"
+          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+          : exp.dateCreated) ?? new Date().toISOString() // fallback to now
+  );
+}
+
 export type ExperimentTableRow = {
-  label: string;
+  label: string | ReactElement;
   metric: ExperimentMetricInterface;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
+  error?: RowError;
+  numSlices?: number;
+  // Slice row properties
+  isSliceRow?: boolean;
+  parentRowId?: string;
+  sliceId?: string;
+  sliceLevels?: Array<{
+    column: string;
+    datatype: "string" | "boolean";
+    levels: string[];
+  }>;
+  allSliceLevels?: string[];
+  isHiddenByFilter?: boolean; // True if this row should be hidden due to slice level filtering
+  isPinned?: boolean; // True if this slice level row is pinned
 };
 
 export function getRisk(
@@ -55,7 +190,7 @@ export function getRisk(
   metricDefaults: MetricDefaults,
   differenceType: DifferenceType,
   // separate CR because sometimes "baseline" above is the variation
-  baselineCR: number
+  baselineCR: number,
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const statsRisk = stats.risk?.[1] ?? 0;
   let risk: number;
@@ -77,7 +212,7 @@ export function getRisk(
       stats,
       metric,
       metricDefaults,
-      differenceType
+      differenceType,
     );
   return { risk, relativeRisk, showRisk };
 }
@@ -86,7 +221,7 @@ export function getRiskByVariation(
   riskVariation: number,
   row: ExperimentTableRow,
   metricDefaults: MetricDefaults,
-  differenceType: DifferenceType
+  differenceType: DifferenceType,
 ) {
   const baseline = row.variations[0];
 
@@ -98,7 +233,7 @@ export function getRiskByVariation(
       row.metric,
       metricDefaults,
       differenceType,
-      baseline.cr
+      baseline.cr,
     );
   } else {
     let risk = -1;
@@ -121,7 +256,7 @@ export function getRiskByVariation(
         row.metric,
         metricDefaults,
         differenceType,
-        baseline.cr
+        baseline.cr,
       );
       if (vRisk > risk) {
         risk = vRisk;
@@ -137,20 +272,21 @@ export function getRiskByVariation(
   }
 }
 
-export function hasRisk(rows: ExperimentTableRow[]) {
-  return rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
-}
-
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
-  differenceType: DifferenceType
+  differenceType: DifferenceType,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
+    // Skip metric slice rows that are hidden (not expanded or pinned)
+    if (row.isHiddenByFilter) {
+      return;
+    }
+
     const baseline = row.variations[variations[0].index];
     if (!baseline) return;
     variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
@@ -169,7 +305,7 @@ export function useDomain(
           stats,
           row.metric,
           metricDefaults,
-          differenceType
+          differenceType,
         )
       ) {
         return;
@@ -191,7 +327,7 @@ export function useDomain(
 
 export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   metric: T,
-  metricOverrides?: MetricOverride[]
+  metricOverrides?: MetricOverride[],
 ): {
   newMetric: T;
   overrideFields: string[];
@@ -232,10 +368,11 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
       // only apply RA fields if doing an override
       newMetric.regressionAdjustmentOverride =
         metricOverride.regressionAdjustmentOverride;
-      newMetric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      newMetric.regressionAdjustmentEnabled =
+        !!metricOverride.regressionAdjustmentEnabled;
       overrideFields.push(
         "regressionAdjustmentOverride",
-        "regressionAdjustmentEnabled"
+        "regressionAdjustmentEnabled",
       );
       if (!isNil(metricOverride?.regressionAdjustmentDays)) {
         newMetric.regressionAdjustmentDays =
@@ -267,6 +404,151 @@ export function pValueFormatter(pValue: number, digits: number = 3): string {
     : pValue.toFixed(digits);
 }
 
+export function useExperimentSearch({
+  allExperiments,
+  defaultSortField = "date",
+  defaultSortDir = -1,
+  filterResults,
+  localStorageKey = "experiments",
+  watchedExperimentIds,
+}: {
+  allExperiments: ExperimentInterfaceStringDates[];
+  defaultSortField?: keyof ComputedExperimentInterface;
+  defaultSortDir?: -1 | 1;
+  filterResults?: (
+    items: ComputedExperimentInterface[],
+  ) => ComputedExperimentInterface[];
+  localStorageKey?: string;
+  watchedExperimentIds?: string[];
+}) {
+  const {
+    getExperimentMetricById,
+    getProjectById,
+    getDatasourceById,
+    getSavedGroupById,
+  } = useDefinitions();
+  const { getUserDisplay } = useUser();
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
+
+  const experiments: ComputedExperimentInterface[] = useAddComputedFields(
+    allExperiments,
+    (exp) => {
+      const projectId = exp.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+      const statusIndicator = getExperimentStatusIndicator(exp);
+      const statusSortOrder = statusIndicator.sortOrder;
+      const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
+      const rawSavedGroup = lastPhase?.savedGroups || [];
+      const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
+      const isWatched = watchedExperimentIds?.includes(exp.id) ?? false;
+
+      return {
+        ownerName: getUserDisplay(exp.owner, false) || "",
+        metricNames: exp.goalMetrics
+          .map((m) => getExperimentMetricById(m)?.name)
+          .filter(Boolean),
+        datasource: getDatasourceById(exp.datasource)?.name || "",
+        savedGroups: savedGroupIds.map(
+          (id) => getSavedGroupById(id)?.groupName,
+        ),
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        tab: exp.archived
+          ? "archived"
+          : exp.status === "draft"
+            ? "drafts"
+            : exp.status,
+        date: experimentDate(exp),
+        statusIndicator,
+        statusSortOrder,
+        isWatched,
+      };
+    },
+    [getExperimentMetricById, getProjectById, getUserDisplay],
+  );
+
+  return useSearch({
+    items: experiments,
+    localStorageKey,
+    defaultSortField,
+    defaultSortDir,
+    updateSearchQueryOnChange: true,
+    searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "running") is.push("running");
+        if (item.status === "stopped") is.push("stopped");
+        if (item.results === "won") {
+          is.push("winner");
+          is.push("won");
+        }
+        if (item.results === "lost") {
+          is.push("loser");
+          is.push("lost");
+        }
+        if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.results === "dnf") is.push("dnf");
+        if (item.hasVisualChangesets) is.push("visual");
+        if (item.hasURLRedirects) is.push("redirect");
+        if (item.isWatched) is.push("watched");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasVisualChangesets) {
+          has.push("visualChange", "visualChanges");
+        }
+        if (item.hasURLRedirects) has.push("redirect", "redirects");
+        if (item.linkedFeatures?.length) has.push("features", "feature");
+        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
+        if (item.description?.trim()?.length) has.push("description");
+        if (item.variations.some((v) => !!v.screenshots?.length)) {
+          has.push("screenshots");
+        }
+        if (
+          item.status === "stopped" &&
+          !item.excludeFromPayload &&
+          (item.linkedFeatures?.length ||
+            item.hasURLRedirects ||
+            item.hasVisualChangesets)
+        ) {
+          has.push("rollout", "tempRollout");
+        }
+        return has;
+      },
+      variations: (item) => item.variations.length,
+      variation: (item) => item.variations.map((v) => v.name),
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      name: (item) => item.name,
+      key: (item) => item.trackingKey,
+      trackingKey: (item) => item.trackingKey,
+      id: (item) => [item.id, item.trackingKey],
+      status: (item) => item.status,
+      result: (item) =>
+        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
+      owner: (item) => [item.owner, item.ownerName],
+      tag: (item) => item.tags,
+      project: (item) => [item.project, item.projectName],
+      feature: (item) => item.linkedFeatures || [],
+      datasource: (item) => item.datasource,
+      metric: (item) => [
+        ...(item.metricNames ?? []),
+        ...getAllMetricIdsFromExperiment(item),
+      ],
+      savedgroup: (item) => item.savedGroups || [],
+      goal: (item) => [...(item.metricNames ?? []), ...item.goalMetrics],
+    },
+    filterResults,
+  });
+}
+
 export type RowResults = {
   directionalStatus: "winning" | "losing";
   resultsStatus: "won" | "lost" | "draw" | "";
@@ -279,6 +561,7 @@ export type RowResults = {
   significantUnadjusted: boolean;
   significantReason: string;
   suspiciousChange: boolean;
+  suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
   risk: number;
@@ -373,8 +656,8 @@ export function getRowResults({
     baseline.value === 0
       ? "baselineZero"
       : stats.value === 0
-      ? "variationZero"
-      : "notEnoughData";
+        ? "variationZero"
+        : "notEnoughData";
 
   const enoughDataMeta: EnoughDataMeta = (() => {
     switch (reason) {
@@ -386,9 +669,9 @@ export function getRowResults({
           `The total ${
             quantileMetricType(metric) ? "sample size" : "metric value"
           } of the variation is ${compactNumberFormatter.format(
-            variationSampleSize
+            variationSampleSize,
           )} and the baseline total is ${compactNumberFormatter.format(
-            baselineSampleSize
+            baselineSampleSize,
           )}.`;
         const percentComplete =
           minSampleSize > 0
@@ -410,7 +693,7 @@ export function getRowResults({
           percentComplete,
           percentCompleteNumerator: Math.max(
             baselineSampleSize,
-            variationSampleSize
+            variationSampleSize,
           ),
           percentCompleteDenominator: minSampleSize,
           timeRemainingMs,
@@ -442,11 +725,13 @@ export function getRowResults({
     stats,
     metric,
     metricDefaults,
-    differenceType
+    differenceType,
   );
+  const suspiciousThreshold =
+    metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
+        suspiciousThreshold,
       )}).`
     : "";
 
@@ -456,7 +741,7 @@ export function getRowResults({
     metric,
     metricDefaults,
     differenceType,
-    baseline.cr
+    baseline.cr,
   );
   const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
   const loseRiskThreshold = metric.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD;
@@ -465,16 +750,16 @@ export function getRowResults({
   if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
     riskStatus = "warning";
     riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk
+      relativeRisk,
     )}) exceeds the warning threshold (${percentFormatter.format(
-      winRiskThreshold
+      winRiskThreshold,
     )}) for this metric.`;
   } else if (relativeRisk >= loseRiskThreshold) {
     riskStatus = "danger";
     riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk
+      relativeRisk,
     )}) exceeds the danger threshold (${percentFormatter.format(
-      loseRiskThreshold
+      loseRiskThreshold,
     )}) for this metric.`;
   }
   let riskFormatted = "";
@@ -483,10 +768,10 @@ export function getRowResults({
 
   // TODO: support formatted risk for fact metrics
   if (!isBinomial) {
-    riskFormatted = `${getExperimentMetricFormatter(
-      metric,
-      getFactTableById
-    )(risk, { currency: displayCurrency })} / user`;
+    riskFormatted = `${getExperimentMetricFormatter(metric, getFactTableById)(
+      risk,
+      { currency: displayCurrency },
+    )} / user`;
   }
   const riskMeta: RiskMeta = {
     riskStatus,
@@ -518,11 +803,11 @@ export function getRowResults({
   if (!significant) {
     if (statsEngine === "bayesian") {
       significantReason = `This metric is not statistically significant. The chance to win is not less than ${percentFormatter.format(
-        ciLower
+        ciLower,
       )} or greater than ${percentFormatter.format(ciUpper)}.`;
     } else {
       significantReason = `This metric is not statistically significant. The p-value (${pValueFormatter(
-        stats.pValueAdjusted ?? stats.pValue ?? 1
+        stats.pValueAdjusted ?? stats.pValue ?? 1,
       )}) is greater than the threshold (${pValueFormatter(pValueThreshold)}).`;
     }
   }
@@ -531,11 +816,11 @@ export function getRowResults({
   if (statsEngine === "bayesian") {
     if (resultsStatus === "won") {
       resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
-        ciUpper
+        ciUpper,
       )} threshold and the change is in the desired direction.`;
     } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
-        ciLower
+        ciLower,
       )} threshold and the change is not in the desired direction.`;
     } else if (resultsStatus === "draw") {
       resultsReason =
@@ -544,11 +829,11 @@ export function getRowResults({
   } else {
     if (resultsStatus === "won") {
       resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
+        pValueThreshold,
       )} threshold`;
     } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
+        pValueThreshold,
       )} threshold`;
     } else if (resultsStatus === "draw") {
       resultsReason =
@@ -578,6 +863,7 @@ export function getRowResults({
     significantUnadjusted,
     significantReason,
     suspiciousChange,
+    suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
     risk,
@@ -598,7 +884,7 @@ export function getEffectLabel(differenceType: DifferenceType): string {
 }
 
 export function convertTemplateToExperiment(
-  template: ExperimentTemplateInterface
+  template: ExperimentTemplateInterface,
 ): Partial<ExperimentInterfaceStringDates> {
   const templateWithoutTemplateFields = omit(template, [
     "id",
@@ -647,9 +933,8 @@ export function convertTemplateToExperimentRule({
   ]);
   if ("skipPartialData" in templateWithoutTemplateFields) {
     // @ts-expect-error Mangled types
-    templateWithoutTemplateFields.skipPartialData = templateWithoutTemplateFields.skipPartialData
-      ? "strict"
-      : "loose";
+    templateWithoutTemplateFields.skipPartialData =
+      templateWithoutTemplateFields.skipPartialData ? "strict" : "loose";
   }
   return {
     ...(getDefaultRuleValue({
@@ -664,7 +949,7 @@ export function convertTemplateToExperimentRule({
 }
 
 export function convertExperimentToTemplate(
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
 ): Partial<ExperimentTemplateInterface> {
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const template = {
@@ -694,4 +979,32 @@ export function convertExperimentToTemplate(
     },
   };
   return template;
+}
+
+export function getIsExperimentIncludedInIncrementalRefresh(
+  datasource: DataSourceInterfaceWithParams | undefined,
+  experimentId: string | undefined,
+): boolean {
+  const isPipelineIncrementalEnabled =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  if (!isPipelineIncrementalEnabled) {
+    return false;
+  }
+
+  const includedExperimentIds =
+    datasource?.settings.pipelineSettings?.includedExperimentIds;
+  const excludedExperimentIds =
+    datasource?.settings.pipelineSettings?.excludedExperimentIds;
+
+  if (experimentId && excludedExperimentIds?.includes(experimentId)) {
+    return false;
+  }
+
+  // If no specific experiment IDs are set, all experiments are included
+  // If experimentId is not provided, consider it included for the New Experiment form
+  if (includedExperimentIds === undefined || !experimentId) {
+    return true;
+  }
+
+  return includedExperimentIds.includes(experimentId);
 }

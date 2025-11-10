@@ -16,7 +16,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -24,7 +24,7 @@ const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
   const filteredEnvironments = project
     ? environments.filter((env) =>
-        isProjectListValidForProject(env.projects, project)
+        isProjectListValidForProject(env.projects, project),
       )
     : environments;
 
@@ -120,9 +120,11 @@ const EnvironmentsPage: FC = () => {
                       tipPosition="bottom"
                       state={showConnections === i}
                       popperStyle={{ marginLeft: 50 }}
+                      flipTheme={false}
+                      ignoreMouseEvents={true}
                       body={
                         <div
-                          className="px-3 py-2"
+                          className="pl-3 pr-0 py-2"
                           style={{ minWidth: 250, maxWidth: 350 }}
                         >
                           <a
@@ -168,7 +170,7 @@ const EnvironmentsPage: FC = () => {
                           onClick={(e) => {
                             e.preventDefault();
                             setShowConnections(
-                              showConnections !== i ? i : null
+                              showConnections !== i ? i : null,
                             );
                           }}
                         >
@@ -209,7 +211,7 @@ const EnvironmentsPage: FC = () => {
                               onClick={async () => {
                                 const targetEnv = filteredEnvironments[i - 1];
                                 const newIndex = environments.findIndex(
-                                  (env) => targetEnv.id === env.id
+                                  (env) => targetEnv.id === env.id,
                                 );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
@@ -231,7 +233,7 @@ const EnvironmentsPage: FC = () => {
                               onClick={async () => {
                                 const targetEnv = filteredEnvironments[i + 1];
                                 const newIndex = environments.findIndex(
-                                  (env) => targetEnv.id === env.id
+                                  (env) => targetEnv.id === env.id,
                                 );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
@@ -279,7 +281,7 @@ const EnvironmentsPage: FC = () => {
                                 body: JSON.stringify({
                                   settings: {
                                     environments: environments.filter(
-                                      (env) => env.id !== e.id
+                                      (env) => env.id !== e.id,
                                     ),
                                   },
                                 }),

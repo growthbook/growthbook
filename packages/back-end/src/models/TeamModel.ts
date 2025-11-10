@@ -6,6 +6,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { ManagedBy } from "back-end/src/validators/managed-by";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const teamSchema = new mongoose.Schema({
@@ -35,6 +36,8 @@ const teamSchema = new mongoose.Schema({
     },
   ],
   managedByIdp: Boolean,
+  managedBy: {},
+  defaultProject: String,
 });
 
 const TeamModel = mongoose.model<TeamInterface>("Team", teamSchema);
@@ -51,7 +54,7 @@ type CreateTeamProps = Omit<
 type UpdateTeamProps = Partial<TeamInterface>;
 
 export async function createTeam(
-  data: CreateTeamProps
+  data: CreateTeamProps,
 ): Promise<TeamInterface> {
   const teamDoc = await TeamModel.create({
     ...data,
@@ -64,7 +67,7 @@ export async function createTeam(
 
 export async function findTeamById(
   id: string,
-  orgId: string
+  orgId: string,
 ): Promise<TeamInterface | null> {
   const teamDoc = await TeamModel.findOne({ id, organization: orgId });
   return teamDoc ? toInterface(teamDoc) : null;
@@ -72,7 +75,7 @@ export async function findTeamById(
 
 export async function findTeamByName(
   name: string,
-  orgId: string
+  orgId: string,
 ): Promise<TeamInterface | null> {
   const teamDoc = await TeamModel.findOne({
     name: { $regex: name, $options: "i" },
@@ -94,7 +97,7 @@ export async function getTeamsForOrganization(orgId: string) {
 export async function updateTeamMetadata(
   id: string,
   orgId: string,
-  update: UpdateTeamProps
+  update: UpdateTeamProps,
 ): Promise<UpdateTeamProps> {
   const changes = {
     ...update,
@@ -108,11 +111,28 @@ export async function updateTeamMetadata(
     },
     {
       $set: changes,
-    }
+    },
   );
 
   return changes;
 }
+
+export const updateTeamRemoveManagedBy = async (
+  orgId: string,
+  managedBy: Partial<ManagedBy>,
+) => {
+  await TeamModel.updateMany(
+    {
+      organization: orgId,
+      managedBy,
+    },
+    {
+      $unset: {
+        managedBy: 1,
+      },
+    },
+  );
+};
 
 export async function deleteTeam(id: string, orgId: string): Promise<void> {
   await TeamModel.deleteOne({

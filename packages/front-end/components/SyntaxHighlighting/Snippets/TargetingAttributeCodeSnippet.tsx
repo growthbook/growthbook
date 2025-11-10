@@ -26,12 +26,12 @@ function indentLines(code: string, indent: number | string = 2) {
 
 function replaceAttributeValues(
   attributesStr: string,
-  values: Record<string, string>
+  values: Record<string, string>,
 ) {
   Object.entries(values).forEach(([key, value]) => {
     attributesStr = attributesStr.replace(
       new RegExp(`"${key}": [^\n,]+`, "g"),
-      `"${key}": ${value}`
+      `"${key}": ${value}`,
     );
   });
   return attributesStr;
@@ -124,7 +124,7 @@ export default function TargetingAttributeCodeSnippet({
     "utmContent",
   ];
   const additionalAttributes = Object.entries(exampleAttributes).filter(
-    ([k]) => !defaultAttributes.includes(k)
+    ([k]) => !defaultAttributes.includes(k),
   );
 
   const attributesSnippets: JSX.Element[] = [];
@@ -147,7 +147,7 @@ export default function TargetingAttributeCodeSnippet({
             attributes for you. Read more about this{" "}
             <DocLink docSection="javascriptAutoAttributes">here</DocLink>.
           </Box>
-        </>
+        </>,
       );
 
       if (additionalAttributes.length) {
@@ -160,10 +160,10 @@ export default function TargetingAttributeCodeSnippet({
             <Code
               language="javascript"
               code={`growthbook.updateAttributes(${stringify(
-                Object.fromEntries(additionalAttributes)
+                Object.fromEntries(additionalAttributes),
               )});`.trim()}
             />
-          </>
+          </>,
         );
       }
     } else {
@@ -173,7 +173,7 @@ export default function TargetingAttributeCodeSnippet({
             language="javascript"
             code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
           />
-        </>
+        </>,
       );
     }
 
@@ -197,7 +197,7 @@ mixpanel.init("[YOUR PROJECT TOKEN]", {
 });  
 `.trim()}
           />
-        </Box>
+        </Box>,
       );
     } else if (eventTracker === "rudderstack") {
       attributesSnippets.push(
@@ -212,7 +212,7 @@ rudderstack.getAnonymousId().then((anonymous_id) => {
   growthbook.updateAttributes({ anonymous_id });
 });`.trim()}
           />
-        </Box>
+        </Box>,
       );
     } else if (eventTracker === "snowplow") {
       attributesSnippets.push(
@@ -228,7 +228,7 @@ window.snowplow(function() {
   });
 });`.trim()}
           />
-        </Box>
+        </Box>,
       );
     } else if (eventTracker === "matomo") {
       attributesSnippets.push(
@@ -249,7 +249,7 @@ if ("_paq" in window) {
   ]);
 }`.trim()}
           />
-        </Box>
+        </Box>,
       );
     } else if (eventTracker === "amplitude") {
       attributesSnippets.push(
@@ -264,7 +264,7 @@ growthbook.updateAttributes({
   device_id: amplitude.getInstance().getDeviceId() 
 });`.trim()}
           />
-        </Box>
+        </Box>,
       );
     }
   }
@@ -284,12 +284,12 @@ growthbook.updateAttributes({
 <script>
 window.growthbook_config = window.growthbook_config || {};
 window.growthbook_config.attributes = ${stringify(
-              Object.fromEntries(additionalAttributes)
+              Object.fromEntries(additionalAttributes),
             )};
 </script>
           `.trim()}
           />
-        </>
+        </>,
       );
     } else {
       attributesSnippets.push(
@@ -298,7 +298,7 @@ window.growthbook_config.attributes = ${stringify(
             All of your attributes are set automatically, no configuration
             required.
           </div>
-        </>
+        </>,
       );
     }
   }
@@ -331,7 +331,7 @@ app.use((req, res, next) => {
 });
           `.trim()}
           />
-        </>
+        </>,
       );
     } else {
       attributesSnippets.push(
@@ -345,9 +345,31 @@ app.use(function(req, res, next) {
 })
 `.trim()}
           />
-        </>
+        </>,
       );
     }
+  }
+  if (language === "nextjs") {
+    attributesSnippets.push(
+      <>
+        <Code
+          language="typescript"
+          filename="lib/identify.ts"
+          code={`
+import type { Attributes } from '@flags-sdk/growthbook';
+import type { Identify } from 'flags';
+import { dedupe } from 'flags/next';
+
+export const identify = dedupe(async () => {
+  // Your own logic to identify the user
+  const user = await getUser(headers, cookies);
+
+  return ${indentLines(stringify(exampleAttributes), 2)};
+}) satisfies Identify<Attributes>;
+`.trim()}
+        />
+      </>,
+    );
   }
   if (language === "android") {
     attributesSnippets.push(
@@ -365,7 +387,7 @@ ${Object.keys(exampleAttributes)
 gb.setAttributes(attrs)
 `.trim()}
         />
-      </>
+      </>,
     );
   }
   if (language === "ios") {
@@ -378,7 +400,7 @@ var attrs = ${swiftArrayFormat(exampleAttributes)}
 gb.setAttributes(attrs)
     `.trim()}
         />
-      </>
+      </>,
     );
   }
   if (language === "go") {
@@ -395,7 +417,7 @@ if err := json.Unmarshal(data, &jsonMap); err != nil {
 client,err := client.WithAttributes(gb.Attributes(jsonMap))
         `.trim()}
         />
-      </>
+      </>,
     );
   }
   if (language === "ruby") {
@@ -405,10 +427,10 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
           language="ruby"
           code={`gb.attributes=${stringify(exampleAttributes).replace(
             /: null/g,
-            ": nil"
+            ": nil",
           )}`}
         />
-      </>
+      </>,
     );
   }
   if (language === "php") {
@@ -417,10 +439,10 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
         <Code
           language="php"
           code={`$growthbook->withAttributes(${phpArrayFormat(
-            exampleAttributes
+            exampleAttributes,
           )});`}
         />
-      </>
+      </>,
     );
   }
   if (language === "python") {
@@ -433,7 +455,7 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
             .replace(/: false/g, ": False")
             .replace(/: null/g, ": None")})`}
         />
-      </>
+      </>,
     );
   }
   if (language === "java") {
@@ -446,7 +468,7 @@ JSONObject userAttributesObj = new JSONObject();
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
     return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
-      value
+      value,
     )});`;
   })
   .join("\n")}
@@ -454,7 +476,7 @@ String userAttributesJson = userAttributesObj.toString();
 growthBook.setAttributes(userAttributesJson);
             `.trim()}
         />
-      </>
+      </>,
     );
   }
   if (language === "flutter") {
@@ -472,7 +494,7 @@ ${Object.entries(exampleAttributes)
 gb.setAttributes(attrs);
 `.trim()}
         />
-      </>
+      </>,
     );
   }
   if (language === "csharp") {
@@ -490,7 +512,7 @@ ${Object.entries(exampleAttributes)
 gb.SetAttributes(attrs);
     `.trim()}
         />
-      </>
+      </>,
     );
   }
   if (language === "elixir") {
@@ -513,7 +535,7 @@ context = %GrowthBook.Context{
 }
           `.trim()}
         />
-      </>
+      </>,
     );
   }
 

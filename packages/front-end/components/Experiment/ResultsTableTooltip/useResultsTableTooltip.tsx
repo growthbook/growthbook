@@ -7,6 +7,7 @@ import {
   DifferenceType,
 } from "back-end/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
+import { RowError } from "@/components/Experiment/ResultsTable";
 import {
   LayoutX,
   TOOLTIP_HEIGHT,
@@ -21,7 +22,7 @@ export function useResultsTableTooltip({
   orderedVariations,
   rows,
   rowsResults,
-  dimension,
+  dimension: _dimension,
   statsEngine,
   differenceType,
   pValueCorrection,
@@ -29,30 +30,26 @@ export function useResultsTableTooltip({
 }: {
   orderedVariations: ExperimentReportVariationWithIndex[];
   rows: ExperimentTableRow[];
-  rowsResults: (RowResults | "query error" | null)[][];
+  rowsResults: (RowResults | "query error" | RowError | null)[][];
   dimension?: string;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
   pValueCorrection?: PValueCorrection;
   noTooltip?: boolean;
 }) {
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-    tooltipData,
-  } = useTooltip<TooltipData>();
+  const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
+    useTooltip<TooltipData>();
 
   const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
     {
       scroll: true,
       detectBounds: false,
-    }
+    },
   );
 
   const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
-    null
+    null,
   );
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
@@ -74,7 +71,7 @@ export function useResultsTableTooltip({
     metricRow: number,
     variationRow: number,
     event: React.PointerEvent<HTMLElement>,
-    settings?: TooltipHoverSettings
+    settings?: TooltipHoverSettings,
   ) => {
     if (noTooltip) return;
     if (
@@ -102,10 +99,10 @@ export function useResultsTableTooltip({
     const offsetY = settings?.offsetY ?? 3;
     const el = event.target as HTMLElement;
     const target = settings?.targetClassName
-      ? (el.classList.contains(settings.targetClassName)
+      ? ((el.classList.contains(settings.targetClassName)
           ? el
-          : el.closest(`.${settings.targetClassName}`)) ?? el
-      : (el.tagName === "td" ? el : el.closest("td")) ?? el;
+          : el.closest(`.${settings.targetClassName}`)) ?? el)
+      : ((el.tagName === "td" ? el : el.closest("td")) ?? el);
 
     let yAlign: YAlign = "top";
     let targetTop: number =
@@ -120,13 +117,13 @@ export function useResultsTableTooltip({
       (layoutX === "element-left"
         ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 25
         : layoutX === "element-right"
-        ? (target.getBoundingClientRect()?.right ?? 0) - 25
-        : layoutX === "element-center"
-        ? ((target.getBoundingClientRect()?.left ?? 0) +
-            (target.getBoundingClientRect()?.right ?? 0)) /
-            2 -
-          TOOLTIP_WIDTH / 2
-        : event.clientX + 10) + offsetX;
+          ? (target.getBoundingClientRect()?.right ?? 0) - 25
+          : layoutX === "element-center"
+            ? ((target.getBoundingClientRect()?.left ?? 0) +
+                (target.getBoundingClientRect()?.right ?? 0)) /
+                2 -
+              TOOLTIP_WIDTH / 2
+            : event.clientX + 10) + offsetX;
 
     // Prevent tooltip from going off the screen (x-axis)
     if (targetLeft < 10) {
@@ -163,6 +160,7 @@ export function useResultsTableTooltip({
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
+    if (rowResults === RowError.QUANTILE_AGGREGATION_ERROR) return;
     if (!rowResults.hasScaledImpact && differenceType === "scaled") return;
 
     showTooltip({
@@ -170,8 +168,9 @@ export function useResultsTableTooltip({
         metricRow,
         metric,
         metricSnapshotSettings: row.metricSnapshotSettings,
-        dimensionName: dimension,
-        dimensionValue: dimension ? row.label : undefined,
+        dimensionName: _dimension,
+        dimensionValue: _dimension ? row.label : undefined,
+        sliceLevels: row.sliceLevels,
         variation,
         stats,
         baseline,

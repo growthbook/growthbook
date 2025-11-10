@@ -18,7 +18,7 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -37,10 +37,8 @@ const MemberList: FC<{
   const { apiCall } = useAuth();
   const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
-  const [
-    passwordResetModal,
-    setPasswordResetModal,
-  ] = useState<ExpandedMember | null>(null);
+  const [passwordResetModal, setPasswordResetModal] =
+    useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
   const environments = useEnvironments();
 
@@ -57,7 +55,7 @@ const MemberList: FC<{
   const roleModalUser = users.get(roleModal);
 
   const members = Array.from(users).sort((a, b) =>
-    a[1].name.localeCompare(b[1].name)
+    a[1].name.localeCompare(b[1].name),
   );
 
   const membersList: ExpandedMember[] =
@@ -68,19 +66,17 @@ const MemberList: FC<{
       } as ExpandedMember;
     }) || [];
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    pagination,
-  } = useSearch({
-    items: membersList || [],
-    localStorageKey: "members",
-    defaultSortField: "name",
-    searchFields: ["name", "email"],
-    pageSize: 20,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: membersList || [],
+      localStorageKey: "members",
+      defaultSortField: "name",
+      searchFields: ["name", "email"],
+      pageSize: 20,
+      defaultMappings: {
+        lastLoginDate: new Date(0).toISOString(),
+      },
+    });
   return (
     <>
       {canInviteMembers && inviting && (
@@ -203,7 +199,7 @@ const MemberList: FC<{
                       const access = roleHasAccessToEnv(
                         roleInfo,
                         env.id,
-                        organization
+                        organization,
                       );
                       return (
                         <td key={env.id}>

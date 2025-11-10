@@ -15,6 +15,7 @@ import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
 } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -23,7 +24,7 @@ import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
@@ -35,19 +36,16 @@ import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
-import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
-import HelperText from "@/components/Radix/HelperText";
+import AISettings from "@/components/GeneralSettings/AISettings";
+import HelperText from "@/ui/HelperText";
 import { AppFeatures } from "@/types/app-features";
-import {
-  StickyTabsList,
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Frame from "@/components/Radix/Frame";
+import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
+import Frame from "@/ui/Frame";
+import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -56,7 +54,7 @@ export const ConnectSettingsForm = ({ children }) => {
 
 function hasChanges(
   value: OrganizationSettings,
-  existing: OrganizationSettings
+  existing: OrganizationSettings,
 ) {
   if (!existing) return true;
 
@@ -66,23 +64,19 @@ function hasChanges(
 const GeneralSettingsPage = (): React.ReactElement => {
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const {
-    refreshOrganization,
-    settings,
-    organization,
-    hasCommercialFeature,
-  } = useUser();
+  const { refreshOrganization, settings, organization, hasCommercialFeature } =
+    useUser();
   const [saveMsg, setSaveMsg] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [cronString, setCronString] = useState("");
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
   const displayCurrency = useCurrency();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+
+  const promptForm = useForm();
 
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
@@ -126,7 +120,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      sequentialTestingTuningParameter:
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
@@ -142,6 +137,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disableMultiMetricQueries: false,
+      disablePrecomputedDimensions:
+        settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
@@ -167,9 +164,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      aiEnabled: settings.aiEnabled ?? false,
+      openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      disableLegacyMetricCreation:
+        settings.disableLegacyMetricCreation ?? false,
+      defaultFeatureRulesInAllEnvs:
+        settings.defaultFeatureRulesInAllEnvs ?? false,
+      preferredEnvironment: settings.preferredEnvironment || "",
+      maxMetricSliceLevels:
+        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      savedGroupSizeLimit: undefined,
     },
   });
   const { apiCall } = useAuth();
@@ -202,7 +210,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
-      "sequentialTestingTuningParameter"
+      "sequentialTestingTuningParameter",
     ),
     attributionModel: form.watch("attributionModel"),
     displayCurrency: form.watch("displayCurrency"),
@@ -214,6 +222,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
+    aiEnabled: form.watch("aiEnabled"),
+    openAIDefaultModel: form.watch("openAIDefaultModel"),
+    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
+    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
+    preferredEnvironment: form.watch("preferredEnvironment") || "",
+    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
+    savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -225,7 +240,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
         verbose: true,
-      })} (UTC time)`
+      })} (UTC time)`,
     );
   }
 
@@ -286,7 +301,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       updateCronString(newVal.updateSchedule?.cron || "");
       if (newVal.codeRefsBranchesToFilter) {
         setCodeRefsBranchesToFilterStr(
-          newVal.codeRefsBranchesToFilter.join(", ")
+          newVal.codeRefsBranchesToFilter.join(", "),
         );
       }
     }
@@ -298,11 +313,27 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsBranchesToFilterStr
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
   }, [codeRefsBranchesToFilterStr]);
 
-  const ctaEnabled = hasChanges(value, originalValue);
+  // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
+  const ctaEnabled =
+    hasChanges(value, originalValue) || promptForm.formState.isDirty;
+
+  const savePrompts = promptForm.handleSubmit(async (promptValues) => {
+    const formattedPrompts = Object.entries(promptValues).map(
+      ([key, value]) => ({
+        type: key,
+        prompt: value,
+      }),
+    );
+
+    await apiCall(`/ai/prompts`, {
+      method: "POST",
+      body: JSON.stringify({ prompts: formattedPrompts }),
+    });
+  });
 
   const saveSettings = form.handleSubmit(async (value) => {
     const transformedOrgSettings = {
@@ -316,6 +347,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
+      preferredEnvironment: value.preferredEnvironment || null,
     };
 
     // Make sure the feature key example is valid
@@ -324,7 +356,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores."
+        "Feature key examples can only include letters, numbers, hyphens, and underscores.",
       );
     }
 
@@ -335,18 +367,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
         !transformedOrgSettings.featureRegexValidator
       ) {
         throw new Error(
-          "Feature key example must not be empty when a regex validator is defined."
+          "Feature key example must not be empty when a regex validator is defined.",
         );
       }
 
       const regexValidator = transformedOrgSettings.featureRegexValidator;
       if (
         !new RegExp(regexValidator).test(
-          transformedOrgSettings.featureKeyExample
+          transformedOrgSettings.featureKeyExample,
         )
       ) {
         throw new Error(
-          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`
+          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
         );
       }
     }
@@ -357,7 +389,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings: transformedOrgSettings,
       }),
     });
-    refreshOrganization();
+    await refreshOrganization();
 
     // show the user that the settings have saved:
     setSaveMsg(true);
@@ -381,10 +413,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
             <TabsTrigger value="feature">Feature Settings</TabsTrigger>
             <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
+            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
             <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
             <TabsTrigger value="custom">
               <PremiumTooltip commercialFeature="custom-markdown">
                 Custom Markdown
+              </PremiumTooltip>
+            </TabsTrigger>
+            <TabsTrigger value="ai">
+              <PremiumTooltip commercialFeature="ai-suggestions">
+                AI Settings
               </PremiumTooltip>
             </TabsTrigger>
           </StickyTabsList>
@@ -402,7 +440,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsContent>
 
             <TabsContent value="feature">
-              <FeaturesSettings />
+              <FeatureSettings />
             </TabsContent>
 
             <TabsContent value="metrics">
@@ -444,6 +482,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </Flex>
               </Frame>
             </TabsContent>
+            <TabsContent value="ai">
+              <AISettings promptForm={promptForm} />
+            </TabsContent>
+            <TabsContent value="sdk">
+              <>
+                <SavedGroupSettings />
+              </>
+            </TabsContent>
           </Box>
         </Tabs>
       </Box>
@@ -477,6 +523,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
+                await savePrompts();
               }}
               setError={setSubmitError}
             >

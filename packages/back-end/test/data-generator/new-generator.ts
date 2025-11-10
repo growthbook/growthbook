@@ -55,7 +55,7 @@ function getDateRangeCondition(
   startDate: Date,
   dateLength: number,
   startPct: number,
-  endPct: number
+  endPct: number,
 ) {
   const s = addDays(new Date(startDate), startPct * dateLength);
   const e = addDays(new Date(startDate), endPct * dateLength);
@@ -83,7 +83,7 @@ function trackExperiment(
   data: Omit<ExperimentTableData, "experimentId" | "variationId">,
   result: { inExperiment: boolean; variationId: number },
   experimentId: string,
-  sim: SimulatorData
+  sim: SimulatorData,
 ) {
   if (!result.inExperiment) return;
   sim.dataTables.experimentViews.push({
@@ -97,7 +97,7 @@ function trackExperiment(
 function trackEvent(
   data: Omit<EventTableData, "event">,
   event: string,
-  sim: SimulatorData
+  sim: SimulatorData,
 ) {
   sim.dataTables.events.push({
     value: 0,
@@ -169,7 +169,7 @@ function viewHomepage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
       ...data,
       path: "/",
     },
-    sim
+    sim,
   );
   // Homepage CTA experiment (no change to behavior)
   trackExperiment(
@@ -183,7 +183,7 @@ function viewHomepage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
       },
     }),
     "homepage-nav-ios",
-    sim
+    sim,
   );
 
   advanceTime(sim.currentDate, 30);
@@ -207,14 +207,14 @@ function viewHomepage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
 function viewSearchResults(
   data: TableData,
   gb: GrowthBook,
-  sim: SimulatorData
+  sim: SimulatorData,
 ) {
   trackPageView(
     {
       ...data,
       path: "/search",
     },
-    sim
+    sim,
   );
   // A/B test on the search order (mixed, less people sorting manually, but more bounces)
   const res = gb.run({
@@ -225,7 +225,7 @@ function viewSearchResults(
       sim.startDate,
       sim.runLengthDays,
       0.05,
-      0.35
+      0.35,
     ),
   });
   trackExperiment(data, res, "results-order", sim);
@@ -248,7 +248,7 @@ function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
       ...data,
       path: `/item/${itemId}`,
     },
-    sim
+    sim,
   );
   // A/B test price display (loser, fewer qty purchased)
   let res = gb.run({
@@ -268,10 +268,11 @@ function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
     condition: getDateRangeCondition(
       sim.startDate,
       sim.runLengthDays,
-      0.45,
-      0.75
+      0.0,
+      1.0,
     ),
   });
+  trackExperiment(data, res, "add-to-cart-cta", sim);
 
   advanceTime(sim.currentDate, 20);
   if (Math.random() < res.value) {
@@ -281,7 +282,7 @@ function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
         value: amount,
       },
       "Add to Cart",
-      sim
+      sim,
     );
     return {
       itemId,
@@ -305,7 +306,7 @@ function viewCheckout(data: TableData, gb: GrowthBook, sim: SimulatorData) {
       ...data,
       path: `/checkout`,
     },
-    sim
+    sim,
   );
   // A/B test checkout layout (variation 1 is worse, 2 is better)
   const res = gb.run({
@@ -322,7 +323,7 @@ function viewCheckout(data: TableData, gb: GrowthBook, sim: SimulatorData) {
       data,
       { inExperiment: true, variationId: 0 },
       "checkout-layout",
-      sim
+      sim,
     );
   }
   advanceTime(sim.currentDate, 30);
@@ -342,14 +343,14 @@ function purchase(
   gb: GrowthBook,
   sim: SimulatorData,
   qty: number,
-  price: number | null
+  price: number | null,
 ) {
   trackPageView(
     {
       ...data,
       path: `/success`,
     },
-    sim
+    sim,
   );
   // Pretend we gift people items randomly and the price is then 0, but
   // we set it to NULL (just as a way to simulate NULL values in data)
@@ -362,7 +363,7 @@ function purchase(
       qty: qty,
       amount: price,
     },
-    sim
+    sim,
   );
   advanceTime(sim.currentDate, 30);
 
@@ -375,13 +376,13 @@ function purchase(
       sim.startDate,
       sim.runLengthDays,
       0.7,
-      0.9
+      0.9,
     ),
   });
   trackExperiment(data, res, "confirmation-email", sim);
   sim.dataTables.userRetention[parseInt(data.userId)] += normalInt(
     res.value - 10,
-    res.value + 10
+    res.value + 10,
   );
 }
 
@@ -392,7 +393,7 @@ function getTimestamp(currentDate: Date) {
 async function simulateSession(
   userId: number,
   anonymousId: string,
-  sim: SimulatorData
+  sim: SimulatorData,
 ): Promise<Omit<SessionTableData, "duration" | "pages">> {
   setRandomTime(sim.currentDate);
   const browser = getBrowser();
@@ -439,7 +440,7 @@ async function simulateSession(
       sim.startDate,
       sim.runLengthDays,
       0.2,
-      0.5
+      0.5,
     ),
   });
   const itemsViewed = normalInt(1, res.value);
@@ -483,7 +484,7 @@ async function simulate(sim: SimulatorData, numUsers: number) {
       const duration = Math.round(
         (sim.currentDate.getTime() -
           new Date(data.sessionStart + "Z").getTime()) /
-          1000
+          1000,
       );
       sim.dataTables.sessions.push({
         ...data,
@@ -500,7 +501,7 @@ async function simulate(sim: SimulatorData, numUsers: number) {
 function writeCSV(
   objs: Record<string, unknown>[],
   output_dir: string,
-  filename: string
+  filename: string,
 ) {
   const path = output_dir + "/" + filename;
   const firstRow = objs.shift();
@@ -555,7 +556,7 @@ function generateAndWriteData({
       a.timestamp.localeCompare(b.timestamp);
 
     sim.dataTables.sessions.sort((a, b) =>
-      a.sessionStart.localeCompare(b.sessionStart)
+      a.sessionStart.localeCompare(b.sessionStart),
     );
     sim.dataTables.pageViews.sort(sortDate);
     sim.dataTables.experimentViews.sort(sortDate);
@@ -608,6 +609,7 @@ const {
 
 const runLengthDays = Number(daysArg);
 const numUsers = Number(userCountArg);
+const messyData = messyDataArg.toLowerCase() === "true";
 
 const startDate = (() => {
   if (startDateArg) return new Date(startDateArg);
@@ -621,7 +623,7 @@ const params = {
   runLengthDays,
   outputDir: csvDirArg,
   numUsers,
-  messyData: !!messyDataArg,
+  messyData,
   expKeyPrefix: keyPrefixArg,
 };
 

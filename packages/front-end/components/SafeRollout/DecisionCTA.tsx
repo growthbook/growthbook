@@ -5,7 +5,7 @@ import {
 } from "shared/enterprise";
 
 import { SafeRolloutRule } from "back-end/src/validators/features";
-import Button, { Color, Variant } from "@/components/Radix/Button";
+import Button, { Color, Variant } from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 
@@ -16,10 +16,8 @@ const DecisionCTA = ({
   openStatusModal: () => void;
   rule: SafeRolloutRule;
 }) => {
-  const {
-    safeRollout,
-    snapshot: snapshotWithResults,
-  } = useSafeRolloutSnapshot();
+  const { safeRollout, snapshot: snapshotWithResults } =
+    useSafeRolloutSnapshot();
 
   const { hasCommercialFeature, organization } = useUser();
   const settings = organization?.settings;
@@ -42,7 +40,7 @@ const DecisionCTA = ({
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });
@@ -77,6 +75,8 @@ const DecisionCTA = ({
       variant={variant}
       size="sm"
       color={color}
+      style={{ marginTop: -4 }}
+      ml="2"
     >
       {buttonCopy}
     </Button>

@@ -28,7 +28,7 @@ import Pagination from "@/components/Pagination";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { experimentDate } from "@/pages/experiments";
+import { experimentDate } from "@/services/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
 import track from "@/services/track";
@@ -37,15 +37,21 @@ interface MetricAnalysisProps {
   metric: ExperimentMetricInterface;
   outerClassName?: string;
   bandits?: boolean;
+  includeOnlyResults?: boolean;
+  dataWithSnapshot?: ExperimentWithSnapshot[];
+  numPerPage?: number;
+  differenceType?: DifferenceType;
 }
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
   metric: ExperimentMetricInterface;
   bandits?: boolean;
+  numPerPage?: number;
+  differenceType?: DifferenceType;
 }
 
-interface MetricExperimentData {
+export interface MetricExperimentData {
   id: string;
   date: string;
   name: string;
@@ -77,10 +83,12 @@ function MetricExperimentResultTab({
   experimentsWithSnapshot,
   metric,
   bandits,
+  numPerPage = NUM_PER_PAGE,
+  differenceType = "relative",
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
+  const start = (currentPage - 1) * numPerPage;
+  const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -123,21 +131,18 @@ function MetricExperimentResultTab({
         decisionFrameworkSettings: e.decisionFrameworkSettings,
       };
       if (!bandits && baseline && variationResults[i]) {
-        const {
-          significant,
-          resultsStatus,
-          directionalStatus,
-        } = getMetricResultStatus({
-          metric: metric,
-          metricDefaults,
-          baseline: baseline,
-          stats: variationResults[i],
-          ciLower,
-          ciUpper,
-          pValueThreshold,
-          statsEngine,
-          differenceType,
-        });
+        const { significant, resultsStatus, directionalStatus } =
+          getMetricResultStatus({
+            metric: metric,
+            metricDefaults,
+            baseline: baseline,
+            stats: variationResults[i],
+            ciLower,
+            ciUpper,
+            pValueThreshold,
+            statsEngine,
+            differenceType,
+          });
         expVariationData = {
           ...expVariationData,
           variationResults: variationResults[i],
@@ -207,10 +212,10 @@ function MetricExperimentResultTab({
           {e.status === "running"
             ? "started"
             : e.status === "draft"
-            ? "created"
-            : e.status === "stopped"
-            ? "ended"
-            : ""}{" "}
+              ? "created"
+              : e.status === "stopped"
+                ? "ended"
+                : ""}{" "}
           {date(e.date)}
         </td>
         <td>
@@ -229,8 +234,9 @@ function MetricExperimentResultTab({
                 directionalStatus: e.directionalStatus ?? "losing",
                 hasScaledImpact: true,
               }}
+              showPlusMinus={false}
               statsEngine={e.statsEngine}
-              differenceType="relative"
+              differenceType={differenceType}
               showCI={true}
               className={resultsHighlightClassname}
             />
@@ -258,11 +264,11 @@ function MetricExperimentResultTab({
         </thead>
         <tbody>{expRows}</tbody>
       </table>
-      {items.length > NUM_PER_PAGE && (
+      {items.length > numPerPage && (
         <Pagination
           numItemsTotal={items.length}
           currentPage={currentPage}
-          perPage={NUM_PER_PAGE}
+          perPage={numPerPage}
           onPageChange={setCurrentPage}
         />
       )}
@@ -274,12 +280,25 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   metric,
   outerClassName,
   bandits = false,
+  includeOnlyResults = false,
+  dataWithSnapshot,
+  numPerPage = NUM_PER_PAGE,
+  differenceType = "relative",
 }) => {
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
-  }>(`/metrics/${metric.id}/experiments`);
-  const metricExperiments = (data?.data ?? []).filter((e) =>
-    bandits ? e.type === "multi-armed-bandit" : e.type !== "multi-armed-bandit"
+  }>(`/metrics/${metric.id}/experiments`, {
+    shouldRun: dataWithSnapshot ? () => false : undefined,
+  });
+
+  const metricExperiments = (dataWithSnapshot ?? data?.data ?? []).filter(
+    (e) =>
+      (bandits
+        ? e.type === "multi-armed-bandit"
+        : e.type !== "multi-armed-bandit") &&
+      (includeOnlyResults
+        ? e.status !== "draft" && e.snapshot?.status === "success"
+        : true),
   );
 
   const body = !metricExperiments?.length ? (
@@ -293,6 +312,8 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
       experimentsWithSnapshot={metricExperiments}
       metric={metric}
       bandits={bandits}
+      numPerPage={numPerPage}
+      differenceType={differenceType}
     />
   );
 

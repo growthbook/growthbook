@@ -26,6 +26,7 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import { useHoldouts } from "@/hooks/useHoldouts";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -54,24 +55,33 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${eid}`);
 
-  const {
-    getDecisionCriteria,
-    getRunningExperimentResultStatus,
-  } = useRunningExperimentStatus();
+  const { getDecisionCriteria, getRunningExperimentResultStatus } =
+    useRunningExperimentStatus();
 
   const decisionCriteria = getDecisionCriteria(
-    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId
+    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
 
+  const { experimentToHoldoutsMap } = useHoldouts();
+
   useEffect(() => {
     if (data?.experiment?.type === "multi-armed-bandit") {
       router.replace(window.location.href.replace("experiment/", "bandit/"));
     }
-  }, [data, router]);
+    if (data?.experiment?.type === "holdout") {
+      const holdoutId = experimentToHoldoutsMap.get(data?.experiment?.id)?.id;
+      let url = window.location.href.replace(
+        /(.*)\/experiment\/.*/,
+        "$1/holdout/",
+      );
+      url += holdoutId;
+      router.replace(url);
+    }
+  }, [data, experimentToHoldoutsMap, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -124,7 +134,7 @@ const ExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (

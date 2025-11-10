@@ -29,8 +29,13 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricAnalysisQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
+  }
+
+  // For alternative entrypoints that don't pass the metric in for analysis
+  setMetric(metric: FactMetricInterface) {
+    this.metric = metric;
   }
 
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
@@ -61,7 +66,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   }
   async getLatestModel(): Promise<MetricAnalysisInterface> {
     const model = await this.context.models.metricAnalysis.getById(
-      this.model.id
+      this.model.id,
     );
     if (!model) {
       throw new Error("Metric analysis not found");
@@ -90,14 +95,14 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         status === "running"
           ? "running"
           : status === "failed"
-          ? "error"
-          : "success",
+            ? "error"
+            : "success",
     };
 
     const latest = await this.getLatestModel();
     const updated = await this.context.models.metricAnalysis.update(
       latest,
-      updates
+      updates,
     );
     return updated;
   }
@@ -105,7 +110,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
 export function processMetricAnalysisQueryResponse(
   rows: MetricAnalysisQueryResponseRows,
-  metric: FactMetricInterface
+  metric: FactMetricInterface,
 ): MetricAnalysisResult {
   const ret: MetricAnalysisResult = { units: 0, mean: 0, stddev: 0 };
 
@@ -132,7 +137,7 @@ export function processMetricAnalysisQueryResponse(
           denominator_sum_squares: denominator_sum_squares ?? 0,
           numerator_denominator_sum_product: main_denominator_sum_product ?? 0,
           n: units,
-        })
+        }),
       );
     } else if (isBinomialMetric(metric)) {
       mean = main_sum / units;
@@ -140,7 +145,7 @@ export function processMetricAnalysisQueryResponse(
     } else {
       mean = main_sum / units;
       stddev = Math.sqrt(
-        meanVarianceFromSums(main_sum, main_sum_squares, units)
+        meanVarianceFromSums(main_sum, main_sum_squares, units),
       );
     }
     // Row for each date

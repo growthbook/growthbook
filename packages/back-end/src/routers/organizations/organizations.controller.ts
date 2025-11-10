@@ -19,6 +19,7 @@ import {
   findSdkWebhookById,
   updateSdkWebhook,
 } from "back-end/src/models/WebhookModel";
+import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -143,6 +144,12 @@ import {
   getSubscriptionFromLicense,
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
+import { logger } from "back-end/src/util/logger";
+import { AgreementType } from "back-end/src/validators/agreements";
+import {
+  getInstallation,
+  setInstallationName,
+} from "back-end/src/models/InstallationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -232,7 +239,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
     const experiments = await getExperimentsForActivityFeed(
       context,
-      experimentIds
+      experimentIds,
     );
 
     res.status(200).json({
@@ -250,7 +257,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
 export async function getAllHistory(
   req: AuthRequest<null, { type: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
@@ -290,7 +297,7 @@ export async function getAllHistory(
 
 export async function getHistory(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
@@ -330,7 +337,7 @@ export async function getHistory(
 
 export async function putMemberRole(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -338,12 +345,8 @@ export async function putMemberRole(
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const {
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -407,7 +410,7 @@ export async function putMember(
   req: AuthRequest<{
     orgId: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.userId || !req.email) {
     throw new Error("Must be logged in");
@@ -442,7 +445,7 @@ export async function putMember(
 
   try {
     const invite: Invite | undefined = organization.invites.find(
-      (inv) => inv.email === req.email
+      (inv) => inv.email === req.email,
     );
     if (invite) {
       // if user already invited, accept invite
@@ -471,7 +474,7 @@ export async function putMember(
           req.email || "",
           organization.name,
           organization.ownerEmail,
-          teamUrl
+          teamUrl,
         );
       } catch (e) {
         req.log.error(e, "Failed to send pending member email");
@@ -489,7 +492,7 @@ export async function putMember(
         req.name || "",
         req.email || "",
         organization.name,
-        organization.ownerEmail
+        organization.ownerEmail,
       );
     } catch (e) {
       req.log.error(e, "Failed to send new member email");
@@ -509,7 +512,7 @@ export async function putMember(
 
 export async function postMemberApproval(
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -550,7 +553,7 @@ export async function postMemberApproval(
       pendingMember.name || "",
       pendingMember.email || "",
       org.name,
-      url
+      url,
     );
   } catch (e) {
     req.log.error(e, "Failed to send pending member approval email");
@@ -564,7 +567,7 @@ export async function postMemberApproval(
 
 export async function postAutoApproveMembers(
   req: AuthRequest<{ state: boolean }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -592,7 +595,7 @@ export async function postAutoApproveMembers(
 
 export async function putInviteRole(
   req: AuthRequest<MemberRoleWithProjects, { key: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -601,12 +604,8 @@ export async function putInviteRole(
   }
 
   const { org } = context;
-  const {
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -648,7 +647,7 @@ export async function putInviteRole(
       },
       details: auditDetailsUpdate(
         { invites: originalInvites },
-        { invites: org.invites }
+        { invites: org.invites },
       ),
     });
     return res.status(200).json({
@@ -664,7 +663,7 @@ export async function putInviteRole(
 
 export async function getOrganization(
   req: AuthRequest,
-  res: Response<GetOrganizationResponse | { status: 200; organization: null }>
+  res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
 ) {
   if (!req.organization) {
     return res.status(200).json({
@@ -689,6 +688,7 @@ export async function getOrganization(
     messages,
     externalId,
     setupEventTracker,
+    isVercelIntegration,
   } = org;
 
   let license: Partial<LicenseInterface> | null = null;
@@ -701,18 +701,19 @@ export async function getOrganization(
           (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
           null;
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error("setting license failed", e);
+        logger.error(e, "setting license failed");
       }
     }
   }
 
+  const installationName = (await getLicenseMetaData())?.installationName;
+
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
-    context.permissions.canReadMultiProjectResource(attribute.projects)
+    context.permissions.canReadMultiProjectResource(attribute.projects),
   );
 
   const filteredEnvironments = settings?.environments?.filter((environment) =>
-    context.permissions.canReadMultiProjectResource(environment.projects)
+    context.permissions.canReadMultiProjectResource(environment.projects),
   );
 
   // Use a stripped down list of invites if the user doesn't have permission to manage the team
@@ -745,7 +746,11 @@ export async function getOrganization(
   const currentUserPermissions = getUserPermissions(
     req.currentUser,
     org,
-    teams || []
+    teams || [],
+  );
+  const agreements = await context.models.agreements.getAll();
+  const agreementsAgreed = Array.from(
+    new Set(agreements.map((a) => a.agreement as AgreementType)),
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
@@ -767,7 +772,9 @@ export async function getOrganization(
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
+    agreements: agreementsAgreed || [],
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -788,6 +795,7 @@ export async function getOrganization(
       discountCode: org.discountCode || "",
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
+      isVercelIntegration,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -831,7 +839,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             r.enabled &&
             r.type === "experiment" &&
             r.namespace &&
-            r.namespace.enabled
+            r.namespace.enabled,
         )
         .forEach((r: ExperimentRule) => {
           const { name, range } = r.namespace as NamespaceValue;
@@ -896,7 +904,7 @@ export async function postNamespaces(
     description: string;
     status: "active" | "inactive";
   }>,
-  res: Response
+  res: Response,
 ) {
   const { label, description, status } = req.body;
   const context = getContextFromReq(req);
@@ -937,7 +945,7 @@ export async function postNamespaces(
         settings: {
           namespaces: [...namespaces, { name, description, status }],
         },
-      }
+      },
     ),
   });
 
@@ -955,7 +963,7 @@ export async function putNamespaces(
     },
     { name: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const { label, description, status } = req.body;
   const { name } = req.params;
@@ -998,7 +1006,7 @@ export async function putNamespaces(
     },
     details: auditDetailsUpdate(
       { settings: { namespaces } },
-      { settings: { namespaces: updatedNamespaces } }
+      { settings: { namespaces: updatedNamespaces } },
     ),
   });
 
@@ -1009,7 +1017,7 @@ export async function putNamespaces(
 
 export async function deleteNamespace(
   req: AuthRequest<null, { name: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1044,7 +1052,7 @@ export async function deleteNamespace(
     },
     details: auditDetailsUpdate(
       { settings: { namespaces } },
-      { settings: { namespaces: updatedNamespaces } }
+      { settings: { namespaces: updatedNamespaces } },
     ),
   });
 
@@ -1055,7 +1063,7 @@ export async function deleteNamespace(
 
 export async function getInviteInfo(
   req: AuthRequest<unknown, { key: string }>,
-  res: ResponseWithStatusAndError<{ organization: string; role: string }>
+  res: ResponseWithStatusAndError<{ organization: string; role: string }>,
 ) {
   const { key } = req.params;
 
@@ -1089,7 +1097,7 @@ export async function getInviteInfo(
 
 export async function postInviteAccept(
   req: AuthRequest<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   const { key } = req.body;
 
@@ -1118,7 +1126,7 @@ export async function postInvite(
       email: string;
     } & MemberRoleWithProjects
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1127,13 +1135,8 @@ export async function postInvite(
   }
 
   const { org } = context;
-  const {
-    email,
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
 
   // Make sure role is valid
   if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
@@ -1150,7 +1153,7 @@ export async function postInvite(
     getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
   ) {
     throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
     );
   }
 
@@ -1172,7 +1175,7 @@ export async function postInvite(
 
 export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1199,7 +1202,7 @@ export async function deleteMember(
 
 export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1229,7 +1232,7 @@ export async function postInviteResend(
 
 export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1249,7 +1252,7 @@ export async function deleteInvite(
 
 export async function signup(
   req: AuthRequest<CreateOrganizationPostBody>,
-  res: Response
+  res: Response,
 ) {
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
   const { company, externalId, demographicData } = req.body;
@@ -1264,7 +1267,7 @@ export async function signup(
   if (IS_MULTI_ORG) {
     if (orgs && !ALLOW_SELF_ORG_CREATION && !req.superAdmin) {
       throw new Error(
-        "You are not allowed to create an organization.  Ask your site admin."
+        "You are not allowed to create an organization.  Ask your site admin.",
       );
     }
     // if the owner is verified, try to infer a verified domain
@@ -1323,12 +1326,13 @@ export async function signup(
 
 export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const {
     name,
+    installationName,
     ownerEmail,
     settings,
     connections,
@@ -1336,7 +1340,7 @@ export async function putOrganization(
     licenseKey,
   } = req.body;
 
-  if (connections || name || ownerEmail) {
+  if (connections || name || ownerEmail || installationName) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
@@ -1345,7 +1349,7 @@ export async function putOrganization(
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
         throw new Error(
-          "Not supported: Updating organization environments not supported via this route."
+          "Not supported: Updating organization environments not supported via this route.",
         );
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         if (
@@ -1358,7 +1362,7 @@ export async function putOrganization(
         }
       } else if (k === "attributeSchema") {
         throw new Error(
-          "Not supported: Updating organization attributes not supported via this route."
+          "Not supported: Updating organization attributes not supported via this route.",
         );
       } else if (k === "northStar") {
         if (!context.permissions.canManageNorthStarMetric()) {
@@ -1366,7 +1370,7 @@ export async function putOrganization(
         }
       } else if (k === "namespaces") {
         throw new Error(
-          "Not supported: Updating namespaces not supported via this route."
+          "Not supported: Updating namespaces not supported via this route.",
         );
       } else {
         if (!context.permissions.canManageOrgSettings()) {
@@ -1385,6 +1389,25 @@ export async function putOrganization(
       updates.name = name;
       orig.name = org.name;
     }
+    if (installationName && !IS_CLOUD) {
+      const installation = await getInstallation();
+      const currentName = installation.name;
+      if (installationName && currentName !== installationName) {
+        await req.audit({
+          event: "installation.update",
+          entity: {
+            object: "installation",
+            id: installation.id,
+          },
+          details: auditDetailsUpdate(
+            { name: currentName },
+            { name: installationName },
+          ),
+        });
+
+        await setInstallationName(installationName);
+      }
+    }
     if (ownerEmail && ownerEmail !== org.ownerEmail) {
       // the owner email is being changed
       const newOwnerUser = await getUserByEmail(ownerEmail);
@@ -1399,7 +1422,7 @@ export async function putOrganization(
           req.email,
           org.name,
           org.ownerEmail,
-          ownerEmail
+          ownerEmail,
         );
       } catch (e) {
         req.log.error(e, "Failed to send owner email change email");
@@ -1415,16 +1438,6 @@ export async function putOrganization(
         ...settings,
       };
       orig.settings = org.settings;
-    }
-    if (connections?.vercel) {
-      const { token, configurationId, teamId } = connections.vercel;
-      if (token && configurationId) {
-        updates.connections = {
-          ...updates.connections,
-          vercel: { token, configurationId, teamId },
-        };
-        orig.connections = org.connections;
-      }
     }
 
     if (licenseKey && licenseKey.trim() !== org.licenseKey) {
@@ -1457,7 +1470,7 @@ export async function putOrganization(
 
 export const autoAddGroupsAttribute = async (
   req: AuthRequest<never>,
-  res: Response<{ status: 200; added: boolean }>
+  res: Response<{ status: 200; added: boolean }>,
 ) => {
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
   const context = getContextFromReq(req);
@@ -1532,7 +1545,7 @@ export async function postApiKey(
     description?: string;
     type: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -1542,7 +1555,7 @@ export async function postApiKey(
   if (type === "user") {
     if (!userId) {
       throw new Error(
-        "Cannot create user personal access token without a user ID"
+        "Cannot create user personal access token without a user ID",
       );
     }
     const key = await createUserPersonalAccessApiKey({
@@ -1581,7 +1594,7 @@ export async function postApiKey(
 
 export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { userId, org } = context;
@@ -1594,7 +1607,7 @@ export async function deleteApiKey(
   const keyObj = await getApiKeyByIdOrKey(
     context,
     id || undefined,
-    key || undefined
+    key || undefined,
   );
   if (!keyObj) {
     throw new Error("Could not find API key to delete");
@@ -1634,7 +1647,7 @@ export async function deleteApiKey(
 
 export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1676,14 +1689,14 @@ export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
-      context.permissions.canReadSingleProjectResource(webhook.project)
+      context.permissions.canReadSingleProjectResource(webhook.project),
     ),
   });
 }
 
 export async function testSDKWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const webhookId = req.params.id;
 
@@ -1712,7 +1725,7 @@ export async function testSDKWebhook(
 
 export async function putSDKWebhook(
   req: AuthRequest<UpdateSdkWebhookProps, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1745,7 +1758,7 @@ export async function putSDKWebhook(
 
 export async function deleteLegacyWebhook(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1762,7 +1775,7 @@ export async function deleteLegacyWebhook(
 
 export async function deleteSDKWebhook(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -1788,7 +1801,7 @@ export async function postImportConfig(
   req: AuthRequest<{
     contents: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1823,7 +1836,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
 
   if (IS_MULTI_ORG && !req.superAdmin) {
     throw new Error(
-      "Only super admins get orphaned users on multi-org deployments"
+      "Only super admins get orphaned users on multi-org deployments",
     );
   }
 
@@ -1853,7 +1866,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
 
 export async function addOrphanedUser(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1867,19 +1880,15 @@ export async function addOrphanedUser(
 
   if (IS_MULTI_ORG && !req.superAdmin) {
     throw new Error(
-      "Only super admins can add orphaned users on multi-org deployments"
+      "Only super admins can add orphaned users on multi-org deployments",
     );
   }
 
   const { org } = getContextFromReq(req);
 
   const { id } = req.params;
-  const {
-    role,
-    environments,
-    limitAccessByEnvironment,
-    projectRoles,
-  } = req.body;
+  const { role, environments, limitAccessByEnvironment, projectRoles } =
+    req.body;
 
   // Make sure user exists
   const user = await getUserById(id);
@@ -1914,7 +1923,7 @@ export async function addOrphanedUser(
     getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
   ) {
     throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
     );
   }
 
@@ -1934,7 +1943,7 @@ export async function addOrphanedUser(
 
 export async function deleteOrphanedUser(
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1948,7 +1957,7 @@ export async function deleteOrphanedUser(
 
   if (IS_MULTI_ORG && !req.superAdmin) {
     throw new Error(
-      "Only super admins delete orphaned users on multi-org deployments"
+      "Only super admins delete orphaned users on multi-org deployments",
     );
   }
 
@@ -1988,7 +1997,7 @@ export async function putAdminResetUserPassword(
       id: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -2006,7 +2015,7 @@ export async function putAdminResetUserPassword(
 
   const { org } = getContextFromReq(req);
   const isUserToUpdateInSameOrg = org.members.find(
-    (member) => member.id === userToUpdateId
+    (member) => member.id === userToUpdateId,
   );
 
   // Only update the password if the member we're updating is in the same org as the requester
@@ -2015,7 +2024,7 @@ export async function putAdminResetUserPassword(
     const orgs = await findOrganizationsByMemberId(userToUpdateId);
     if (orgs.length > 0) {
       throw new Error(
-        "Cannot change password of users outside your organization."
+        "Cannot change password of users outside your organization.",
       );
     }
   }
@@ -2029,11 +2038,11 @@ export async function putAdminResetUserPassword(
 
 export async function setLicenseKey(
   org: OrganizationInterface,
-  licenseKey: string
+  licenseKey: string,
 ) {
   if (!IS_CLOUD && IS_MULTI_ORG) {
     throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites."
+      "You must use the LICENSE_KEY environmental variable on multi org sites.",
     );
   }
 
@@ -2043,7 +2052,7 @@ export async function setLicenseKey(
 
 export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -2078,8 +2087,8 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: string }>,
-  res: Response
+  req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2089,26 +2098,44 @@ export async function putDefaultRole(
 
   if (!commercialFeatures.includes("sso")) {
     throw new Error(
-      "Must have a commercial License Key to update the organization's default role."
+      "Must have a commercial License Key to update the organization's default role.",
     );
-  }
-
-  if (!isRoleValid(defaultRole, org)) {
-    throw new Error("Invalid role");
   }
 
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
   }
 
+  const { memberIsValid, reason } = validateRoleAndEnvs(
+    org,
+    defaultRole.role,
+    defaultRole.limitAccessByEnvironment,
+    defaultRole.environments,
+  );
+
+  if (!memberIsValid) {
+    throw new Error(reason);
+  }
+
+  if (defaultRole.projectRoles?.length) {
+    defaultRole.projectRoles.forEach((p) => {
+      const { memberIsValid, reason } = validateRoleAndEnvs(
+        org,
+        p.role,
+        p.limitAccessByEnvironment,
+        p.environments,
+      );
+
+      if (!memberIsValid) {
+        throw new Error(reason);
+      }
+    });
+  }
+
   updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      defaultRole: {
-        role: defaultRole,
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
+      defaultRole,
     },
   });
 
@@ -2122,7 +2149,7 @@ export async function putGetStartedChecklistItem(
     checklistItem: string;
     project: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2162,7 +2189,7 @@ export async function putSetupEventTracker(
   req: AuthRequest<{
     eventTracker: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2202,7 +2229,7 @@ export async function postCustomRole(req: AuthRequest<Role>, res: Response) {
 
 export async function putCustomRole(
   req: AuthRequest<Omit<Role, "id">, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const roleToUpdate = req.body;
@@ -2225,7 +2252,7 @@ export async function putCustomRole(
 
 export async function deleteCustomRole(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -2247,7 +2274,7 @@ export async function deleteCustomRole(
 
 export async function deactivateRole(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -2270,7 +2297,7 @@ export async function deactivateRole(
 
 export async function activateRole(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -2289,4 +2316,39 @@ export async function activateRole(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postAgreeToAgreement(
+  req: AuthRequest<{ agreement: AgreementType; version: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { agreement, version } = req.body;
+  try {
+    const existing =
+      await context.models.agreements.getAgreementForOrg(agreement);
+    if (existing) {
+      // hard to get into this state, but if the user/org has already agreed to this agreement, we can just return success
+      return res.status(200).json({ status: 200 });
+    }
+    // there is no existing agreement, so we create a new one
+    await context.models.agreements.create({
+      agreement,
+      version,
+      userId: context.userId,
+      userName: context.userName,
+      userEmail: context.email,
+      dateSigned: new Date(),
+    });
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(500).json({ status: 500, message: e.message });
+  }
 }

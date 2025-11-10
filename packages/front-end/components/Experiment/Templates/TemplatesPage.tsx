@@ -5,9 +5,9 @@ import React, { useState } from "react";
 import { omit } from "lodash";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
-import Link from "@/components/Radix/Link";
-import Button from "@/components/Radix/Button";
-import LinkButton from "@/components/Radix/LinkButton";
+import Link from "@/ui/Link";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -24,10 +24,10 @@ import EmptyState from "@/components/EmptyState";
 
 interface Props {
   setOpenTemplateModal: (
-    template: Partial<ExperimentTemplateInterface>
+    template: Partial<ExperimentTemplateInterface>,
   ) => void;
   setOpenDuplicateTemplateModal: (
-    template: ExperimentTemplateInterface
+    template: ExperimentTemplateInterface,
   ) => void;
 }
 
@@ -63,7 +63,7 @@ export const TemplatesPage = ({
 
   const filteredTemplates = project
     ? allTemplates.filter((t) =>
-        isProjectListValidForProject(t.project ? [t.project] : [], project)
+        isProjectListValidForProject(t.project ? [t.project] : [], project),
       )
     : allTemplates;
 
@@ -77,7 +77,7 @@ export const TemplatesPage = ({
         usage: templateExperimentMap[templ.id]?.length ?? 0,
       };
     },
-    [templateExperimentMap, allTemplates]
+    [templateExperimentMap, allTemplates],
   );
 
   const { items, SortableTH } = useSearch({

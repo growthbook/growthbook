@@ -3,11 +3,14 @@ import fs from "fs";
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
-import { getInstallationId } from "back-end/src/models/InstallationModel";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getInstallation } from "back-end/src/models/InstallationModel";
+import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { getInstallationDatasources } from "back-end/src/models/DataSourceModel";
 import { DefaultMemberRole, OrgMemberInfo } from "back-end/types/organization";
-import { getAllOrgMemberInfoInDb } from "back-end/src/models/OrganizationModel";
+import {
+  getAllOrgMemberInfoInDb,
+  getSelfHostedOrganization,
+} from "back-end/src/models/OrganizationModel";
 import {
   getUserIdsAndEmailsForAllUsersInDb,
   getUsersByIds,
@@ -21,13 +24,26 @@ import { TeamInterface } from "back-end/types/team";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";
+  let installationName = "unknown";
   let gitSha = "";
   let gitCommitDate = "";
   let sdkLanguages: string[] = [];
   let dataSourceTypes: string[] = [];
   let eventTrackers: string[] = [];
   try {
-    installationId = await getInstallationId();
+    const installation = await getInstallation();
+    installationId = installation.id;
+    if (IS_CLOUD) {
+      installationName = "cloud";
+    } else {
+      if (IS_MULTI_ORG) {
+        installationName = installation.name || installationId;
+      } else {
+        const org = await getSelfHostedOrganization();
+        installationName = org?.name || installationId;
+      }
+    }
+
     const rootPath = path.join(__dirname, "..", "..", "..", "..");
 
     if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
@@ -46,15 +62,15 @@ export async function getLicenseMetaData() {
         new Set(
           (await findAllSDKConnectionsAcrossAllOrgs())
             .map((connection) => connection.languages)
-            .flat()
-        )
+            .flat(),
+        ),
       );
 
       const dataSources = await getInstallationDatasources();
       dataSourceTypes = Array.from(new Set(dataSources.map((ds) => ds.type)));
 
       eventTrackers = Array.from(
-        new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom"))
+        new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom")),
       );
     }
   } catch (e) {
@@ -63,6 +79,7 @@ export async function getLicenseMetaData() {
 
   return {
     installationId,
+    installationName,
     gitSha,
     gitCommitDate,
     sdkLanguages: sdkLanguages,
@@ -81,7 +98,7 @@ function getMemberRoles(
   memberId: string,
   teamIdToTeamMap: {
     [key: string]: TeamInterface;
-  }
+  },
 ) {
   const roles: string[] = [];
 
@@ -117,7 +134,7 @@ function getMemberRoles(
 }
 
 export async function getUserCodesForOrg(
-  org: OrgMemberInfo
+  org: OrgMemberInfo,
 ): Promise<LicenseUserCodes> {
   const fullMembersSet: Set<string> = new Set([]);
   const readOnlyMembersSet: Set<string> = new Set([]);
@@ -144,7 +161,7 @@ export async function getUserCodesForOrg(
       acc[user.id] = md5(user.email).slice(0, 8);
       return acc;
     },
-    {}
+    {},
   );
 
   const teamIdToTeamMap = teams.reduce(
@@ -152,12 +169,12 @@ export async function getUserCodesForOrg(
       acc: {
         [key: string]: TeamInterface;
       },
-      team
+      team,
     ) => {
       acc[team.id] = team;
       return acc;
     },
-    {}
+    {},
   );
 
   for (const userId of Object.keys(userIdsToEmailHash)) {
@@ -179,20 +196,20 @@ export async function getUserCodesForOrg(
   invitesSet = new Set(
     organizations.reduce((emails: string[], organization) => {
       const inviteEmails = organization.invites.map((invite) =>
-        md5(invite.email).slice(0, 8)
+        md5(invite.email).slice(0, 8),
       );
       return emails.concat(inviteEmails);
-    }, [])
+    }, []),
   );
 
   const fullMembers = Array.from(fullMembersSet);
   // if a read only member is a full member in another organization, they should be counted as a full member and not appear as a read only member
   const readOnlyMembers = Array.from(readOnlyMembersSet).filter(
-    (readOnlyMember) => !fullMembersSet.has(readOnlyMember)
+    (readOnlyMember) => !fullMembersSet.has(readOnlyMember),
   );
   // if an invite is a full member or a readOnly Member in another organization, they should be counted as such and not as an invite
   const invites = Array.from(invitesSet).filter(
-    (invite) => !fullMembersSet.has(invite) && !readOnlyMembersSet.has(invite)
+    (invite) => !fullMembersSet.has(invite) && !readOnlyMembersSet.has(invite),
   );
 
   return {

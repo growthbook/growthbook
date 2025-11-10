@@ -21,18 +21,18 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Modal from "@/components/Modal";
-import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Callout from "@/components/Radix/Callout";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
+import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -41,28 +41,32 @@ function quotePropertyName(name: string) {
   return JSON.stringify(name);
 }
 
+export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
+
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
-  const [viewSchema, setViewSchema] = useState(false);
+  const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const router = useRouter();
 
-  const {
-    getDatasourceById,
-    mutateDefinitions,
-    ready,
-    error,
-  } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, ready, error } =
+    useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
+
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
+
+  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
 
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
   const canUpdateConnectionParams =
-    (d && permissionsUtil.canUpdateDataSourceParams(d) && !hasFileConfig()) ||
+    (d &&
+      !isManagedWarehouse &&
+      permissionsUtil.canUpdateDataSourceParams(d) &&
+      !hasFileConfig()) ||
     false;
 
   const canUpdateDataSourceSettings =
@@ -88,7 +92,7 @@ const DataSourcePage: FC = () => {
       });
       await mutateDefinitions({});
     },
-    [mutateDefinitions, apiCall]
+    [mutateDefinitions, apiCall],
   );
 
   if (error) {
@@ -124,7 +128,7 @@ const DataSourcePage: FC = () => {
       />
 
       {d.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id)
+        getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
         <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
           <div className="flex-1">
@@ -196,10 +200,10 @@ const DataSourcePage: FC = () => {
                   className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    setViewSchema(true);
+                    setViewSqlExplorer(true);
                   }}
                 >
-                  View Schema Browser
+                  View SQL Explorer
                 </a>
               )}
               <Link
@@ -237,7 +241,8 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" gap="4" mt="3">
         <Text color="gray">
-          <Text weight="medium">Type:</Text> {d.type}
+          <Text weight="medium">Type:</Text>{" "}
+          {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
         <Text color="gray">
           <Text weight="medium">Last Updated:</Text>{" "}
@@ -287,13 +292,13 @@ const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
     mixpanel.track(${JSON.stringify(
-      d.settings?.events?.experimentEvent || "$experiment_started"
+      d.settings?.events?.experimentEvent || "$experiment_started",
     )}, {
       ${quotePropertyName(
-        d.settings?.events?.experimentIdProperty || "Experiment name"
+        d.settings?.events?.experimentIdProperty || "Experiment name",
       )}: experiment.key,
       ${quotePropertyName(
-        d.settings?.events?.variationIdProperty || "Variant name"
+        d.settings?.events?.variationIdProperty || "Variant name",
       )}:  result.variationId,
       $source: 'growthbook'
     })
@@ -317,42 +322,80 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         )}
         {supportsSQL && (
           <>
-            {d.dateUpdated === d.dateCreated &&
-              d?.settings?.schemaFormat !== "custom" && (
-                <Callout status="info" mt="4">
-                  We have prefilled the identifiers and assignment queries
-                  below. These queries may require editing to fit your data
-                  structure.
-                </Callout>
-              )}
-            <Frame>
-              <DataSourceInlineEditIdentifierTypes
-                onSave={updateDataSourceSettings}
-                onCancel={() => undefined}
-                dataSource={d}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Frame>
+            {isManagedWarehouse ? (
+              <>
+                <Frame>
+                  <Heading as="h3" size="4" mb="2">
+                    Sending Events
+                  </Heading>
+                  <Text>
+                    <DocLink docSection="managedWarehouseTracking">
+                      Read our full docs
+                    </DocLink>{" "}
+                    with instructions on how to send events from your app to
+                    GrowthBook.
+                  </Text>
+                </Frame>
+                <Frame>
+                  <ClickhouseMaterializedColumns
+                    dataSource={d}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                    mutate={mutateDefinitions}
+                  />
+                </Frame>
+              </>
+            ) : (
+              <>
+                {d.dateUpdated === d.dateCreated &&
+                  d?.settings?.schemaFormat !== "custom" && (
+                    <Callout status="info" mt="4">
+                      We have prefilled the identifiers and assignment queries
+                      below. These queries may require editing to fit your data
+                      structure.
+                    </Callout>
+                  )}
 
-            {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
-              <Frame>
-                <DataSourceInlineEditIdentityJoins
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Frame>
-            ) : null}
+                <Frame>
+                  <DataSourceInlineEditIdentifierTypes
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    dataSource={d}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
 
-            <Frame>
-              <ExperimentAssignmentQueries
-                dataSource={d}
-                onSave={updateDataSourceSettings}
-                onCancel={() => undefined}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Frame>
+                {d.settings?.userIdTypes &&
+                d.settings.userIdTypes.length > 1 ? (
+                  <Frame>
+                    <DataSourceInlineEditIdentityJoins
+                      dataSource={d}
+                      onSave={updateDataSourceSettings}
+                      onCancel={() => undefined}
+                      canEdit={canUpdateDataSourceSettings}
+                    />
+                  </Frame>
+                ) : null}
+
+                <Frame id={EAQ_ANCHOR_ID}>
+                  <ExperimentAssignmentQueries
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+
+                <Frame>
+                  <DataSourceJupyterNotebookQuery
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+              </>
+            )}
 
             <Frame>
               <DataSourceMetrics
@@ -361,15 +404,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               />
             </Frame>
 
-            <Frame>
-              <DataSourceJupyterNotebookQuery
-                dataSource={d}
-                onSave={updateDataSourceSettings}
-                onCancel={() => undefined}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Frame>
-
+            {/* TODO: Add a premium callout here? */}
             {d.properties?.supportsWritingTables && pipelineEnabled ? (
               <Frame>
                 <DataSourcePipeline
@@ -400,32 +435,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           }}
         />
       )}
-      {viewSchema && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          size={"lg"}
-          close={() => setViewSchema(false)}
-          closeCta="Close"
-          header="Schema Browser"
-          overflowAuto={false}
-        >
-          <div className="d-flex row">
-            <p>
-              Explore the schemas, tables, and table metadata of your connected
-              datasource.
-            </p>
-            <div
-              className="border rounded w-100"
-              style={{
-                maxHeight: "calc(91vh - 196px)",
-                overflowY: "scroll",
-              }}
-            >
-              <SchemaBrowser datasource={d} />
-            </div>
-          </div>
-        </Modal>
+      {viewSqlExplorer && (
+        <SqlExplorerModal
+          initial={{ datasourceId: d.id }}
+          close={() => setViewSqlExplorer(false)}
+          mutate={mutateDefinitions}
+          disableSave={true}
+          header="SQL Explorer"
+          lockDatasource={true}
+          trackingEventModalSource="datasource-id-page"
+        />
       )}
     </div>
   );

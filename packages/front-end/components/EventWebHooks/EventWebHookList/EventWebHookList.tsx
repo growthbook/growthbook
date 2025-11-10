@@ -5,7 +5,7 @@ import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { docUrl, DocLink } from "@/components/DocLink";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
@@ -147,7 +147,7 @@ export const EventWebHookListContainer = () => {
         handleCreateError("Unknown error");
       }
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
   );
 
   return (

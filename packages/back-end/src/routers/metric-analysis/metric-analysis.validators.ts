@@ -23,6 +23,11 @@ export const metricAnalysisSettingsValidator = z
     populationId: z.string().nullable(),
   })
   .strict();
+export const metricAnalysisSettingsStringDatesValidator =
+  metricAnalysisSettingsValidator
+    .omit({ startDate: true, endDate: true })
+    .extend({ startDate: z.string(), endDate: z.string() })
+    .strict();
 
 export const createMetricAnalysisPropsValidator = z
   .object({
@@ -45,7 +50,7 @@ export const metricAnalysisHistogramValidator = z.array(
       end: z.number(),
       units: z.number(),
     })
-    .strict()
+    .strict(),
 );
 
 export const metricAnalysisResultValidator = z
@@ -64,7 +69,7 @@ export const metricAnalysisResultValidator = z
           stddev: z.number().optional(),
           numerator: z.number().optional(),
           denominator: z.number().optional(),
-        })
+        }),
       )
       .optional(),
     histogram: metricAnalysisHistogramValidator.optional(),

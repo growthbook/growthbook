@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useEffect, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "back-end/src/validators/experiments";
@@ -14,7 +15,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -45,13 +46,13 @@ export default function BanditSummaryResultsTab({
     `banditSummaryResultsChartMode__${isPublic ? "public__" : ""}${
       experiment.id
     }`,
-    "values"
+    "values",
   );
   const [chartType, setChartType] = useLocalStorage<"area" | "line">(
     `banditSummaryResultsChartType__${isPublic ? "public__" : ""}${
       experiment.id
     }`,
-    "area"
+    "area",
   );
   const numPhases = experiment.phases.length;
   const [phase, setPhase] = useState<number>(experiment.phases.length - 1);
@@ -78,7 +79,7 @@ export default function BanditSummaryResultsTab({
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
   const users = experiment.variations.map(
-    (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0
+    (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((acc, cur) => acc + cur, 0);
 
@@ -131,11 +132,11 @@ export default function BanditSummaryResultsTab({
         ) : null}
 
         {!isPublic && (
-          <div className="mx-3">
+          <Flex direction="column" gap="2" mx="3">
             <SRMWarning
               srm={
                 latest
-                  ? getSRMValue("multi-armed-bandit", latest) ?? Infinity
+                  ? (getSRMValue("multi-armed-bandit", latest) ?? Infinity)
                   : Infinity
               }
               users={users}
@@ -146,7 +147,7 @@ export default function BanditSummaryResultsTab({
               totalUsers={totalUsers}
               multipleExposures={multipleExposures ?? 0}
             />
-          </div>
+          </Flex>
         )}
 
         {showVisualizations && (
@@ -154,11 +155,14 @@ export default function BanditSummaryResultsTab({
             <div className="d-flex mx-3 align-items-center">
               <div className="h4 mb-0">
                 {metric
-                  ? getRenderLabelColumn(
-                      false,
-                      "bayesian",
-                      isPublic
-                    )("", metric)
+                  ? getRenderLabelColumn({
+                      statsEngine: "bayesian",
+                      hideDetails: isPublic,
+                      className: "",
+                    })({
+                      label: metric.name,
+                      metric,
+                    })
                   : null}
               </div>
               <div className="flex-1" />
@@ -248,8 +252,8 @@ export default function BanditSummaryResultsTab({
                 chartMode === "values"
                   ? undefined
                   : chartMode === "probabilities"
-                  ? "Probability of Winning"
-                  : "Variation Weight"
+                    ? "Probability of Winning"
+                    : "Variation Weight"
               }
               mode={chartMode}
               type={chartMode === "values" ? "line" : chartType}

@@ -147,7 +147,7 @@ describe("autoAttributesPlugin", () => {
 
   it("parses UTM parameters from querystring and stores in session storage", () => {
     setWindowURL(
-      "http://localhost/?utm_source=google&utm_medium=cpc&utm_unknown=foo"
+      "http://localhost/?utm_source=google&utm_medium=cpc&utm_unknown=foo",
     );
 
     // Mock sessionStorage
@@ -160,7 +160,8 @@ describe("autoAttributesPlugin", () => {
       writable: true,
     });
     const originalSessionStorage = window.sessionStorage;
-    window.sessionStorage = (sessionStorage as unknown) as typeof window.sessionStorage;
+    window.sessionStorage =
+      sessionStorage as unknown as typeof window.sessionStorage;
 
     // Make getItem throw to test fault tolerance
     sessionStorage.getItem.mockImplementationOnce(() => {
@@ -185,11 +186,11 @@ describe("autoAttributesPlugin", () => {
     expect(sessionStorage.getItem).toHaveBeenCalledWith("utm_params");
     expect(sessionStorage.setItem).toHaveBeenCalledWith(
       "utm_params",
-      JSON.stringify({ utmSource: "google", utmMedium: "cpc" })
+      JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
     sessionStorage.getItem.mockReturnValueOnce(
-      JSON.stringify({ utmSource: "google", utmMedium: "cpc" })
+      JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
     // UTM should still be picked up on a new GrowthBook instance with a different URL

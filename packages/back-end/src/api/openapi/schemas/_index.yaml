@@ -12,6 +12,8 @@ Attribute:
   $ref: "./Attribute.yaml"
 Segment:
   $ref: "./Segment.yaml"
+ScheduleRule:
+  $ref: "./ScheduleRule.yaml"
 Feature:
   $ref: "./Feature.yaml"
 FeatureWithRevisions:
@@ -32,6 +34,8 @@ FeatureExperimentRule:
   $ref: "./FeatureExperimentRule.yaml"
 FeatureExperimentRefRule:
   $ref: "./FeatureExperimentRefRule.yaml"
+FeatureRevision:
+  $ref: "./FeatureRevision.yaml"
 SdkConnection:
   $ref: "./SdkConnection.yaml"
 Experiment:
@@ -58,13 +62,23 @@ Organization:
   $ref: "./Organization.yaml"
 FactTable:
   $ref: "./FactTable.yaml"
+FactTableColumn:
+  $ref: "./FactTableColumn.yaml"
 FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:
   $ref: "./FactMetric.yaml"
+MetricAnalysis:
+  $ref: "./MetricAnalysis.yaml"
 Member:
   $ref: "./Member.yaml"
 Archetype:
   $ref: "./Archetype.yaml"
 Query:
   $ref: "./Query.yaml"
+Settings:
+  $ref: "./Settings.yaml"
+CodeRef:
+  $ref: "./CodeRef.yaml"
+CustomField:
+  $ref: "./CustomField.yaml"

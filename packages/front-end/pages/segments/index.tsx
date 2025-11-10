@@ -7,7 +7,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -18,6 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 const SegmentPage: FC = () => {
   const {
@@ -41,10 +42,8 @@ const SegmentPage: FC = () => {
     canStoreSegmentsInMongo = true;
   }
 
-  const [
-    segmentForm,
-    setSegmentForm,
-  ] = useState<null | Partial<SegmentInterface>>(null);
+  const [segmentForm, setSegmentForm] =
+    useState<null | Partial<SegmentInterface>>(null);
 
   const { apiCall } = useAuth();
 
@@ -76,19 +75,19 @@ const SegmentPage: FC = () => {
             refs.push(
               res.metrics.length === 1
                 ? "1 metric"
-                : res.metrics.length + " metrics"
+                : res.metrics.length + " metrics",
             );
             res.metrics.forEach((m) => {
               metricLinks.push(
                 <Link href={`/metric/${m.id}`} className="">
                   {m.name}
-                </Link>
+                </Link>,
               );
             });
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas",
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
@@ -98,7 +97,7 @@ const SegmentPage: FC = () => {
             refs.push(
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " Experiments"
+                : res.experiments.length + " Experiments",
             );
             res.experiments.forEach((e) => {
               expLinks.push(<Link href={`/experiment/${e.id}`}>{e.name}</Link>);
@@ -180,7 +179,7 @@ const SegmentPage: FC = () => {
   };
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.properties?.segments
+    (d) => d.properties?.segments,
   )[0];
 
   if (!hasValidDataSources) {
@@ -248,7 +247,7 @@ const SegmentPage: FC = () => {
                   <th>Projects</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
-                  {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
+                  <th>Date Updated</th>
                   <th></th>
                 </tr>
               </thead>
@@ -262,6 +261,10 @@ const SegmentPage: FC = () => {
                     <tr key={s.id}>
                       <td>
                         <>
+                          <OfficialBadge
+                            type="Segment"
+                            managedBy={s.managedBy}
+                          />
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />
@@ -299,25 +302,38 @@ const SegmentPage: FC = () => {
                           {userIdType}
                         </span>
                       </td>
-                      {canStoreSegmentsInMongo ? (
-                        <td>{ago(s.dateUpdated)}</td>
-                      ) : null}
+                      <td>
+                        {s.managedBy !== "config" ? (
+                          <>{ago(s.dateUpdated)}</>
+                        ) : (
+                          <>-</>
+                        )}
+                      </td>
                       <td>
                         <MoreMenu>
-                          {permissionsUtil.canUpdateSegment(s, {}) &&
-                          canStoreSegmentsInMongo ? (
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setSegmentForm(s);
-                              }}
-                            >
-                              <FaPencilAlt /> Edit
-                            </button>
-                          ) : null}
+                          {/* If the user has permission & the segment isn't externally managed, show edit icon,
+                          otherwise the cta should be `View Details`. This is because Segment's don't have an id page,
+                         in order for the user to see the sql that powers the segment, we need to show the edit form, but in read only mode */}
+                          <button
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSegmentForm(s);
+                            }}
+                          >
+                            {permissionsUtil.canUpdateSegment(s, {}) &&
+                            !s.managedBy ? (
+                              <>
+                                <FaPencilAlt /> Edit
+                              </>
+                            ) : (
+                              <>View Details</>
+                            )}
+                          </button>
                           {permissionsUtil.canDeleteSegment(s) &&
-                          canStoreSegmentsInMongo ? (
+                          canStoreSegmentsInMongo &&
+                          // if the segment has a managedBy value, it can't be deleted in the UI
+                          !s.managedBy ? (
                             <DeleteButton
                               className="dropdown-item"
                               displayName={s.name}

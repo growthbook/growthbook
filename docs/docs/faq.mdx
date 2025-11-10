@@ -62,7 +62,7 @@ So that means if you do 50 orders per week and that's the metric you are trying 
 
 Yes! In fact, we recommend running many experiments in parallel in your application. Most A/B tests fail, so the more shots-on-goal you take, the more likely you are to get a winner. Running tests in parallel is a great way to increase your velocity.
 
-Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might see end up seeing black text on a black background, which is obviously not ideal. For these rare cases, you can use [Namespaces](/features/rules#namespaces) to run mutually exclusive experiments. Make sure all experiments within the same Namespace are using the same hash attribute (assignment attribute).
+Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might end up seeing black text on a black background, which is obviously not ideal. For these rare cases, you can use [Namespaces](/features/rules#namespaces) to run mutually exclusive experiments. Make sure all experiments within the same Namespace are using the same hash attribute (assignment attribute).
 
 As long as you apply a little common sense to avoid situations like the above, running multiple experiments has low risk and really high reward.
 
@@ -132,7 +132,7 @@ The `trackingCallback` only fires when a user is included in an experiment. If y
 - The experiment has reduced coverage. For example, if it's only running for 10% of users and you are in the 90% that are excluded.
 - There is another feature rule that is taking precedence over the experiment.
 
-If you are using the Javascript or React SDK in a browser environment, you can install the GrowthBook DevTools Browser Extension for [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) to help you debug.
+If you are using the JavaScript or React SDK in a browser environment, you can install the GrowthBook DevTools Browser Extension for [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) to help you debug.
 
 **Note**: To use the plugin, you will need to pass `enableDevMode: true` when creating your GrowthBook instance.
 
@@ -144,7 +144,7 @@ const growthbook = new GrowthBook({
 
 ### How do I use the DevTools browser extension?
 
-- Make sure you are using the React or Javascript SDK
+- Make sure you are using the React or JavaScript SDK
 - Install the [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) DevTools Browser Extension
 - Pass the `enableDevMode: true` option into the GrowthBook constructor
 
@@ -226,6 +226,12 @@ const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000
 
 ### What is the difference between a Dimension and a Segment?
 
+:::info Dimensions recommended over Segments
+
+We recommend using Dimensions instead of Segments for new implementations. While Segments remain fully supported, we plan to deprecate them in a future release.
+
+:::
+
 A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
 
 A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
@@ -261,6 +267,23 @@ GrowthBook achieves deduplication by assigning a unique identifier (such as a `u
 If a user participates in an experiment more than once (e.g., revisits the site multiple times), GrowthBook will count only their first recorded exposure.
 
 ## Other
+
+### What types of SQL queries can users run in GrowthBook?
+
+Users can only run read SELECT queries in GrowthBook. For security reasons, all user-provided SQL is validated to be a read-only query before being executed. This applies to all places where you can write raw SQL, including:
+
+- SQL Explorer for ad-hoc queries
+- Metric and Fact Table definitions
+- Dimension queries
+- Data Source configuration (experiment assignment queries, identifier joins, etc.)
+
+Write operations such as INSERT, UPDATE, DELETE, etc, are not permitted from any user-entered SQL.
+
+:::note Pipeline Mode writes to your data warehouse
+
+Some GrowthBook features, such as [Pipeline Mode](/app/data-pipeline), may write temporary tables to your data warehouse to improve query performance. However, these write operations are managed by GrowthBook itself.
+
+:::
 
 ### How do I disable the on-screen celebrations?
 

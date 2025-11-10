@@ -10,13 +10,13 @@ import Tag from "@/components/Tags/Tag";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
-    null
+    null,
   );
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: tags || [],

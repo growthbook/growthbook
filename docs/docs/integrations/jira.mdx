@@ -17,10 +17,15 @@ What you’ll learn in this guide:
 - How to install and configure the integration
 - How to link feature flags and experiments to Jira issues
 - How to view and manage linked feature flags and experiments within Jira
+- How to enable the Custom Field for your Jira Projects
 
 ## What does the GrowthBook Jira integration do?
 
 GrowthBook for Jira makes it easy for your team to integrate GrowthBook feature flags and experiments directly within your Jira workflow. Your team can quickly associate feature flags and experiments to Jira issues, view critical details instantly, and streamline communication between development, product, and QA teams.
+
+:::warning Only supported for cloud-hosted GrowthBook accounts
+The app listed in the Atlassian Marketplace only supports cloud-hosted GrowthBook accounts. For self-hosted instances, see the instructions in our [readme](https://github.com/growthbook/jira-app/tree/main?tab=readme-ov-file#connecting-to-a-self-hosted-growthbook-instance)
+:::
 
 ## Install the Integration
 
@@ -29,22 +34,33 @@ GrowthBook for Jira makes it easy for your team to integrate GrowthBook feature 
 3. After installing, navigate to your Jira project’s Apps settings and select the GrowthBook Integration.
 4. Connect your GrowthBook workspace by providing your GrowthBook API key and other required configuration details.
 
-:::tip
-Ensure you have administrator privileges in both Jira and GrowthBook to complete the setup.
+:::tip Ensure you have administrator privileges in both Jira and GrowthBook to complete the setup.
 :::
+
+## (Optional) Add the GrowthBook Custom Field to Jira Projects
+
+1. In the sidebar, click **Projects** &rarr; **Manage Projects**
+2. For each project that you want to enable the custom field in, select the &quot;...&quot; more options menu
+3. Select **Fields** and **Add field**, then search for "GrowthBook Link" and click **Add field**
+4. Under **Work types**, select which work type you want to add the field to, e.g. **Task**
+5. Move the GrowthBook Link field from the list of fields in the sidebar to where you'd like it to appear on your work item
+
+Once the field has been added, it will appear when you link an issue to a GrowthBook feature or experiment.
+![Adding field in project settings](/images/integrations/jira/add-field-to-project.png)
+![Adding field to work item](/images/integrations/jira/add-field-to-task.png)
 
 ## Adding Feature Flags and Experiments to Jira Issues
 
 ![Select menu for GrowthBook for Jira](/images/integrations/jira/jira-select-features.jpg)
 
-:::note
+:::info Only existing items will be shown
 If the dropdown is empty, make sure you've already created a feature flag or experiment in GrowthBook. Only existing items will be shown.
 :::
 
 To link a GrowthBook feature flag or experiment to a Jira issue:
 
 1. Open the Jira issue
-2. Click **Apps** &rarr; **GrowthBook for Jira**
+2. Select the gear icon (View app actions) at the top and from the dropdown choose **GrowthBook for Jira**
 3. Use the search bar dropdown to quickly find or select an existing feature flag or experiment
 4. Click the feature flag or experiment to link it to the issue
 

@@ -1,9 +1,13 @@
+import * as Sentry from "@sentry/nextjs";
+import { useMemo } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
+import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,31 +17,54 @@ import {
 } from "@/services/metrics";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useSnapshot } from "./SnapshotProvider";
 import ExperimentTimeSeriesGraph, {
   ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
 
-export default function ExperimentMetricTimeSeriesGraphWrapper({
-  experimentId,
-  experimentStatus,
-  metric,
-  differenceType,
-  showVariations,
-  statsEngine,
-  pValueAdjustmentEnabled,
-  firstDateToRender,
-}: {
+interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
+  phase: number;
   experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
+  variationNames: string[];
   showVariations: boolean[];
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
-}) {
-  const { phase } = useSnapshot();
+  sliceId?: string;
+}
+
+export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
+  props: ExperimentMetricTimeSeriesGraphWrapperProps,
+) {
+  return (
+    <ErrorBoundary
+      fallback={
+        <Message>Something went wrong while displaying this graph.</Message>
+      }
+      onError={(error) => {
+        Sentry.captureException(error);
+      }}
+    >
+      <ExperimentMetricTimeSeriesGraphWrapper {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function ExperimentMetricTimeSeriesGraphWrapper({
+  experimentId,
+  phase,
+  experimentStatus,
+  metric,
+  differenceType,
+  variationNames,
+  showVariations,
+  statsEngine,
+  pValueAdjustmentEnabled,
+  firstDateToRender,
+  sliceId,
+}: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
@@ -45,12 +72,18 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   const formatterOptions = { currency: displayCurrency };
   const metricValueFormatter = getExperimentMetricFormatter(
     metric,
-    getFactTableById
+    getFactTableById,
   );
 
+  const metricId = sliceId ?? metric.id;
+
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
   );
+
+  const filteredMetricTimeSeries = useMemo(() => {
+    return filterInvalidMetricTimeSeries(data?.timeSeries || []);
+  }, [data]);
 
   if (error) {
     return (
@@ -65,12 +98,12 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
     return <Message>Loading...</Message>;
   }
 
-  if (!data || data.timeSeries.length === 0) {
+  if (!filteredMetricTimeSeries || filteredMetricTimeSeries.length === 0) {
     return <Message>No time series data available for this metric.</Message>;
   }
 
-  // NB: Can use data.timeSeries[0] because we only fetch one metric
-  const timeSeries = data.timeSeries[0];
+  // NB: Can get first item because we only fetch one metric
+  const timeSeries = filteredMetricTimeSeries[0];
 
   const additionalGraphDataPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
   const firstDataPointDate = getValidDate(timeSeries.dataPoints[0].date);
@@ -98,19 +131,23 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   const lastIndexInvalidConfiguration = timeSeries.dataPoints.findLastIndex(
     (point) =>
       point.tags?.includes("experiment-settings-changed") ||
-      point.tags?.includes("metric-settings-changed")
+      point.tags?.includes("metric-settings-changed"),
   );
 
   const dataPoints = [
     ...timeSeries.dataPoints.map((point, idx) => {
-      const variations = point.variations.map((i) => {
+      // Preprocess variations to match variationNames order exactly with indices
+      const variations = variationNames.map((vName) => {
+        const variation = point.variations.find((v) => v.name === vName);
+        if (!variation) return null;
+
         // compute adjusted CI if we have all the data and adjustment exists
         // Note: pvalueAdjusted is undefined in the first version of time series
         // so this will not run until we handle adjustment
         let adjustedCI: [number, number] | undefined;
-        const pValueAdjusted = i[differenceType]?.pValueAdjusted;
-        const lift = i[differenceType]?.expected;
-        const ci = i[differenceType]?.ci;
+        const pValueAdjusted = variation[differenceType]?.pValueAdjusted;
+        const lift = variation[differenceType]?.expected;
+        const ci = variation[differenceType]?.ci;
         if (
           pValueAdjusted !== undefined &&
           lift !== undefined &&
@@ -120,19 +157,21 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
         }
 
         return {
-          v: i.stats?.mean ?? 0,
+          v: variation.stats?.mean ?? 0,
           v_formatted: metricValueFormatter(
-            i.stats?.mean ?? 0,
-            formatterOptions
+            variation.stats?.mean ?? 0,
+            formatterOptions,
           ),
-          users: i.stats?.users ?? 0,
-          up: i[differenceType]?.expected ?? 0,
-          ctw: i[differenceType]?.chanceToWin ?? undefined,
-          ci: adjustedCI ?? i[differenceType]?.ci ?? undefined,
-          p: i[differenceType]?.pValueAdjusted ?? i[differenceType]?.pValue,
-          // TODO: What do we do with denominator?
+          users: variation.stats?.users ?? 0,
+          up: variation[differenceType]?.expected ?? 0,
+          ctw: variation[differenceType]?.chanceToWin ?? undefined,
+          ci: adjustedCI ?? variation[differenceType]?.ci ?? undefined,
+          p:
+            variation[differenceType]?.pValueAdjusted ??
+            variation[differenceType]?.pValue,
         };
       });
+
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
         variations,
@@ -158,11 +197,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
     }
   })();
 
-  // Use the last data points to get the latest variation names
-  const variationNames = timeSeries.dataPoints[
-    timeSeries.dataPoints.length - 1
-  ].variations.map((v) => v.name);
-
   return (
     <ExperimentTimeSeriesGraph
       yaxis="effect"
@@ -176,7 +210,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
           : getExperimentMetricFormatter(
               metric,
               getFactTableById,
-              differenceType === "absolute" ? "percentagePoints" : "number"
+              differenceType === "absolute" ? "percentagePoints" : "number",
             )
       }
       statsEngine={statsEngine}

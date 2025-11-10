@@ -9,11 +9,11 @@ import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import { useAuth } from "@/services/auth";
-import Callout from "@/components/Radix/Callout";
-import Button from "@/components/Radix/Button";
-import { DropdownMenu } from "@/components/Radix/DropdownMenu";
-import Metadata from "@/components/Radix/Metadata";
-import Link from "@/components/Radix/Link";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import { DropdownMenu } from "@/ui/DropdownMenu";
+import Metadata from "@/ui/Metadata";
+import Link from "@/ui/Link";
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -52,7 +52,7 @@ export default function ReportAnalysisSettingsBar({
   }, [_snapshot, snapshot]);
 
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;

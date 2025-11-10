@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
@@ -36,23 +37,24 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const { organization } = useUser();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization?.id || ""
+    organization?.id || "",
   );
 
   const hasDataSource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
   const hasMetrics = metrics.some(
-    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId)
+    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
   );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
-  const {
-    projectId: demoDataSourceProjectId,
-    demoExperimentId,
-  } = useDemoDataSourceProject();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
+
+  const gb = useGrowthBook();
+  const useNewSampleData = gb.isOn("new-sample-data");
 
   const openSampleExperiment = async () => {
     if (demoDataSourceProjectId && demoExperimentId) {
@@ -64,9 +66,14 @@ const ExperimentsGetStarted = (): React.ReactElement => {
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>("/demo-datasource-project", {
-        method: "POST",
-      });
+      }>(
+        useNewSampleData
+          ? "/demo-datasource-project/new"
+          : "/demo-datasource-project",
+        {
+          method: "POST",
+        },
+      );
       await mutateDefinitions();
       if (res.experimentId) {
         router.push(`/experiment/${res.experimentId}`);
@@ -183,8 +190,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !(hasDataSource
                         ? datasources.some((datasource) =>
                             permissionsUtil.canUpdateDataSourceSettings(
-                              datasource
-                            )
+                              datasource,
+                            ),
                           )
                         : permissionsUtil.canViewCreateDataSourceModal(project))
                     }

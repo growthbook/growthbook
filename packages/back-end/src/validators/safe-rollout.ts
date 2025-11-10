@@ -11,7 +11,7 @@ export const safeRolloutStatusArray = [
   "released",
   "stopped",
 ] as const;
-export type SafeRolloutStatus = typeof safeRolloutStatusArray[number];
+export type SafeRolloutStatus = (typeof safeRolloutStatusArray)[number];
 
 export const MaxDuration = z.object({
   amount: z.number(),
@@ -26,7 +26,7 @@ const rampUpSchedule = z.object({
     z.object({
       percent: z.number(),
       dateRampedUp: z.date().optional(),
-    })
+    }),
   ),
   nextUpdate: z.date().optional(),
   lastUpdate: z.date().optional(),
@@ -41,6 +41,7 @@ export const createSafeRolloutValidator = z.object({
   maxDuration: MaxDuration,
   autoRollback: z.boolean(),
   rampUpSchedule: rampUpSchedule.partial().optional(),
+  seed: z.string().optional(),
 });
 export type CreateSafeRolloutInterface = z.infer<
   typeof createSafeRolloutValidator
@@ -52,7 +53,7 @@ const safeRolloutNotification = [
   "ship",
   "rollback",
 ] as const;
-export type SafeRolloutNotification = typeof safeRolloutNotification[number];
+export type SafeRolloutNotification = (typeof safeRolloutNotification)[number];
 
 const safeRollout = createSafeRolloutValidator.extend({
   // Refs
@@ -76,7 +77,7 @@ export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
 
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -114,20 +115,20 @@ export async function validateCreateSafeRolloutFields(
         if (datasourceId && metric.datasource !== datasourceId) {
           throw new Error(
             "Metrics must belong to the same datasource as the safe rollout: " +
-              metricIds[i]
+              metricIds[i],
           );
         }
       } else {
         // check to see if this metric is actually a metric group
         const metricGroup = await context.models.metricGroups.getById(
-          metricIds[i]
+          metricIds[i],
         );
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
           if (datasourceId && metricGroup.datasource !== datasourceId) {
             throw new Error(
               "Metrics must be tied to the same datasource as the safe rollout: " +
-                metricIds[i]
+                metricIds[i],
             );
           }
         } else {

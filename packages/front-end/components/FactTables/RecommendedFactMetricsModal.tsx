@@ -26,14 +26,14 @@ type RecommendedMetric = Pick<
 
 export function getRecommendedFactMetrics(
   factTable: FactTableInterface,
-  metrics: FactMetricInterface[]
+  metrics: FactMetricInterface[],
 ): RecommendedMetric[] {
   const recommendedMetrics: RecommendedMetric[] = [];
 
   function addMetric(
     type: "proportion" | "mean",
     column?: ColumnInterface,
-    value?: string
+    value?: string,
   ) {
     let description =
       type === "proportion"
@@ -66,7 +66,8 @@ export function getRecommendedFactMetrics(
     (column) =>
       column.alwaysInlineFilter &&
       canInlineFilterColumn(factTable, column.column) &&
-      column.topValues?.length
+      column.datatype === "string" &&
+      column.topValues?.length,
   );
 
   const filterMap: Record<string, string> = {};
@@ -80,7 +81,7 @@ export function getRecommendedFactMetrics(
       (m) =>
         m.metricType === "proportion" &&
         !m.numerator.filters?.length &&
-        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length
+        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length,
     )
   ) {
     addMetric("proportion");
@@ -93,7 +94,7 @@ export function getRecommendedFactMetrics(
         m.metricType === "mean" &&
         m.numerator.column === "$$count" &&
         !m.numerator.filters?.length &&
-        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length
+        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length,
     )
   ) {
     addMetric("mean");
@@ -110,8 +111,8 @@ export function getRecommendedFactMetrics(
             m.numerator.filters?.some(
               (f) =>
                 filterMap[f]?.includes(column.column) &&
-                filterMap[f]?.includes(value)
-            )
+                filterMap[f]?.includes(value),
+            ),
         )
       ) {
         return;

@@ -6,6 +6,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -26,9 +28,12 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
-import Callout from "@/components/Radix/Callout";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import Link from "@/ui/Link";
+import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
   feature,
@@ -39,6 +44,8 @@ export default function FeaturesHeader({
   setTab,
   setEditFeatureInfoModal,
   dependents,
+  holdout,
+  dependentExperiments,
 }: {
   feature: FeatureInterface;
   features: FeatureInterface[];
@@ -48,6 +55,8 @@ export default function FeaturesHeader({
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   dependents: number;
+  holdout: HoldoutInterface | undefined;
+  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -55,9 +64,10 @@ export default function FeaturesHeader({
   const [auditModal, setAuditModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [staleFFModal, setStaleFFModal] = useState(false);
+  const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -68,6 +78,10 @@ export default function FeaturesHeader({
     project: currentProject,
     projects,
   } = useDefinitions();
+  const { holdouts } = useHoldouts(feature.project);
+  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
+  const holdoutsEnabled =
+    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
   const { stale, reason } = useMemo(() => {
     if (!feature) return { stale: false };
@@ -75,9 +89,10 @@ export default function FeaturesHeader({
       feature,
       features,
       experiments,
+      dependentExperiments,
       environments: envs,
     });
-  }, [feature, features, experiments, envs]);
+  }, [feature, features, experiments, dependentExperiments, envs]);
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
@@ -112,8 +127,8 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center">
-              <Heading size="7" as="h1">
+            <Flex align="center" mb="2">
+              <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
               {stale && (
@@ -175,6 +190,22 @@ export default function FeaturesHeader({
                     </a>
                   </>
                 )}
+                {canEdit &&
+                  canPublish &&
+                  holdoutsEnabled &&
+                  holdouts.length > 0 &&
+                  !holdout?.id && (
+                    <a
+                      className="dropdown-item"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setAddToHoldoutModal(true);
+                      }}
+                    >
+                      Add to holdout
+                    </a>
+                  )}
                 {canEdit && canPublish && (
                   <a
                     className="dropdown-item"
@@ -273,6 +304,13 @@ export default function FeaturesHeader({
             </Box>
           </Flex>
           <Flex gap="4">
+            {holdout?.id && (
+              <Box>
+                <Text weight="medium">Holdout: </Text>
+                <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>
+              </Box>
+            )}
+
             {(projects.length > 0 || projectIsDeReferenced) && (
               <Box>
                 <Text weight="medium">Project: </Text>
@@ -405,6 +443,13 @@ export default function FeaturesHeader({
           close={() => {
             setShowImplementation(false);
           }}
+        />
+      )}
+      {addToHoldoutModal && (
+        <AddToHoldoutModal
+          close={() => setAddToHoldoutModal(false)}
+          feature={feature}
+          mutate={mutate}
         />
       )}
     </>

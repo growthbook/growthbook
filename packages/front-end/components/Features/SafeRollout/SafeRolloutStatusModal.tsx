@@ -18,7 +18,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 
@@ -38,7 +38,7 @@ export interface Props {
 type RolloutStatusChoice = "rolled-back" | "released" | "";
 
 function getDefaultStatusAndText(
-  decisionStatus: ExperimentResultStatus | undefined
+  decisionStatus: ExperimentResultStatus | undefined,
 ): { defaultStatus: RolloutStatusChoice; text: string } {
   if (!decisionStatus) {
     return {
@@ -51,8 +51,7 @@ function getDefaultStatusAndText(
     case "unhealthy":
       return {
         defaultStatus: "rolled-back",
-        text:
-          "The Safe Rollout is marked as unhealthy. We recommend reverting to Control.",
+        text: "The Safe Rollout is marked as unhealthy. We recommend reverting to Control.",
       };
     case "ship-now":
       return {
@@ -62,22 +61,19 @@ function getDefaultStatusAndText(
     case "rollback-now":
       return {
         defaultStatus: "rolled-back",
-        text:
-          "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
+        text: "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
       };
     case "before-min-duration":
     case "days-left":
     case "no-data":
       return {
         defaultStatus: "",
-        text:
-          "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
+        text: "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
       };
     case "ready-for-review":
       return {
         defaultStatus: "",
-        text:
-          "The Safe Rollout is ready for review. Are you sure you want to stop early?",
+        text: "The Safe Rollout is ready for review. Are you sure you want to stop early?",
       };
   }
 }
@@ -114,7 +110,7 @@ export default function SafeRolloutStatusModal({
     safeRollout: safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });
@@ -133,8 +129,8 @@ export default function SafeRolloutStatusModal({
     status === "released"
       ? rule.variationValue
       : status === "rolled-back"
-      ? rule.controlValue
-      : null;
+        ? rule.controlValue
+        : null;
 
   // The default status depends on async API calls, so when that finishes, update the form
   // As long as the user has not interacted with the input yet
@@ -160,7 +156,7 @@ export default function SafeRolloutStatusModal({
               safeRolloutFields: values,
               i,
             }),
-          }
+          },
         );
         setVersion(res.version);
         mutate?.();

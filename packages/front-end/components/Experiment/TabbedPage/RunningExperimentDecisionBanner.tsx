@@ -10,7 +10,7 @@ import { BsLightningFill } from "react-icons/bs";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 
 interface Props {
@@ -41,11 +41,12 @@ export default function RunningExperimentDecisionBanner({
   )
     return null;
 
-  const decidedVariations: VariationWithIndex[] = runningExperimentStatus.variations
-    .map(({ variationId }) =>
-      indexedVariations.find((v) => v.id === variationId)
-    )
-    .filter((v) => v !== undefined);
+  const decidedVariations: VariationWithIndex[] =
+    runningExperimentStatus.variations
+      .map(({ variationId }) =>
+        indexedVariations.find((v) => v.id === variationId),
+      )
+      .filter((v) => v !== undefined);
 
   const variationNames: Record<string, JSX.Element> = {};
   variations.forEach((v, i) => {

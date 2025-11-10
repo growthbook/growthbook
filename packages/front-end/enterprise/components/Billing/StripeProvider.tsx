@@ -10,7 +10,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { useAuth } from "@/services/auth";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getStripePublishableKey } from "@/services/env";
 
@@ -20,7 +20,7 @@ interface StripeContextProps {
 }
 
 export const StripeContext = createContext<StripeContextProps | undefined>(
-  undefined
+  undefined,
 );
 
 export function StripeProvider({
@@ -34,7 +34,7 @@ export function StripeProvider({
   const { theme } = useAppearanceUITheme();
 
   const [clientSecret, setClientSecret] = useState<string | null>(
-    initialClientSecret || null
+    initialClientSecret || null,
   );
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -42,7 +42,7 @@ export function StripeProvider({
 
   const stripePromise = useMemo(
     () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
-    [stripePublishableKey]
+    [stripePublishableKey],
   );
 
   const setupStripe = useCallback(async () => {
@@ -89,6 +89,8 @@ export function StripeProvider({
             theme: theme === "light" ? "stripe" : "night",
             variables: {
               colorPrimary: "#aa99ec",
+              colorBackground: theme === "dark" ? "#141929" : "#ffffff",
+              focusBoxShadow: "none",
             },
           },
         }}

@@ -1,6 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
-import { Switch } from "@radix-ui/themes";
+import Switch from "@/ui/Switch";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -15,7 +15,7 @@ const CustomFieldInput: FC<{
   className?: string;
 }> = ({
   customFields,
-  currentCustomFields,
+  currentCustomFields = {},
   project,
   className,
   section,
@@ -24,13 +24,22 @@ const CustomFieldInput: FC<{
   const availableFields = filterCustomFieldsForSectionAndProject(
     customFields,
     section,
-    project
+    project,
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
 
+  // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
+  if (typeof currentCustomFields === "string") {
+    try {
+      currentCustomFields = JSON.parse(currentCustomFields);
+    } catch (e) {
+      currentCustomFields = {};
+    }
+  }
+
   useEffect(() => {
     if (!loadedDefaults) {
-      // here we are setting the defaults values in the form, otherwise
+      // here we are setting the default values in the form, otherwise
       // boolean/toggles or inputs with default values will not be saved.
       if (availableFields) {
         availableFields.forEach((v) => {
@@ -84,12 +93,12 @@ const CustomFieldInput: FC<{
                       <Switch
                         id="bool"
                         mr="3"
-                        checked={
+                        value={
                           currentCustomFields?.[v.id]
                             ? currentCustomFields[v.id] === "true"
                             : false
                         }
-                        onCheckedChange={(t) => {
+                        onChange={(t) => {
                           updateCustomField(v.id, "" + JSON.stringify(t));
                         }}
                       />

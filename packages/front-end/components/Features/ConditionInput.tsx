@@ -8,8 +8,10 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
+import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
 import format from "date-fns/format";
+import Link from "next/link";
 import {
   condToJson,
   jsonToConds,
@@ -27,6 +29,7 @@ import CountrySelector, {
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/ui/Callout";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -40,7 +43,7 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { savedGroups } = useDefinitions();
+  const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
 
@@ -48,16 +51,20 @@ export default function ConditionInput(props: Props) {
   const emptyText = props.emptyText || "Applied to everyone by default.";
 
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue, attributes) === null
+    () => jsonToConds(props.defaultValue, attributes) === null,
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(
-    () => jsonToConds(props.defaultValue, attributes) || []
+    () => jsonToConds(props.defaultValue, attributes) || [],
   );
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema(false, props.project);
+
+  const usingDisabledEqualityAttributes = conds.some(
+    (cond) => !!attributes.get(cond.field)?.disableEqualityConditions,
+  );
 
   useEffect(() => {
     if (advanced) return;
@@ -85,8 +92,8 @@ export default function ConditionInput(props: Props) {
   if (advanced || !attributes.size || !simpleAllowed) {
     const hasSecureAttributes = some(
       [...attributes].filter(([_, a]) =>
-        ["secureString", "secureString[]"].includes(a.datatype)
-      )
+        ["secureString", "secureString[]"].includes(a.datatype),
+      ),
     );
     return (
       <div className="form-group my-4">
@@ -147,7 +154,12 @@ export default function ConditionInput(props: Props) {
               setConds([
                 {
                   field: prop?.property || "",
-                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                  operator:
+                    prop?.datatype === "boolean"
+                      ? "$true"
+                      : prop?.disableEqualityConditions
+                        ? "$regex"
+                        : "$eq",
                   value: "",
                 },
               ]);
@@ -196,7 +208,7 @@ export default function ConditionInput(props: Props) {
             };
 
             const handleFieldChange = (
-              e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
+              e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>,
             ) => {
               const name = e.target.name;
               const value: string | number = e.target.value;
@@ -210,7 +222,7 @@ export default function ConditionInput(props: Props) {
               handleCondsChange(value, name);
             };
 
-            const operatorOptions =
+            let operatorOptions =
               attribute.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
@@ -219,100 +231,119 @@ export default function ConditionInput(props: Props) {
                     { label: "is NULL", value: "$notExists" },
                   ]
                 : attribute.array
-                ? [
-                    { label: "includes", value: "$includes" },
-                    { label: "does not include", value: "$notIncludes" },
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.enum?.length || 0 > 0
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.datatype === "string"
-                ? [
-                    {
-                      label: "is equal to",
-                      value: attribute.format === "version" ? "$veq" : "$eq",
-                    },
-                    {
-                      label: "is not equal to",
-                      value: attribute.format === "version" ? "$vne" : "$ne",
-                    },
-                    { label: "matches regex", value: "$regex" },
-                    { label: "does not match regex", value: "$notRegex" },
-                    {
-                      label:
-                        attribute.format === "date"
-                          ? "is after"
-                          : "is greater than",
-                      value: attribute.format === "version" ? "$vgt" : "$gt",
-                    },
-                    {
-                      label:
-                        attribute.format === "date"
-                          ? "is after or on"
-                          : "is greater than or equal to",
-                      value: attribute.format === "version" ? "$vgte" : "$gte",
-                    },
-                    {
-                      label:
-                        attribute.format === "date"
-                          ? "is before"
-                          : "is less than",
-                      value: attribute.format === "version" ? "$vlt" : "$lt",
-                    },
-                    {
-                      label:
-                        attribute.format === "date"
-                          ? "is before or on"
-                          : "is less than or equal to",
-                      value: attribute.format === "version" ? "$vlte" : "$lte",
-                    },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
-                  ]
-                : attribute.datatype === "secureString"
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
-                  ]
-                : attribute.datatype === "number"
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is greater than", value: "$gt" },
-                    { label: "is greater than or equal to", value: "$gte" },
-                    { label: "is less than", value: "$lt" },
-                    { label: "is less than or equal to", value: "$lte" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
-                  ]
-                : [];
+                  ? [
+                      { label: "includes", value: "$includes" },
+                      { label: "does not include", value: "$notIncludes" },
+                      { label: "is empty", value: "$empty" },
+                      { label: "is not empty", value: "$notEmpty" },
+                      { label: "is not NULL", value: "$exists" },
+                      { label: "is NULL", value: "$notExists" },
+                    ]
+                  : attribute.enum?.length || 0 > 0
+                    ? [
+                        { label: "is equal to", value: "$eq" },
+                        { label: "is not equal to", value: "$ne" },
+                        { label: "is in the list", value: "$in" },
+                        { label: "is not in the list", value: "$nin" },
+                        { label: "is not NULL", value: "$exists" },
+                        { label: "is NULL", value: "$notExists" },
+                      ]
+                    : attribute.datatype === "string"
+                      ? [
+                          {
+                            label: "is equal to",
+                            value:
+                              attribute.format === "version" ? "$veq" : "$eq",
+                          },
+                          {
+                            label: "is not equal to",
+                            value:
+                              attribute.format === "version" ? "$vne" : "$ne",
+                          },
+                          { label: "matches regex", value: "$regex" },
+                          { label: "does not match regex", value: "$notRegex" },
+                          {
+                            label:
+                              attribute.format === "date"
+                                ? "is after"
+                                : "is greater than",
+                            value:
+                              attribute.format === "version" ? "$vgt" : "$gt",
+                          },
+                          {
+                            label:
+                              attribute.format === "date"
+                                ? "is after or on"
+                                : "is greater than or equal to",
+                            value:
+                              attribute.format === "version" ? "$vgte" : "$gte",
+                          },
+                          {
+                            label:
+                              attribute.format === "date"
+                                ? "is before"
+                                : "is less than",
+                            value:
+                              attribute.format === "version" ? "$vlt" : "$lt",
+                          },
+                          {
+                            label:
+                              attribute.format === "date"
+                                ? "is before or on"
+                                : "is less than or equal to",
+                            value:
+                              attribute.format === "version" ? "$vlte" : "$lte",
+                          },
+                          { label: "is in the list", value: "$in" },
+                          { label: "is not in the list", value: "$nin" },
+                          { label: "is not NULL", value: "$exists" },
+                          { label: "is NULL", value: "$notExists" },
+                          ...(savedGroupOptions.length > 0
+                            ? savedGroupOperators
+                            : []),
+                        ]
+                      : attribute.datatype === "secureString"
+                        ? [
+                            { label: "is equal to", value: "$eq" },
+                            { label: "is not equal to", value: "$ne" },
+                            { label: "is in the list", value: "$in" },
+                            { label: "is not in the list", value: "$nin" },
+                            { label: "is not NULL", value: "$exists" },
+                            { label: "is NULL", value: "$notExists" },
+                            ...(savedGroupOptions.length > 0
+                              ? savedGroupOperators
+                              : []),
+                          ]
+                        : attribute.datatype === "number"
+                          ? [
+                              { label: "is equal to", value: "$eq" },
+                              { label: "is not equal to", value: "$ne" },
+                              { label: "is greater than", value: "$gt" },
+                              {
+                                label: "is greater than or equal to",
+                                value: "$gte",
+                              },
+                              { label: "is less than", value: "$lt" },
+                              {
+                                label: "is less than or equal to",
+                                value: "$lte",
+                              },
+                              { label: "is in the list", value: "$in" },
+                              { label: "is not in the list", value: "$nin" },
+                              { label: "is not NULL", value: "$exists" },
+                              { label: "is NULL", value: "$notExists" },
+                              ...(savedGroupOptions.length > 0
+                                ? savedGroupOperators
+                                : []),
+                            ]
+                          : [];
+
+            if (attribute.disableEqualityConditions) {
+              // Remove equality operators if the attribute has them disabled
+              operatorOptions = operatorOptions.filter(
+                (o) => !["$eq", "$ne", "$in", "$nin"].includes(o.value),
+              );
+            }
 
             let displayType:
               | "select-only"
@@ -378,11 +409,13 @@ export default function ConditionInput(props: Props) {
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
                           newAttribute?.datatype !== attribute.datatype ||
-                          newAttribute?.array !== attribute.array;
+                          newAttribute?.array !== attribute.array ||
+                          !!newAttribute.disableEqualityConditions !==
+                            !!attribute.disableEqualityConditions;
+
                         if (hasAttrChanged && newAttribute) {
-                          newConds[i]["operator"] = getDefaultOperator(
-                            newAttribute
-                          );
+                          newConds[i]["operator"] =
+                            getDefaultOperator(newAttribute);
                           newConds[i]["value"] = newConds[i]["value"] || "";
                         }
                         setConds(newConds);
@@ -409,6 +442,24 @@ export default function ConditionInput(props: Props) {
                       value={value}
                       onChange={(v) => {
                         handleCondsChange(v, "value");
+                      }}
+                      formatOptionLabel={(o, meta) => {
+                        if (meta.context !== "value" || !o.value)
+                          return o.label;
+                        const group = getSavedGroupById(o.value);
+                        const link =
+                          group?.type === "list"
+                            ? `/saved-groups/${group.id}`
+                            : "/saved-groups#conditionGroups";
+                        return (
+                          <Link
+                            href={link}
+                            target="_blank"
+                            style={{ position: "relative", zIndex: 1000 }}
+                          >
+                            {o.label} <PiArrowSquareOut />
+                          </Link>
+                        );
                       }}
                       name="value"
                       initialOption="Choose group..."
@@ -527,7 +578,7 @@ export default function ConditionInput(props: Props) {
                           setDate={(v) => {
                             handleCondsChange(
                               v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
-                              "value"
+                              "value",
                             );
                           }}
                           inputWidth={180}
@@ -609,6 +660,12 @@ export default function ConditionInput(props: Props) {
             <RxLoop /> Advanced mode
           </span>
         </div>
+        {usingDisabledEqualityAttributes && (
+          <Callout status="warning" mt="4">
+            Be careful not to include Personally Identifiable Information (PII)
+            in your targeting conditions.
+          </Callout>
+        )}
       </div>
     </div>
   );

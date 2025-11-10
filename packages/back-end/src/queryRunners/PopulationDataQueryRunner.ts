@@ -55,8 +55,8 @@ export const startPopulationDataQueries = async (
   params: PopulationDataQueryParams,
   integration: SourceIntegrationInterface,
   startQuery: (
-    params: StartQueryParams<RowsType, ProcessedRowsType>
-  ) => Promise<QueryPointer>
+    params: StartQueryParams<RowsType, ProcessedRowsType>,
+  ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
   const settings = params.snapshotSettings;
   const metricMap = params.metricMap;
@@ -77,11 +77,11 @@ export const startPopulationDataQueries = async (
 
   const queries: Queries = [];
 
-  const { groups, singles } = getFactMetricGroups(
+  const { factMetricGroups, legacyMetricSingles } = getFactMetricGroups(
     selectedMetrics,
     settings,
     integration,
-    org
+    org,
   );
 
   let segment: SegmentInterface | null = null;
@@ -90,14 +90,14 @@ export const startPopulationDataQueries = async (
     params.populationSettings.sourceId
   ) {
     segment = await context.models.segments.getById(
-      params.populationSettings.sourceId
+      params.populationSettings.sourceId,
     );
     if (!segment) {
       throw new Error("Segment not found");
     }
   }
 
-  for (const m of singles) {
+  for (const m of legacyMetricSingles) {
     if (
       !integration.getPopulationMetricQuery ||
       !integration.runPopulationMetricQuery
@@ -106,14 +106,14 @@ export const startPopulationDataQueries = async (
     }
 
     const denominatorMetrics: MetricInterface[] = [];
-    if (!isFactMetric(m) && m.denominator) {
+    if (m.denominator) {
       denominatorMetrics.push(
         ...expandDenominatorMetrics(
           m.denominator,
-          metricMap as Map<string, MetricInterface>
+          metricMap as Map<string, MetricInterface>,
         )
           .map((m) => metricMap.get(m) as MetricInterface)
-          .filter(Boolean)
+          .filter(Boolean),
       );
     }
     const queryParams: PopulationMetricQueryParams = {
@@ -136,15 +136,15 @@ export const startPopulationDataQueries = async (
         run: (query, setExternalId) =>
           (integration as SqlIntegration).runPopulationMetricQuery(
             query,
-            setExternalId
+            setExternalId,
           ),
         process: (rows) => rows,
         queryType: "populationMetric",
-      })
+      }),
     );
   }
 
-  for (const [i, m] of groups.entries()) {
+  for (const [i, m] of factMetricGroups.entries()) {
     if (
       !integration.getPopulationFactMetricsQuery ||
       !integration.runPopulationFactMetricsQuery
@@ -171,11 +171,11 @@ export const startPopulationDataQueries = async (
         run: (query, setExternalId) =>
           (integration as SqlIntegration).runPopulationFactMetricsQuery(
             query,
-            setExternalId
+            setExternalId,
           ),
         process: (rows) => rows,
         queryType: "populationMultiMetric",
-      })
+      }),
     );
   }
 
@@ -189,7 +189,7 @@ function readMetricData({
   denominator,
 }: {
   metric: ExperimentMetricInterface;
-  rows: Record<string, string | number>[];
+  rows: Record<string, string | number | undefined>[];
   metricPrefix?: string;
   denominator?: ExperimentMetricInterface;
 }): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {
@@ -199,16 +199,16 @@ function readMetricData({
     type: isBinomialMetric(metric)
       ? "binomial"
       : isRatioMetric(metric, denominator)
-      ? "ratio"
-      : "mean",
+        ? "ratio"
+        : "mean",
     data: {
       main_sum: rows.reduce(
         (sum, r) => (sum += (r?.[prefix + "main_sum"] as number) ?? 0),
-        0
+        0,
       ),
       main_sum_squares: rows.reduce(
         (sum, r) => (sum += (r?.[prefix + "main_sum_squares"] as number) ?? 0),
-        0
+        0,
       ),
       count: rows.reduce((sum, r) => (sum += (r?.["count"] as number) ?? 0), 0),
       ...(isRatioMetric(metric, denominator)
@@ -216,20 +216,20 @@ function readMetricData({
             denominator_sum: rows.reduce(
               (sum, r) =>
                 (sum += (r?.[prefix + "denominator_sum"] as number) ?? 0),
-              0
+              0,
             ),
             denominator_sum_squares: rows.reduce(
               (sum, r) =>
                 (sum +=
                   (r?.[prefix + "denominator_sum_squares"] as number) ?? 0),
-              0
+              0,
             ),
             main_denominator_sum_product: rows.reduce(
               (sum, r) =>
                 (sum +=
                   (r?.[prefix + "main_denominator_sum_product"] as number) ??
                   0),
-              0
+              0,
             ),
           }
         : {}),
@@ -238,9 +238,9 @@ function readMetricData({
   // count units to get max
   const histogram: { [week: string]: number } = {};
   rows.forEach((r) => {
-    if (r.dimension) {
+    if (r.dim_pre_date) {
       const users = (r.users as number) ?? 0;
-      const week = lastMondayString(r.dimension as string);
+      const week = lastMondayString(r.dim_pre_date as string);
       if (!histogram[week]) {
         histogram[week] = users;
       }
@@ -267,7 +267,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -277,7 +277,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
       this.context,
       params,
       this.integration,
-      this.startQuery.bind(this)
+      this.startQuery.bind(this),
     );
   }
 
@@ -312,7 +312,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
 
             const metricUnitsTotal = res.units.reduce(
               (sum, u) => (sum += u.count),
-              0
+              0,
             );
             if (metricUnitsTotal > allUnitsMax) {
               units = res.units;
@@ -334,7 +334,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
 
       const metricUnitsTotal = res.units.reduce(
         (sum, u) => (sum += u.count),
-        0
+        0,
       );
       if (metricUnitsTotal > allUnitsMax) {
         units = res.units;
@@ -350,7 +350,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
 
   async getLatestModel(): Promise<PopulationDataInterface> {
     const model = await this.context.models.populationData.getById(
-      this.model.id
+      this.model.id,
     );
     if (!model) {
       throw new Error("Population data not found");
@@ -380,13 +380,13 @@ export class PopulationDataQueryRunner extends QueryRunner<
         status === "running"
           ? "running"
           : status === "failed"
-          ? "error"
-          : "success",
+            ? "error"
+            : "success",
     };
     const latest = await this.getLatestModel();
     const updated = await this.context.models.populationData.update(
       latest,
-      updates
+      updates,
     );
     return updated;
   }

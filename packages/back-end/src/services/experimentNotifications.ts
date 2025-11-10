@@ -1,4 +1,8 @@
-import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import {
+  includeExperimentInPayload,
+  getSnapshotAnalysis,
+  ensureAndReturn,
+} from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
 import {
   PRESET_DECISION_CRITERIA,
@@ -24,7 +28,6 @@ import {
   ExperimentResultStatusData,
 } from "back-end/types/experiment";
 import { ResourceEvents } from "back-end/src/events/base-types";
-import { ensureAndReturn } from "back-end/src/util/types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import {
@@ -224,7 +227,7 @@ type ExperimentSignificanceChange = {
 
 const sendSignificanceEmail = async (
   experiment: ExperimentInterface,
-  experimentChanges: ExperimentSignificanceChange[]
+  experimentChanges: ExperimentSignificanceChange[],
 ) => {
   const messages = experimentChanges.map(
     ({ metricName, variationName, winning, statsEngine, criticalValue }) => {
@@ -232,27 +235,27 @@ const sendSignificanceEmail = async (
         return `The metric ${metricName} for variation ${variationName} is
          ${winning ? "beating" : "losing to"} the baseline and has
          reached statistical significance (p-value = ${criticalValue.toFixed(
-           3
+           3,
          )}).`;
       }
       return `The metric ${metricName} for variation ${variationName} has ${
         winning ? "reached a" : "dropped to a"
       } ${(criticalValue * 100).toFixed(1)} chance to beat the baseline.`;
-    }
+    },
   );
 
   try {
     // send an email to any subscribers on this test:
     const watchers = await getExperimentWatchers(
       experiment.id,
-      experiment.organization
+      experiment.organization,
     );
 
     await sendExperimentChangesEmail(
       watchers,
       experiment.id,
       experiment.name,
-      messages
+      messages,
     );
   } catch (e) {
     logger.error(e, "Failed to send significance email");
@@ -411,8 +414,8 @@ export const notifySignificance = async ({
         data: {
           object: change,
         },
-      })
-    )
+      }),
+    ),
   );
 };
 
@@ -466,22 +469,21 @@ export const notifyDecision = async ({
 
 async function getDecisionCriteria(
   context: Context,
-  decisionCriteriaId?: string
+  decisionCriteriaId?: string,
 ) {
   if (!decisionCriteriaId) {
     return PRESET_DECISION_CRITERIA;
   }
 
   const usedPresetCriteria = PRESET_DECISION_CRITERIAS.find(
-    (dc) => dc.id === decisionCriteriaId
+    (dc) => dc.id === decisionCriteriaId,
   );
   if (usedPresetCriteria) {
     return usedPresetCriteria;
   }
 
-  const decisionCriteria = await context.models.decisionCriteria.getById(
-    decisionCriteriaId
-  );
+  const decisionCriteria =
+    await context.models.decisionCriteria.getById(decisionCriteriaId);
 
   if (!decisionCriteria) {
     return PRESET_DECISION_CRITERIA;
@@ -511,13 +513,13 @@ export const notifyExperimentChange = async ({
 
   const healthSettings = getHealthSettings(
     context.org.settings,
-    orgHasPremiumFeature(context.org, "decision-framework")
+    orgHasPremiumFeature(context.org, "decision-framework"),
   );
 
   const decisionCriteria = await getDecisionCriteria(
     context,
     experiment.decisionFrameworkSettings?.decisionCriteriaId ??
-      context.org.settings?.defaultDecisionCriteriaId
+      context.org.settings?.defaultDecisionCriteriaId,
   );
 
   const currentStatus = getExperimentResultStatus({

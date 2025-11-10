@@ -17,7 +17,7 @@ import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEma
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 import track from "@/services/track";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import PremiumCallout from "@/ui/PremiumCallout";
 
 export const MembersTabView: FC = () => {
   const {
@@ -41,7 +41,7 @@ export const MembersTabView: FC = () => {
 
   // Will be set when redirected here after Stripe Checkout
   const checkoutSessionId = String(
-    router.query["subscription-success-session"] || ""
+    router.query["subscription-success-session"] || "",
   );
 
   const [justSubscribedForPro, setJustSubscribedForPro] = useState(false);

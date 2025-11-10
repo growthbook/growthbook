@@ -17,7 +17,7 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -37,10 +37,8 @@ export interface Props {
 }
 
 export default function IdLists({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const { project } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
@@ -57,7 +55,7 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const filteredIdLists = project
     ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project)
+        isProjectListValidForProject(list.projects, project),
       )
     : idLists;
 
@@ -66,10 +64,8 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const environments = useEnvironments();
 
-  const {
-    hasLargeSavedGroupFeature,
-    unsupportedConnections,
-  } = useLargeSavedGroupSupport();
+  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+    useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
   // Get a list of feature ids for every saved group
@@ -80,7 +76,7 @@ export default function IdLists({ groups, mutate }: Props) {
         features,
         environments,
       }),
-    [filteredIdLists, environments, features]
+    [filteredIdLists, environments, features],
   );
   const referencingExperimentsByGroup = useMemo(
     () =>
@@ -88,7 +84,7 @@ export default function IdLists({ groups, mutate }: Props) {
         savedGroups: filteredIdLists,
         experiments,
       }),
-    [filteredIdLists, experiments]
+    [filteredIdLists, experiments],
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -246,7 +242,7 @@ export default function IdLists({ groups, mutate }: Props) {
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
                                     referencingFeaturesByGroup[s.id],
-                                    referencingExperimentsByGroup[s.id]
+                                    referencingExperimentsByGroup[s.id],
                                   )}
                                   canDelete={
                                     isEmpty(referencingFeaturesByGroup[s.id]) &&

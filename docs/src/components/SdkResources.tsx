@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import sdkInfo from "../data/SDKInfo.json";
+import sdkInfo from "../data/SDKInfo";
 import {
   GitHubLogo,
   SlackLogo,
@@ -31,22 +31,18 @@ const InfoContainer = memo(
         {children}
       </Component>
     );
-  }
+  },
 );
 InfoContainer.displayName = "InfoContainer";
 
 export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
   const { name, version, github, examples, packageRepos } = sdkInfo[sdk];
-  const formattedVersion = useMemo(() => version.replace(/^v?/, "v"), [
-    version,
-  ]);
+  const formattedVersion = useMemo(
+    () => version.replace(/^v?/, "v"),
+    [version],
+  );
 
-  const [githubName, githubUrl] = useMemo(() => {
-    if (typeof github === "string") {
-      return [github.split("/").pop(), github];
-    }
-    return [github.name, github.url];
-  }, [github]);
+  const githubName = useMemo(() => github.split("/").pop(), [github]);
 
   return (
     <section className="sdk-info">
@@ -58,7 +54,7 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
         <InfoContainer icon={<GitBranch />}>{formattedVersion}</InfoContainer>
       </header>
 
-      <InfoContainer href={githubUrl} icon={<GitHubLogo />}>
+      <InfoContainer href={github} icon={<GitHubLogo />}>
         {githubName}
       </InfoContainer>
 

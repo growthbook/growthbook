@@ -5,9 +5,9 @@ import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 interface Props {
   defaultValue: ScheduleRule[];
@@ -28,10 +28,10 @@ export default function ScheduleInputs(props: Props) {
   }, [props, props.defaultValue, rules]);
 
   const [date0, setDate0] = useState<Date | undefined>(
-    rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined
+    rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined,
   );
   const [date1, setDate1] = useState<Date | undefined>(
-    rules?.[1]?.timestamp ? getValidDate(rules[1].timestamp) : undefined
+    rules?.[1]?.timestamp ? getValidDate(rules[1].timestamp) : undefined,
   );
 
   function dateIsValid(date: Date) {

@@ -52,7 +52,7 @@ export async function getPaymentMethodsByLicenseKey(licenseKey: string) {
 
 export async function updateDefaultPaymentMethod(
   licenseKey: string,
-  paymentMethodId: string
+  paymentMethodId: string,
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/payment-methods/set-default`;
   const res = await callLicenseServer({
@@ -68,7 +68,7 @@ export async function updateDefaultPaymentMethod(
 
 export async function deletePaymentMethodById(
   licenseKey: string,
-  paymentMethodId: string
+  paymentMethodId: string,
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/payment-methods/detach`;
   const res = await callLicenseServer({
@@ -120,7 +120,7 @@ export const resetUsageCache = () => {
 };
 
 function getCachedUsageIfValid(
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): OrganizationUsage | undefined {
   if (!IS_CLOUD) {
     return UNLIMITED_USAGE;
@@ -149,9 +149,9 @@ export function getUsageFromCache(organization: OrganizationInterface) {
 
   // Don't await for the result, we will just keep showing out of date cached version or the fallback
   backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
-    organization.id
+    organization.id,
   ).catch((err) => {
-    logger.error(`Error getting usage data from server`, err);
+    logger.error(err, `Error getting usage data from server`);
   });
 
   return keyToUsageData[organization.id]?.usage || UNLIMITED_USAGE;
@@ -166,9 +166,9 @@ export async function getUsage(organization: OrganizationInterface) {
   if (keyToUsageData[organization.id]) {
     // If we have a cached version, but it's invalid, we will update it in the background
     backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
-      organization.id
+      organization.id,
     ).catch((err) => {
-      logger.error(`Error getting usage data from server`, err);
+      logger.error(err, `Error getting usage data from server`);
     });
   } else {
     await updateUsageDataFromServer(organization.id);

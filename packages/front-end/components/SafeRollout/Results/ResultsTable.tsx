@@ -2,29 +2,34 @@ import clsx from "clsx";
 import {
   CSSProperties,
   ReactElement,
+  ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { Box, Popover } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { RxInfoCircled } from "react-icons/rx";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { Box, Flex, Popover } from "@radix-ui/themes";
+import { extent } from "@visx/vendor/d3-array";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
 import { getValidDate } from "shared/dates";
+import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
-import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
-import { useAnalysisResultPopover } from "@/components/AnalysisResultPopover/useAnalysisResultPopover";
+import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
+import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -40,8 +45,11 @@ import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useSafeRolloutSnapshot } from "../SnapshotProvider";
 import ChangeColumn from "./ChangeColumn";
 import StatusColumn from "./StatusColumn";
 
@@ -57,14 +65,18 @@ export type ResultsTableProps = {
   rows: ExperimentTableRow[];
   dimension?: string;
   editMetrics?: () => void;
-  renderLabelColumn: (
-    label: string,
-    metric: ExperimentMetricInterface,
-    row: ExperimentTableRow,
-    maxRows?: number
-  ) => string | ReactElement;
+  renderLabelColumn: ({
+    label,
+    metric,
+    row,
+    maxRows,
+  }: {
+    label: string | ReactNode;
+    metric: ExperimentMetricInterface;
+    row: ExperimentTableRow;
+    maxRows?: number;
+  }) => string | ReactElement;
   dateCreated: Date;
-  hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
@@ -80,7 +92,7 @@ export type ResultsTableProps = {
 };
 
 export default function ResultsTable({
-  id: _,
+  id,
   isLatestPhase,
   status,
   queryStatusData,
@@ -127,6 +139,7 @@ export default function ResultsTable({
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
+  const showTimeSeries = useFeatureIsOn("safe-rollout-timeseries");
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -147,25 +160,26 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
-    const sorted = variations
-      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-      .sort((a, b) => {
-        if (a.index === baselineRow) return -1;
-        return a.index - b.index;
-      });
-    // fix browser .sort() quirks. manually move the control row to top:
-    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-    if (baselineIndex > -1) {
-      const baseline = sorted[baselineIndex];
-      sorted.splice(baselineIndex, 1);
-      sorted.unshift(baseline);
-    }
-    return sorted;
-  }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariationWithIndex[] =
+    useMemo(() => {
+      const sorted = variations
+        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+        .sort((a, b) => {
+          if (a.index === baselineRow) return -1;
+          return a.index - b.index;
+        });
+      // fix browser .sort() quirks. manually move the control row to top:
+      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+      if (baselineIndex > -1) {
+        const baseline = sorted[baselineIndex];
+        sorted.splice(baselineIndex, 1);
+        sorted.unshift(baseline);
+      }
+      return sorted;
+    }, [variations, baselineRow]);
 
   const filteredVariations = orderedVariations.filter(
-    (v) => !variationFilter?.includes(v.index)
+    (v) => !variationFilter?.includes(v.index),
   );
   const compactResults = filteredVariations.length <= 2;
 
@@ -205,11 +219,11 @@ export default function ResultsTable({
 
         const denominator =
           !isFactMetric(row.metric) && row.metric.denominator
-            ? (ssrPolyfills?.getExperimentMetricById?.(
-                row.metric.denominator
+            ? ((ssrPolyfills?.getExperimentMetricById?.(
+                row.metric.denominator,
               ) ||
                 getExperimentMetricById(row.metric.denominator)) ??
-              undefined
+              undefined)
             : undefined;
         const rowResults = getRowResults({
           stats,
@@ -264,7 +278,7 @@ export default function ResultsTable({
     setOpenTooltipRowIndex,
     handleRowTooltipMouseEnter,
     handleRowTooltipMouseLeave,
-  } = useAnalysisResultPopover({
+  } = useAnalysisResultSummary({
     orderedVariations,
     rows,
     rowsResults,
@@ -278,6 +292,45 @@ export default function ResultsTable({
   const noMetrics = rows.length === 0;
 
   const changeTitle = getEffectLabel(differenceType);
+
+  const urlFormattedMetricIds = rows
+    .map((row) => encodeURIComponent(row.metric.id))
+    .join("&metricIds[]=");
+  const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
+    status: number;
+    timeSeries: MetricTimeSeries[];
+  }>(`/safe-rollout/${id}/time-series?metricIds[]=${urlFormattedMetricIds}`, {
+    shouldRun: () => showTimeSeries,
+  });
+
+  const filteredMetricTimeSeries = useMemo(() => {
+    if (!metricTimeSeries) return undefined;
+    return filterInvalidMetricTimeSeries(metricTimeSeries.timeSeries);
+  }, [metricTimeSeries]);
+
+  const metricTimeSeriesMap = useMemo(() => {
+    return filteredMetricTimeSeries?.reduce(
+      (acc, curr) => {
+        acc[curr.metricId] = curr;
+        return acc;
+      },
+      {} as Record<string, MetricTimeSeries>,
+    );
+  }, [filteredMetricTimeSeries]);
+
+  const metricTimeSeriesDateExtent = useMemo(() => {
+    const dataPoints = filteredMetricTimeSeries?.flatMap((t) =>
+      t.dataPoints.map((d) => getValidDate(d.date)),
+    );
+    if (!dataPoints) return [undefined, undefined] as [undefined, undefined];
+    return extent(dataPoints);
+  }, [filteredMetricTimeSeries]);
+
+  // Ensure that if we get a new snapshot, we refetch the metric time series
+  const { snapshot } = useSafeRolloutSnapshot();
+  useEffect(() => {
+    mutateMetricTimeSeries();
+  }, [snapshot?.id, mutateMetricTimeSeries]);
 
   return (
     <div className="position-relative">
@@ -334,6 +387,14 @@ export default function ResultsTable({
                 </th>
                 {!noMetrics ? (
                   <>
+                    {showTimeSeries ? (
+                      <th
+                        style={{ width: 100 * tableCellScale }}
+                        className={clsx("axis-col label", { noStickyHeader })}
+                      >
+                        Time series
+                      </th>
+                    ) : null}
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className={clsx("axis-col label", { noStickyHeader })}
@@ -357,26 +418,28 @@ export default function ResultsTable({
                         <RxInfoCircled className="ml-1" />
                       </Tooltip>
                     </th>
-                    <th
-                      style={{ width: 150 * tableCellScale }}
-                      className={clsx("axis-col label text-right", {
-                        noStickyHeader,
-                      })}
-                    >
-                      <div style={{ lineHeight: "15px", marginBottom: 2 }}>
-                        <Tooltip
-                          usePortal={true}
-                          innerClassName={"text-left"}
-                          body={
-                            <div style={{ lineHeight: 1.5 }}>
-                              {getChangeTooltip(changeTitle, differenceType)}
-                            </div>
-                          }
-                        >
-                          {changeTitle} <RxInfoCircled />
-                        </Tooltip>
-                      </div>
-                    </th>
+                    {!showTimeSeries ? (
+                      <th
+                        style={{ width: 150 * tableCellScale }}
+                        className={clsx("axis-col label text-right", {
+                          noStickyHeader,
+                        })}
+                      >
+                        <div style={{ lineHeight: "15px", marginBottom: 2 }}>
+                          <Tooltip
+                            usePortal={true}
+                            innerClassName={"text-left"}
+                            body={
+                              <div style={{ lineHeight: 1.5 }}>
+                                {getChangeTooltip(changeTitle, differenceType)}
+                              </div>
+                            }
+                          >
+                            {changeTitle} <RxInfoCircled />
+                          </Tooltip>
+                        </div>
+                      </th>
+                    ) : null}
                   </>
                 ) : (
                   <th
@@ -400,7 +463,11 @@ export default function ResultsTable({
                   {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row",
-                      label: renderLabelColumn(row.label, row.metric, row),
+                      label: renderLabelColumn({
+                        label: row.label,
+                        metric: row.metric,
+                        row,
+                      }),
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -424,11 +491,11 @@ export default function ResultsTable({
                             <>
                               {compactResults ? (
                                 <div className="mb-1">
-                                  {renderLabelColumn(
-                                    row.label,
-                                    row.metric,
-                                    row
-                                  )}
+                                  {renderLabelColumn({
+                                    label: row.label,
+                                    metric: row.metric,
+                                    row,
+                                  })}
                                 </div>
                               ) : null}
                               <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
@@ -451,10 +518,13 @@ export default function ResultsTable({
                       rowResults.resultsStatus,
                       {
                         "non-significant": !rowResults.significant,
-                      }
+                      },
                     );
 
                     const tooltipData = getTooltipData(i, j);
+
+                    const metricTimeSeries =
+                      metricTimeSeriesMap?.[row.metric.id];
 
                     return (
                       <Popover.Root
@@ -470,8 +540,20 @@ export default function ResultsTable({
                           side="bottom"
                           sideOffset={-5}
                         >
-                          <AnalysisResultPopover
-                            data={tooltipData}
+                          <AnalysisResultSummary
+                            data={
+                              tooltipData
+                                ? {
+                                    ...tooltipData,
+                                    sliceLevels: tooltipData.sliceLevels?.map(
+                                      (dl) => ({
+                                        dimension: dl.column,
+                                        levels: dl.levels,
+                                      }),
+                                    ),
+                                  }
+                                : undefined
+                            }
                             differenceType={differenceType}
                             isBandit={isBandit}
                             ssrPolyfills={ssrPolyfills}
@@ -507,9 +589,39 @@ export default function ResultsTable({
                                 </span>
                               </div>
                             ) : (
-                              renderLabelColumn(row.label, row.metric, row, 3)
+                              renderLabelColumn({
+                                label: row.label,
+                                metric: row.metric,
+                                row,
+                                maxRows: 3,
+                              })
                             )}
                           </td>
+                          {j > 0 &&
+                          showTimeSeries &&
+                          metricTimeSeries &&
+                          metricTimeSeries.dataPoints.length > 0 ? (
+                            <td style={{ padding: 0, height: 1 }}>
+                              <SafeRolloutTimeSeriesGraph
+                                data={metricTimeSeries}
+                                xDateRange={metricTimeSeriesDateExtent}
+                                ssrPolyfills={ssrPolyfills}
+                              />
+                            </td>
+                          ) : j > 0 && showTimeSeries ? (
+                            <td>
+                              {!metricTimeSeries ? (
+                                <Flex
+                                  align="center"
+                                  justify="center"
+                                  position="relative"
+                                  width="100%"
+                                >
+                                  No time series data
+                                </Flex>
+                              ) : null}
+                            </td>
+                          ) : null}
                           {j > 0 ? (
                             <td
                               className="variation chance align-middle"
@@ -532,7 +644,7 @@ export default function ResultsTable({
                                     hideScaledImpact={hideScaledImpact}
                                     className={clsx(
                                       "results-pval",
-                                      resultsHighlightClassname
+                                      resultsHighlightClassname,
                                     )}
                                   />
                                   <Popover.Anchor />
@@ -542,7 +654,7 @@ export default function ResultsTable({
                           ) : (
                             <td></td>
                           )}
-                          {j > 0 ? (
+                          {j > 0 && !showTimeSeries ? (
                             <td
                               className="results-change"
                               // To allow us to have height 100% for the div inside the td
@@ -570,9 +682,7 @@ export default function ResultsTable({
                                 </Box>
                               </Popover.Trigger>
                             </td>
-                          ) : (
-                            <td></td>
-                          )}
+                          ) : null}
                         </tr>
                       </Popover.Root>
                     );

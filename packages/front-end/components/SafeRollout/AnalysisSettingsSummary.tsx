@@ -16,8 +16,8 @@ import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvide
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Metadata from "@/ui/Metadata";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
-import Metadata from "../Radix/Metadata";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 const numberFormatter = Intl.NumberFormat();
@@ -28,21 +28,13 @@ export interface Props {
 export default function SafeRolloutAnalysisSettingsSummary({
   safeRollout,
 }: Props) {
-  const {
-    getDatasourceById,
-    getExperimentMetricById,
-    metricGroups,
-  } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById, metricGroups } =
+    useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
-  const {
-    snapshot,
-    feature,
-    latest,
-    analysis,
-    mutateSnapshot,
-  } = useSafeRolloutSnapshot();
+  const { snapshot, feature, latest, analysis, mutateSnapshot } =
+    useSafeRolloutSnapshot();
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
@@ -64,7 +56,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
   const guardrails: string[] = [];
   expandMetricGroups(
     safeRollout.guardrailMetricIds ?? [],
-    metricGroups
+    metricGroups,
   ).forEach((m) => {
     const name = getExperimentMetricById(m)?.name;
     if (name) guardrails.push(name);
@@ -88,7 +80,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
             <Metadata
               label="Total units"
               value={numberFormatter.format(
-                safeRollout.analysisSummary?.health?.totalUsers ?? 0
+                safeRollout.analysisSummary?.health?.totalUsers ?? 0,
               )}
             />
           </div>
@@ -193,7 +185,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
                     {
                       "outline-danger": showQueryWarning,
                     },
-                    " "
+                    " ",
                   )}
                   display={null}
                   status={status}

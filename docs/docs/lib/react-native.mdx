@@ -7,6 +7,7 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink'
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # React Native
 
@@ -280,7 +281,7 @@ const gb = new GrowthBook({
 });
 ```
 
-:::note
+:::note Sticky Bucketing with Remote Evaluation
 
 If you would like to implement Sticky Bucketing while using Remote Evaluation, you must configure your remote evaluation backend to support Sticky Bucketing. In the case of the GrowthBook Proxy Server, this means implementing a Redis database for sticky bucketing use. You will not need to provide a StickyBucketService instance to the client side SDK.
 
@@ -615,3 +616,7 @@ const isDarkModeOn = useFeatureIsOn("dark_mode");
 
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="reactNative" />

@@ -1,4 +1,3 @@
-import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { SQLVars } from "back-end/types/sql";
 import {
@@ -14,7 +13,7 @@ Object.keys(helpers).forEach((helperName) => {
 
 export function getBaseIdTypeAndJoins(
   objects: string[][],
-  forcedBaseIdType?: string
+  forcedBaseIdType?: string,
 ) {
   // Get rid of empty ids, sort from least to most ids
   const sorted = objects
@@ -33,7 +32,7 @@ export function getBaseIdTypeAndJoins(
   });
 
   const idTypesSortedByFrequency = Object.entries(counts).sort(
-    (a, b) => b[1] - a[1]
+    (a, b) => b[1] - a[1],
   );
 
   // use most frequent ID as base type, unless forcedBaseIdType is passed
@@ -49,7 +48,7 @@ export function getBaseIdTypeAndJoins(
     // Add id type that is most frequent to help minimize N joins needed
     joinsRequired.add(
       idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] ||
-        types[0]
+        types[0],
     );
   });
 
@@ -66,7 +65,14 @@ function usesTemplateVariable(sql: string, variableName: string) {
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
 export function compileSqlTemplate(
   sql: string,
-  { startDate, endDate, experimentId, templateVariables }: SQLVars
+  {
+    startDate,
+    endDate,
+    experimentId,
+    templateVariables,
+    customFields,
+    phase,
+  }: SQLVars,
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -80,7 +86,7 @@ export function compileSqlTemplate(
       0,
       0,
       0,
-      0
+      0,
     );
   }
 
@@ -90,7 +96,10 @@ export function compileSqlTemplate(
     experimentId = "%";
   }
 
-  const replacements: Record<string, string> = {
+  const replacements: Record<string, unknown> = {
+    ...templateVariables,
+    customFields: customFields || {},
+    phase: phase || {},
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
@@ -106,19 +115,18 @@ export function compileSqlTemplate(
     experimentId,
   };
 
-  if (templateVariables?.eventName) {
-    replacements.eventName = templateVariables.eventName;
-  } else if (usesTemplateVariable(sql, "eventName")) {
+  // Better error messages for known variables that are missing
+  if (!templateVariables?.eventName && usesTemplateVariable(sql, "eventName")) {
     throw new Error(
-      "Error compiling SQL template: You must set eventName first."
+      "Error compiling SQL template: You must set eventName first.",
     );
   }
-
-  if (templateVariables?.valueColumn) {
-    replacements.valueColumn = templateVariables.valueColumn;
-  } else if (usesTemplateVariable(sql, "valueColumn")) {
+  if (
+    !templateVariables?.valueColumn &&
+    usesTemplateVariable(sql, "valueColumn")
+  ) {
     throw new Error(
-      "Error compiling SQL template: You must set valueColumn first."
+      "Error compiling SQL template: You must set valueColumn first.",
     );
   }
 
@@ -127,61 +135,41 @@ export function compileSqlTemplate(
     const template = Handlebars.compile(sql, {
       strict: true,
       noEscape: true,
-      knownHelpers: Object.keys(helpers).reduce((acc, helperName) => {
-        acc[helperName] = true;
-        return acc;
-      }, {} as Record<string, true>),
+      knownHelpers: Object.keys(helpers).reduce(
+        (acc, helperName) => {
+          acc[helperName] = true;
+          return acc;
+        },
+        {} as Record<string, true>,
+      ),
       knownHelpersOnly: true,
     });
     return template(replacements);
   } catch (e) {
-    if (e.message.includes("eventName")) {
-      throw new Error(
-        "Error compiling SQL template: You must set eventName first."
-      );
-    }
-    if (e.message.includes("valueColumn")) {
-      throw new Error(
-        "Error compiling SQL template: You must set valueColumn first."
-      );
-    }
     if (e.message.includes("not defined in [object Object]")) {
       const variableName = e.message.match(/"(.+?)"/)[1];
       throw new Error(
         `Unknown variable: ${variableName}. Available variables: ${Object.keys(
-          replacements
-        ).join(", ")}`
+          replacements,
+        ).join(", ")}`,
       );
     }
     if (e.message.includes("unknown helper")) {
       const helperName = e.message.match(/unknown helper (\w*)/)[1];
       throw new Error(
         `Unknown helper: ${helperName}. Available helpers: ${Object.keys(
-          helpers
-        ).join(", ")}`
+          helpers,
+        ).join(", ")}`,
       );
     }
     throw new Error(`Error compiling SQL template: ${e.message}`);
   }
 }
 
-export type FormatDialect = FormatOptions["language"] | "";
-export function format(sql: string, dialect?: FormatDialect) {
-  if (!dialect) return sql;
-
-  try {
-    return sqlFormat(sql, {
-      language: dialect,
-    });
-  } catch (e) {
-    return sql;
-  }
-}
-
 // used to support different server locations (e.g. for ClickHouse)
 export function getHost(
   url: string | undefined,
-  port: number
+  port: number,
 ): string | undefined {
   if (!url) return undefined;
   const host = new URL(!url.match(/^https?/) ? `http://${url}` : url);
@@ -195,7 +183,7 @@ export function getHost(
 export function expandDenominatorMetrics(
   metric: string,
   map: Map<string, { denominator?: string }>,
-  visited?: Set<string>
+  visited?: Set<string>,
 ): string[] {
   visited = visited || new Set();
   const m = map.get(metric);
@@ -243,10 +231,10 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
                 ? "date"
                 : "string"
               : typeof obj[key] === "number"
-              ? "number"
-              : typeof obj[key] === "boolean"
-              ? "boolean"
-              : "other",
+                ? "number"
+                : typeof obj[key] === "boolean"
+                  ? "boolean"
+                  : "other",
         };
       });
     } catch (e) {
@@ -258,7 +246,8 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
 }
 
 export function determineColumnTypes(
-  rows: Record<string, unknown>[]
+  rows: Record<string, unknown>[],
+  typeMap: Map<string, FactTableColumnType>,
 ): {
   column: string;
   datatype: FactTableColumnType;
@@ -272,13 +261,24 @@ export function determineColumnTypes(
     datatype: FactTableColumnType;
     jsonFields?: JSONColumnFields;
   }[] = [];
+
   cols.forEach((col) => {
     const testValues = rows
       .map((row) => row[col])
       .filter((val) => val !== null && val !== undefined);
     const testValue = testValues[0];
 
-    if (typeof testValue === "string" && isJSON(testValue)) {
+    const colType = typeMap.get(col);
+    const shouldAttemptInference =
+      colType === undefined ||
+      colType === "" ||
+      (colType === "string" &&
+        typeof testValue === "string" &&
+        isJSON(testValue));
+
+    if (!shouldAttemptInference) {
+      return;
+    } else if (typeof testValue === "string" && isJSON(testValue)) {
       // Use all test values to determine JSON fields
       columns.push({
         column: col,
@@ -301,12 +301,12 @@ export function determineColumnTypes(
               ? "date"
               : "string"
             : typeof testValue === "number"
-            ? "number"
-            : typeof testValue === "boolean"
-            ? "boolean"
-            : testValue && testValue instanceof Date
-            ? "date"
-            : "other",
+              ? "number"
+              : typeof testValue === "boolean"
+                ? "boolean"
+                : testValue && testValue instanceof Date
+                  ? "date"
+                  : "other",
       });
     } else {
       columns.push({

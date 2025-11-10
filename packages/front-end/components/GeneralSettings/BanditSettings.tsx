@@ -7,7 +7,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -29,8 +29,8 @@ export default function BanditSettings({
     scheduleHours < 1
       ? "Update cadence should be at least 15 minutes longer than it takes to run your data warehouse query"
       : scheduleHours > 24 * 3
-      ? "Update cadences longer than 3 days can result in slow learning"
-      : null;
+        ? "Update cadences longer than 3 days can result in slow learning"
+        : null;
 
   return (
     <Box>
@@ -95,7 +95,7 @@ export default function BanditSettings({
                     onChange={(value) => {
                       form.setValue(
                         "banditBurnInUnit",
-                        value as "hours" | "days"
+                        value as "hours" | "days",
                       );
                     }}
                     sort={false}
@@ -160,7 +160,7 @@ export default function BanditSettings({
                     onChange={(value) => {
                       form.setValue(
                         "banditScheduleUnit",
-                        value as "hours" | "days"
+                        value as "hours" | "days",
                       );
                     }}
                     sort={false}

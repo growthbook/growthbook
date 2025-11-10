@@ -26,6 +26,7 @@ import {
   removeProjectFromSlackIntegration,
 } from "back-end/src/models/SlackIntegrationModel";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableModel";
 
 // region POST /projects
 
@@ -47,7 +48,7 @@ export const postProject = async (
   res: Response<
     CreateProjectResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
 
@@ -92,7 +93,7 @@ export const putProject = async (
   res: Response<
     PutProjectResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
 
@@ -136,6 +137,7 @@ type DeleteProjectRequest = AuthRequest<
     deleteMetrics?: boolean;
     deleteSlackIntegrations?: boolean;
     deleteDataSources?: boolean;
+    deleteFactTables?: boolean;
   }
 >;
 
@@ -154,7 +156,7 @@ export const deleteProject = async (
   res: Response<
     DeleteProjectResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
   const {
@@ -163,6 +165,7 @@ export const deleteProject = async (
     deleteMetrics = false,
     deleteSlackIntegrations = false,
     deleteDataSources = false,
+    deleteFactTables = false,
   } = req.query;
   const context = getContextFromReq(req);
 
@@ -213,6 +216,22 @@ export const deleteProject = async (
     }
   } else {
     await removeProjectFromMetrics(id, org.id);
+  }
+
+  // Clean up fact tables and metrics
+  if (deleteFactTables) {
+    try {
+      await deleteAllFactTablesForAProject({
+        projectId: id,
+        context,
+      });
+      await context.models.factMetrics.deleteAllFactMetricsForAProject(id);
+    } catch (e) {
+      return res.json({
+        status: 403,
+        message: "Failed to delete fact tables",
+      });
+    }
   }
 
   // Clean up features
@@ -306,7 +325,7 @@ type PutProjectSettingsResponse = {
 };
 export const putProjectSettings = async (
   req: PutProjectSettingsRequest,
-  res: Response<PutProjectSettingsResponse | ApiErrorResponse>
+  res: Response<PutProjectSettingsResponse | ApiErrorResponse>,
 ) => {
   const { id } = req.params;
 

@@ -1,16 +1,15 @@
+import { FormatDialect } from "shared/src/types";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import { QueryResponse } from "back-end/src/types/Integration";
-import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
   params!: PostgresConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PostgresConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "redshift";

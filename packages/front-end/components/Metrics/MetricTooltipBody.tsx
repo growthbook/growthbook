@@ -4,9 +4,10 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
-import React from "react";
+import React, { ReactElement } from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
+import { MdSwapCalls } from "react-icons/md";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
@@ -15,6 +16,7 @@ import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import { getPercentileLabel } from "@/services/metrics";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 
@@ -22,8 +24,8 @@ interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
   statsEngine?: StatsEngine;
-  reportRegressionAdjustmentEnabled?: boolean;
   hideDetails?: boolean;
+  extraInfo?: ReactElement | string;
 }
 
 interface MetricInfo {
@@ -37,8 +39,8 @@ const MetricTooltipBody = ({
   metric,
   row,
   statsEngine,
-  reportRegressionAdjustmentEnabled,
   hideDetails,
+  extraInfo,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -52,7 +54,20 @@ const MetricTooltipBody = ({
     {
       show: true,
       label: "Type",
-      body: isFactMetric(metric) ? metric.metricType : metric.type,
+      body: (
+        <>
+          {isFactMetric(metric) ? metric.metricType : metric.type}
+          {metric.inverse ? (
+            <Tooltip body="Metric is inverse, lower is better" className="ml-1">
+              <span>
+                <MdSwapCalls />
+              </span>
+            </Tooltip>
+          ) : (
+            ""
+          )}
+        </>
+      ),
     },
     ...(!hideDetails
       ? [
@@ -109,7 +124,7 @@ const MetricTooltipBody = ({
         (metric.windowSettings.windowValue !== 0 ||
           metricOverrideFields.includes("windowHours")),
       label: `${capitalizeFirstLetter(
-        metric.windowSettings.type || "no"
+        metric.windowSettings.type || "no",
       )} Window`,
       body: (
         <>
@@ -164,7 +179,7 @@ const MetricTooltipBody = ({
     });
   }
 
-  if (reportRegressionAdjustmentEnabled && row) {
+  if (row?.metricSnapshotSettings) {
     metricInfo.push({
       show: true,
       label: "CUPED",
@@ -205,8 +220,15 @@ const MetricTooltipBody = ({
   return (
     <div>
       <h4>
-        <MetricName id={metric.id} showOfficialLabel disableTooltip />
+        <MetricName
+          id={metric.id}
+          showOfficialLabel
+          disableTooltip
+          showLink
+          officialBadgePosition="right"
+        />
       </h4>
+      {extraInfo}
       <table className="table gbtable mb-0">
         <tbody>
           {metricInfo
@@ -216,7 +238,7 @@ const MetricTooltipBody = ({
                 <td
                   className="text-right font-weight-bold py-2 align-middle"
                   style={{
-                    width: 120,
+                    width: 140,
                     border: "1px solid var(--border-color-100)",
                     fontSize: "12px",
                     lineHeight: "14px",

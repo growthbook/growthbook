@@ -73,7 +73,8 @@
     "@typescript-eslint/no-unused-vars": [
       "warn",
       {
-        "argsIgnorePattern": "^_"
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
       }
     ],
     "no-console": ["warn"],
@@ -120,7 +121,7 @@
     },
     {
       "files": ["./packages/front-end/**/*.ts*"],
-      "excludedFiles": ["./packages/front-end/components/Radix/**/*.ts*"],
+      "excludedFiles": ["./packages/front-end/ui/**/*.ts*"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -128,7 +129,7 @@
             "paths": [
               {
                 "name": "@radix-ui/themes",
-                "message": "Use the component from @/components/Radix/ instead.",
+                "message": "Don't import Radix directly. Use our design system wrappers from @/ui/ instead.",
                 "importNames": [
                   "Avatar",
                   "Badge",
@@ -141,6 +142,8 @@
                   "RadioCards",
                   "RadioGroup",
                   "Select",
+                  "Switch",
+                  "Table",
                   "Tabs"
                 ]
               }
@@ -202,6 +205,27 @@
         "./packages/front-end/**/*",
         "./packages/back-end/test/**/*",
         "./packages/back-end/src/scripts/**/*",
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+      ]
+    },
+    {
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node-fetch",
+                "message": "Use `import { fetch } from \"back-end/src/util/http.util\";` instead.",
+                "importNames": ["default"]
+              }
+            ]
+          }
+        ]
+      },
+      "files": ["./packages/back-end/**/*"],
+      "excludedFiles": [
+        "./packages/back-end/src/util/http.util.ts",
         "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
       ]
     }

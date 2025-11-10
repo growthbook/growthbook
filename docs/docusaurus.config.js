@@ -13,7 +13,6 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenAnchors: "warn",
-  onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
 
   // GitHub pages deployment config.
@@ -24,13 +23,17 @@ const config = {
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
   // to replace "en" with "zh-Hans".
+  // Example to check in docusaurus.config.js
   i18n: {
     defaultLocale: "en",
-    locales: ["en"],
+    locales: ["en"], // Ensure only 'en' is listed if it's single-language
   },
 
-  future: {
-    experimental_faster: true,
+  // Markdown
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
   },
 
   // Kapa.ai chat bot on Docs page
@@ -38,8 +41,9 @@ const config = {
     {
       src: "https://widget.kapa.ai/kapa-widget.bundle.js",
       "data-website-id": "c4406b9f-35c5-43ca-b0c1-e7c0e261831f", // Safe to expose publicly
+      "data-user-analytics-cookie-enabled": "false",
       "data-project-name": "GrowthBook",
-      "data-project-color": "#7817d3",
+      "data-project-color": "#6550b9",
       "data-modal-example-questions":
         "How do I create a feature flag?, How do I run an experiment?",
       "data-project-logo": "/img/gb-logo-white.svg",
@@ -50,6 +54,10 @@ const config = {
     },
     {
       src: "https://w.appzi.io/w.js?token=jZ31J",
+      async: true,
+    },
+    {
+      src: "/scripts/reo.js",
       async: true,
     },
   ],
@@ -78,9 +86,12 @@ const config = {
             require.resolve("modern-normalize/modern-normalize.css"),
           ],
         },
-        gtag: {
-          trackingID: "G-3W683MDLMQ",
-        },
+        gtag:
+          process.env.NODE_ENV === "production"
+            ? {
+                trackingID: "G-3W683MDLMQ",
+              }
+            : undefined,
       }),
     ],
     [
@@ -100,6 +111,14 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     {
+      // announcementBar: {
+      //   id: "announcement-bar",
+      //   content:
+      //     '<a href="https://blog.growthbook.io/growthbook-version-4-1" target="_blank">🆕 GrowthBook v4.1 is now available</a>',
+      //   backgroundColor: "var(--violet-a3)",
+      //   textColor: "var(--violet-a11)",
+      //   isCloseable: true,
+      // },
       navbar: {
         //hideOnScroll: true,
         //title: 'GrowthBook Docs',
@@ -146,8 +165,7 @@ const config = {
                 rel: null,
               },
               {
-                href:
-                  "https://github.com/growthbook/growthbook/issues/new/choose",
+                href: "https://github.com/growthbook/growthbook/issues/new/choose",
                 label: "Open an issue",
                 target: "_blank",
                 rel: null,
@@ -237,7 +255,18 @@ const config = {
         //... other Algolia params
       },
     },
-  plugins: ["docusaurus-plugin-sass"],
+  plugins: [
+    "docusaurus-plugin-sass",
+    [
+      "docusaurus-plugin-llms",
+      {
+        excludeImports: true,
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
+  ],
 
   stylesheets: [
     {

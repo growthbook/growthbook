@@ -11,6 +11,8 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
+import { Flex, IconButton } from "@radix-ui/themes";
+import { PiCheck, PiCopy } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -18,7 +20,9 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioGroup from "@/ui/RadioGroup";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -33,6 +37,9 @@ export interface Props {
   renderJSONInline?: boolean;
   disabled?: boolean;
   useDropdown?: boolean;
+  useCodeInput?: boolean;
+  showFullscreenButton?: boolean;
+  codeInputDefaultHeight?: number;
 }
 
 export default function FeatureValueField({
@@ -46,12 +53,19 @@ export default function FeatureValueField({
   renderJSONInline,
   disabled = false,
   useDropdown = false,
+  useCodeInput = false,
+  showFullscreenButton = false,
+  codeInputDefaultHeight,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { simpleSchema, validationEnabled } = feature
     ? getValidation(feature)
     : { simpleSchema: null, validationEnabled: null };
+
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
 
   if (
     validationEnabled &&
@@ -120,6 +134,59 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
+    if (useCodeInput) {
+      let formatted;
+      try {
+        const parsed = dJSON.parse(value);
+        formatted = stringify(parsed);
+      } catch (e) {
+        // Ignore
+      }
+
+      const formatJSONButton = (
+        <a
+          href="#"
+          className={clsx("text-purple", {
+            "text-muted cursor-default no-underline":
+              !formatted || formatted === value,
+          })}
+          onClick={(e) => {
+            e.preventDefault();
+            if (formatted && formatted !== value) {
+              setValue(formatted);
+            }
+          }}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          <FaMagic /> Format JSON
+        </a>
+      );
+
+      const combinedHelpText = helpText ? (
+        <Flex align="center" gap="3" style={{ width: "100%" }}>
+          <div style={{ flex: 1 }}>{helpText}</div>
+          {formatJSONButton}
+        </Flex>
+      ) : (
+        <Flex justify="end">{formatJSONButton}</Flex>
+      );
+
+      return (
+        <CodeTextArea
+          label={label}
+          language="json"
+          value={value}
+          setValue={setValue}
+          helpText={combinedHelpText}
+          placeholder={placeholder}
+          disabled={disabled}
+          resizable={true}
+          defaultHeight={codeInputDefaultHeight}
+          showCopyButton={true}
+          showFullscreenButton={showFullscreenButton}
+        />
+      );
+    }
     return (
       <JSONTextEditor
         label={label}
@@ -131,6 +198,37 @@ export default function FeatureValueField({
       />
     );
   }
+
+  const copyButton = (
+    <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
+      <IconButton
+        type="button"
+        radius="full"
+        variant="ghost"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!copySuccess) performCopy(value);
+        }}
+      >
+        {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+      </IconButton>
+    </Tooltip>
+  );
+
+  const combinedHelpTextForString =
+    valueType === "string" ? (
+      helpText ? (
+        <Flex align="center" gap="3" style={{ width: "100%" }}>
+          <div style={{ flex: 1 }}>{helpText}</div>
+          {copyButton}
+        </Flex>
+      ) : (
+        <Flex justify="end">{copyButton}</Flex>
+      )
+    ) : (
+      helpText
+    );
 
   return (
     <Field
@@ -148,18 +246,18 @@ export default function FeatureValueField({
             max: "any",
           }
         : valueType === "string"
-        ? {
-            textarea: true,
-            minRows: 1,
-          }
-        : {})}
-      helpText={helpText}
+          ? {
+              textarea: true,
+              minRows: 1,
+            }
+          : {})}
+      helpText={combinedHelpTextForString}
       style={
         valueType === undefined
           ? { width: 80 }
           : valueType === "number"
-          ? { width: 120 }
-          : undefined
+            ? { width: 120 }
+            : undefined
       }
       disabled={disabled}
     />
@@ -203,8 +301,8 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
               (field.type === "boolean"
                 ? false
                 : field.type === "string"
-                ? ""
-                : 0) as T
+                  ? ""
+                  : 0) as T,
             );
           } else if (!e.target.checked) {
             setValue(undefined as T);
@@ -339,7 +437,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
             setValue(
               (e.target.value === ""
                 ? undefined
-                : parseFloat(e.target.value)) as T
+                : parseFloat(e.target.value)) as T,
             );
           }}
           type="number"
@@ -436,8 +534,8 @@ function SimpleSchemaEditor({
           if (field.type === "float" || field.type === "integer") {
             setValue(
               JSON.stringify(
-                v.map((v) => parseFloat(v)).filter((v) => !isNaN(v))
-              )
+                v.map((v) => parseFloat(v)).filter((v) => !isNaN(v)),
+              ),
             );
           } else {
             setValue(JSON.stringify(v));
@@ -684,7 +782,7 @@ function SimpleSchemaObjectArrayEditor({
                     JSON.stringify({
                       ...obj,
                       [field.key]: v,
-                    })
+                    }),
                   );
                 }}
                 showDescription={true}
@@ -804,13 +902,13 @@ function SimpleSchemaObjectArrayEditor({
                       field.default
                         ? JSON.parse(field.default)
                         : field.type === "boolean"
-                        ? false
-                        : field.type === "string"
-                        ? ""
-                        : 0,
-                    ])
+                          ? false
+                          : field.type === "string"
+                            ? ""
+                            : 0,
+                    ]),
                   ),
-                ])
+                ]),
               );
             }}
           >

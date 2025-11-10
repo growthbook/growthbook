@@ -52,6 +52,7 @@ declare module "presto-client" {
     wallTimeMillis: number;
     cpuTimeMillis: number;
     userTimeMillis: number;
+    physicalWrittenBytes: number;
     state: PrestoClientQueryStates;
     scheduled: boolean;
     nodes: number;
@@ -77,7 +78,6 @@ declare module "presto-client" {
     type: PrestoClientPrestoTypes;
   }
 
-
   type PrestoClientColumnDatum = [string, any];
 
   interface IPrestoClientExecuteOptions {
@@ -96,7 +96,7 @@ declare module "presto-client" {
       error: any,
       data: PrestoClientColumnDatum[],
       columns: IPrestoClientColumnMetaData[],
-      stats: IPrestoClientStats
+      stats: IPrestoClientStats,
     ) => void;
     success?: (error: any, stats: IPrestoClientStats) => void;
     error?: (error: any) => void;
@@ -108,12 +108,12 @@ declare module "presto-client" {
     public execute(options: IPrestoClientExecuteOptions): void;
     public query(
       query_id: string,
-      callback: (error: any, data?: any) => void
+      callback: (error: any, data?: any) => void,
     ): void;
     public kill(query_id: string, callback: (error: any) => void): void;
     public nodes(
       opts: null | undefined | {},
-      callback: (error: any, data: {}[]) => void
+      callback: (error: any, data: {}[]) => void,
     ): void;
   }
 }

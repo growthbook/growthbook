@@ -26,9 +26,10 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
-import Button from "@/components/Radix/Button";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import track from "@/services/track";
+import { AnalysisBarSettings } from "@/components/Experiment/AnalysisSettingsBar";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -46,14 +47,14 @@ export interface Props {
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
   safeToEdit: boolean;
-  baselineRow: number;
-  setBaselineRow: (b: number) => void;
-  differenceType: DifferenceType;
-  setDifferenceType: (d: DifferenceType) => void;
-  variationFilter: number[];
-  setVariationFilter: (v: number[]) => void;
   metricFilter: ResultsMetricFilters;
   setMetricFilter: (m: ResultsMetricFilters) => void;
+  analysisBarSettings: AnalysisBarSettings;
+  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  sortBy: "metric-tags" | "significance" | "change" | null;
+  setSortBy: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection: "asc" | "desc" | null;
+  setSortDirection: (d: "asc" | "desc" | null) => void;
 }
 
 export default function ResultsTab({
@@ -66,14 +67,14 @@ export default function ResultsTab({
   setTab,
   isTabActive,
   safeToEdit,
-  baselineRow,
-  setBaselineRow,
-  differenceType,
-  setDifferenceType,
-  variationFilter,
-  setVariationFilter,
+  analysisBarSettings,
+  setAnalysisBarSettings,
   metricFilter,
   setMetricFilter,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: Props) {
   const {
     getDatasourceById,
@@ -81,20 +82,20 @@ export default function ResultsTab({
     getMetricById,
     getProjectById,
     metrics,
+    metricGroups,
     datasources,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
 
   const [allowManualDatasource, setAllowManualDatasource] = useState(false);
+  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
   const router = useRouter();
 
-  const { snapshot, analysis, dimension } = useSnapshot();
+  const { snapshot, analysis } = useSnapshot();
+
   const permissionsUtil = usePermissionsUtil();
-
-  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
-
   const { hasCommercialFeature, organization } = useUser();
   const project = getProjectById(experiment.project || "");
 
@@ -109,20 +110,21 @@ export default function ResultsTab({
   const statsEngine = scopedSettings.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
-    false
+    false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
+    getExperimentMetricById(m),
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[]
+      .filter((d) => d && typeof d === "string") as string[],
   );
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
@@ -180,13 +182,13 @@ export default function ResultsTab({
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   )?.userIdType;
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
-    differenceType,
-    dimension,
+    differenceType: analysisBarSettings.differenceType,
+    dimension: analysisBarSettings.dimension,
   };
 
   return (
@@ -220,11 +222,22 @@ export default function ResultsTab({
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
-            setVariationFilter={(v: number[]) => setVariationFilter(v)}
-            baselineRow={baselineRow}
-            setBaselineRow={(b: number) => setBaselineRow(b)}
-            setDifferenceType={setDifferenceType}
-            differenceType={differenceType}
+            baselineRow={analysisBarSettings.baselineRow}
+            setVariationFilter={(v: number[]) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                variationFilter: v,
+              })
+            }
+            setBaselineRow={(b: number) =>
+              setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
+            }
+            setDifferenceType={(d: DifferenceType) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                differenceType: d,
+              })
+            }
             reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
@@ -301,16 +314,16 @@ export default function ResultsTab({
                     regressionAdjustmentHasValidMetrics
                   }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                  analysisBarSettings={analysisBarSettings}
+                  setAnalysisBarSettings={setAnalysisBarSettings}
                   isTabActive={isTabActive}
-                  variationFilter={variationFilter}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow}
-                  setBaselineRow={setBaselineRow}
-                  differenceType={differenceType}
-                  setDifferenceType={setDifferenceType}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                   setTab={setTab}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortDirection={sortDirection}
+                  setSortDirection={setSortDirection}
                 />
               )}
             </>
@@ -338,7 +351,7 @@ export default function ResultsTab({
                         body: reportArgs
                           ? JSON.stringify(reportArgs)
                           : undefined,
-                      }
+                      },
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");

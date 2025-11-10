@@ -14,9 +14,11 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
-import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
+import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
+import Badge from "@/ui/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -32,9 +34,8 @@ export default function SDKConnectionPage() {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const connection:
-    | SDKConnectionInterface
-    | undefined = data?.connections?.find((conn) => conn.id === sdkid);
+  const connection: SDKConnectionInterface | undefined =
+    data?.connections?.find((conn) => conn.id === sdkid);
 
   const hasProxy = connection?.proxy?.enabled;
 
@@ -50,7 +51,9 @@ export default function SDKConnectionPage() {
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
-  const canDelete = permissionsUtil.canDeleteSDKConnection(connection);
+  const canDelete =
+    permissionsUtil.canDeleteSDKConnection(connection) &&
+    !connection.managedBy?.type;
 
   return (
     <div className="contents container pagecontents">
@@ -69,6 +72,16 @@ export default function SDKConnectionPage() {
           { display: connection.name },
         ]}
       />
+
+      {connection.managedBy?.type ? (
+        <div className="mb-2">
+          <Badge
+            label={`Managed by ${capitalizeFirstLetter(
+              connection.managedBy.type,
+            )}`}
+          />
+        </div>
+      ) : null}
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{connection.name}</h1>

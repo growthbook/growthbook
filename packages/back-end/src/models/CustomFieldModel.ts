@@ -1,5 +1,4 @@
 import { z } from "zod";
-import uniqid from "uniqid";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
@@ -51,12 +50,52 @@ export class CustomFieldModel extends BaseClass {
     if (!customFields) {
       return null;
     }
-    customFields.fields.forEach((field) => {
-      if (field.id === customFieldId) {
-        return field;
+    return (
+      customFields.fields.find((field) => {
+        if (field.id === customFieldId) {
+          return field;
+        }
+      }) || null
+    );
+  }
+
+  public async getCustomFieldsByProject(projectId: string) {
+    const customFields = await this.getCustomFields();
+    if (!customFields) {
+      return null;
+    }
+    return customFields.fields.filter(
+      (field) =>
+        field.projects?.includes(projectId) || field.projects?.length === 0,
+    );
+  }
+
+  public async getCustomFieldsBySectionAndProject({
+    section,
+    project,
+  }: {
+    section: string;
+    project?: string;
+  }) {
+    const customFields = await this.getCustomFields();
+    const filteredCustomFields = customFields?.fields.filter(
+      (v) => v.section === section,
+    );
+    if (!filteredCustomFields || filteredCustomFields.length === 0) {
+      return filteredCustomFields;
+    }
+    return filteredCustomFields.filter((v) => {
+      if (v.projects && v.projects.length && v.projects[0] !== "") {
+        let matched = false;
+        v.projects.forEach((p) => {
+          if (p === project) {
+            matched = true;
+          }
+        });
+        return matched;
       }
+      return true;
     });
-    return null;
   }
 
   /**
@@ -69,14 +108,12 @@ export class CustomFieldModel extends BaseClass {
   public async addCustomField(
     customField: Omit<
       CustomField,
-      "id" | "dateCreated" | "dateUpdated" | "creator" | "active"
-    >
+      "dateCreated" | "dateUpdated" | "creator" | "active"
+    >,
   ) {
-    const customFieldId = uniqid("cfl_");
     const newCustomField = {
       active: true,
       ...customField,
-      id: customFieldId,
       creator: this.context.userId,
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -100,7 +137,7 @@ export class CustomFieldModel extends BaseClass {
 
   public async updateCustomField(
     customFieldId: string,
-    customFieldUpdates: Partial<CustomField>
+    customFieldUpdates: Partial<CustomField>,
   ) {
     const existing = await this.getCustomFields();
     if (!existing) {
@@ -127,7 +164,7 @@ export class CustomFieldModel extends BaseClass {
       return null;
     }
     const newFields = existing.fields.filter(
-      (field) => field.id !== customFieldId
+      (field) => field.id !== customFieldId,
     );
     return await this.update(existing, { fields: newFields });
   }

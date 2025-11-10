@@ -1,11 +1,16 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
-import { Queries, QueryStatus } from "back-end/types/query";
+import {
+  ExperimentQueryMetadata,
+  Queries,
+  QueryStatus,
+} from "back-end/types/query";
 import {
   ExperimentReportInterface,
   ExperimentReportResults,
 } from "back-end/types/report";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
@@ -24,6 +29,8 @@ export type SnapshotResult = {
 export type ReportQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  metricGroups: MetricGroupInterface[];
+  experimentQueryMetadata: ExperimentQueryMetadata | null;
 };
 
 export class ExperimentReportQueryRunner extends QueryRunner<
@@ -32,42 +39,55 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   ExperimentReportResults
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private factTableMap: FactTableMap = new Map();
+  private metricGroups: MetricGroupInterface[] = [];
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
+    this.factTableMap = params.factTableMap;
+    this.metricGroups = params.metricGroups;
 
     const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
       this.model.args,
-      params.metricMap
+      params.metricMap,
+      params.factTableMap,
+      undefined,
+      params.metricGroups,
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
+      snapshotType: "report",
       metricMap: params.metricMap,
       snapshotSettings,
       variationNames: this.model.args.variations.map((v) => v.name),
       queryParentId: this.model.id,
       factTableMap: params.factTableMap,
+      experimentQueryMetadata: params.experimentQueryMetadata,
     };
 
     return startExperimentResultQueries(
       this.context,
       experimentParams,
       this.integration,
-      this.startQuery.bind(this)
+      this.startQuery.bind(this),
     );
   }
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {
     if (this.model.type === "experiment") {
-      const {
-        snapshotSettings,
-        analysisSettings,
-      } = getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
+      const { snapshotSettings, analysisSettings } =
+        getSnapshotSettingsFromReportArgs(
+          this.model.args,
+          this.metricMap,
+          this.factTableMap,
+          undefined,
+          this.metricGroups,
+        );
 
       // todo: bandits? (probably not needed)
       const { results } = await analyzeExperimentResults({

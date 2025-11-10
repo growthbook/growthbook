@@ -504,13 +504,13 @@ describe("payload scrubbing", () => {
       capabilities,
       savedGroups,
       false,
-      baseOrg
+      baseOrg,
     );
     scrubbed.features = scrubbedFeatures;
     scrubbed.savedGroups = scrubSavedGroups(
       scrubbed.savedGroups,
       capabilities,
-      false
+      false,
     );
 
     // only payload change for default connection (javascript, 0.27.0) is saved groups being inline
@@ -529,13 +529,13 @@ describe("payload scrubbing", () => {
       capabilities,
       savedGroups,
       true,
-      baseOrg
+      baseOrg,
     );
     scrubbed.features = scrubbedFeatures;
     scrubbed.savedGroups = scrubSavedGroups(
       scrubbed.savedGroups,
       capabilities,
-      true
+      true,
     );
 
     // no change to payload for default connection (javascript, 0.27.0)
@@ -557,13 +557,13 @@ describe("payload scrubbing", () => {
       capabilities,
       savedGroups,
       true,
-      baseOrg
+      baseOrg,
     );
     scrubbed.features = scrubbedFeatures;
     scrubbed.savedGroups = scrubSavedGroups(
       scrubbed.savedGroups,
       capabilities,
-      true
+      true,
     );
 
     // fully scrubs payload for risky connection (python, 0.0.0)
@@ -585,12 +585,12 @@ describe("payload scrubbing", () => {
       capabilities,
       savedGroups,
       true,
-      baseOrg
+      baseOrg,
     );
     scrubbed.savedGroups = scrubSavedGroups(
       scrubbed.savedGroups,
       capabilities,
-      true
+      true,
     );
     scrubbed.features = scrubbedFeatures;
 
@@ -614,12 +614,12 @@ describe("payload scrubbing", () => {
       capabilities,
       savedGroups,
       true,
-      baseOrg
+      baseOrg,
     );
     scrubbed.savedGroups = scrubSavedGroups(
       scrubbed.savedGroups,
       capabilities,
-      true
+      true,
     );
     scrubbed.features = scrubbedFeatures;
 

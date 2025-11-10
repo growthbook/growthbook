@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import "openai/shims/node";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import merge from "lodash/merge";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import app from "back-end/src/app";
@@ -10,7 +10,7 @@ import { getAgendaInstance } from "back-end/src/services/queueing";
 
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
-  CRON_ENABLED: 1,
+  CRON_ENABLED: 0,
 }));
 
 jest.mock("back-end/src/services/auth", () => ({
@@ -22,7 +22,7 @@ jest.mock("back-end/src/services/auth", () => ({
 
 jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
   ...jest.requireActual(
-    "back-end/src/middleware/authenticateApiRequestMiddleware"
+    "back-end/src/middleware/authenticateApiRequestMiddleware",
   ),
   __esModule: true,
   default: jest.fn(),
@@ -45,6 +45,7 @@ export const setupApp = () => {
       authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
         req.audit = auditMock;
         req.context = reqContext;
+        req.organization = reqContext?.org;
         next();
       });
 
@@ -77,6 +78,9 @@ export const setupApp = () => {
     isReady,
     setReqContext: (v) => {
       reqContext = v;
+    },
+    updateReqContext: (v) => {
+      reqContext = merge({}, reqContext, v);
     },
   };
 };

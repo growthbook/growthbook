@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import fetch from "node-fetch";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   EventWebHookInterface,
@@ -38,7 +37,7 @@ type GetEventWebHooks = {
 
 export const getEventWebHooks = async (
   req: GetEventWebHooksRequest,
-  res: Response<GetEventWebHooks>
+  res: Response<GetEventWebHooks>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -63,7 +62,7 @@ type GetEventWebHookByIdResponse = {
 
 export const getEventWebHook = async (
   req: GetEventWebHookByIdRequest,
-  res: Response<GetEventWebHookByIdResponse | PrivateApiErrorResponse>
+  res: Response<GetEventWebHookByIdResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -75,7 +74,7 @@ export const getEventWebHook = async (
 
   const eventWebHook = await getEventWebHookById(
     eventWebHookId,
-    context.org.id
+    context.org.id,
   );
 
   if (!eventWebHook) {
@@ -112,7 +111,7 @@ type PostEventWebHooksResponse = {
 
 export const createEventWebHook = async (
   req: PostEventWebHooksRequest,
-  res: Response<PostEventWebHooksResponse | PrivateApiErrorResponse>
+  res: Response<PostEventWebHooksResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -167,7 +166,7 @@ type GetEventWebHookLogsResponse = {
 
 export const getEventWebHookLogs = async (
   req: GetEventWebHookLogsRequest,
-  res: Response<GetEventWebHookLogsResponse | PrivateApiErrorResponse>
+  res: Response<GetEventWebHookLogsResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -178,7 +177,7 @@ export const getEventWebHookLogs = async (
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
     context.org.id,
     req.params.eventWebHookId,
-    50
+    50,
   );
 
   return res.json({ eventWebHookLogs });
@@ -196,7 +195,7 @@ type DeleteEventWebhookResponse = {
 
 export const deleteEventWebHook = async (
   req: DeleteEventWebhookRequest,
-  res: Response<DeleteEventWebhookResponse | PrivateApiErrorResponse>
+  res: Response<DeleteEventWebhookResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -231,7 +230,7 @@ type UpdateEventWebHookResponse = {
 
 export const putEventWebHook = async (
   req: UpdateEventWebHookRequest,
-  res: Response<UpdateEventWebHookResponse>
+  res: Response<UpdateEventWebHookResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -244,7 +243,7 @@ export const putEventWebHook = async (
       eventWebHookId: req.params.eventWebHookId,
       organizationId: context.org.id,
     },
-    req.body
+    req.body,
   );
 
   const status = successful ? 200 : 404;
@@ -270,7 +269,7 @@ type PostToggleEventWebHooksResponse = {
 
 export const toggleEventWebHook = async (
   req: PostToggleEventWebHooksRequest,
-  res: Response<PostToggleEventWebHooksResponse | PrivateApiErrorResponse>
+  res: Response<PostToggleEventWebHooksResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -285,7 +284,7 @@ export const toggleEventWebHook = async (
 
   const webhook = await EventWebHook.getEventWebHookById(
     webhookId,
-    organizationId
+    organizationId,
   );
 
   const enabled = !webhook?.enabled;
@@ -295,7 +294,7 @@ export const toggleEventWebHook = async (
       eventWebHookId: webhookId,
       organizationId,
     },
-    { enabled }
+    { enabled },
   );
 
   const status = successful ? 200 : 404;
@@ -332,7 +331,7 @@ type PostTestWebHooksParamsRequest = AuthRequest & {
 
 export const testWebHookParams = async (
   req: PostTestWebHooksParamsRequest,
-  res: Response<{ success: boolean } | PrivateApiErrorResponse>
+  res: Response<{ success: boolean } | PrivateApiErrorResponse>,
 ) => {
   try {
     const response = await fetch(req.body.url, {
@@ -366,7 +365,7 @@ type PostTestEventWebHooksRequest = AuthRequest & {
 
 export const createTestEventWebHook = async (
   req: PostTestEventWebHooksRequest,
-  res: Response<unknown | PrivateApiErrorResponse>
+  res: Response<unknown | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -381,7 +380,7 @@ export const createTestEventWebHook = async (
 
 export const createWebhookSecret = async (
   req: AuthRequest<CreateWebhookSecretProps>,
-  res: Response
+  res: Response,
 ) => {
   const context = getContextFromReq(req);
   await context.models.webhookSecrets.create(req.body);
@@ -393,7 +392,7 @@ export const createWebhookSecret = async (
 
 export const deleteWebhookSecret = async (
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response,
 ) => {
   const context = getContextFromReq(req);
   await context.models.webhookSecrets.deleteById(req.params.id);
@@ -405,7 +404,7 @@ export const deleteWebhookSecret = async (
 
 export const updateWebhookSecret = async (
   req: AuthRequest<UpdateWebhookSecretProps, { id: string }>,
-  res: Response
+  res: Response,
 ) => {
   const context = getContextFromReq(req);
   await context.models.webhookSecrets.updateById(req.params.id, req.body);

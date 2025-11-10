@@ -4,14 +4,15 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "back-end/types/feature";
-import Link from "next/link";
 import { isDefined } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import SavedGroupTargetingDisplay from "../SavedGroupTargetingDisplay";
 import styles from "./ConditionDisplay.module.scss";
 
@@ -78,7 +79,7 @@ function hasMultiValues(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  savedGroups?: SavedGroupInterface[]
+  savedGroups?: SavedGroupInterface[],
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
@@ -98,9 +99,11 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
   return (
     <>
       {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
-        <span key={i} className="mr-1 border px-2 bg-light rounded">
-          {v}
-        </span>
+        <Badge
+          key={i}
+          color="gray"
+          label={<Text style={{ color: "var(--slate-12)" }}>{v}</Text>}
+        />
       ))}
       {values.length > MULTI_VALUE_LIMIT && (
         <Tooltip
@@ -160,7 +163,10 @@ function getConditionParts({
 }) {
   return conditions.map(({ field, operator, value, parentId }, i) => {
     let fieldEl: ReactNode = (
-      <span className="mr-1 border px-2 bg-light rounded">{field}</span>
+      <Badge
+        color="gray"
+        label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
+      />
     );
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
@@ -168,9 +174,14 @@ function getConditionParts({
         fieldEl = null;
       } else if (field.substring(0, 6) === "value.") {
         fieldEl = (
-          <span className="mr-1 border px-2 bg-light rounded">
-            {field.substring(6)}
-          </span>
+          <Badge
+            color="gray"
+            label={
+              <Text style={{ color: "var(--slate-12)" }}>
+                {field.substring(6)}
+              </Text>
+            }
+          />
         );
       } else {
         fieldEl = (
@@ -190,7 +201,7 @@ function getConditionParts({
       if (parentId) {
         parentIdEl = (
           <>
-            <div className="mr-1">prerequisite</div>
+            <Text>prerequisite</Text>
             <ParentIdLink parentId={parentId} />
           </>
         );
@@ -198,7 +209,7 @@ function getConditionParts({
     }
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
-        {(i > 0 || initialAnd) && <span className="mr-1">AND</span>}
+        {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}
         {parentIdEl}
         {fieldEl}
         <span className="mr-1">
@@ -207,12 +218,14 @@ function getConditionParts({
         {hasMultiValues(operator) ? (
           <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
-          <span
-            className="mr-1 border px-2 bg-light rounded"
-            style={{ whiteSpace: "pre" }}
-          >
-            {getValue(operator, value, savedGroups)}
-          </span>
+          <Badge
+            color="gray"
+            label={
+              <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
+                {getValue(operator, value, savedGroups)}
+              </Text>
+            }
+          />
         ) : (
           ""
         )}
@@ -223,14 +236,20 @@ function getConditionParts({
 
 function ParentIdLink({ parentId }: { parentId: string }) {
   return (
-    <Link
-      href={`/features/${parentId}`}
-      key={`link-${parentId}`}
-      className={`border px-2 bg-light rounded mr-1`}
-      title="Manage Feature"
-    >
-      {parentId}
-    </Link>
+    <Badge
+      color="gray"
+      label={
+        <Link
+          href={`/features/${parentId}`}
+          title="Manage Feature"
+          size="1"
+          target="_blank"
+          color="violet"
+        >
+          {parentId}
+        </Link>
+      }
+    />
   );
 }
 
@@ -267,7 +286,7 @@ export default function ConditionDisplay({
       parts.push(
         <div className="w-100" key={partId++}>
           <InlineCode language="json" code={jsonFormattedCondition} />
-        </div>
+        </div>,
       );
     } else {
       const conditionParts = getConditionParts({
@@ -286,7 +305,7 @@ export default function ConditionDisplay({
         groupClassName="col-auto"
         initialAnd={parts.length > 0}
         key={`${partId++}-saved-group-targeting`}
-      />
+      />,
     );
   }
 
@@ -303,12 +322,12 @@ export default function ConditionDisplay({
             console.error(e, p.condition);
           }
           parts.push(
-            <div className="w-100 d-flex col-auto" key={partId++}>
-              {parts.length > 0 && <div className="mr-1">AND</div>}
-              <div className="mr-1">prerequisite</div>
+            <Flex wrap="wrap" gap="2" key={partId++} className="w-100 col-auto">
+              {parts.length > 0 && <Text weight="medium">AND</Text>}
+              <Text>prerequisite</Text>
               <ParentIdLink parentId={p.id} />
               <InlineCode language="json" code={jsonFormattedCondition} />
-            </div>
+            </Flex>,
           );
           return;
         }
@@ -327,7 +346,7 @@ export default function ConditionDisplay({
     const prereqConds =
       prereqConditionsGrouped.reduce(
         (acc, val) => val && acc.concat(val),
-        []
+        [],
       ) || [];
 
     const prereqParts = getConditionParts({

@@ -25,10 +25,12 @@ import {
   PiInfo,
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import Button from "@/components/Radix/Button";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
+import Button from "@/ui/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -66,11 +68,11 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import SelectField from "@/components/Forms/SelectField";
-import BarChart100 from "@/components/Features/BarChart100";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Badge from "@/components/Radix/Badge";
-import Frame from "@/components/Radix/Frame";
+import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import PrerequisiteStatusRow, {
@@ -79,13 +81,15 @@ import PrerequisiteStatusRow, {
 import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
-import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
+import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
 
 export default function FeaturesOverview({
   baseFeature,
   feature,
   revision,
+  revisionList,
+  loading,
   revisions,
   experiments,
   mutate,
@@ -97,13 +101,17 @@ export default function FeaturesOverview({
   dependentFeatures,
   dependentExperiments,
   safeRollouts,
+  holdout,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
+  revisionList: MinimalFeatureRevisionInterface[];
+  loading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
+  holdout: HoldoutInterface | undefined;
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
@@ -124,7 +132,7 @@ export default function FeaturesOverview({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [hideInactive, setHideInactive] = useLocalStorage(
     `hide-disabled-rules`,
-    false
+    false,
   );
   const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
@@ -152,7 +160,7 @@ export default function FeaturesOverview({
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
     const baseRevision = revisions.find(
-      (r) => r.version === revision?.baseVersion
+      (r) => r.version === revision?.baseVersion,
     );
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -161,7 +169,7 @@ export default function FeaturesOverview({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revisions, revision, feature, environments]);
 
@@ -178,13 +186,13 @@ export default function FeaturesOverview({
           feature,
           featuresMap,
           env,
-          true
+          true,
         );
       });
       return states;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feature, features, envsStr]
+    [feature, features, envsStr],
   );
 
   const experimentsMap = useMemo<
@@ -199,12 +207,8 @@ export default function FeaturesOverview({
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
 
-  const {
-    showFeatureUsage,
-    featureUsage,
-    lookback,
-    setLookback,
-  } = useFeatureUsage();
+  const { showFeatureUsage, featureUsage, lookback, setLookback } =
+    useFeatureUsage();
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
@@ -214,9 +218,8 @@ export default function FeaturesOverview({
     prereqStates &&
     Object.values(prereqStates).some((s) => s.state === "conditional");
 
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisites"
-  );
+  const hasPrerequisitesCommercialFeature =
+    hasCommercialFeature("prerequisites");
 
   const currentVersion = version || baseFeature.version;
 
@@ -252,13 +255,13 @@ export default function FeaturesOverview({
     (approved &&
       permissionsUtil.canPublishFeature(
         feature,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       )) ||
     (isDraft &&
       !requireReviews &&
       permissionsUtil.canPublishFeature(
         feature,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       ));
 
   const drafts = revisions.filter(
@@ -266,7 +269,7 @@ export default function FeaturesOverview({
       r.status === "draft" ||
       r.status === "pending-review" ||
       r.status === "changes-requested" ||
-      r.status === "approved"
+      r.status === "approved",
   );
   const isLocked =
     (revision.status === "published" || revision.status === "discarded") &&
@@ -352,7 +355,7 @@ export default function FeaturesOverview({
             title="Create a new Draft based on this revision"
           >
             Revert to this version
-          </Button>
+          </Button>,
         );
       } else if (revision.version > 1 && isLive) {
         actions.push(
@@ -362,7 +365,8 @@ export default function FeaturesOverview({
             onClick={() => {
               const previousRevision = revisions
                 .filter(
-                  (r) => r.status === "published" && r.version < feature.version
+                  (r) =>
+                    r.status === "published" && r.version < feature.version,
                 )
                 .sort((a, b) => b.version - a.version)[0];
               if (previousRevision) {
@@ -372,7 +376,7 @@ export default function FeaturesOverview({
             title="Create a new Draft based on this revision"
           >
             Revert to Previous
-          </Button>
+          </Button>,
         );
       }
 
@@ -385,7 +389,7 @@ export default function FeaturesOverview({
             }}
           >
             View active draft
-          </Button>
+          </Button>,
         );
       }
 
@@ -399,7 +403,7 @@ export default function FeaturesOverview({
             }}
           >
             Discard draft
-          </Button>
+          </Button>,
         );
 
         if (mergeResult?.success) {
@@ -421,7 +425,7 @@ export default function FeaturesOverview({
                 >
                   {renderDraftBannerCopy()}
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           } else {
             // no review is required
@@ -431,8 +435,8 @@ export default function FeaturesOverview({
                   !revisionHasChanges
                     ? "Draft is identical to the live version. Make changes first before publishing"
                     : !hasDraftPublishPermission
-                    ? "You do not have permission to publish this draft."
-                    : ""
+                      ? "You do not have permission to publish this draft."
+                      : ""
                 }
               >
                 <Button
@@ -443,7 +447,7 @@ export default function FeaturesOverview({
                 >
                   Review &amp; Publish
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           }
         } else {
@@ -459,7 +463,7 @@ export default function FeaturesOverview({
                 >
                   Fix conflicts
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           }
         }
@@ -515,7 +519,7 @@ export default function FeaturesOverview({
               {ago(revision.dateUpdated)}
             </Box>
           )}
-          <Box>
+          <Flex align="center" gap="2">
             {renderStatusCopy()}
             <Button
               title="View log"
@@ -526,7 +530,7 @@ export default function FeaturesOverview({
             >
               <RxListBullet />
             </Button>
-          </Box>
+          </Flex>
         </Flex>
       </Flex>
     );
@@ -574,12 +578,12 @@ export default function FeaturesOverview({
           <CustomMarkdown page={"feature"} variables={variables} />
 
           {showFeatureUsage && (
-            <div>
+            <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
               <div className="row align-items-center">
                 <div className="col-auto">
-                  <h3 className="mb-0">Usage Analytics</h3>
+                  <h4 className="mb-0">Usage Analytics</h4>
                 </div>
-                <div className="col-auto">
+                <div className="col-auto ml-auto">
                   <SelectField
                     value={lookback}
                     onChange={(lookback) => {
@@ -596,46 +600,37 @@ export default function FeaturesOverview({
                       if (o.value !== "15minute") return o.label;
                       return (
                         <div>
-                          <span className="badge badge-success mr-1">
-                            <FaBoltLightning /> Live
-                          </span>
                           {o.label}
+                          <Badge
+                            label={
+                              <>
+                                <FaBoltLightning /> Live
+                              </>
+                            }
+                            color="teal"
+                            variant="solid"
+                            radius="full"
+                            ml="3"
+                          />
                         </div>
                       );
                     }}
                   />
                 </div>
               </div>
-              <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-                {!featureUsage ? (
-                  <Flex align="center" justify="center">
-                    <LoadingSpinner /> <Text ml="2">Loading...</Text>
-                  </Flex>
-                ) : featureUsage.overall.total === 0 ? (
-                  <em>No usage detected in the selected time frame</em>
-                ) : (
-                  <div className="row">
-                    <div className="col-12 col-md-4">
-                      <strong>Assigned Values</strong>
-                      <BarChart100 data={featureUsage.values} max={3} />
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <strong>Sources</strong>
-                      <BarChart100 data={featureUsage.sources} max={3} />
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <div className="mb-1">
-                        <strong>Usage Over Time</strong>
-                      </div>
-                      <FeatureUsageGraph
-                        data={featureUsage.overall}
-                        width="auto"
-                        height={80}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              {!featureUsage ? (
+                <Flex align="center" justify="center">
+                  <LoadingSpinner /> <Text ml="2">Loading...</Text>
+                </Flex>
+              ) : featureUsage.total === 0 ? (
+                <em>No usage detected in the selected time frame</em>
+              ) : (
+                <FeatureUsageContainer
+                  revision={revision}
+                  environments={envs}
+                  valueType={feature.valueType}
+                />
+              )}
             </div>
           )}
         </Box>
@@ -705,27 +700,24 @@ export default function FeaturesOverview({
                       Kill Switch
                     </td>
                     {envs.map((env) => (
-                      <td
-                        key={env}
-                        className="text-center align-bottom pb-2"
-                        style={{ minWidth: 120 }}
-                      >
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={env}
-                          mutate={() => {
-                            mutate();
-                          }}
-                          id={`${env}_toggle`}
-                          className="mr-0"
-                        />
+                      <td key={env} style={{ minWidth: 120 }}>
+                        <Flex align="center" justify="center">
+                          <EnvironmentToggle
+                            feature={feature}
+                            environment={env}
+                            mutate={() => {
+                              mutate();
+                            }}
+                            id={`${env}_toggle`}
+                          />
+                        </Flex>
                       </td>
                     ))}
                     <td className="w-100" />
                   </tr>
                   {prerequisites.map(({ ...item }, i) => {
                     const parentFeature = features.find(
-                      (f) => f.id === item.id
+                      (f) => f.id === item.id,
                     );
                     return (
                       <PrerequisiteStatusRow
@@ -762,9 +754,15 @@ export default function FeaturesOverview({
               <div className="row mt-3">
                 {environments.length > 0 ? (
                   environments.map((en) => (
-                    <div className="col-auto" key={en.id}>
+                    <Flex
+                      wrap="nowrap"
+                      direction="row"
+                      gap="2"
+                      key={en.id}
+                      mr="4"
+                    >
                       <label
-                        className="font-weight-bold mr-2 mb-0"
+                        className="font-weight-bold mb-0"
                         htmlFor={`${en.id}_toggle`}
                       >
                         {en.id}:{" "}
@@ -777,7 +775,7 @@ export default function FeaturesOverview({
                         }}
                         id={`${en.id}_toggle`}
                       />
-                    </div>
+                    </Flex>
                   ))
                 ) : (
                   <div className="alert alert-warning pt-3 pb-2 w-100">
@@ -952,9 +950,10 @@ export default function FeaturesOverview({
                   <Box width="100%">
                     <RevisionDropdown
                       feature={feature}
+                      loading={loading}
                       version={currentVersion}
                       setVersion={setVersion}
-                      revisions={revisions || []}
+                      revisions={revisionList || []}
                     />
                   </Box>
                   <Box mx="6">
@@ -1019,9 +1018,9 @@ export default function FeaturesOverview({
 
               {renderRevisionInfo()}
 
-              <Box className="appbox" mt="4" p="5" pl="6" pr="5">
+              <Box className="appbox" mt="4" p="4" pl="6" pr="5">
                 <Flex align="center" justify="between">
-                  <Heading as="h3" size="4" mb="0">
+                  <Heading as="h3" size="4" mb="3">
                     Default Value
                   </Heading>
                   {canEdit && !isLocked && canEditDrafts && (
@@ -1042,11 +1041,6 @@ export default function FeaturesOverview({
                         feature={feature}
                       />
                     </Box>
-                    {featureUsage && (
-                      <Box className="ml-auto">
-                        <FeatureUsageGraph data={featureUsage?.defaultValue} />
-                      </Box>
-                    )}
                   </Flex>
                 </Box>
               </Box>
@@ -1064,12 +1058,11 @@ export default function FeaturesOverview({
                   </Flex>
                   <label className="font-weight-semibold">
                     <Switch
-                      mr="1"
                       disabled={!hasInactiveRules}
-                      checked={!hideInactive}
-                      onCheckedChange={(state) => setHideInactive(!state)}
-                    />{" "}
-                    Show inactive
+                      value={!hasInactiveRules ? false : !hideInactive}
+                      onChange={(state) => setHideInactive(!state)}
+                      label="Show inactive"
+                    />
                   </label>
                 </Flex>
                 {environments.length > 0 ? (
@@ -1095,6 +1088,7 @@ export default function FeaturesOverview({
                       hideInactive={hideInactive}
                       isDraft={isDraft}
                       safeRolloutsMap={safeRolloutsMap}
+                      holdout={holdout}
                     />
                   </>
                 ) : (
@@ -1163,7 +1157,7 @@ export default function FeaturesOverview({
             feature={baseFeature}
             revision={
               revisions.find(
-                (r) => r.version === revertIndex
+                (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
             mutate={mutate}
@@ -1227,7 +1221,7 @@ export default function FeaturesOverview({
                   `/feature/${feature.id}/${revision.version}/discard`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();

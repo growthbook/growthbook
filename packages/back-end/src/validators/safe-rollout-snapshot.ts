@@ -54,7 +54,7 @@ export const safeRolloutSnapshotMetricObject = z.object({
       z.object({
         x: z.number(),
         y: z.number(),
-      })
+      }),
     )
     .optional(),
   chanceToWin: z.number().optional(),
@@ -79,7 +79,7 @@ const safeRolloutSnapshotTrafficObject = z.object({
   overall: safeRolloutSnapshotTrafficDimensionObject,
   dimension: z.record(
     z.string(),
-    z.array(safeRolloutSnapshotTrafficDimensionObject)
+    z.array(safeRolloutSnapshotTrafficDimensionObject),
   ),
   error: z
     .enum(["NO_ROWS_IN_UNIT_QUERY", "TOO_MANY_ROWS"])
@@ -158,6 +158,8 @@ const safeRolloutSnapshotSettings = z.object({
   endDate: z.date(),
   variations: z.array(snapshotSettingsVariationValidator),
   coverage: z.number().optional(),
+  phase: z.object({ index: z.string() }).optional(),
+  customFields: z.record(z.unknown()).optional(),
 });
 
 export type SafeRolloutSnapshotSettings = z.infer<

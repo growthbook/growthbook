@@ -3,15 +3,16 @@ import { useState } from "react";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import PremiumCallout from "@/ui/PremiumCallout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
   startExperiment: () => Promise<void>;
   checklistItemsRemaining: number;
+  isHoldout?: boolean;
 }
 
 export default function StartExperimentModal({
@@ -19,6 +20,7 @@ export default function StartExperimentModal({
   close,
   startExperiment,
   checklistItemsRemaining,
+  isHoldout,
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
 
@@ -74,7 +76,7 @@ export default function StartExperimentModal({
           </Button>
         ) : null
       }
-      header="Start Experiment"
+      header={isHoldout ? "Start Holdout" : "Start Experiment"}
     >
       <div className="p-2">
         {checklistIncomplete ? (
@@ -106,6 +108,10 @@ export default function StartExperimentModal({
           >
             This experiment contains URL redirects, which require a paid plan.
           </PremiumCallout>
+        ) : isHoldout ? (
+          <div>
+            Once started, experiments and features can be added to the holdout.
+          </div>
         ) : (
           <div>
             Once started, linked changes will be activated and users will begin

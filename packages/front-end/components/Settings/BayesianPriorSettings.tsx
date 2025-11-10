@@ -4,7 +4,7 @@ import { MetricDefaults } from "back-end/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -88,13 +88,13 @@ export default function BayesianPriorSettings({
               <div>
                 <Box className="text-muted" mt="3">
                   {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
-                    form.watch("metricDefaults.priorSettings.mean")
+                    form.watch("metricDefaults.priorSettings.mean"),
                   )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
                     -1 * form.watch("metricDefaults.priorSettings.stddev") +
-                      form.watch("metricDefaults.priorSettings.mean")
+                      form.watch("metricDefaults.priorSettings.mean"),
                   )} and ${percentFormatter.format(
                     form.watch("metricDefaults.priorSettings.stddev") +
-                      form.watch("metricDefaults.priorSettings.mean")
+                      form.watch("metricDefaults.priorSettings.mean"),
                   )}`}
                 </Box>
               </div>

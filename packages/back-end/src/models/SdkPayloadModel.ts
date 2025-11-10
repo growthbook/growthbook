@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
+  FeatureDefinitionWithProjects,
 } from "back-end/types/api";
 import {
   SDKPayloadContents,
@@ -22,13 +23,13 @@ const sdkPayloadSchema = new mongoose.Schema({
 });
 sdkPayloadSchema.index(
   { organization: 1, environment: 1, schemaVersion: 1 },
-  { unique: true }
+  { unique: true },
 );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(
   "SdkPayloadCache",
-  sdkPayloadSchema
+  sdkPayloadSchema,
 );
 
 function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
@@ -70,17 +71,20 @@ export async function updateSDKPayload({
   featureDefinitions,
   experimentsDefinitions,
   savedGroupsInUse,
+  holdoutFeatureDefinitions,
 }: {
   organization: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinitionWithProject>;
   experimentsDefinitions: AutoExperimentWithProject[];
   savedGroupsInUse: string[];
+  holdoutFeatureDefinitions: Record<string, FeatureDefinitionWithProjects>;
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
     savedGroupsInUse: savedGroupsInUse,
+    holdouts: holdoutFeatureDefinitions,
   };
 
   await SDKPayloadModel.updateOne(
@@ -99,6 +103,6 @@ export async function updateSDKPayload({
     },
     {
       upsert: true,
-    }
+    },
   );
 }

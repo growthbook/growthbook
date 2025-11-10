@@ -41,22 +41,18 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
-import LinkButton from "@/components/Radix/LinkButton";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
+import { useExperiments } from "@/hooks/useExperiments";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -70,14 +66,10 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
-  const [
-    featureToToggleStaleDetection,
-    setFeatureToToggleStaleDetection,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
+  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -92,11 +84,12 @@ export default function FeaturesPage() {
     mutate,
     hasArchived,
   } = useFeaturesList(true, showArchived);
+  const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
     !!router?.query?.mockdata,
-    showGraphs
+    showGraphs,
   );
 
   const staleFeatures = useMemo(() => {
@@ -107,18 +100,18 @@ export default function FeaturesPage() {
     allFeatures.forEach((feature) => {
       const featureEnvironments = filterEnvironmentsByFeature(
         environments,
-        feature
+        feature,
       );
       const envs = featureEnvironments.map((e) => e.id);
       staleFeatures[feature.id] = isFeatureStale({
         feature,
         features: allFeatures,
-        experiments,
+        experiments: allExperiments,
         environments: envs,
       });
     });
     return staleFeatures;
-  }, [allFeatures, experiments, environments]);
+  }, [allFeatures, allExperiments, environments]);
 
   const renderFeaturesTable = () => {
     return (
@@ -177,7 +170,7 @@ export default function FeaturesPage() {
               {featureItems.map((feature: ComputedFeatureInterface) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                  (e) => (rules = rules.concat(getRules(feature, e.id))),
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
@@ -199,7 +192,7 @@ export default function FeaturesPage() {
                   feature.prerequisites?.length || 0;
                 const prerequisiteRules = rules.reduce(
                   (acc, rule) => acc + (rule.prerequisites?.length || 0),
-                  0
+                  0,
                 );
                 const totalPrerequisites =
                   topLevelPrerequisites + prerequisiteRules;
@@ -258,14 +251,16 @@ export default function FeaturesPage() {
                       <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </td>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative text-center">
-                        {featureHasEnvironment(feature, en) && (
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={en.id}
-                            mutate={mutate}
-                          />
-                        )}
+                      <td key={en.id}>
+                        <Flex align="center" justify="center">
+                          {featureHasEnvironment(feature, en) && (
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={en.id}
+                              mutate={mutate}
+                            />
+                          )}
+                        </Flex>
                       </td>
                     ))}
                     <td>
@@ -341,7 +336,7 @@ export default function FeaturesPage() {
                           onClick={() => {
                             if (
                               permissionsUtil.canViewFeatureModal(
-                                feature.project
+                                feature.project,
                               )
                             )
                               setFeatureToToggleStaleDetection(feature);
@@ -392,17 +387,12 @@ export default function FeaturesPage() {
     );
   };
 
-  const {
-    searchInputProps,
-    items,
-    SortableTH,
-    setSearchValue,
-    syntaxFilters,
-  } = useFeatureSearch({
-    allFeatures,
-    environments,
-    staleFeatures,
-  });
+  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
+    useFeatureSearch({
+      allFeatures,
+      environments,
+      staleFeatures,
+    });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -424,7 +414,7 @@ export default function FeaturesPage() {
       (filter) =>
         filter.field === "is" &&
         !filter.negated &&
-        filter.values.includes("archived")
+        filter.values.includes("archived"),
     );
     setShowArchived(isArchivedFilter);
   }, [syntaxFilters]);
@@ -447,7 +437,7 @@ export default function FeaturesPage() {
   const hasFeatures = allFeatures.some(
     (f) =>
       f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
   );
 
   const canUseSetupFlow =

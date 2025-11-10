@@ -1,3 +1,4 @@
+import { StatusIndicatorData } from "shared/enterprise";
 import {
   ExperimentPhase,
   Variation,
@@ -8,6 +9,7 @@ import {
   ExperimentDecisionFrameworkSettings,
 } from "back-end/src/validators/experiments";
 import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
@@ -177,6 +179,24 @@ export type ExperimentInterfaceStringDates = Omit<
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
+};
+
+export type HoldoutExperimentInterface = ExperimentInterfaceStringDates &
+  Omit<HoldoutInterface, "experimentId" | "organization" | "owner">;
+
+export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
+  ownerName: string;
+  metricNames?: (string | undefined)[];
+  datasource: string;
+  savedGroups?: (string | undefined)[];
+  projectId?: string;
+  projectName?: string;
+  projectIsDeReferenced?: string | boolean;
+  tab: string;
+  date: string;
+  statusSortOrder: number;
+  statusIndicator: StatusIndicatorData;
+  isWatched?: boolean;
 };
 
 export type Changeset = Partial<ExperimentInterface>;

@@ -1,4 +1,8 @@
-import { featureRequiresReview, validateFeatureValue } from "shared/util";
+import {
+  featureRequiresReview,
+  validateFeatureValue,
+  validateScheduleRules,
+} from "shared/util";
 import { isEqual } from "lodash";
 import { UpdateFeatureResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -26,6 +30,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
+import { validateCustomFields } from "./validation";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -34,7 +39,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
-    const { owner, archived, description, project, tags } = req.body;
+    const { owner, archived, description, project, tags, customFields } =
+      req.body;
 
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
@@ -56,11 +62,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       if (
         !req.context.permissions.canPublishFeature(
           feature,
-          Array.from(getEnabledEnvironments(feature, orgEnvs))
+          Array.from(getEnabledEnvironments(feature, orgEnvs)),
         ) ||
         !req.context.permissions.canPublishFeature(
           { project },
-          Array.from(getEnabledEnvironments(feature, orgEnvs))
+          Array.from(getEnabledEnvironments(feature, orgEnvs)),
         )
       ) {
         req.context.permissions.throwPermissionError();
@@ -72,14 +78,48 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       const projects = await req.context.getProjects();
       if (!projects.some((p) => p.id === req.body.project)) {
         throw new Error(
-          `Project id ${req.body.project} is not a valid project.`
+          `Project id ${req.body.project} is not a valid project.`,
         );
       }
+    }
+
+    // check if the custom fields are valid
+    if (customFields) {
+      await validateCustomFields(customFields, req.context, req.body.project);
     }
 
     // ensure environment keys are valid
     if (req.body.environments != null) {
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
+    }
+
+    // Validate scheduleRules before processing environment settings
+    if (req.body.environments) {
+      Object.entries(req.body.environments).forEach(
+        ([envName, envSettings]) => {
+          if (envSettings.rules) {
+            envSettings.rules.forEach((rule, ruleIndex) => {
+              if (rule.scheduleRules) {
+                // Validate that the org has access to schedule rules
+                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
+                  throw new Error(
+                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
+                  );
+                }
+                try {
+                  validateScheduleRules(rule.scheduleRules);
+                } catch (error) {
+                  throw new Error(
+                    `Invalid scheduleRules in environment "${envName}", rule ${
+                      ruleIndex + 1
+                    }: ${error.message}`,
+                  );
+                }
+              }
+            });
+          }
+        },
+      );
     }
 
     // ensure default value matches value type
@@ -92,7 +132,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.body.environments != null
         ? updateInterfaceEnvSettingsFromApiEnvSettings(
             feature,
-            req.body.environments
+            req.body.environments,
           )
         : null;
 
@@ -119,6 +159,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(environmentSettings != null ? { environmentSettings } : {}),
       ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
+      ...(customFields != null ? { customFields } : {}),
     };
 
     if (
@@ -136,9 +177,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
                 ...feature,
                 ...updates,
               },
-              orgEnvs
-            )
-          )
+              orgEnvs,
+            ),
+          ),
         )
       ) {
         req.context.permissions.throwPermissionError();
@@ -173,7 +214,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             if (
               !isEqual(
                 settings.rules,
-                feature.environmentSettings?.[env]?.rules || []
+                feature.environmentSettings?.[env]?.rules || [],
               )
             ) {
               hasChanges = true;
@@ -181,7 +222,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
               // if the rule is different from the current feature value, update revisionChanges
               revisedRules[env] = settings.rules;
             }
-          }
+          },
         );
       }
 
@@ -192,12 +233,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           feature,
           changedEnvironments,
           defaultValueChanged,
-          req.organization.settings
+          req.organization.settings,
         );
         if (reviewRequired) {
           if (!req.context.permissions.canBypassApprovalChecks(feature)) {
             throw new Error(
-              "This feature requires a review and the API key being used does not have permission to bypass reviews."
+              "This feature requires a review and the API key being used does not have permission to bypass reviews.",
             );
           }
         }
@@ -221,13 +262,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const updatedFeature = await updateFeatureToDb(
       req.context,
       feature,
-      updates
+      updates,
     );
 
     await addTagsDiff(
       req.context.org.id,
       feature.tags || [],
-      updates.tags || []
+      updates.tags || [],
     );
 
     await req.audit({
@@ -243,7 +284,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,
-      feature.id
+      feature.id,
     );
     const revision = await getRevision({
       context: req.context,
@@ -251,7 +292,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       featureId: updatedFeature.id,
       version: updatedFeature.version,
     });
-    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
@@ -262,5 +304,5 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         safeRolloutMap,
       }),
     };
-  }
+  },
 );

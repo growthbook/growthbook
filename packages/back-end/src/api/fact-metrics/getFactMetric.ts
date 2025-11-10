@@ -18,5 +18,5 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
     return {
       factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
-  }
+  },
 );

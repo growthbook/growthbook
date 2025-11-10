@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactElement } from "react";
+import React, { useState, useEffect, ReactElement, useCallback } from "react";
 import {
   SDKConnectionInterface,
   SDKLanguage,
@@ -12,6 +12,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
+import { PiPackage } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -27,8 +28,15 @@ import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snipp
 import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import Callout from "@/ui/Callout";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
-import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
+import {
+  getPackageRepositoryName,
+  languageMapping,
+} from "./SDKConnections/SDKLanguageLogo";
 
 function trimTrailingSlash(str: string): string {
   return str.replace(/\/*$/, "");
@@ -39,7 +47,7 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     return trimTrailingSlash(
       connection.proxy.hostExternal ||
         connection.proxy.host ||
-        "https://proxy.yoursite.io"
+        "https://proxy.yoursite.io",
     );
   }
 
@@ -73,10 +81,10 @@ export default function CodeSnippetModal({
   allowChangingConnection?: boolean;
 }) {
   const [currentConnectionId, setCurrentConnectionId] = useState("");
-
+  const { apiCall } = useAuth();
   useEffect(() => {
     setCurrentConnectionId(
-      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || ""
+      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || "",
     );
   }, [connections]);
 
@@ -87,19 +95,48 @@ export default function CodeSnippetModal({
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const [version, setVersion] = useState<string>(
-    getLatestSDKVersion("javascript")
+    getLatestSDKVersion("javascript"),
   );
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
-  const [eventTracker, setEventTracker] = useState("");
+  const [eventTracker, setEventTracker] = useState(
+    currentConnection?.eventTracker || "",
+  );
+
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
 
+  const permissionsUtil = usePermissionsUtil();
+  const canUpdate = currentConnection
+    ? permissionsUtil.canUpdateSDKConnection(currentConnection, {})
+    : false;
+  const updateEventTracker = useCallback(
+    async (value: string) => {
+      try {
+        track("Event Tracker Selected", {
+          eventTracker,
+          language: currentConnection?.languages || [],
+        });
+        if (canUpdate && currentConnectionId) {
+          await apiCall(`/sdk-connections/${currentConnectionId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              eventTracker: value,
+            }),
+          });
+        }
+        setEventTracker(value);
+      } catch (e) {
+        setEventTracker(value);
+      }
+    },
+    [currentConnectionId, setEventTracker],
+  );
   useEffect(() => {
     if (!currentConnection) return;
 
@@ -111,6 +148,7 @@ export default function CodeSnippetModal({
         : undefined) ?? getLatestSDKVersion(language);
     setLanguage(language);
     setVersion(version);
+    setEventTracker(currentConnection?.eventTracker || "");
   }, [currentConnection]);
 
   if (!currentConnection) {
@@ -128,7 +166,7 @@ export default function CodeSnippetModal({
   const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
-      ["secureString", "secureString[]"].includes(a.datatype)
+      ["secureString", "secureString[]"].includes(a.datatype),
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
   const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
@@ -173,6 +211,7 @@ export default function CodeSnippetModal({
         inline={inline}
         size={"max"}
         header="Implementation Instructions"
+        autoFocusSelector=""
         autoCloseOnSubmit={false}
         submit={
           includeCheck
@@ -180,18 +219,15 @@ export default function CodeSnippetModal({
                 setShowTestModal(true);
               }
             : submit
-            ? async () => {
-                submit();
-                close && close();
-              }
-            : undefined
+              ? async () => {
+                  submit();
+                  close && close();
+                }
+              : undefined
         }
         cta={cta}
       >
-        <div
-          className="border-bottom mb-3 px-3 py-2 position-sticky shadow-sm"
-          style={{ top: 0, zIndex: 999 }}
-        >
+        <div className="border-bottom mb-3 px-3 py-2">
           <div className="row">
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
@@ -346,15 +382,56 @@ export default function CodeSnippetModal({
               </h4>
               {installationOpen && (
                 <div className="appbox bg-light p-3">
+                  {language === "nextjs" && (
+                    <div className="mb-3">
+                      <p>
+                        For back-end and hybrid integrations, use the official
+                        GrowthBook adapter for Vercel&apos;s{" "}
+                        <a
+                          href="https://flags-sdk.dev/providers/growthbook"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Flags SDK
+                        </a>{" "}
+                        (@flags-sdk/growthbook).
+                      </p>
+                      <Callout status="info" mb="6">
+                        Flags SDK does not run in a browser context. For
+                        front-end integrations, use our{" "}
+                        <strong>React SDK</strong>.
+                      </Callout>
+                    </div>
+                  )}
+
                   <InstallationCodeSnippet
                     language={language}
                     eventTracker={eventTracker}
-                    setEventTracker={setEventTracker}
+                    setEventTracker={updateEventTracker}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                   />
+                  {languageMapping[language]?.packageUrl && (
+                    <div className="mt-3">
+                      <a
+                        href={languageMapping[language].packageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm"
+                      >
+                        <PiPackage
+                          className="mr-1"
+                          style={{ fontSize: "1.2em", verticalAlign: "-0.2em" }}
+                        />
+                        View on{" "}
+                        {getPackageRepositoryName(
+                          languageMapping[language].packageUrl,
+                        )}
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -381,7 +458,7 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
-                    setEventTracker={setEventTracker}
+                    setEventTracker={updateEventTracker}
                   />
                 </div>
               )}
@@ -520,18 +597,44 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                       />
                     </>
                   )}
-                  {(!feature || feature?.valueType !== "boolean") && (
-                    <>
-                      {feature?.valueType || "String"} feature:
-                      <MultivariateFeatureCodeSnippet
-                        valueType={feature?.valueType || "string"}
-                        language={language}
-                        featureId={feature?.id || "my-feature"}
-                      />
-                    </>
-                  )}
+                  {language !== "nextjs" &&
+                    (!feature || feature?.valueType !== "boolean") && (
+                      <>
+                        {feature?.valueType || "String"} feature:
+                        <MultivariateFeatureCodeSnippet
+                          valueType={feature?.valueType || "string"}
+                          language={language}
+                          featureId={feature?.id || "my-feature"}
+                        />
+                      </>
+                    )}
                 </div>
               )}
+            </div>
+          )}
+
+          {language === "nextjs" && (
+            <div>
+              <div className="h4 mt-4 mb-3">Further customization</div>
+              <ul>
+                <li>
+                  Set up <strong>Vercel Edge Config</strong> and use a
+                  GrowthBook <strong>SDK Webhook</strong> to keep feature and
+                  experiment values synced between GrowthBook and the web
+                  server. This eliminates network requests from the web server
+                  to GrowthBook.
+                </li>
+                <li>
+                  Implement sticky bucketing using{" "}
+                  <code>growthbookAdapter.setStickyBucketService()</code> for
+                  advanced experimentation.
+                </li>
+                <li>
+                  Expose GrowthBook data to Vercel&apos;s Flags Explorer by
+                  creating an API route with{" "}
+                  <code>createFlagsDiscoveryEndpoint</code>.
+                </li>
+              </ul>
             </div>
           )}
         </div>

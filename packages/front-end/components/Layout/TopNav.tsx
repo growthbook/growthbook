@@ -24,7 +24,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -40,8 +40,7 @@ import Avatar from "@/components/Avatar/Avatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
@@ -57,10 +56,8 @@ const TopNav: FC<{
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [
-    enableCelebrations,
-    setEnableCelebrations,
-  ] = useCelebrationLocalStorage();
+  const [enableCelebrations, setEnableCelebrations] =
+    useCelebrationLocalStorage();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
@@ -404,7 +401,7 @@ const TopNav: FC<{
   return (
     <>
       <Head>
-        <title>GrowthBook &gt; {pageTitle}</title>
+        <title>{pageTitle ? `${pageTitle} | GrowthBook` : "GrowthBook"}</title>
       </Head>
       {editUserOpen && (
         <Modal
@@ -415,17 +412,10 @@ const TopNav: FC<{
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          <label className="mr-3">
-            Allow Celebrations{" "}
-            <Tooltip
-              body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
-              }
-            />
-          </label>
-          <Toggle
+          <Checkbox
             id="allowCelebration"
             label="Allow celebration"
+            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />

@@ -1,5 +1,20 @@
 # Changelog
 
+## **1.6.2** - Oct 30, 2025
+
+- Fix bug where `getAllResults` always returned an empty map
+- Add options to `destroy()` method to optionally destroy all open SSE streams
+- Fix bug with sticky bucketing not blocking old experiment versions properly
+- Update to latest Babel and Rollup versions. Slightly different output in bundled files, but no functional changes.
+
+## **1.6.1** - Aug 6, 2025
+
+- Fix incorrect `version` property on GrowthBook instances (was still set to 1.5.1)
+
+## **1.6.0** - Jun 16, 2025
+
+- Fix plugin importing when using Typescript moduleResolution `node`
+
 ## **1.5.1** - May 1, 2025
 
 - Fix broken minification in the bundled file `auto.min.js` caused by a Babel update

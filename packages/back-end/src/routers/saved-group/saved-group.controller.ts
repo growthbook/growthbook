@@ -45,7 +45,7 @@ type CreateSavedGroupResponse = {
  */
 export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
-  res: Response<CreateSavedGroupResponse>
+  res: Response<CreateSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org, userName } = context;
@@ -85,26 +85,23 @@ export const postSavedGroup = async (
     }
     const attributeSchema = org.settings?.attributeSchema || [];
     const datatype = attributeSchema.find(
-      (sdkAttr) => sdkAttr.property === attributeKey
+      (sdkAttr) => sdkAttr.property === attributeKey,
     )?.datatype;
     if (!datatype) {
       throw new Error("Unknown attributeKey");
     }
     if (!ID_LIST_DATATYPES.includes(datatype)) {
       throw new Error(
-        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
+        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead.",
       );
     }
     uniqValues = [...new Set(values)];
-    if (
-      new Blob([JSON.stringify(uniqValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
-    ) {
-      throw new Error(
-        `The maximum size for a list is ${formatByteSizeString(
-          SAVED_GROUP_SIZE_LIMIT_BYTES
-        )}.`
-      );
-    }
+    // Check that the size is within the global limit as well as any limit imposed by the organization
+    validateListSize(
+      uniqValues,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(projects),
+    );
   }
   if (typeof description === "string" && description.length > 100) {
     throw new Error("Description must be at most 100 characters");
@@ -156,7 +153,7 @@ type GetSavedGroupResponse = {
  */
 export const getSavedGroup = async (
   req: GetSavedGroupRequest,
-  res: Response<GetSavedGroupResponse>
+  res: Response<GetSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -199,7 +196,7 @@ type PostSavedGroupAddItemsResponse = {
  */
 export const postSavedGroupAddItems = async (
   req: PostSavedGroupAddItemsRequest,
-  res: Response<PostSavedGroupAddItemsResponse | ApiErrorResponse>
+  res: Response<PostSavedGroupAddItemsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -234,26 +231,23 @@ export const postSavedGroupAddItems = async (
 
   const attributeSchema = org.settings?.attributeSchema || [];
   const datatype = attributeSchema.find(
-    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey,
   )?.datatype;
   if (!datatype) {
     throw new Error("Unknown attributeKey");
   }
   if (!ID_LIST_DATATYPES.includes(datatype)) {
     throw new Error(
-      "Cannot add items to this group. The attribute key's datatype is not supported."
+      "Cannot add items to this group. The attribute key's datatype is not supported.",
     );
   }
   const newValues = [...new Set([...(savedGroup.values || []), ...items])];
-  if (
-    new Blob([JSON.stringify(newValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
-  ) {
-    throw new Error(
-      `The maximum size for a list is ${formatByteSizeString(
-        SAVED_GROUP_SIZE_LIMIT_BYTES
-      )}. Adding these items to the list would exceed the limit.`
-    );
-  }
+  // Check that the size is within the global limit as well as any limit imposed by the organization
+  validateListSize(
+    newValues,
+    org.settings?.savedGroupSizeLimit,
+    context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+  );
 
   const changes = await updateSavedGroupById(id, org.id, {
     values: newValues,
@@ -299,7 +293,7 @@ type PostSavedGroupRemoveItemsResponse = {
  */
 export const postSavedGroupRemoveItems = async (
   req: PostSavedGroupRemoveItemsRequest,
-  res: Response<PostSavedGroupRemoveItemsResponse | ApiErrorResponse>
+  res: Response<PostSavedGroupRemoveItemsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -334,19 +328,25 @@ export const postSavedGroupRemoveItems = async (
 
   const attributeSchema = org.settings?.attributeSchema || [];
   const datatype = attributeSchema.find(
-    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey,
   )?.datatype;
   if (!datatype) {
     throw new Error("Unknown attributeKey");
   }
   if (!ID_LIST_DATATYPES.includes(datatype)) {
     throw new Error(
-      "Cannot remove items from this group. The attribute key's datatype is not supported."
+      "Cannot remove items from this group. The attribute key's datatype is not supported.",
     );
   }
   const toRemove = new Set(items);
   const newValues = (savedGroup.values || []).filter(
-    (value) => !toRemove.has(value)
+    (value) => !toRemove.has(value),
+  );
+  // Check that the size is within the global limit as well as any limit imposed by the organization
+  validateListSize(
+    newValues,
+    org.settings?.savedGroupSizeLimit,
+    context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
   const changes = await updateSavedGroupById(id, org.id, {
     values: newValues,
@@ -389,18 +389,12 @@ type PutSavedGroupResponse = {
  */
 export const putSavedGroup = async (
   req: PutSavedGroupRequest,
-  res: Response<PutSavedGroupResponse | ApiErrorResponse>
+  res: Response<PutSavedGroupResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const {
-    groupName,
-    owner,
-    values,
-    condition,
-    description,
-    projects,
-  } = req.body;
+  const { groupName, owner, values, condition, description, projects } =
+    req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -431,6 +425,12 @@ export const putSavedGroup = async (
     !isEqual(values, savedGroup.values)
   ) {
     fieldsToUpdate.values = values;
+    // Check that the size is within the global limit as well as any limit imposed by the organization
+    validateListSize(
+      values,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+    );
   }
   if (
     savedGroup.type === "condition" &&
@@ -525,7 +525,7 @@ type DeleteSavedGroupResponse =
  */
 export const deleteSavedGroup = async (
   req: DeleteSavedGroupRequest,
-  res: Response<DeleteSavedGroupResponse>
+  res: Response<DeleteSavedGroupResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -572,3 +572,26 @@ export const deleteSavedGroup = async (
 };
 
 // endregion DELETE /saved-groups/:id
+
+export function validateListSize(
+  values: Array<unknown>,
+  savedGroupSizeLimit: number | undefined,
+  canBypassSizeLimit: boolean,
+) {
+  if (
+    savedGroupSizeLimit &&
+    values.length > savedGroupSizeLimit &&
+    !canBypassSizeLimit
+  ) {
+    throw new Error(
+      `Your organization has imposed a maximum list length of ${savedGroupSizeLimit}`,
+    );
+  }
+  if (new Blob([JSON.stringify(values)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
+    throw new Error(
+      `The maximum size for a list is ${formatByteSizeString(
+        SAVED_GROUP_SIZE_LIMIT_BYTES,
+      )}.`,
+    );
+  }
+}

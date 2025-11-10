@@ -8,8 +8,8 @@ import { PiCheckCircleFill, PiWarningFill } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
-import Badge from "@/components/Radix/Badge";
-import Callout from "@/components/Radix/Callout";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -56,10 +56,10 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                           state === "active"
                             ? "The experiment is active in this environment"
                             : state === "disabled-env"
-                            ? "The environment is disabled for this feature, so the experiment is not active"
-                            : state === "disabled-rule"
-                            ? "The experiment is disabled in this environment and is not active"
-                            : "The experiment is not present in this environment"
+                              ? "The environment is disabled for this feature, so the experiment is not active"
+                              : state === "disabled-rule"
+                                ? "The experiment is disabled in this environment and is not active"
+                                : "The experiment is not present in this environment"
                         }
                       >
                         <Flex gap="3" display="inline-flex">
@@ -81,7 +81,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                         </Flex>
                       </Tooltip>
                     </Box>
-                  )
+                  ),
                 )}
               </Flex>
             </Box>

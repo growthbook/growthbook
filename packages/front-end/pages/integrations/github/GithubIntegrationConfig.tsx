@@ -23,7 +23,7 @@ export default function GithubIntegrationConfig({
       });
       refresh();
     },
-    [apiCall, refresh]
+    [apiCall, refresh],
   );
   return (
     <div>

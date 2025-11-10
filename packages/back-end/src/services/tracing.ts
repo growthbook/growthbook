@@ -1,5 +1,9 @@
+import { performance } from "node:perf_hooks";
+import { Job, JobAttributesData } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { metrics, Counter, Histogram } from "back-end/src/util/metrics";
+
+const disableJobLogs = process.env.GB_DISABLE_JOB_LOGS === "1";
 
 // Datadog downcases tag values, so it is best to use snake case
 const normalizeJobName = (jobName: string) => {
@@ -9,72 +13,123 @@ const normalizeJobName = (jobName: string) => {
     .toLowerCase();
 };
 
-export const trackJob = (
-  jobNameRaw: string,
-  fn: (...args: unknown[]) => Promise<unknown>
-) => async (...args: unknown[]) => {
-  let counter: Counter;
-  let histogram: Histogram;
-  let hasMetricsStarted = false;
+export const trackJob =
+  <T extends JobAttributesData>(
+    jobNameRaw: string,
+    fn: (job: Job<T>) => Promise<void>,
+  ) =>
+  async (job: Job<T>) => {
+    let hasMetricsStarted = false;
 
-  const jobName = normalizeJobName(jobNameRaw);
+    const jobName = normalizeJobName(jobNameRaw);
 
-  // DataDog downcases tag names, so converting to snakecase here
-  const attributes = { job_name: jobName };
+    // DataDog downcases tag names, so converting to snakecase here
+    const attributes = { job_name: jobName };
 
-  const startTime = new Date().getTime();
+    const startTime = performance.now();
 
-  // init metrics
-  try {
-    counter = metrics.getCounter(`jobs.running_count`);
-    counter.increment(attributes);
-    hasMetricsStarted = true;
-  } catch (e) {
-    logger.error(`error init'ing counter for job: ${jobName}: ${e}`);
-  }
-  try {
-    histogram = metrics.getHistogram(`jobs.duration`);
-  } catch (e) {
-    logger.error(`error init'ing histogram for job: ${jobName}: ${e}`);
-  }
-
-  // wrap up metrics function, to be called at the end of the job
-  const wrapUpMetrics = () => {
+    // init metrics
     try {
-      histogram?.record(new Date().getTime() - startTime, attributes);
+      getJobsRunningCounter().increment(attributes);
+      hasMetricsStarted = true;
     } catch (e) {
-      logger.error(`error recording duration metric for job: ${jobName}: ${e}`);
+      logger.error(
+        { err: e, job: job.attrs },
+        `Error incrementing jobs.running_count`,
+      );
     }
-    if (!hasMetricsStarted) return;
-    try {
-      counter.decrement(attributes);
-    } catch (e) {
-      logger.error(`error decrementing count metric for job: ${jobName}: ${e}`);
-    }
-  };
 
-  // run job
-  let res;
-  try {
-    res = await fn(...args);
-  } catch (e) {
-    logger.error(`error running job: ${jobName}: ${e}`);
+    // wrap up metrics function, to be called at the end of the job
+    const wrapUpMetrics = () => {
+      try {
+        const end = performance.now();
+        const elapsed = end - startTime;
+        getJobsDurationHistogram().record(elapsed, attributes);
+      } catch (e) {
+        logger.error(
+          { err: e, job: job.attrs },
+          `Error recording duration metric for job`,
+        );
+      }
+      if (!hasMetricsStarted) return;
+      try {
+        getJobsRunningCounter().decrement(attributes);
+      } catch (e) {
+        logger.error(
+          { err: e, job: job.attrs },
+          `Error decrementing jobs.running_count`,
+        );
+      }
+    };
+
+    // run job
+    let res;
+    try {
+      if (!disableJobLogs) {
+        logger.debug({ job: job.attrs }, `Starting job ${jobName}`);
+      }
+      res = await fn(job);
+    } catch (e) {
+      logger.error({ err: e, job: job.attrs }, `Error running job: ${jobName}`);
+      try {
+        wrapUpMetrics();
+        getJobsErrorsCounter().increment(attributes);
+      } catch (e) {
+        logger.error(
+          { err: e, job: job.attrs },
+          `Error wrapping up metrics: ${jobName}`,
+        );
+      }
+      throw e;
+    }
+
+    // on successful job
+    if (!disableJobLogs) {
+      logger.debug({ job: job.attrs }, `Successfully finished job ${jobName}`);
+    }
     try {
       wrapUpMetrics();
-      metrics.getCounter(`jobs.errors`).increment(attributes);
+      getJobsSuccessesCounter().increment(attributes);
     } catch (e) {
-      logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
+      logger.error(
+        { err: e, job: job.attrs },
+        `Error wrapping up metrics: ${jobName}`,
+      );
     }
-    throw e;
-  }
 
-  // on successful job
-  try {
-    wrapUpMetrics();
-    metrics.getCounter(`jobs.successes`).increment(attributes);
-  } catch (e) {
-    logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
-  }
+    return res;
+  };
 
-  return res;
-};
+// Cache metric handles
+let jobsRunningCounter: Counter | null = null;
+let jobsDurationHistogram: Histogram | null = null;
+let jobsSuccessesCounter: Counter | null = null;
+let jobsErrorsCounter: Counter | null = null;
+
+function getJobsRunningCounter() {
+  if (!jobsRunningCounter) {
+    jobsRunningCounter = metrics.getCounter("jobs.running_count");
+  }
+  return jobsRunningCounter;
+}
+
+function getJobsDurationHistogram() {
+  if (!jobsDurationHistogram) {
+    jobsDurationHistogram = metrics.getHistogram("jobs.duration");
+  }
+  return jobsDurationHistogram;
+}
+
+function getJobsSuccessesCounter() {
+  if (!jobsSuccessesCounter) {
+    jobsSuccessesCounter = metrics.getCounter("jobs.successes");
+  }
+  return jobsSuccessesCounter;
+}
+
+function getJobsErrorsCounter() {
+  if (!jobsErrorsCounter) {
+    jobsErrorsCounter = metrics.getCounter("jobs.errors");
+  }
+  return jobsErrorsCounter;
+}

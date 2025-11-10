@@ -1,0 +1,59 @@
+---
+title: FerretDB
+description: How to use FerretDB with GrowthBook
+---
+
+# FerretDB
+
+FerretDB is a MongoDB-compatible database that is open source and free to use. It serves as a drop-in replacement for MongoDB, converting MongoDB wire protocol queries to SQL and using PostgreSQL as its backend storage engine.
+
+For organizations that require a 100% open-source stack, FerretDB provides a truly open-source MongoDB-compatible database alternative—free from SSPL licensing restrictions—allowing you to run GrowthBook without any proprietary database dependencies.
+
+## Install FerretDB
+
+Follow the the [FerretDB installation guide](https://docs.ferretdb.io/installation/ferretdb/docker/) to install FerretDB. Make sure your FerretDB instance is running and accessible before proceeding.
+
+## Start GrowthBook with FerretDB
+
+```bash
+docker run -d \
+  --name growthbook \
+  --network ferretdb \
+  -p 3000:3000 \
+  -p 3100:3100 \
+  -v growthbook_uploads:/usr/local/src/app/packages/back-end/uploads \
+  -e MONGODB_URI="mongodb://username:password@<ferretdb-host>:27017/growthbook" \
+  growthbook/growthbook:latest
+```
+
+Replace `username`, `password`, and `<ferretdb-host>` with your FerretDB connection details.
+
+:::note Container network access
+Ensure that the FerretDB instance is accessible to the GrowthBook container. If both are running in Docker, make sure they're on the same network.
+:::
+
+## Launch GrowthBook
+
+That's it! GrowthBook is now running with FerretDB. Access it at `http://localhost:3000`.
+
+GrowthBook will automatically create the necessary collections in FerretDB to manage:
+
+- User authentication and permissions
+- Feature flags and their configurations
+- Metrics and experiments
+- Organization settings and metadata
+
+## Verify the Connection
+
+After setting up GrowthBook, you can verify that data is being stored correctly in FerretDB by:
+
+- Creating a feature flag or experiment in GrowthBook
+- Connecting to your FerretDB instance using a MongoDB client
+- Checking the growthbook database for collections like experiments, features, and users
+
+## Additional Resources
+
+- [FerretDB Documentation](https://docs.ferretdb.io/)
+- [FerretDB and GrowthBook Integration Blog Post](https://blog.ferretdb.io/enabling-feature-flags-ab-testing-growthbook-ferretdb/)
+- [FerretDB GitHub Repository](https://github.com/FerretDB/FerretDB)
+- [GrowthBook Self-Hosting Docs](/self-host)

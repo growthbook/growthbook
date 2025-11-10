@@ -8,7 +8,7 @@ import {
 } from "shared/util";
 import { teal, slate } from "@radix-ui/colors";
 import { PiArrowClockwise } from "react-icons/pi";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import ConnectionNode from "@/components/Features/SDKConnections/ConnectionNode";
 import ConnectionStatus from "@/components/Features/SDKConnections/ConnectionStatus";
@@ -16,7 +16,7 @@ import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButto
 import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 
@@ -37,21 +37,21 @@ export default function ConnectionDiagram({
   const environments = useEnvironments();
 
   const environment = environments.find(
-    (e) => e.id === connection?.environment
+    (e) => e.id === connection?.environment,
   );
 
   const envProjects = environment?.projects ?? [];
   const filteredProjectIds = filterProjectsByEnvironment(
     connection?.projects ?? [],
     environment,
-    true
+    true,
   );
   const showAllEnvironmentProjects =
     (connection?.projects?.length ?? 0) === 0 && filteredProjectIds.length > 0;
   const disallowedProjects = getDisallowedProjects(
     projects,
     connection?.projects ?? [],
-    environment
+    environment,
   );
   const disallowedProjectIds = disallowedProjects.map((p) => p.id);
   const filteredProjectIdsWithDisallowed = [

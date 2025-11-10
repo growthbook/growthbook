@@ -1,4 +1,4 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
@@ -12,6 +12,8 @@ import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/ui/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const TeamsList: FC = () => {
   const { teams, refreshOrganization, organization } = useUser();
@@ -43,6 +45,8 @@ const TeamsList: FC = () => {
             </thead>
             <tbody>
               {teams.map((t) => {
+                const teamIsExternallyManaged =
+                  t.managedBy?.type || t.managedByIdp;
                 return (
                   <tr
                     key={t.id}
@@ -60,6 +64,15 @@ const TeamsList: FC = () => {
                           {t.name}
                         </Link>
                       }
+                      {t.managedBy?.type ? (
+                        <div>
+                          <Badge
+                            label={`Managed by ${capitalizeFirstLetter(
+                              t.managedBy.type,
+                            )}`}
+                          />
+                        </div>
+                      ) : null}
                     </td>
                     <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
                       {t.description}
@@ -88,7 +101,7 @@ const TeamsList: FC = () => {
                       const access = roleHasAccessToEnv(
                         t,
                         env.id,
-                        organization
+                        organization,
                       );
                       return (
                         <td key={env.id}>
@@ -104,7 +117,7 @@ const TeamsList: FC = () => {
                     })}
                     <td>{t.members ? t.members.length : 0}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      {(canManageTeam && !t.managedByIdp && (
+                      {(canManageTeam && !teamIsExternallyManaged && (
                         <>
                           <DeleteButton
                             link={true}

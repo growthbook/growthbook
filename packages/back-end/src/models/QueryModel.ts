@@ -22,6 +22,7 @@ const querySchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  displayTitle: String,
   organization: {
     type: String,
     index: true,
@@ -67,7 +68,7 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
 
 export async function getQueryById(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   const doc = await QueryModel.findOne({
     organization: context.org.id,
@@ -79,7 +80,7 @@ export async function getQueryById(
 export async function getQueriesByDatasource(
   organization: string,
   datasource: string,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const docs = await QueryModel.find({ organization, datasource })
     .limit(limit)
@@ -91,7 +92,7 @@ export async function getQueriesByDatasource(
 
 export async function countRunningQueries(
   organization: string,
-  datasource: string
+  datasource: string,
 ) {
   return await QueryModel.find({
     organization,
@@ -102,11 +103,11 @@ export async function countRunningQueries(
 
 export async function updateQuery(
   query: QueryInterface,
-  changes: Partial<QueryInterface>
+  changes: Partial<QueryInterface>,
 ): Promise<QueryInterface> {
   await QueryModel.updateOne(
     { organization: query.organization, id: query.id },
-    { $set: changes }
+    { $set: changes },
   );
   return {
     ...query,
@@ -117,7 +118,7 @@ export async function updateQuery(
 export async function getRecentQuery(
   organization: string,
   datasource: string,
-  query: string
+  query: string,
 ) {
   // Only re-use queries that were run recently
   const earliestDate = new Date();
@@ -171,7 +172,7 @@ export async function getStaleQueries(): Promise<
         status: "failed",
         error: "Query execution was interupted. Please try again.",
       },
-    }
+    },
   );
 
   return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
@@ -182,6 +183,7 @@ export async function createNewQuery({
   datasource,
   language,
   query,
+  displayTitle,
   dependencies = [],
   running = false,
   queryType = "",
@@ -191,6 +193,7 @@ export async function createNewQuery({
   datasource: string;
   language: QueryLanguage;
   query: string;
+  displayTitle?: string;
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
@@ -204,6 +207,7 @@ export async function createNewQuery({
     language,
     organization,
     query,
+    displayTitle,
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
@@ -228,6 +232,7 @@ export async function createNewQueryFromCached({
     datasource: existing.datasource,
     heartbeat: new Date(),
     id: uniqid("qry_"),
+    displayTitle: existing.displayTitle,
     language: existing.language,
     organization: existing.organization,
     query: existing.query,

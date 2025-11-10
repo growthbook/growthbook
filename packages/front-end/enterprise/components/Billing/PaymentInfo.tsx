@@ -11,10 +11,10 @@ import { isCloud } from "@/services/env";
 import { growthbook } from "@/services/utils";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { GBAddCircle } from "@/components/Icons";
-import Callout from "@/components/Radix/Callout";
-import Badge from "@/components/Radix/Badge";
+import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -45,7 +45,7 @@ export default function PaymentInfo() {
         "/subscription/payment-methods",
         {
           method: "GET",
-        }
+        },
       );
       setPaymentMethods(res.paymentMethods);
     } catch (e) {
@@ -84,18 +84,18 @@ export default function PaymentInfo() {
   async function detachPaymentMethod(paymentMethodId: string) {
     try {
       const methodIndex = paymentMethods?.findIndex(
-        (method) => method.id === paymentMethodId
+        (method) => method.id === paymentMethodId,
       );
 
       if (paymentMethods?.length === 1 && subscription?.status !== "canceled") {
         throw new Error(
-          "Unable to delete payment method. You must have at least 1 payment method on file."
+          "Unable to delete payment method. You must have at least 1 payment method on file.",
         );
       }
 
       if (methodIndex <= -1) {
         throw new Error(
-          "Cannot delete: Payment method does not exist on this subscription"
+          "Cannot delete: Payment method does not exist on this subscription",
         );
       }
       await apiCall("/subscription/payment-methods/detach", {

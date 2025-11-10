@@ -11,7 +11,7 @@ import PageHead from "@/components/Layout/PageHead";
 import ReportResults from "@/components/Report/ReportResults";
 import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 
 export async function getServerSideProps(context) {
@@ -82,10 +82,18 @@ export default function ReportPage(props: ReportPageProps) {
   return (
     <div className="pagecontents container-fluid">
       <Head>
-        <title>{report?.title || "Report not found"}</title>
+        <title>
+          {report?.title
+            ? `${report.title} | GrowthBook`
+            : "Report not found | GrowthBook"}
+        </title>
         <meta
           property="og:title"
-          content={report?.title ? `Report: ${report.title}` : "Report not found"}
+          content={
+            report?.title
+              ? `Report: ${report.title} | GrowthBook`
+              : "Report not found | GrowthBook"
+          }
         />
         <meta
           property="og:description"

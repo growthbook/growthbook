@@ -1,0 +1,132 @@
+---
+title: AI Integrations
+description: Learn about AI integrations with GrowthBook.
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+
+# AI Integrations
+
+GrowthBook supports AI integrations to enhance your experimentation and feature management capabilities. These integrations allow you to leverage AI models for various tasks, such as generating insights, automating decisions, and improving user experiences.
+
+AI features in GrowthBook are optional and can be enabled or disabled in the AI settings page. You can also configure the prompts used by the AI models to better suit your needs.
+
+<MaxWidthImage>
+  ![AI Settings](/images/integrations/ai/ai-settings-cloud.png)
+</MaxWidthImage>
+
+:::tip Prompts customization
+
+Many of the prompts used in AI integration in GrowthBook can be adjusted from the AI settings page. You can customize the prompts to better suit your needs and the context of your experiment program.
+
+:::
+
+## Available AI Features
+
+### Generate experiment results summaries
+
+When you stop an experiment, you can generate a summary of the results using OpenAI's language models. This summary can
+help you quickly understand the impact of the experiment and make informed decisions.
+
+The prompt for generating this summary can be adjusted from the settings page of the OpenAI integration.
+
+#### Data sent:
+
+- Experiment variation names
+- Experiment metrics and their values for this experiment
+- Experiment metadata (e.g., start date, end date, etc.)
+- Experiment results (e.g., p-value, confidence level, etc.)
+- Experiment description and hypothesis
+- Experiment tags and attributes
+
+### Generate SQL for SQL Explorer
+
+You can use AI to generate SQL queries for the SQL Explorer in GrowthBook. Add you provide a natural language description of the data you want to query, and the AI will generate the SQL query for you.
+
+<MaxWidthImage maxWidth={800}>
+  ![SQL Generation](/images/integrations/ai/sql-generation.png)
+</MaxWidthImage>
+
+#### Data sent:
+
+- Table names and columns in your database
+- Your description of the query you want to generate
+- Current SQL query (if any)
+
+### Generate Metric Descriptions
+
+You can also use AI to generate descriptions for your metrics. This can help your team better understand what a metric
+is used for when adding a metric to an experiment. It will take the metric SQL and meta information and generate a description.
+
+#### Data sent:
+
+- Metric name
+- Metric SQL
+- Metric attributes (e.g., type)
+- Metric tags
+
+### Hypothesis checking
+
+Experiment hypothesis are crucial for guiding your experiments. With this AI integration, you can check the validity
+of your experiment hypothesis to ensure consistency across your experiment program. This feature analyzes the hypothesis
+against an adjustable prompt and provides feedback and suggestions for improvement.
+
+#### Data sent:
+
+- Experiment hypothesis text
+
+### Similar Experiment Detection
+
+You can use AI to detect similar experiments in your GrowthBook project. This feature helps you identify experiments
+that may redundant, ensuring that you don't waste resources on testing similar ideas. The AI model analyzes the experiment
+metadata and provides a list of similar experiments.
+
+<MaxWidthImage maxWidth={600}>
+![Similar Experiment Detection](/images/integrations/ai/similar-experiments.png)
+</MaxWidthImage>
+
+This feature is available from the "new experiment" modal when you create a new experiment. It will search the description and hypothesis and show you a list of
+similar experiments.
+
+This similar experiment detection is based on vector embeddings, which means it can find similar experiments even if
+they don't share the exact same words. The embeddings will update automatically when the experiment meta information
+changes, however, you can regenerate the embeddings for your experiments at any time from the AI settings page.
+
+#### Data sent:
+
+- Experiment description
+- Experiment hypothesis
+- Experiment name
+
+## Self-Hosted AI Integrations
+
+Self-hosted GrowthBook instances can enable these AI features, by adding a OpenAI API key to the AI settings page.
+
+To get started with the OpenAI integration in GrowthBook, follow these steps:
+
+1. **Create an OpenAI Account**: If you don't have an OpenAI account, sign up at [OpenAI](https://www.openai.com/).
+2. **Obtain API Key**: After creating your account, obtain an API key from the OpenAI dashboard. This key will be used to authenticate your requests to the OpenAI API.
+3. **Add environment variable**: Add the OpenAI API key to your GrowthBook instance as an environment variable. The variable should be named `OPENAI_API_KEY`.
+
+   For example, if you are using Docker, you can add the following line to your `docker-compose.yml` file:
+
+   ```yaml
+   environment:
+     - OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+   If you are running GrowthBook in a different environment, refer to your platform's documentation on how to set environment variables.
+
+4. **Configure GrowthBook**: In your GrowthBook settings, navigate to the AI settings tab and enable AI OpenAI integration, and configure any additional prompts as desired.
+
+From the settings page you can also select the AI model you want to use. The default is `gpt-4o-mini`.
+
+<MaxWidthImage>
+  ![AI Settings Self-hosting](/images/integrations/ai/ai-settings-self-hosting.png)
+</MaxWidthImage>
+
+:::info AI features for self-hosted GrowthBook instances are part of the GrowthBook Enterprise plan.
+
+:::
+
+You can learn more from the [OpenAI Documentation](https://platform.openai.com/docs/).

@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -16,7 +17,6 @@ import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { trackJob } from "back-end/src/services/tracing";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -25,46 +25,42 @@ type RefreshFactTableColumnsJob = Job<{
   factTableId: string;
 }>;
 
-const refreshFactTableColumns = trackJob(
-  JOB_NAME,
-  async (job: RefreshFactTableColumnsJob) => {
-    const { organization, factTableId } = job.attrs.data;
+const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
+  const { organization, factTableId } = job.attrs.data;
 
-    if (!factTableId || !organization) return;
+  if (!factTableId || !organization) return;
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organization);
 
-    const factTable = await getFactTable(context, factTableId);
-    if (!factTable) return;
+  const factTable = await getFactTable(context, factTableId);
+  if (!factTable) return;
 
-    const datasource = await getDataSourceById(context, factTable.datasource);
-    if (!datasource) return;
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) return;
 
-    const updates: Partial<
-      Pick<FactTableInterface, "columns" | "columnsError">
-    > = {};
+  const updates: Partial<Pick<FactTableInterface, "columns" | "columnsError">> =
+    {};
 
-    try {
-      const columns = await runRefreshColumnsQuery(
-        context,
-        datasource,
-        factTable
-      );
-      updates.columns = columns;
-      updates.columnsError = null;
-    } catch (e) {
-      updates.columnsError = e.message;
-    }
-
-    await updateFactTableColumns(factTable, updates);
+  try {
+    const columns = await runRefreshColumnsQuery(
+      context,
+      datasource,
+      factTable,
+    );
+    updates.columns = columns;
+    updates.columnsError = null;
+  } catch (e) {
+    updates.columnsError = e.message;
   }
-);
+
+  await updateFactTableColumns(factTable, updates, context);
+};
 
 export async function runColumnTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName">,
-  column: ColumnInterface
+  column: ColumnInterface,
 ): Promise<string[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -82,12 +78,40 @@ export async function runColumnTopValuesQuery(
   const sql = integration.getColumnTopValuesQuery({
     factTable,
     column,
-    limit: 100,
+    limit: Math.max(
+      100,
+      context.org.settings?.maxMetricSliceLevels ??
+        DEFAULT_MAX_METRIC_SLICE_LEVELS,
+    ),
   });
-
   const result = await integration.runColumnTopValuesQuery(sql);
 
   return result.rows.map((r) => r.value);
+}
+
+export function populateAutoSlices(
+  col: ColumnInterface,
+  topValues: string[],
+  maxValues?: number,
+): string[] {
+  if (col.datatype === "boolean") {
+    return ["true", "false"];
+  }
+
+  // Use existing autoSlices if they exist, otherwise use topValues up to the max
+  if (col.autoSlices && col.autoSlices.length > 0) {
+    return col.autoSlices;
+  }
+  const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
+  const autoSlices: string[] = [];
+  for (const value of topValues) {
+    if (autoSlices.length >= maxSliceLevels) break;
+    if (!autoSlices.includes(value)) {
+      autoSlices.push(value);
+    }
+  }
+
+  return autoSlices;
 }
 
 export async function runRefreshColumnsQuery(
@@ -96,7 +120,7 @@ export async function runRefreshColumnsQuery(
   factTable: Pick<
     FactTableInterface,
     "sql" | "eventName" | "columns" | "userIdTypes"
-  >
+  >,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -121,7 +145,37 @@ export async function runRefreshColumnsQuery(
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
-  determineColumnTypes(result.results).forEach((col) => {
+
+  result.columns?.forEach((col) => {
+    // If the underlying SQL engine returned the datatype, use it
+    if (col.dataType !== undefined) {
+      // For JSON, only return if we have the field information, otherwise skip
+      // so we can infer from the returned data
+      if (
+        col.dataType === "json" &&
+        col.fields !== undefined &&
+        col.fields.length > 0
+      ) {
+        typeMap.set(col.name, "json");
+        jsonMap.set(
+          col.name,
+          col.fields.reduce(
+            (acc, field) => ({
+              ...acc,
+              [field.name]: {
+                datatype: field.dataType,
+              },
+            }),
+            {},
+          ),
+        );
+      } else if (col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    }
+  });
+
+  determineColumnTypes(result.results, typeMap).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
       jsonMap.set(col.column, col.jsonFields);
@@ -190,20 +244,39 @@ export async function runRefreshColumnsQuery(
   });
 
   for (const col of columns) {
-    if (
-      col.alwaysInlineFilter &&
-      canInlineFilterColumn(factTable, col.column)
+    if (col.numberFormat === undefined) {
+      col.numberFormat = "";
+    }
+
+    if (col.datatype === "boolean" && col.isAutoSliceColumn) {
+      col.autoSlices = ["true", "false"];
+    } else if (
+      (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
+      canInlineFilterColumn(factTable, col.column) &&
+      col.datatype === "string"
     ) {
       try {
-        col.topValues = await runColumnTopValuesQuery(
+        const topValues = await runColumnTopValuesQuery(
           context,
           datasource,
           factTable,
-          col
+          col,
         );
+
+        col.topValues = topValues;
         col.topValuesDate = new Date();
+
+        if (col.isAutoSliceColumn) {
+          col.autoSlices = populateAutoSlices(
+            col,
+            topValues,
+            context.org.settings?.maxMetricSliceLevels,
+          );
+        }
       } catch (e) {
-        logger.error("Error running top values query", e);
+        logger.error(e, "Error running top values query", {
+          column: col.column,
+        });
       }
     }
   }
@@ -219,7 +292,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,

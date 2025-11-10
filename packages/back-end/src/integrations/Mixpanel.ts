@@ -20,6 +20,7 @@ import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
   ExperimentUnitsQueryResponse,
+  IncrementalWithNoOutputQueryResponse,
   MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
@@ -27,6 +28,26 @@ import {
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
   SourceIntegrationInterface,
+  ExternalIdCallback,
+  ExperimentMetricQueryParams,
+  ExperimentAggregateUnitsQueryParams,
+  ExperimentUnitsQueryParams,
+  CreateExperimentIncrementalUnitsQueryParams,
+  UpdateExperimentIncrementalUnitsQueryParams,
+  DropOldIncrementalUnitsQueryParams,
+  AlterNewIncrementalUnitsQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
+  MaxTimestampMetricSourceQueryParams,
+  CreateMetricSourceTableQueryParams,
+  InsertMetricSourceDataQueryParams,
+  IncrementalRefreshStatisticsQueryParams,
+  DimensionSlicesQueryParams,
+  PastExperimentParams,
+  MetricAnalysisParams,
+  ExperimentFactMetricsQueryResponse,
+  UserExperimentExposuresQueryResponse,
+  CreateMetricSourceCovariateTableQueryParams,
+  InsertMetricSourceCovariateDataQueryParams,
 } from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
@@ -57,41 +78,142 @@ export default class Mixpanel implements SourceIntegrationInterface {
     this.decryptionError = false;
     try {
       this.params = decryptDataSourceParams<MixpanelConnectionParams>(
-        datasource.params
+        datasource.params,
       );
     } catch (e) {
       this.params = { projectId: "", secret: "", username: "" };
       this.decryptionError = true;
     }
   }
-  getMetricAnalysisQuery(): string {
+  getCurrentTimestamp(): string {
     throw new Error("Method not implemented.");
   }
-  runMetricAnalysisQuery(): Promise<MetricAnalysisQueryResponse> {
+  getMetricAnalysisQuery(_: MetricAnalysisParams): string {
     throw new Error("Method not implemented.");
   }
-  getDropUnitsTableQuery(): string {
+  runMetricAnalysisQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<MetricAnalysisQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runDropTableQuery(): Promise<DropTableQueryResponse> {
+  getDropUnitsTableQuery(_: { fullTablePath: string }): string {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(): string {
+  runDropTableQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentAggregateUnitsQuery(): string {
+  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentAggregateUnitsQuery(): Promise<ExperimentAggregateUnitsQueryResponse> {
+  getExperimentAggregateUnitsQuery(
+    _: ExperimentAggregateUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
+  runExperimentAggregateUnitsQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentUnitsTableQuery(): string {
+  runExperimentMetricQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentUnitsQuery(): Promise<ExperimentUnitsQueryResponse> {
+  getExperimentUnitsTableQuery(_: ExperimentUnitsQueryParams): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentUnitsQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentUnitsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getCreateExperimentIncrementalUnitsQuery(
+    _params: CreateExperimentIncrementalUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getUpdateExperimentIncrementalUnitsQuery(
+    _params: UpdateExperimentIncrementalUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropOldIncrementalUnitsQuery(
+    _params: DropOldIncrementalUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getAlterNewIncrementalUnitsQuery(
+    _params: AlterNewIncrementalUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getMaxTimestampIncrementalUnitsQuery(
+    _params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getMaxTimestampMetricSourceQuery(
+    _params: MaxTimestampMetricSourceQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getCreateMetricSourceTableQuery(
+    _params: CreateMetricSourceTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertMetricSourceDataQuery(
+    _params: InsertMetricSourceDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getCreateMetricSourceCovariateTableQuery(
+    _params: CreateMetricSourceCovariateTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertMetricSourceCovariateDataQuery(
+    _params: InsertMetricSourceCovariateDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getIncrementalRefreshStatisticsQuery(
+    _params: IncrementalRefreshStatisticsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  runIncrementalWithNoOutputQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  runMaxTimestampQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<
+    import("back-end/src/types/Integration").MaxTimestampQueryResponse
+  > {
+    throw new Error("Method not implemented.");
+  }
+  runIncrementalRefreshStatisticsQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentFactMetricsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getUserExperimentExposuresQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
     throw new Error("Method not implemented.");
   }
   private getMetricAggregationExpression(metric: MetricInterface) {
@@ -124,7 +246,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     snapshotSettings: ExperimentSnapshotSettings,
     metricDocs: MetricInterface[],
     activationMetricDoc: MetricInterface,
-    dimension: DimensionInterface
+    dimension: DimensionInterface,
   ): string {
     const activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
     applyMetricOverrides(activationMetric, snapshotSettings);
@@ -151,10 +273,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
             .map(
               (metric, i) => `// Metric - ${metric.name}
           if(isMetric${i}(event) && event.time - state.start > ${
-                getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000
-              }) {
+            getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000
+          }) {
             state.m${i}.push(${this.getMetricValueExpression(metric.column)});
-          }`
+          }`,
             )
             .join("\n")}
         });
@@ -168,7 +290,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           return ${this.getValidExperimentCondition(
             snapshotSettings.experimentId,
             snapshotSettings.startDate,
-            snapshotSettings.endDate
+            snapshotSettings.endDate,
           )};
         }
         ${
@@ -187,7 +309,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ...metrics.map((m) => m.table),
             activationMetric?.table,
             this.getExperimentEventName(),
-          ]
+          ],
         )}
         .filter(function(event) {
           // Experiment exposure event
@@ -201,7 +323,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           ${metrics
             .map(
               (metric, i) => `// ${metric.name}
-          if(isMetric${i}(event)) return true;`
+          if(isMetric${i}(event)) return true;`,
             )
             .join("\n")}
           // Otherwise, ignore the event
@@ -217,8 +339,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
             start: null,
             variation: null,
             ${metrics.map((m, i) => `m${i}: [],`).join("\n")} ${
-      hasEarlyStartMetrics ? "\nqueuedEvents: []" : ""
-    }
+              hasEarlyStartMetrics ? "\nqueuedEvents: []" : ""
+            }
           };
           for(var i=0; i<events.length; i++) {
             const event = events[i];
@@ -228,7 +350,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 state.inExperiment = true;
                 state.variation = ${getMixpanelPropertyColumn(
                   this.datasource.settings.events?.variationIdProperty ||
-                    "Variant name"
+                    "Variant name",
                 )};
                 ${
                   dimension
@@ -236,7 +358,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                         dimension.sql,
                         snapshotSettings.startDate,
                         snapshotSettings.endDate,
-                        snapshotSettings.experimentId
+                        snapshotSettings.experimentId,
                       )}) || null;`
                     : ""
                 }
@@ -245,7 +367,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               }
               else if(state.variation !== ${getMixpanelPropertyColumn(
                 this.datasource.settings.events?.variationIdProperty ||
-                  "Variant name"
+                  "Variant name",
               )}) {
                 state.multipleVariants = true;
                 continue;
@@ -290,21 +412,22 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
             ${metrics
               .map((metric, i) => {
-                const conversionWindowCondition = this.getConversionWindowCondition(
-                  metric,
-                  snapshotSettings.endDate,
-                  "state.start"
-                );
+                const conversionWindowCondition =
+                  this.getConversionWindowCondition(
+                    metric,
+                    snapshotSettings.endDate,
+                    "state.start",
+                  );
 
                 return `// Metric - ${metric.name}
                     if(isMetric${i}(event) ${
-                  conversionWindowCondition
-                    ? `&& ${conversionWindowCondition}`
-                    : ""
-                }) {
+                      conversionWindowCondition
+                        ? `&& ${conversionWindowCondition}`
+                        : ""
+                    }) {
                       state.m${i}.push(${this.getMetricValueExpression(
-                  metric.column
-                )});
+                        metric.column,
+                      )});
                     }
                   `;
               })
@@ -324,7 +447,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         .map(function(user) {
           ${metrics
             .map((metric, i) =>
-              this.aggregateMetricValues(metric, `user.value.m${i}`)
+              this.aggregateMetricValues(metric, `user.value.m${i}`),
             )
             .join("\n")}
 
@@ -339,7 +462,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           ${metrics
             .map(
               (metric, i) => `// Metric - ${metric.name}
-          mixpanel.reducer.numeric_summary('value.m${i}'),`
+          mixpanel.reducer.numeric_summary('value.m${i}'),`,
             )
             .join("\n")}
         ])
@@ -356,7 +479,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               .map(
                 (m) => `
               // ${m.name}
-              ${JSON.stringify(m.id)}`
+              ${JSON.stringify(m.id)}`,
               )
               .join(",")}
           ];
@@ -382,13 +505,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
     snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
-    dimension: DimensionInterface
+    dimension: DimensionInterface,
   ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(
       snapshotSettings,
       metrics,
       activationMetric,
-      dimension
+      dimension,
     );
 
     const result = await runQuery<
@@ -474,7 +597,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             const event = events[i];
             if(isMetric(event)) {
               state.metricValue.push(${this.getMetricValueExpression(
-                metric.column
+                metric.column,
               )});
             }
           }
@@ -531,7 +654,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
         }));
         `);
   }
-  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
+  async runMetricValueQuery(
+    query: string,
+    _setExternalId?: ExternalIdCallback,
+  ): Promise<MetricValueQueryResponse> {
     const rows = await runQuery<
       [
         (
@@ -550,7 +676,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               sum: number | null;
               sum_squares: number | null;
             }
-        )[]
+        )[],
       ]
     >(this.params, query);
 
@@ -584,16 +710,22 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return { rows: [overall, ...result] };
   }
-  getPastExperimentQuery(): string {
+  getPastExperimentQuery(_: PastExperimentParams): string {
     throw new Error("Method not implemented.");
   }
-  async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
+  async runPastExperimentQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDimensionSlicesQuery(): string {
+  getDimensionSlicesQuery(_: DimensionSlicesQueryParams): string {
     throw new Error("Method not implemented.");
   }
-  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
+  async runDimensionSlicesQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {
@@ -666,7 +798,7 @@ function is${name}(event) {
     col: string,
     startDate: Date,
     endDate?: Date,
-    experimentId?: string
+    experimentId?: string,
   ) {
     return compileSqlTemplate(getMixpanelPropertyColumn(col), {
       startDate,
@@ -678,7 +810,7 @@ function is${name}(event) {
   private getConversionWindowCondition(
     metric: MetricInterface,
     experimentEnd: Date,
-    conversionWindowStart: string = ""
+    conversionWindowStart: string = "",
   ) {
     const windowHours = getConversionWindowHours(metric.windowSettings);
     const checks: string[] = [];
@@ -696,7 +828,7 @@ function is${name}(event) {
     if (metric.windowSettings.type === "lookback") {
       const lookbackLength = windowHours * 60 * 60 * 1000;
       checks.push(
-        `${experimentEnd.getTime()} - event.time <= ${lookbackLength}`
+        `${experimentEnd.getTime()} - event.time <= ${lookbackLength}`,
       );
     }
     return checks.length ? checks.join(" && ") : "";
@@ -728,7 +860,8 @@ function is${name}(event) {
   private getValidExperimentCondition(id: string, start: Date, end?: Date) {
     const experimentEvent = this.getExperimentEventName();
     const experimentIdCol = getMixpanelPropertyColumn(
-      this.datasource.settings.events?.experimentIdProperty || "Experiment name"
+      this.datasource.settings.events?.experimentIdProperty ||
+        "Experiment name",
     );
     let timeCheck = `event.time >= ${start.getTime()}`;
     if (end) {

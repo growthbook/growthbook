@@ -20,12 +20,12 @@ function getSSOConfig() {
   }
 
   const missingMetadata = requiredMetadataKeys.filter(
-    (k) => !(k in config.metadata)
+    (k) => !(k in config.metadata),
   );
   if (missingMetadata.length > 0) {
     throw new Error(
       "SSO_CONFIG missing required metadata fields: " +
-        missingMetadata.join(", ")
+        missingMetadata.join(", "),
     );
   }
 

@@ -7,8 +7,8 @@ import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
-import Checkbox from "@/components/Radix/Checkbox";
-import Button from "@/components/Radix/Button";
+import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";
@@ -24,7 +24,9 @@ interface DecisionFrameworkSettingsProps {
   // No specific props needed as we use form context
 }
 
-const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () => {
+const DecisionFrameworkSettings: React.FC<
+  DecisionFrameworkSettingsProps
+> = () => {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
 
@@ -82,7 +84,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                 {
                   method: "DELETE",
                   body: JSON.stringify({ id: criteriaToDelete.id }),
-                }
+                },
               );
               mutate();
               setCriteriaToDelete(undefined);

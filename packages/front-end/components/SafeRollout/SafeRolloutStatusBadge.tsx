@@ -7,13 +7,11 @@ import {
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 
 const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
-  const {
-    safeRollout,
-    snapshot: snapshotWithResults,
-  } = useSafeRolloutSnapshot();
+  const { safeRollout, snapshot: snapshotWithResults } =
+    useSafeRolloutSnapshot();
 
   const { hasCommercialFeature, organization } = useUser();
   const settings = organization?.settings;
@@ -34,7 +32,7 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });

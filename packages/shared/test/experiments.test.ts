@@ -5,6 +5,7 @@ import {
   FactFilterInterface,
 } from "back-end/types/fact-table";
 import { IndexedPValue } from "back-end/types/stats";
+import { ExperimentDimensionMetadata } from "back-end/types/datasource";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
@@ -16,6 +17,8 @@ import {
   adjustedCI,
   setAdjustedPValuesOnResults,
   chanceToWinFlatPrior,
+  getPredefinedDimensionSlicesByExperiment,
+  countDimensionLevels,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -30,6 +33,8 @@ describe("Experiments", () => {
       name: "Event Name",
       alwaysInlineFilter: true,
       deleted: false,
+      autoSlices: ["s1", "s2", "s3"],
+      isAutoSliceColumn: true,
     };
     const column2: ColumnInterface = {
       column: "page",
@@ -76,6 +81,16 @@ describe("Experiments", () => {
         "c.d": { datatype: "string" },
         "c.e": { datatype: "number" },
       },
+    };
+    const boolColumn: ColumnInterface = {
+      column: "is_bot",
+      datatype: "boolean",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "Is bot",
+      numberFormat: "",
+      name: "Is Bot",
+      deleted: false,
     };
     const deletedColumn: ColumnInterface = {
       column: "deleted_column",
@@ -126,6 +141,7 @@ describe("Experiments", () => {
         numericColumn,
         deletedColumn,
         jsonColumn,
+        boolColumn,
       ],
       filters: [filter, filter2, filter3],
       userIdTypes: ["user_id"],
@@ -138,6 +154,9 @@ describe("Experiments", () => {
       }
       return `${jsonCol}:'${path}'`;
     };
+    const evalBoolean = (col: string, value: boolean) => {
+      return `${col} IS ${value ? "TRUE" : "FALSE"}`;
+    };
 
     describe("canInlineFilterColumn", () => {
       it("returns true for string columns with alwaysInlineFilter", () => {
@@ -146,19 +165,22 @@ describe("Experiments", () => {
       it("returns true for string columns, even if alwaysInlineFilter is false", () => {
         expect(canInlineFilterColumn(factTable, column2.column)).toBe(true);
       });
+      it("returns true for boolean columns", () => {
+        expect(canInlineFilterColumn(factTable, boolColumn.column)).toBe(true);
+      });
       it("returns false for deleted columns", () => {
         expect(canInlineFilterColumn(factTable, deletedColumn.column)).toBe(
-          false
+          false,
         );
       });
       it("returns false for numeric columns", () => {
         expect(canInlineFilterColumn(factTable, numericColumn.column)).toBe(
-          false
+          false,
         );
       });
       it("returns false for userId columns", () => {
         expect(canInlineFilterColumn(factTable, userIdColumn.column)).toBe(
-          false
+          false,
         );
       });
       it("returns false for unknown column", () => {
@@ -166,12 +188,12 @@ describe("Experiments", () => {
       });
       it("returns true for nested JSON string field", () => {
         expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.a`)).toBe(
-          true
+          true,
         );
       });
       it("returns false for nested JSON non-string field", () => {
         expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.b`)).toBe(
-          false
+          false,
         );
       });
     });
@@ -179,36 +201,38 @@ describe("Experiments", () => {
     describe("getColumnRefWhereClause", () => {
       it("returns empty array when there are no filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               inlineFilters: {},
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               inlineFilters: {
@@ -217,14 +241,15 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               inlineFilters: {
@@ -233,15 +258,16 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
       });
       it("ignores invalid filters, but uses invalid inline filter columns", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: ["unknown_id"],
               factTableId: "",
@@ -253,48 +279,51 @@ describe("Experiments", () => {
               },
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+            evalBoolean,
+          }),
         ).toStrictEqual([
-          "unknown_column = 'unknown_value'",
-          `${numericColumn.column} = '1'`,
-          `${deletedColumn.column} = 'deleted'`,
-          `${userIdColumn.column} = 'user'`,
+          "(unknown_column = 'unknown_value')",
+          `(${numericColumn.column} = '1')`,
+          `(${deletedColumn.column} = 'deleted')`,
+          `(${userIdColumn.column} = 'user')`,
         ]);
       });
       it("returns where clause for single filter", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter.id],
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([filter.value]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${filter.value})`]);
       });
       it("returns where clause for multiple filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter.id, filter2.id],
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([filter.value, filter2.value]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
       it("returns where clause for single inline filter value", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -303,15 +332,16 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("returns where clause for multiple inline filter values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -320,15 +350,16 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([`${column.column} IN (\n  'login',\n  'signup'\n)`]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
       it("returns where clause for inline filters and filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter.id],
               inlineFilters: {
@@ -337,15 +368,16 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([`${column.column} = 'login'`, filter.value]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${column.column} = 'login')`, `(${filter.value})`]);
       });
       it("escapes string literals", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -354,15 +386,16 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([`${column.column} = 'login''s'`]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${column.column} = 'login''s')`]);
       });
       it("removes duplicate inline filter and filter values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter3.id],
               inlineFilters: {
@@ -371,15 +404,16 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("removes duplicate inline filter values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -388,15 +422,16 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("supports JSON column inline filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: `${jsonColumn.column}.b`,
               filters: [],
               inlineFilters: {
@@ -405,9 +440,155 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
-        ).toStrictEqual([`${jsonColumn.column}:'b'::float = 'hello'`]);
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${jsonColumn.column}:'b'::float = 'hello')`]);
+      });
+      it("supports IS TRUE inline filter", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {
+                [boolColumn.column]: ["true"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${boolColumn.column} IS TRUE)`]);
+      });
+      it("supports IS FALSE inline filter", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {
+                [boolColumn.column]: ["false"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${boolColumn.column} IS FALSE)`]);
+      });
+      it("ignores empty boolean filter", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {
+                [boolColumn.column]: [""],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([]);
+      });
+      it("includes metric slices", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {},
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              sliceLevels: [
+                {
+                  column: column.column,
+                  levels: ["l1"],
+                },
+                {
+                  column: column2.column,
+                  levels: ["l2", "l3"],
+                },
+              ],
+            },
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'l1')`,
+          // TODO: this should be an IN clause, fix the test once the code is updated
+          `(${column2.column} = 'l2')`,
+        ]);
+      });
+      it("includes metric auto slices - other", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {},
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              sliceLevels: [
+                {
+                  column: column.column,
+                  levels: [],
+                },
+              ],
+            },
+          }),
+        ).toStrictEqual([
+          `(${column.column} NOT IN (\n  's1',\n  's2',\n  's3'\n))`,
+        ]);
+      });
+      it("combines multiple types of filters", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [filter.id],
+              inlineFilters: {
+                [boolColumn.column]: ["false"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              sliceLevels: [
+                {
+                  column: column.column,
+                  levels: ["l1"],
+                },
+              ],
+            },
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'l1')`,
+          `(${boolColumn.column} IS FALSE)`,
+          `(${filter.value})`,
+        ]);
       });
     });
     describe("getAggregateFilter", () => {
@@ -416,7 +597,7 @@ describe("Experiments", () => {
           getAggregateFilters({
             columnRef: null,
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -426,7 +607,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -436,7 +617,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -446,7 +627,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -456,7 +637,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
       });
       it("parses a single filter with different operators", () => {
@@ -468,7 +649,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value > 0"]);
         expect(
           getAggregateFilters({
@@ -478,7 +659,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value < 5"]);
         expect(
           getAggregateFilters({
@@ -488,7 +669,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value >= 10"]);
         expect(
           getAggregateFilters({
@@ -498,7 +679,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value <= 15"]);
         expect(
           getAggregateFilters({
@@ -508,7 +689,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value = 1.5"]);
         expect(
           getAggregateFilters({
@@ -518,7 +699,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value != 0.15"]);
         expect(
           getAggregateFilters({
@@ -528,7 +709,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value <> 0.15"]);
       });
       it("parses multiple filters", () => {
@@ -541,7 +722,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([
           "value > 0",
           "value < 5",
@@ -561,7 +742,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toThrowError("Invalid user filter: %3");
       });
       it("ignores invalid filters when opted in", () => {
@@ -574,7 +755,7 @@ describe("Experiments", () => {
             },
             column: "col",
             ignoreInvalid: true,
-          })
+          }),
         ).toStrictEqual(["col > 5"]);
       });
       it("skips when column is not $$distinctUsers", () => {
@@ -586,7 +767,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -596,7 +777,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
       });
     });
@@ -604,39 +785,39 @@ describe("Experiments", () => {
     describe("getColumnExpression", () => {
       it("replaces JSON column access with proper syntax", () => {
         expect(
-          getColumnExpression(`${jsonColumn.column}.a`, factTable, jsonExtract)
+          getColumnExpression(`${jsonColumn.column}.a`, factTable, jsonExtract),
         ).toBe(`${jsonColumn.column}:'a'`);
 
         expect(
-          getColumnExpression(`${jsonColumn.column}.b`, factTable, jsonExtract)
+          getColumnExpression(`${jsonColumn.column}.b`, factTable, jsonExtract),
         ).toBe(`${jsonColumn.column}:'b'::float`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.c.d`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'c.d'`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.c.e`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'c.e'::float`);
       });
 
       it("returns untransformed column for non-JSON columns", () => {
         expect(getColumnExpression(column.column, factTable, jsonExtract)).toBe(
-          column.column
+          column.column,
         );
       });
 
       it("returns untransformed column for unknown columns", () => {
         expect(
-          getColumnExpression("unknown_column", factTable, jsonExtract)
+          getColumnExpression("unknown_column", factTable, jsonExtract),
         ).toBe("unknown_column");
       });
 
@@ -646,16 +827,16 @@ describe("Experiments", () => {
             `${jsonColumn.column}.b`,
             factTable,
             jsonExtract,
-            "m"
-          )
+            "m",
+          ),
         ).toBe(`m.${jsonColumn.column}:'b'::float`);
 
         expect(
-          getColumnExpression(column.column, factTable, jsonExtract, "m")
+          getColumnExpression(column.column, factTable, jsonExtract, "m"),
         ).toBe(`m.${column.column}`);
 
         expect(
-          getColumnExpression("unknown", factTable, jsonExtract, "m")
+          getColumnExpression("unknown", factTable, jsonExtract, "m"),
         ).toBe(`m.unknown`);
       });
 
@@ -664,46 +845,52 @@ describe("Experiments", () => {
           getColumnExpression(
             `${jsonColumn.column}.unknown`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'unknown'`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.c.unknown`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'c.unknown'`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.unknown.unknown`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'unknown.unknown'`);
       });
     });
     describe("getSelectedColumnDatatype", () => {
       it("returns the datatype of the selected column", () => {
         expect(
-          getSelectedColumnDatatype({ factTable, column: column.column })
+          getSelectedColumnDatatype({ factTable, column: column.column }),
         ).toBe(column.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: column2.column })
+          getSelectedColumnDatatype({ factTable, column: column2.column }),
         ).toBe(column2.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: userIdColumn.column })
+          getSelectedColumnDatatype({ factTable, column: userIdColumn.column }),
         ).toBe(userIdColumn.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: numericColumn.column })
+          getSelectedColumnDatatype({
+            factTable,
+            column: numericColumn.column,
+          }),
         ).toBe(numericColumn.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: deletedColumn.column })
+          getSelectedColumnDatatype({
+            factTable,
+            column: deletedColumn.column,
+          }),
         ).toBe(deletedColumn.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: jsonColumn.column })
+          getSelectedColumnDatatype({ factTable, column: jsonColumn.column }),
         ).toBe(jsonColumn.datatype);
       });
 
@@ -712,38 +899,38 @@ describe("Experiments", () => {
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.a`,
-          })
+          }),
         ).toBe("string");
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.b`,
-          })
+          }),
         ).toBe("number");
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.c.d`,
-          })
+          }),
         ).toBe("string");
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.c.e`,
-          })
+          }),
         ).toBe("number");
       });
 
       it("returns undefined for unknown columns", () => {
         expect(
-          getSelectedColumnDatatype({ factTable, column: "unknown" })
+          getSelectedColumnDatatype({ factTable, column: "unknown" }),
         ).toBe(undefined);
 
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.unknown`,
-          })
+          }),
         ).toBe(undefined);
       });
 
@@ -753,7 +940,7 @@ describe("Experiments", () => {
             factTable,
             column: deletedColumn.column,
             excludeDeleted: true,
-          })
+          }),
         ).toBe(undefined);
       });
     });
@@ -762,7 +949,7 @@ describe("Experiments", () => {
 
 function mockIndexedPvalue(
   pvalues: number[],
-  index?: number[]
+  index?: number[],
 ): IndexedPValue[] {
   // @ts-expect-error IndexedPValue typing here is for convenience
   return pvalues.map((p, i) => {
@@ -774,24 +961,24 @@ describe("pvalue correction method", () => {
   it("does HB procedure correctly", () => {
     expect(
       adjustPValuesHolmBonferroni(
-        mockIndexedPvalue([0.01, 0.04, 0.03, 0.005, 0.55, 0.6])
-      )
+        mockIndexedPvalue([0.01, 0.04, 0.03, 0.005, 0.55, 0.6]),
+      ),
     ).toEqual(
-      mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5])
+      mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5]),
     );
   });
   it("does BH procedure correctly", () => {
     expect(
       adjustPValuesBenjaminiHochberg(
-        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138]),
       ).map((x) => {
         return { pValue: +x.pValue.toFixed(8), index: x.index };
-      })
+      }),
     ).toEqual(
       mockIndexedPvalue(
         [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
-        [3, 0, 4, 1, 6, 2, 5]
-      )
+        [3, 0, 4, 1, 6, 2, 5],
+      ),
     );
   });
 });
@@ -873,7 +1060,7 @@ describe("pvalue correction on results", () => {
     setAdjustedPValuesOnResults(
       results,
       ["met1", "met2"],
-      "benjamini-hochberg"
+      "benjamini-hochberg",
     );
     expect(results).toEqual(expectedResultsBH);
   });
@@ -881,15 +1068,15 @@ describe("pvalue correction on results", () => {
   it("does BH procedure correctly", () => {
     expect(
       adjustPValuesBenjaminiHochberg(
-        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138]),
       ).map((x) => {
         return { pValue: +x.pValue.toFixed(8), index: x.index };
-      })
+      }),
     ).toEqual(
       mockIndexedPvalue(
         [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
-        [3, 0, 4, 1, 6, 2, 5]
-      )
+        [3, 0, 4, 1, 6, 2, 5],
+      ),
     );
   });
 
@@ -900,7 +1087,7 @@ describe("pvalue correction on results", () => {
     expect(adjCIs95pct.map((x) => +x.toFixed(8))).toEqual([0, 0.2]);
 
     expect(
-      adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8))
+      adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8)),
     ).toEqual([0, 0.2]);
   });
 });
@@ -930,8 +1117,8 @@ describe("chanceToWinFlatPrior", () => {
         Number.NEGATIVE_INFINITY,
         Number.POSITIVE_INFINITY,
         alpha,
-        true
-      )
+        true,
+      ),
     ).toEqual(0);
     expect(chanceToWinFlatPrior(0, -1, 1, alpha, true)).toEqual(0.5); //sanity check that effect size of 0 results in 0.5
     expect(chanceToWinFlatPrior(0, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 0 and 0 uncertainty results in 0
@@ -944,9 +1131,9 @@ describe("chanceToWinFlatPrior", () => {
           lower_two_sided,
           upper_two_sided,
           alpha,
-          false
-        )
-      )
+          false,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truth));
     expect(
       roundToSeventhDecimal(
@@ -955,9 +1142,9 @@ describe("chanceToWinFlatPrior", () => {
           lower_two_sided,
           upper_two_sided,
           alpha,
-          true
-        )
-      )
+          true,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
     expect(
       roundToSeventhDecimal(
@@ -966,9 +1153,9 @@ describe("chanceToWinFlatPrior", () => {
           Number.NEGATIVE_INFINITY,
           upper_one_sided,
           alpha,
-          false
-        )
-      )
+          false,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truth));
     expect(
       roundToSeventhDecimal(
@@ -977,9 +1164,9 @@ describe("chanceToWinFlatPrior", () => {
           Number.NEGATIVE_INFINITY,
           upper_one_sided,
           alpha,
-          true
-        )
-      )
+          true,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
     expect(
       roundToSeventhDecimal(
@@ -988,9 +1175,9 @@ describe("chanceToWinFlatPrior", () => {
           lower_one_sided,
           Number.POSITIVE_INFINITY,
           alpha,
-          false
-        )
-      )
+          false,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truth));
     expect(
       roundToSeventhDecimal(
@@ -999,9 +1186,42 @@ describe("chanceToWinFlatPrior", () => {
           lower_one_sided,
           Number.POSITIVE_INFINITY,
           alpha,
-          true
-        )
-      )
+          true,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
+  });
+});
+
+describe("getPredefinedDimensionSlicesByExperiment", () => {
+  it("returns correct number of slices", () => {
+    const dimensionMetadata: ExperimentDimensionMetadata[] = [
+      { dimension: "dim1", specifiedSlices: ["a", "b", "c"] },
+      { dimension: "dim2", specifiedSlices: ["d", "e", "f"] },
+    ];
+    // with 2 variations, we should return all dimensions (2 * 4 * 4 = 32 < 1000)
+    expect(
+      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 2),
+    ).toEqual(dimensionMetadata);
+    // with 100 variations (just as an example) (100 * 4 * 4 = 1600 > 1000), so we only get the
+    // first dimension
+    expect(
+      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 100),
+    ).toEqual([dimensionMetadata[0]]);
+    // with 1000 variations (just as an example) (1000 * 4 * 4 = 16000 > 1000), so we get no dimensions
+    expect(
+      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 1000),
+    ).toEqual([]);
+  });
+
+  it("computes dimension levels correctly", () => {
+    const specifiedSlices = [
+      { specifiedSlices: ["a", "b", "c"] },
+      { specifiedSlices: ["d", "e", "f"] },
+    ];
+
+    expect(countDimensionLevels(specifiedSlices, 2)).toEqual(32);
+    expect(countDimensionLevels(specifiedSlices, 100)).toEqual(1600);
+    expect(countDimensionLevels(specifiedSlices, 1000)).toEqual(16000);
   });
 });

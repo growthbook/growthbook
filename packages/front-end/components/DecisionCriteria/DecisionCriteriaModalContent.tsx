@@ -9,7 +9,7 @@ import {
   PiMinusCircle,
   PiTrash,
 } from "react-icons/pi";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { Select, SelectItem } from "@/ui/Select";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 
 // Match options
@@ -214,14 +214,14 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                           rule.key,
                           condition.key,
                           "direction",
-                          "statsigLoser"
+                          "statsigLoser",
                         );
                       }
                       updateCondition(
                         rule.key,
                         condition.key,
                         "metrics",
-                        value
+                        value,
                       );
                     }}
                     disabled={!editable}
@@ -243,7 +243,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                         rule.key,
                         condition.key,
                         "direction",
-                        value
+                        value,
                       )
                     }
                     disabled={!editable || condition.metrics === "guardrails"}
@@ -319,7 +319,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                 setValue={(value) =>
                   updateRuleAction(
                     rule.key,
-                    value as "ship" | "rollback" | "review"
+                    value as "ship" | "rollback" | "review",
                   )
                 }
                 disabled={!editable}
@@ -368,7 +368,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             setValue={(value) =>
               form.setValue(
                 "defaultAction",
-                value as "ship" | "rollback" | "review"
+                value as "ship" | "rollback" | "review",
               )
             }
             disabled={!editable}

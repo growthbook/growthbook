@@ -7,8 +7,8 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
-import Badge from "@/components/Radix/Badge";
+} from "@/ui/DropdownMenu";
+import Badge from "@/ui/Badge";
 
 interface DecisionCriteriaTableProps {
   defaultCriteriaId: string;
@@ -31,7 +31,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
   // Prevent dropdown clicks from triggering row click
   const handleDropdownClick = (
     e: MouseEvent,
-    criteria: DecisionCriteriaData
+    criteria: DecisionCriteriaData,
   ) => {
     e.stopPropagation();
     if (dropdownOpen !== criteria.id) {

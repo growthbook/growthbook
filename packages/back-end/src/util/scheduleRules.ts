@@ -7,7 +7,7 @@ type ScheduleRuleNoNulls = Omit<ScheduleRule, "timestamp"> & {
 
 export const getCurrentEnabledState = (
   scheduledRules: ScheduleRule[],
-  now: Date
+  now: Date,
 ) => {
   const sorted = scheduledRules
     // Remove nulls

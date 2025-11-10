@@ -1,3 +1,4 @@
+import { ManagedBy } from "back-end/src/validators/managed-by";
 import { ProjectMemberRole } from "./organization";
 
 export interface TeamInterface {
@@ -14,4 +15,6 @@ export interface TeamInterface {
   projectRoles?: ProjectMemberRole[];
   members?: string[];
   managedByIdp: boolean;
+  managedBy?: ManagedBy;
+  defaultProject?: string;
 }

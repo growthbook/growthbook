@@ -29,9 +29,10 @@ export default function EditPhasesModal({
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
+  const isHoldout = experiment.type === "holdout";
 
   const [editPhase, setEditPhase] = useState<number | null>(
-    isDraft && !isMultiPhase ? 0 : null
+    isDraft && !isMultiPhase ? 0 : null,
   );
 
   const { apiCall } = useAuth();
@@ -78,7 +79,7 @@ export default function EditPhasesModal({
       trackingEventModalType="edit-phases-modal"
       trackingEventModalSource={source}
       open={true}
-      header="Edit Phases"
+      header={!isHoldout ? "Edit Phases" : "Edit Holdout Period"}
       close={close}
       size="lg"
       closeCta="Close"
@@ -89,7 +90,7 @@ export default function EditPhasesModal({
             <th></th>
             <th>Name</th>
             <th>Dates</th>
-            <th>Traffic</th>
+            {!isHoldout ? <th>Traffic</th> : null}
             {hasStoppedPhases ? <th>Reason for Stopping</th> : null}
             <th></th>
           </tr>
@@ -100,17 +101,22 @@ export default function EditPhasesModal({
               <td>{i + 1}</td>
               <td>{phase.name}</td>
               <td>
-                <strong title={datetime(phase.dateStarted ?? "")}>
-                  {date(phase.dateStarted ?? "")}
+                <strong title={datetime(phase.dateStarted ?? "", "UTC")}>
+                  {date(phase.dateStarted ?? "", "UTC")}
                 </strong>{" "}
                 to{" "}
-                <strong title={datetime(phase.dateEnded ?? "")}>
-                  {phase.dateEnded ? date(phase.dateEnded) : "now"}
+                <strong title={datetime(phase.dateEnded ?? "", "UTC")}>
+                  {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
                 </strong>
               </td>
-              <td>
-                {phaseSummary(phase, experiment.type === "multi-armed-bandit")}
-              </td>
+              {!isHoldout ? (
+                <td>
+                  {phaseSummary(
+                    phase,
+                    experiment.type === "multi-armed-bandit",
+                  )}
+                </td>
+              ) : null}
               {hasStoppedPhases ? (
                 <td>
                   {phase.dateEnded ? (
@@ -130,7 +136,8 @@ export default function EditPhasesModal({
                 >
                   Edit
                 </button>
-                {(experiment.status !== "running" || !hasLinkedChanges) &&
+                {!isHoldout &&
+                  (experiment.status !== "running" || !hasLinkedChanges) &&
                   experiment.phases.length > 1 && (
                     <DeleteButton
                       className="ml-2"
@@ -140,7 +147,7 @@ export default function EditPhasesModal({
                           `/experiment/${experiment.id}/phase/${i}`,
                           {
                             method: "DELETE",
-                          }
+                          },
                         );
                         mutateExperiment();
                       }}
@@ -151,7 +158,7 @@ export default function EditPhasesModal({
           ))}
         </tbody>
       </table>
-      {(experiment.status !== "running" || !hasLinkedChanges) && (
+      {!isHoldout && (experiment.status !== "running" || !hasLinkedChanges) && (
         <button
           className="btn btn-primary"
           onClick={(e) => {
