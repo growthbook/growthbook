@@ -47,11 +47,11 @@ Therefore, GrowthBook will materialize the following tables per experiment:
   - one row per unit in the experiment with the unit id, variation id, first exposure timestamp, and experiment dimensions
   - this table is joined to new exposures, de-duped, and then re-created on each update
   - this table is partitioned on ...
-- One or more metrics tables depending on the number of metric sources and the number of metrics (named `gb_metrics_<experiment_id>_<metric_source_id>_<random_id>` in your warehouse)
+- One or more metrics tables depending on the number of metric sources and the number of metrics (`Unit-Date Metrics Table` - named `gb_metrics_<experiment_id>_<metric_source_id>_<random_id>` in your warehouse)
   - one row per unit-date-refresh, as we take new metric values and aggregate them by unit and date on each refresh and insert them into the metrics table
   - this table is incrementally inserted into on each update
   - this table is partitioned on ...
-- An additional table per above metric source for CUPED (named `gb_cuped_<experiment_id>_<metric_source_id>_<random_id>_covariate` in your warehouse)
+- An additional table per above metric source for CUPED (`CUPED Metrics Table` - named `gb_cuped_<experiment_id>_<metric_source_id>_<random_id>_covariate` in your warehouse)
   - one row per unit, as we scan the metric source for the pre-experiment window, join it to only new units found in the units update, and then insert the aggregated values per unit into the CUPED table
   - this table is incrementally inserted into on each update
 
@@ -72,10 +72,16 @@ GrowthBook is building functionality to support additional use cases, improve co
 - "Full refresh" is available when you need to re-state results (e.g., backfills, config changes)
 - View the queries GrowthBook runs and the intermediate table names, with last updated timestamps, in the View Queries modal on an experiment page.
 
+### Main benefits
+
+- Dramatic reduction in the number of rows scanned per update, as we only have to scan your experiment assignment queries and fact tables for data in partitions that are on or after the last timestamp seen in the previous update.
+- Dramatic reduction in the cost and waiting time when running on-demand dimension analyses, as we can use the existing materialized `Experiment Units Table` and `Units-Date Metrics Table`s to get dimension breakdowns rather than rescanning data in your warehouse.
+
 ### Limitations and notes
 
-- While in Beta, some analysis tools (activation metrics, quantile metrics, ratio metrics with different numerator and denominator fact tables) are not supported
+- While in Beta, some analysis tools (activation metrics, quantile metrics, ratio metrics with different numerator and denominator fact tables, dimension breakdowns in Experiment Dashboards) are not supported
 - Changes to analysis settings sometimes require a full refresh of all of the data to take effect. In the future, we will make improvements to ensure that only the data that need be restated is restated.
+- Any changes to fact table sources require using a full refresh of all of the data to take effect, but we are working on improvements to ensure that only the data that need be restated is restated.
 - Exact table schemas and partitioning/retention strategies vary by warehouse.
 
 ### Enable Incremental refresh
