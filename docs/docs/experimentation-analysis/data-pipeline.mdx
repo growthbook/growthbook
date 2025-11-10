@@ -109,14 +109,14 @@ While Pipeline mode requires you to give write permissions to your Data Source, 
 3. Navigate to your BigQuery Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
 4. Click "Edit" and enable pipeline mode, set the destination dataset to your new dedicated GrowthBook dataset from step 1.
 
-### Snowflake
+### Snowflake (Ephemeral only)
 
 1. (strongly recommended, but optional) Create a dedicated schema to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
 2. Grant permissions to create tables to the role connecting GrowthBook to your warehouse. The Snowflake role attached to GrowthBook will need `CREATE TABLE`, `SELECT - FUTURE TABLE`, and `USAGE` on the schema created in step 1.
 3. Navigate to your Snowflake Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
 4. Click "Edit" and enable pipeline mode, set the destination schema to your new dedicated GrowthBook schema from step 1, and set the number of hours you will retain our temporary tables. For Snowflake, we recommend leaving the value at 24 as Snowflake's retention is set in days and we will round up to the nearest day.
 
-### Databricks
+### Databricks (Ephemeral only)
 
 Databricks works slightly differently. Instead of creating a temporary table, we create a regular table for the deduped units assignment and then `DROP` that table when analysis is completed.
 
