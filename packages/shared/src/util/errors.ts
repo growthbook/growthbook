@@ -59,6 +59,14 @@ export class BadRequestError extends Error {
   }
 }
 
+export class UnauthorizedError extends Error {
+  status = 403;
+  constructor(message: string) {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
+
 export class InternalServerError extends Error {
   status = 500;
   constructor(message: string) {
