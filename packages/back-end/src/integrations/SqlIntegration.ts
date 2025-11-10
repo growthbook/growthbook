@@ -37,6 +37,7 @@ import {
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
 } from "shared/sql";
+import { MissingDatasourceParamsError } from "shared/util";
 import {
   PhaseSQLVar,
   SQLVars,
@@ -143,10 +144,7 @@ import type { PopulationDataQuerySettings } from "shared/types/query";
 import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";
-import {
-  MissingDatasourceParamsError,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
