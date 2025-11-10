@@ -9,32 +9,67 @@ slug: /app/data-pipeline
 
 :::info Enterprise only
 
-Pipeline mode is only available for Enterprise customers and is currently only available for BigQuery, Snowflake, and Databricks Data Sources.
+Pipeline mode is only available for Enterprise customers availability differs by warehouse and pipeline strategy.
 
 :::
 
-For experimenters who have multiple metrics per experiment and have large experiment assignment sources, GrowthBook can greatly improve the performance of your queries if you enable **Pipeline Mode**, writing intermediate tables back to your warehouse and re-using those across metric analyses in an experiment. This depends a bit on your datasource cost structure, but if you are billed by rows scanned, pipeline mode will almost certainly provide substantial savings.
+For experimenters who have multiple metrics per experiment and have large experiment assignment sources, GrowthBook can greatly improve the performance of your queries if you enable **Pipeline Mode**, writing intermediate tables back to your warehouse and re-using those across metric analyses in an experiment. While it depends somewhat on your warehouse cost structure, pipeline mode will almost certainly provide substantial savings.
 
 Pipeline mode supports two strategies:
 
 - **Incremental refresh (Recommended)** — On each update, only scans new rows in your experiment assignment and metric sources, and persists reusable intermediate tables across updates to minimize re-scans and speed up analyses.
 - **Ephemeral (Legacy)** — Per-analysis, short-lived tables are created with limited retention for reuse within an analysis window.
 
-Both strategies do not access any additional data beyond what a non-pipeline run would access.
-
-::::note
-
-Availability may differ by warehouse and strategy. If you don't see an option in your datasource page within GrowthBook, please contact support.
-
-::::
-
 ## Incremental refresh (Recommended)
 
 Our main pipeline mode reduces cost and speeds up experiment updates by scanning only new data since the last run, while keeping a small set of reusable, de-duplicated tables in your warehouse.
 
+Incremental refresh is only available for BigQuery. Please reach out to support if your warehouse is not supported.
+
 ### How it works
 
-On each experiment update, GrowthBook:
+On each experiment update, GrowthBook only scans new data in your warehouse to keep the amount of data consumed in each update to a minimum. On each update, GrowthBook materializes several tables in your warehouse to ensure old data does not need to be scanned again, and to reduce the computation needed in future analyses.
+
+Specifically, for the experiment assignment query and fact tables, GrowthBook uses the max timestamp seen in the previous update and only scans for data since that last update, inserting that data into materialized intermediate tables to be used for analysis.
+
+### Main benefits
+
+- Dramatic reduction in the number of rows scanned per update, as GrowthBook only has to scan your experiment assignment queries and fact tables for data in partitions that are on or after the last timestamp seen in the previous update.
+- Dramatic reduction in the cost and waiting time when running on-demand dimension analyses, as GrowthBook can use the existing materialized `Experiment Units Table` and `Units-Date Metrics Table`s to get dimension breakdowns rather than rescanning data in your warehouse.
+
+### Requirements
+
+- A dedicated schema/dataset with write access for GrowthBook.
+- Ability to retain intermediate tables beyond 24 hours (often days) for reuse.
+- Appropriate permissions to create/read/update (and when supported, merge/partition) tables.
+- Experiment assignment queries and fact tables partitioned on the `timestamp` column. If you have a different partitioning strategy, please reach out to support.
+
+To see specific instructions for your warehouse, please see the [Configuration](#configuration) section below.
+
+### Controls and observability
+
+- Default "Update" performs an incremental refresh
+- "Full refresh" is available when you need to re-state results (e.g., backfills, config changes)
+
+### Limitations and notes
+
+- While in Beta, some analysis tools (activation metrics, quantile metrics, ratio metrics with different numerator and denominator fact tables, dimension breakdowns in Experiment Dashboards) are not supported.
+- Changes to analysis settings sometimes require a full refresh of all of the data to take effect. In the future, we will make improvements to ensure that only the data that need be restated is restated.
+- Any changes to fact table sources require using a full refresh of all of the data to take effect, but we are working on improvements to ensure that only the data that need be restated is restated.
+- Exact table schemas and partitioning/retention strategies vary by warehouse.
+
+### Enable Incremental refresh
+
+1. In your Data Source, open "Data Pipeline Settings"
+2. Enable Pipeline Mode and select the strategy: "Incremental refresh (Recommended)"
+3. Set a destination schema/dataset for intermediate tables and choose retention settings
+4. Save
+
+You can test incremental refresh by enabling it only for a single experiment in the Data Pipeline Settings UI. We do not apply it to old experiments in the case that they have incompatible settings. To confirm pipeline mode is being used, you can look at the queries run for your experiment and validate that they are creating intermediate tables.
+
+### Additional technical details
+
+On each incremental update, GrowthBook:
 
 1. Scans the experiment assignment source for any new rows that have a timestamp greater than the max timestamp seen on the previous run and updates a de-duplicated units table (one row per unit with timestamps and experiment dimensions).
 2. Scans each metric's fact source for any new rows that have a timestamp greater than the max timestamp seen on the previous run and updates pre-aggregated metric tables (one row per unit-date-refresh with timestamps and metric dimensions).
@@ -59,41 +94,7 @@ Each update only scans data later max timestamp found within the last data scan.
 
 GrowthBook is building functionality to support additional use cases, improve control over intermediate table retention, and support additional data sources. Please reach out to support if you have any concerns or questions.
 
-### Requirements
-
-- A dedicated schema/dataset with write access for GrowthBook
-- Ability to retain intermediate tables beyond 24 hours (often days) for reuse
-- Appropriate permissions to create/read/update (and when supported, merge/partition) tables
-- Experiment assignment queries and fact tables partitioned on the `timestamp` column
-
-### Controls and observability
-
-- Default "Update" performs an incremental refresh
-- "Full refresh" is available when you need to re-state results (e.g., backfills, config changes)
-- View the queries GrowthBook runs and the intermediate table names, with last updated timestamps, in the View Queries modal on an experiment page.
-
-### Main benefits
-
-- Dramatic reduction in the number of rows scanned per update, as we only have to scan your experiment assignment queries and fact tables for data in partitions that are on or after the last timestamp seen in the previous update.
-- Dramatic reduction in the cost and waiting time when running on-demand dimension analyses, as we can use the existing materialized `Experiment Units Table` and `Units-Date Metrics Table`s to get dimension breakdowns rather than rescanning data in your warehouse.
-
-### Limitations and notes
-
-- While in Beta, some analysis tools (activation metrics, quantile metrics, ratio metrics with different numerator and denominator fact tables, dimension breakdowns in Experiment Dashboards) are not supported
-- Changes to analysis settings sometimes require a full refresh of all of the data to take effect. In the future, we will make improvements to ensure that only the data that need be restated is restated.
-- Any changes to fact table sources require using a full refresh of all of the data to take effect, but we are working on improvements to ensure that only the data that need be restated is restated.
-- Exact table schemas and partitioning/retention strategies vary by warehouse.
-
-### Enable Incremental refresh
-
-1. In your Data Source, open "Data Pipeline Settings"
-2. Enable Pipeline Mode and select the strategy: "Incremental refresh (Recommended)"
-3. Set a destination schema/dataset for intermediate tables and choose retention settings
-4. Save
-
-You can test incremental refresh by enabling it only for a single experiment in the Data Pipeline Settings UI. We do not apply it to old experiments in the case that they have incompatible settings. To confirm pipeline mode is being used, you can look at the queries run for your experiment and validate that they are creating intermediate tables.
-
-## Configuring Pipeline Mode
+## Configuration
 
 :::info Pipeline mode requires write permissions
 
