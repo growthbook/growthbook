@@ -50,6 +50,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -83,6 +84,7 @@ export class ReqContextClass {
     webhookSecrets: WebhookSecretDataModel;
     holdout: HoldoutModel;
     dashboards: DashboardModel;
+    customHooks: CustomHookModel;
     incrementalRefresh: IncrementalRefreshModel;
   };
   private initModels() {
@@ -108,6 +110,7 @@ export class ReqContextClass {
       webhookSecrets: new WebhookSecretDataModel(this),
       holdout: new HoldoutModel(this),
       dashboards: new DashboardModel(this),
+      customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
     };
   }

@@ -97,7 +97,13 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes,
     );
 
-    await markRevisionAsPublished(context, revision, req.eventAudit, comment);
+    await markRevisionAsPublished(
+      context,
+      feature,
+      revision,
+      req.eventAudit,
+      comment,
+    );
 
     await req.audit({
       event: "feature.revert",
