@@ -4,6 +4,7 @@ import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
+import { BadRequestError, InternalServerError } from "shared/util";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
@@ -195,6 +196,14 @@ export class ReqContextClass {
     this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
+  }
+
+  public throwBadRequestError(message: string) {
+    throw new BadRequestError(message);
+  }
+
+  public throwInternalServerError(message: string) {
+    throw new InternalServerError(message);
   }
 
   // Check permissions

@@ -50,3 +50,19 @@ export class PermissionError extends Error {
     this.name = "PermissionError";
   }
 }
+
+export class BadRequestError extends Error {
+  status = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = "BadRequestError";
+  }
+}
+
+export class InternalServerError extends Error {
+  status = 500;
+  constructor(message: string) {
+    super(message);
+    this.name = "InternalServerError";
+  }
+}
