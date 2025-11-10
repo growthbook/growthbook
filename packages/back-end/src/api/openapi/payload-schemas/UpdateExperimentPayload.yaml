@@ -245,11 +245,15 @@ properties:
     enum:
       - "days"
       - "hours"
+  customFields:
+    type: object
+    additionalProperties:
+      type: string
   pinnedMetricSlices:
     type: array
     items:
       type: string
-    description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+    description: "Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)"
   customMetricSlices:
     type: array
     items:

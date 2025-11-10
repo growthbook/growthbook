@@ -3,38 +3,49 @@ import type {
   PipelineValidationResult,
   PipelineValidationResults,
 } from "shared/enterprise";
-import { Flex, Text, Blockquote } from "@radix-ui/themes";
+import { Flex, Text, Blockquote, Box } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 type Props = {
+  validationError: string | undefined;
   tableName?: string;
   results: PipelineValidationResults;
 } & MarginProps;
 
 export default function PipelineValidationResultsView({
+  validationError,
   results,
   tableName,
 }: Props) {
   return (
-    <Callout status="warning" variant="surface">
-      <Flex direction="column" gap="2">
-        <Text>Validation failed.</Text>
-
+    <Box>
+      <Callout status="warning" mb="3">
         <Text>
-          We were unable to validate the current settings using a{" "}
-          <abbr title={tableName}>temporary test table</abbr>.
+          We were unable to validate the current settings using a temporary test
+          table{tableName ? ` (${tableName})` : ""}.
+          {validationError ? (
+            <>
+              <br />
+              <br />
+              {validationError}
+            </>
+          ) : null}
         </Text>
-
-        <Flex direction="column" mt="1" gap="3">
+      </Callout>
+      <Flex direction="column" ml="4" gap="2">
+        <Flex direction="column" mt="1" gap="4">
           <ResultStepSummary title="Create table" result={results.create} />
+          {results.insert && (
+            <ResultStepSummary title="Insert data" result={results.insert} />
+          )}
           {results.drop && (
             <ResultStepSummary title="Drop table" result={results.drop} />
           )}
         </Flex>
       </Flex>
-    </Callout>
+    </Box>
   );
 }
 
@@ -46,7 +57,6 @@ function ResultStepSummary({
   result: PipelineValidationResult;
 }) {
   const status = getResultStatus(result.result);
-  const color = getResultColor(result.result);
 
   return (
     <Flex direction="column" gap="2">
@@ -54,7 +64,7 @@ function ResultStepSummary({
         {title}: {capitalizeFirstLetter(result.result)}
       </HelperText>
       {result.resultMessage ? (
-        <Blockquote mb="0" color={color}>
+        <Blockquote ml="1" mb="0">
           {result.resultMessage}
         </Blockquote>
       ) : null}
@@ -70,21 +80,6 @@ function getResultStatus(result: PipelineValidationResult["result"]) {
       return "info" as const;
     case "failed":
       return "error" as const;
-    default: {
-      const _exhaustive: never = result as never;
-      return _exhaustive;
-    }
-  }
-}
-
-function getResultColor(result: PipelineValidationResult["result"]) {
-  switch (result) {
-    case "success":
-      return "green" as const;
-    case "skipped":
-      return "violet" as const;
-    case "failed":
-      return "red" as const;
     default: {
       const _exhaustive: never = result as never;
       return _exhaustive;

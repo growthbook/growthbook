@@ -23,8 +23,8 @@ const ExpandableQuery: FC<{
   i: number;
   total: number;
 }> = ({ query, i, total }) => {
-  let title = "";
-  if (query.language === "sql") {
+  let title = query.displayTitle || "";
+  if (query.language === "sql" && !title) {
     const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
     if (comments && comments[2]) {
       title = comments[2];
@@ -141,11 +141,11 @@ const ExpandableQuery: FC<{
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : query.query.startsWith("SELECT") ? (
             <Callout status="warning" my="3">
               No rows returned
             </Callout>
-          )}
+          ) : null}
         </>
       )}
       {query.status === "succeeded" && (

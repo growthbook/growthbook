@@ -38,6 +38,7 @@ import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
+import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
@@ -49,6 +50,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -82,6 +84,8 @@ export class ReqContextClass {
     webhookSecrets: WebhookSecretDataModel;
     holdout: HoldoutModel;
     dashboards: DashboardModel;
+    customHooks: CustomHookModel;
+    incrementalRefresh: IncrementalRefreshModel;
   };
   private initModels() {
     this.models = {
@@ -106,6 +110,8 @@ export class ReqContextClass {
       webhookSecrets: new WebhookSecretDataModel(this),
       holdout: new HoldoutModel(this),
       dashboards: new DashboardModel(this),
+      customHooks: new CustomHookModel(this),
+      incrementalRefresh: new IncrementalRefreshModel(this),
     };
   }
 

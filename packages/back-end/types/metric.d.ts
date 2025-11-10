@@ -37,6 +37,7 @@ export interface Condition {
 }
 
 // admin is used for Official Metrics and can be managed by any admin, even in the UI
+// We have deprecated legacy metrics from having managedBy set to "admin". Existing legacy metrics will still work.
 export type ManagedBy = "" | "config" | "api" | "admin";
 
 export interface MetricInterface {
