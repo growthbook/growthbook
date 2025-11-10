@@ -1,4 +1,8 @@
 import Agenda, { Job } from "agenda";
+import {
+  DataSourceNotSupportedError,
+  MissingDatasourceParamsError,
+} from "shared/util";
 import { updateDatasourceInformationSchema } from "back-end/src/services/informationSchema";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -6,11 +10,7 @@ import {
   getInformationSchemaById,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
-import {
-  DataSourceNotSupportedError,
-  InformationSchemaError,
-  MissingDatasourceParamsError,
-} from "back-end/src/types/Integration";
+import { InformationSchemaError } from "back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";

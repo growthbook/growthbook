@@ -3,7 +3,11 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
-import { parseProcessLogBase, stringToBoolean } from "shared/util";
+import {
+  LicenseServerError,
+  parseProcessLogBase,
+  stringToBoolean,
+} from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -272,16 +276,6 @@ function getAgentOptions() {
     !!process.env.https_proxy ||
     !!process.env.HTTPS_PROXY;
   return use_proxy ? { agent: new ProxyAgent() } : {};
-}
-
-export class LicenseServerError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
-    this.name = "LicenseServerError";
-  }
 }
 
 export async function callLicenseServer({

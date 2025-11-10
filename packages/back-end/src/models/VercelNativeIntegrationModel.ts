@@ -1,5 +1,6 @@
 import { z } from "zod";
 import mongoose from "mongoose";
+import { VercelIntallationNotFound } from "shared/util";
 import {
   upsertInstallationPayloadValidator,
   userAuthenticationValidator,
@@ -83,8 +84,6 @@ export const findVercelInstallationByInstallationId = async (
 
   return model as unknown as VercelNativeIntegration;
 };
-
-export class VercelIntallationNotFound extends Error {}
 
 export const findVercelInstallationByOrganization = async (
   organization: string,
