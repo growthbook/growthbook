@@ -1322,6 +1322,8 @@ export default function EditSingleBlock({
                             <Checkbox
                               label="Query results table"
                               size="md"
+                              disabled
+                              disabledMessage="This query has no visualizations. Click the pencil icon above to add visualizations."
                               value={isBlockConfigItemSelected(
                                 block.blockConfig,
                                 BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
