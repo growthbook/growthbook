@@ -77,8 +77,10 @@ export interface Props {
   onSave?: (
     savedQueryId: string | undefined,
     name: string | undefined,
-    visualizationIds?: string[],
-  ) => void;
+    existingVisualizationIds?: string[],
+    newVisualizationIds?: string[],
+    allCurrentVisualizationIds?: string[],
+  ) => Promise<void>;
   projects?: string[];
 }
 
@@ -441,8 +443,16 @@ export default function SqlExplorerModal({
           }),
         });
         mutate();
-        // Call the onSave callback if it exists
-        onSave?.(res?.id, currentName, res?.savedQueryIds || []);
+        if (onSave) {
+          // For new queries: existingVisualizationIds is empty, newVisualizationIds is all current IDs
+          await onSave(
+            res?.id,
+            currentName,
+            [],
+            res?.savedQueryIds || [],
+            res?.savedQueryIds || [],
+          );
+        }
         close();
       } catch (error) {
         setLoading(false);
@@ -479,9 +489,28 @@ export default function SqlExplorerModal({
         }),
       });
       mutate();
-      // Call the onSave callback after successful save
+      // Calculate existing and new visualization IDs
+      // Existing IDs come from the initial dataVizConfig (what was there before)
+      const existingVizIds =
+        initial?.dataVizConfig
+          ?.map((viz) => viz.id)
+          .filter((id): id is string => Boolean(id)) || [];
+      // Current IDs come from the response (all visualization IDs that exist now)
+      const allCurrentVizIds = res?.savedQueryIds || [];
+      // Find which IDs are newly added (in current but not in existing)
+      const newlyAddedVizIds = allCurrentVizIds.filter(
+        (id) => !existingVizIds.includes(id),
+      );
       if (onSave) {
-        onSave(id, currentName, res?.savedQueryIds || []);
+        // Pass: existingVizIds (what was there before), newlyAddedVizIds (what was just added),
+        // and allCurrentVizIds (current state after save - needed to detect if all were removed)
+        await onSave(
+          id,
+          currentName,
+          existingVizIds,
+          newlyAddedVizIds,
+          allCurrentVizIds,
+        );
       }
       close();
     } catch (error) {

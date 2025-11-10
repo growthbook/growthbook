@@ -47,6 +47,49 @@ import {
 } from "./types";
 import { useBlockContext } from "./useBlockContext";
 
+function calculateBlockConfig({
+  savedQueryVizIds,
+  currentBlockConfig,
+  newVisualizationIds,
+  isNewQuery,
+}: {
+  savedQueryVizIds: string[];
+  currentBlockConfig: string[];
+  newVisualizationIds?: string[];
+  isNewQuery: boolean;
+}): string[] {
+  // No visualizations: always show results table
+  if (savedQueryVizIds.length === 0) {
+    return [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE];
+  }
+
+  // New query: show all visualizations
+  if (isNewQuery) {
+    return savedQueryVizIds;
+  }
+
+  // Editing existing query
+  const onlyHasResultsTable =
+    currentBlockConfig.length === 1 &&
+    currentBlockConfig[0] === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+
+  if (onlyHasResultsTable) {
+    // Replace results table with all visualizations
+    return savedQueryVizIds;
+  }
+
+  // Keep existing visualizations that still exist in the saved query, and add newly created ones
+  const existingVizIdsInBlock = currentBlockConfig.filter(
+    (id) =>
+      id !== BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE &&
+      savedQueryVizIds.includes(id),
+  );
+  const newlyAddedVizIds = (newVisualizationIds ?? []).filter(
+    (id) => !currentBlockConfig.includes(id),
+  );
+  return [...existingVizIdsInBlock, ...newlyAddedVizIds];
+}
+
 type RequiredField = {
   field: string;
   validation: (val: unknown) => boolean;
@@ -573,20 +616,36 @@ export default function EditSingleBlock({
           onSave={async (
             savedQueryId: string | undefined,
             name: string | undefined,
-            visualizationIds?: string[],
+            existingVisualizationIds?: string[],
+            newVisualizationIds?: string[],
+            allCurrentVisualizationIds?: string[],
           ) => {
             if (!block || block.type !== "sql-explorer" || !savedQueryId)
               return;
 
-            // Update block with saved query ID
+            const isNewQuery = !existingVisualizationIds?.length;
+            const savedQueryVizIds =
+              allCurrentVisualizationIds ??
+              (isNewQuery
+                ? newVisualizationIds
+                : [
+                    ...(existingVisualizationIds || []),
+                    ...(newVisualizationIds || []),
+                  ]) ??
+              [];
+
+            const newBlockConfig = calculateBlockConfig({
+              savedQueryVizIds,
+              currentBlockConfig: block.blockConfig || [],
+              newVisualizationIds,
+              isNewQuery,
+            });
+
             setBlock({
               ...block,
               savedQueryId,
               title: name || "SQL Query",
-              blockConfig:
-                visualizationIds && visualizationIds.length
-                  ? visualizationIds
-                  : [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+              blockConfig: newBlockConfig,
             });
             setSqlExplorerType("existing");
             await mutateQuery();
