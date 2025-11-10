@@ -7,6 +7,7 @@ import { CommercialFeature } from "shared/enterprise";
 import {
   BadRequestError,
   UnauthorizedError,
+  ErrorNotFound,
   InternalServerError,
 } from "shared/util";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
@@ -208,6 +209,10 @@ export class ReqContextClass {
 
   public throwUnauthorizedError(message: string) {
     throw new UnauthorizedError(message);
+  }
+
+  public throwNotFoundError(message?: string) {
+    throw new ErrorNotFound(message);
   }
 
   public throwInternalServerError(message: string) {
