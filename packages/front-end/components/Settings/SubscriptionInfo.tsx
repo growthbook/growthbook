@@ -62,7 +62,6 @@ export default function SubscriptionInfo() {
               surveyUrl.searchParams.set("email", email);
             }
             window.open(surveyUrl.toString(), "_blank");
-            refreshOrganization();
             setShowCancellationSurveyModal(false);
           }}
           cta="Share Feedback"
