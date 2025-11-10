@@ -3,7 +3,11 @@ import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
 import { BaseLogger, Level } from "pino";
-import { parseProcessLogBase, stringToBoolean } from "shared/util";
+import {
+  ErrorWrapper,
+  parseProcessLogBase,
+  stringToBoolean,
+} from "shared/util";
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
@@ -34,18 +38,6 @@ if (!IS_CLOUD) {
     'req.headers["cache-control"]',
     "res.headers.etag",
   );
-}
-
-class ErrorWrapper extends Error {
-  constructor(
-    customMessage: string,
-    { message, stack }: { message: string; stack?: string },
-  ) {
-    super(customMessage);
-    this.name = customMessage;
-    this.message = message;
-    this.stack = stack;
-  }
 }
 
 // Request logging

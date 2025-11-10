@@ -30,14 +30,8 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/groups";
+import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
-class PermissionError extends Error {
-  status = 403;
-  constructor(message: string) {
-    super(message);
-    this.name = "PermissionError";
-  }
-}
 
 type NotificationEvent = {
   containsSecrets: boolean;
