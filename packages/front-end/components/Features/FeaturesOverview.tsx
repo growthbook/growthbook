@@ -8,6 +8,7 @@ import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  checkIfRevisionNeedsReviewOnRevert,
   evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
   mergeResultHasChanges,
@@ -226,6 +227,16 @@ export default function FeaturesOverview({
   const baseVersion = revision?.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
   let requireReviews = false;
+  const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
+    feature,
+    changedEnvironments: getAffectedRevisionEnvs(
+      feature,
+      revision,
+      environments,
+    ),
+    defaultValueChanged: revision.defaultValue !== feature.defaultValue,
+    settings,
+  });
   //dont require review when we cant find a base version to compare
   if (baseRevision) {
     requireReviews = checkIfRevisionNeedsReview({
@@ -237,6 +248,7 @@ export default function FeaturesOverview({
     });
   }
   const isLive = revision?.version === feature.version;
+  console.log(revision?.status, "revision status");
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
@@ -263,7 +275,12 @@ export default function FeaturesOverview({
         feature,
         getAffectedRevisionEnvs(feature, revision, environments),
       ));
-
+  const isRevert =
+    (revision?.status === "draft" ||
+      revision?.status === "pending-review" ||
+      revision?.status === "changes-requested" ||
+      revision?.status === "approved") &&
+    revision?.datePublished !== null;
   const drafts = revisions.filter(
     (r) =>
       r.status === "draft" ||
@@ -406,8 +423,8 @@ export default function FeaturesOverview({
           </Button>,
         );
 
-        if (mergeResult?.success) {
-          if (requireReviews) {
+        if (mergeResult?.success || requiresReviewOnRevert) {
+          if (requireReviews || requiresReviewOnRevert) {
             // requires a review
             actions.push(
               <Tooltip
@@ -1185,6 +1202,7 @@ export default function FeaturesOverview({
             close={() => setReviewModal(false)}
             mutate={mutate}
             experimentsMap={experimentsMap}
+            isRevert={isRevert}
           />
         )}
         {draftModal && revision && (

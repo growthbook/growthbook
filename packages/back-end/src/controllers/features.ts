@@ -11,6 +11,8 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
+  checkIfRevisionNeedsReviewOnRevert,
+  listChangedEnvironments,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -48,6 +50,7 @@ import {
   hasArchivedFeatures,
   migrateDraft,
   publishRevision,
+  requestReviewOnRevert,
   setDefaultValue,
   setJsonSchema,
   toggleFeatureEnvironment,
@@ -1040,15 +1043,75 @@ export async function postFeaturePublish(
     status: 200,
   });
 }
-
-export async function postFeatureRevert(
+export async function requestPostRevertReview(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
   const { comment } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+  const allEnvironments = getEnvironments(org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+  const baseRevision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!baseRevision) {
+    throw new Error("Could not find base revision");
+  }
+  const revision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  if (!revision) {
+    throw new Error("Could not find revision");
+  }
+  const changedEnvironments = listChangedEnvironments(
+    baseRevision,
+    revision,
+    environmentIds,
+  );
+  const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
+    feature,
+    changedEnvironments,
+    defaultValueChanged: false,
+    settings: org.settings,
+  });
+  if (!requiresReviewOnRevert) {
+    throw new Error("review is not required on revert");
+  }
+
+  await requestReviewOnRevert(context, feature, revision, comment);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureRevert(
+  req: AuthRequest<
+    { comment: string; adminOverride?: boolean },
+    { id: string; version: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+  const { comment, adminOverride } = req.body;
 
   const feature = await getFeature(context, id);
 
@@ -1070,14 +1133,31 @@ export async function postFeatureRevert(
     throw new Error("Could not find feature revision");
   }
 
-  if (revision.version === feature.version || revision.status !== "published") {
+  if (revision.version === feature.version || revision.datePublished === null) {
     throw new Error("Can only revert to previously published revisions");
   }
 
   if (!context.permissions.canUpdateFeature(feature, {})) {
     context.permissions.throwPermissionError();
   }
-
+  const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
+    feature,
+    changedEnvironments: environmentIds,
+    defaultValueChanged: false,
+    settings: org.settings,
+  });
+  if (adminOverride && requiresReviewOnRevert) {
+    if (!context.permissions.canBypassApprovalChecks(feature)) {
+      context.permissions.throwPermissionError();
+    }
+  }
+  if (
+    !adminOverride &&
+    requiresReviewOnRevert &&
+    revision.status !== "approved"
+  ) {
+    throw new Error("needs review before reverting");
+  }
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {

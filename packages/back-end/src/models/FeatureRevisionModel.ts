@@ -385,7 +385,7 @@ export async function updateRevision(
   changes: Partial<
     Pick<
       FeatureRevisionInterface,
-      "comment" | "defaultValue" | "rules" | "baseVersion"
+      "comment" | "defaultValue" | "rules" | "baseVersion" | "status"
     >
   >,
   log: Omit<RevisionLog, "timestamp">,
@@ -431,6 +431,35 @@ export async function updateRevision(
       ...log,
       featureId: revision.featureId,
       version: revision.version,
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
+}
+export async function markRevisionAsReviewRequestedOnRevert(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  comment?: string,
+) {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: { status: "pending-review" },
+    },
+  );
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "Review Requested",
+      subject: `reverted to previous revision`,
+      user,
+      value: JSON.stringify(comment ? { comment } : {}),
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
