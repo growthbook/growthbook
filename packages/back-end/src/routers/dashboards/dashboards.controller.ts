@@ -13,10 +13,6 @@ import {
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import {
-  createDashboardBlock,
-  migrate,
-} from "back-end/src/enterprise/models/DashboardBlockModel";
 import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -37,6 +33,10 @@ import {
 } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import {
+  createDashboardBlock,
+  migrateBlock,
+} from "back-end/src/enterprise/models/DashboardModel";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -143,8 +143,8 @@ export async function createDashboard(
       throw new Error("Must define an update schedule to enable auto updates");
     }
   }
-  const createdBlocks = await Promise.all(
-    blocks.map((blockData) => createDashboardBlock(context.org.id, blockData)),
+  const createdBlocks = blocks.map((blockData) =>
+    createDashboardBlock(context.org.id, blockData),
   );
 
   const dashboard = await context.models.dashboards.create({
@@ -207,7 +207,7 @@ export async function updateDashboard(
         }
       }
     }
-    const migratedBlocks = updates.blocks.map((block) => migrate(block));
+    const migratedBlocks = updates.blocks.map((block) => migrateBlock(block));
     const createdBlocks = await Promise.all(
       migratedBlocks.map((blockData) =>
         isPersistedDashboardBlock(blockData)
