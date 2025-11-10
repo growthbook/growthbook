@@ -96,7 +96,8 @@ export default function ResultMoreMenu({
     : "Re-run All Queries";
 
   const allowFullRefresh =
-    !dimension && isExperimentIncludedInIncrementalRefresh;
+    !isExperimentIncludedInIncrementalRefresh ||
+    (!dimension && isExperimentIncludedInIncrementalRefresh);
 
   return (
     <>
