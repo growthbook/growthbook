@@ -154,7 +154,7 @@ class TestPostStratification(TestCase):
             traffic_percentage=1.0,
             num_goal_metrics=1,
             one_sided_intervals=False,
-            post_stratification_eligible=True,
+            post_stratification_enabled=True,
         )
         if isinstance(stat_a[0], SampleMeanStatistic) or isinstance(
             stat_a[0], ProportionStatistic

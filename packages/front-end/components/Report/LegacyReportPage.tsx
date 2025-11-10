@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   ReportInterface,
 } from "back-end/types/report";
@@ -516,7 +516,7 @@ export default function LegacyReportPage({
                   unknownVariations={report.results?.unknownVariations || []}
                   isUpdating={status === "running"}
                   setVariationIds={async (ids) => {
-                    const args: ExperimentReportArgs = {
+                    const args: LegacyExperimentReportArgs = {
                       ...report.args,
                       variations: report.args.variations.map((v, i) => {
                         return {

@@ -123,6 +123,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
   regressionAdjusted?: boolean;
+  postStratificationEnabled?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
   differenceType: DifferenceType;

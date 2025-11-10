@@ -20,6 +20,7 @@ export type CommercialFeature =
   | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
+  | "post-stratification"
   | "sequential-testing"
   | "pipeline-mode"
   | "audit-logging"
@@ -260,6 +261,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-metadata",
     "override-metrics",
     "regression-adjustment",
+    "post-stratification",
     "sequential-testing",
     "pipeline-mode",
     "multi-metric-queries",

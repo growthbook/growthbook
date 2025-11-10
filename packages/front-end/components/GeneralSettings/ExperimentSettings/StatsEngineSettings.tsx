@@ -7,6 +7,7 @@ import {
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -29,7 +30,7 @@ interface FormValues {
   sequentialTestingEnabled: boolean;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
-  postStratificationEnabled: boolean;
+  postStratificationDisabled: boolean;
 }
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;
@@ -45,6 +46,8 @@ export default function StatsEngineSettings() {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     statsEngine || DEFAULT_STATS_ENGINE,
   );
+
+  const gb = useGrowthBook();
 
   const { hasCommercialFeature } = useUser();
 
@@ -204,19 +207,16 @@ export default function StatsEngineSettings() {
                   : "0.5",
               }}
             >
-              {/* TODO add check that you must enable pre-computed dimensions for PS to work */}
-              <Checkbox
-                label="Use pre-computed dimensions for variance reduction"
-                id="toggle-postStratification"
-                value={form.watch("postStratificationEnabled")}
-                setValue={(v) => {
-                  form.setValue("postStratificationEnabled", v);
-                }}
-                disabled={
-                  !hasCommercialFeature("regression-adjustment") ||
-                  hasFileConfig()
-                }
-              />
+              {gb.isOn("post-stratification") ? (
+                <Checkbox
+                  label="Disable post-stratification"
+                  id="toggle-postStratification"
+                  value={form.watch("postStratificationDisabled")}
+                  setValue={(v) => {
+                    form.setValue("postStratificationDisabled", !v);
+                  }}
+                />
+              ) : null}
               <Text as="p" mb="1" size="2" className="font-weight-semibold">
                 CUPED pre-exposure lookback period (days)
               </Text>

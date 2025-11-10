@@ -505,7 +505,7 @@ def analyze_metric_df(
 
             # TODO throw error if post-stratify is false and there are 2+ rows?
             post_stratify = (
-                analysis.post_stratification_eligible
+                analysis.post_stratification_enabled
                 and metric.statistic_type not in ["quantile_event", "quantile_unit"]
             )
             test = get_configured_test(
@@ -770,7 +770,7 @@ def process_analysis(
         var_id_map=var_id_map,
         var_names=var_names,
         dimension=analysis.dimension,
-        post_stratify=analysis.post_stratification_eligible,
+        post_stratify=analysis.post_stratification_enabled,
     )
     # inputs for reduce_dimensionality method
     # Limit to the top X dimensions with the most users
@@ -787,7 +787,7 @@ def process_analysis(
         num_variations=len(var_names),
         max=max_dimensions,
         keep_other=keep_other,
-        combine_strata=analysis.post_stratification_eligible,
+        combine_strata=analysis.post_stratification_enabled,
     )
 
     result = analyze_metric_df(
