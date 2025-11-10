@@ -74,7 +74,11 @@ export interface Props {
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
-  onSave?: (savedQueryId: string | undefined, name: string | undefined) => void;
+  onSave?: (
+    savedQueryId: string | undefined,
+    name: string | undefined,
+    visualizationIds?: string[],
+  ) => void;
   projects?: string[];
 }
 
@@ -150,7 +154,7 @@ export default function SqlExplorerModal({
     }
   >({
     defaultValues: {
-      name: initial?.name || "",
+      name: initial?.name || "New Query",
       sql: initial?.sql || "",
       dateLastRan: initial?.dateLastRan
         ? getValidDate(initial?.dateLastRan)
@@ -419,24 +423,26 @@ export default function SqlExplorerModal({
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
       try {
-        const res = await apiCall<{ id: string; status: number }>(
-          "/saved-queries",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              name: currentName,
-              sql: form.watch("sql"),
-              datasourceId: form.watch("datasourceId"),
-              dateLastRan: form.watch("dateLastRan"),
-              results: form.watch("results"),
-              dataVizConfig: normalizedDataVizConfig,
-              linkedDashboardIds: dashboardId ? [dashboardId] : [],
-            }),
-          },
-        );
+        const res = await apiCall<{
+          id: string;
+          status: number;
+          savedQueryIds: string[];
+        }>("/saved-queries", {
+          method: "POST",
+          body: JSON.stringify({
+            name: currentName,
+            sql: form.watch("sql"),
+            datasourceId: form.watch("datasourceId"),
+            dateLastRan: form.watch("dateLastRan"),
+            results: form.watch("results"),
+            dataVizConfig: normalizedDataVizConfig,
+            linkedDashboardIds:
+              dashboardId && dashboardId !== "new" ? [dashboardId] : [],
+          }),
+        });
         mutate();
         // Call the onSave callback if it exists
-        onSave?.(res?.id, currentName);
+        onSave?.(res?.id, currentName, res?.savedQueryIds || []);
         close();
       } catch (error) {
         setLoading(false);
@@ -455,7 +461,10 @@ export default function SqlExplorerModal({
     // Something changed, so save the updates
     try {
       const results = form.watch("results");
-      await apiCall(`/saved-queries/${id}`, {
+      const res = await apiCall<{
+        status: number;
+        savedQueryIds: string[];
+      }>(`/saved-queries/${id}`, {
         method: "PUT",
         body: JSON.stringify({
           name: currentName,
@@ -472,7 +481,7 @@ export default function SqlExplorerModal({
       mutate();
       // Call the onSave callback after successful save
       if (onSave) {
-        onSave(id, currentName);
+        onSave(id, currentName, res?.savedQueryIds || []);
       }
       close();
     } catch (error) {

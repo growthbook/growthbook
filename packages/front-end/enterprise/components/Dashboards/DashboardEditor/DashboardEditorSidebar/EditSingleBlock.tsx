@@ -176,12 +176,9 @@ export default function EditSingleBlock({
     useState<string>("");
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
-  const {
-    defaultSnapshot,
-    dimensionless,
-    updateAllSnapshots,
-    savedQueriesMap,
-  } = useContext(DashboardSnapshotContext);
+  const { defaultSnapshot, dimensionless, updateAllSnapshots } = useContext(
+    DashboardSnapshotContext,
+  );
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
 
@@ -483,24 +480,36 @@ export default function EditSingleBlock({
     incrementalRefresh,
   ]);
 
+  const savedQueryId = blockHasFieldOfType(block, "savedQueryId", isString)
+    ? block.savedQueryId
+    : undefined;
+
   const savedQueryOptions = useMemo(
     () =>
       savedQueriesData?.savedQueries
         ?.filter((savedQuery) => {
-          return savedQuery.linkedDashboardIds?.includes(dashboardId);
+          return (
+            savedQuery.linkedDashboardIds?.includes(dashboardId) ||
+            savedQueryId === savedQuery.id
+          );
         })
         .map(({ id, name }) => ({
           value: id,
           label: name,
         })) || [],
-    [savedQueriesData?.savedQueries, dashboardId],
+    [savedQueriesData?.savedQueries, dashboardId, savedQueryId],
   );
 
   useEffect(() => {
-    if (sqlExplorerType === "existing" && !savedQueryOptions.length) {
+    if (
+      sqlExplorerType === "existing" &&
+      !savedQueryOptions.length &&
+      !savedQueryId
+    ) {
       setSqlExplorerType("create");
+      setShowSqlExplorerModal(true);
     }
-  }, [savedQueryOptions.length, sqlExplorerType]);
+  }, [savedQueryId, savedQueryOptions.length, sqlExplorerType]);
   const dimensionValueOptions = analysis?.results
     ? analysis.results.map(({ name }) => ({ value: name, label: name }))
     : [];
@@ -564,55 +573,24 @@ export default function EditSingleBlock({
           onSave={async (
             savedQueryId: string | undefined,
             name: string | undefined,
+            visualizationIds?: string[],
           ) => {
             if (!block || block.type !== "sql-explorer" || !savedQueryId)
               return;
-
-            const isNewQuery = !blockHasFieldOfType(
-              block,
-              "savedQueryId",
-              isString,
-            );
 
             // Update block with saved query ID
             setBlock({
               ...block,
               savedQueryId,
               title: name || "SQL Query",
+              blockConfig:
+                visualizationIds && visualizationIds.length
+                  ? visualizationIds
+                  : [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
             });
             setSqlExplorerType("existing");
-
-            // Refresh dashboard data to get latest saved query info
+            await mutateQuery();
             await updateAllSnapshots();
-
-            // Update blockConfig based on saved query visualizations
-            const updatedSavedQuery = savedQueriesMap.get(savedQueryId);
-            if (updatedSavedQuery?.dataVizConfig) {
-              const visualizationIds = updatedSavedQuery.dataVizConfig
-                .map((viz) => viz.id)
-                .filter((id): id is string => Boolean(id));
-
-              let newBlockConfig: string[];
-
-              if (isNewQuery) {
-                // New query: enable results table and all visualizations
-                newBlockConfig = [
-                  BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                  ...visualizationIds,
-                ];
-              } else {
-                // Existing query: preserve existing config and add new visualizations
-                const existingConfig = block.blockConfig || [];
-                newBlockConfig = [...existingConfig];
-              }
-
-              setBlock({
-                ...block,
-                blockConfig: newBlockConfig,
-              });
-            }
-
-            mutateQuery();
           }}
         />
       )}
@@ -1257,22 +1235,6 @@ export default function EditSingleBlock({
                           >
                             Customize Display
                           </Text>
-                          <Checkbox
-                            label="Query results table"
-                            size="md"
-                            value={isBlockConfigItemSelected(
-                              block.blockConfig,
-                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                            )}
-                            setValue={(value) =>
-                              toggleBlockConfigItem(
-                                block,
-                                setBlock,
-                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                                value,
-                              )
-                            }
-                          />
                           {savedQuery?.dataVizConfig?.map((config, index) => {
                             const title =
                               config.title || `Visualization ${index + 1}`;
@@ -1297,6 +1259,24 @@ export default function EditSingleBlock({
                               />
                             );
                           })}
+                          {!savedQuery?.dataVizConfig?.length ? (
+                            <Checkbox
+                              label="Query results table"
+                              size="md"
+                              value={isBlockConfigItemSelected(
+                                block.blockConfig,
+                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                              )}
+                              setValue={(value) =>
+                                toggleBlockConfigItem(
+                                  block,
+                                  setBlock,
+                                  BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                                  value,
+                                )
+                              }
+                            />
+                          ) : null}
                         </Flex>
                       </>
                     )}
