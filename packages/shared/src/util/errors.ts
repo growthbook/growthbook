@@ -67,6 +67,14 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export class ErrorNotFound extends Error {
+  status = 404;
+  constructor(message?: string) {
+    super(message ?? "Not found");
+    this.name = "NotFoundError";
+  }
+}
+
 export class InternalServerError extends Error {
   status = 500;
   constructor(message: string) {
