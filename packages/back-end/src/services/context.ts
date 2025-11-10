@@ -20,7 +20,11 @@ import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
-import { BadRequestError, InternalServerError } from "shared/util";
+import {
+  BadRequestError,
+  UnauthorizedError,
+  InternalServerError,
+} from "shared/util";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
@@ -209,6 +213,10 @@ export class ReqContextClass {
 
   public throwBadRequestError(message: string) {
     throw new BadRequestError(message);
+  }
+
+  public throwUnauthorizedError(message: string) {
+    throw new UnauthorizedError(message);
   }
 
   public throwInternalServerError(message: string) {
