@@ -295,7 +295,7 @@ export const blockToInterface: ToInterface<DashboardBlockInterface> = (doc) => {
   return removeMongooseFields<DashboardBlockInterface>(doc);
 };
 
-export function createDashboardBlock(
+export function generateDashboardBlockIds(
   organization: string,
   initialValue: CreateDashboardBlockInterface,
 ): DashboardBlockInterface {

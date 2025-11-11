@@ -2,7 +2,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import {
   blockHasFieldOfType,
-  isPersistedDashboardBlock,
+  dashboardBlockHasIds,
   snapshotSatisfiesBlock,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
@@ -34,7 +34,7 @@ import {
 import { ExperimentInterface } from "back-end/types/experiment";
 import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 import {
-  createDashboardBlock,
+  generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
@@ -107,44 +107,18 @@ export async function createDashboard(
   } = req.body;
 
   if (experimentId) {
-    // Quick permission check before we write to the dashboard block collection
-    if (!context.hasPremiumFeature("dashboards")) {
-      throw new Error("Your plan does not support creating dashboards.");
-    }
-    const experiment = await getExperimentById(context, experimentId);
-    if (!experiment) throw new Error("Cannot find experiment");
-    if (!context.permissions.canCreateReport(experiment)) {
-      context.permissions.throwPermissionError();
-    }
     if (updateSchedule) {
       throw new Error(
         "Cannot specify an update schedule for experiment dashboards",
       );
     }
   } else {
-    if (shareLevel === "private") {
-      if (!context.hasPremiumFeature("product-analytics-dashboards")) {
-        throw new Error(
-          "Your plan does not support creating private dashboards.",
-        );
-      }
-    } else {
-      if (!context.hasPremiumFeature("share-product-analytics-dashboards")) {
-        throw new Error(
-          "Your plan does not support creating shared dashboards.",
-        );
-      }
-
-      if (!context.permissions.canCreateGeneralDashboards(req.body)) {
-        context.permissions.throwPermissionError();
-      }
-    }
     if (enableAutoUpdates && !updateSchedule) {
       throw new Error("Must define an update schedule to enable auto updates");
     }
   }
   const createdBlocks = blocks.map((blockData) =>
-    createDashboardBlock(context.org.id, blockData),
+    generateDashboardBlockIds(context.org.id, blockData),
   );
 
   const dashboard = await context.models.dashboards.create({
@@ -187,32 +161,12 @@ export async function updateDashboard(
   }
 
   if (updates.blocks) {
-    // Quick permission check before we write to the block collection
-    if (experiment) {
-      if (!context.hasPremiumFeature("dashboards")) {
-        throw new Error("Your plan does not support updating dashboards.");
-      }
-      if (!context.permissions.canUpdateReport(experiment)) {
-        context.permissions.throwPermissionError();
-      }
-    } else {
-      if (
-        dashboard.editLevel === "private" ||
-        updates.editLevel === "private"
-      ) {
-        if (!context.hasPremiumFeature("product-analytics-dashboards")) {
-          throw new Error(
-            "Your plan does not support updating private dashboards.",
-          );
-        }
-      }
-    }
-    const migratedBlocks = updates.blocks.map((block) => migrateBlock(block));
+    const migratedBlocks = updates.blocks.map(migrateBlock);
     const createdBlocks = await Promise.all(
       migratedBlocks.map((blockData) =>
-        isPersistedDashboardBlock(blockData)
+        dashboardBlockHasIds(blockData)
           ? blockData
-          : createDashboardBlock(context.org.id, blockData),
+          : generateDashboardBlockIds(context.org.id, blockData),
       ),
     );
     updates.blocks = createdBlocks;

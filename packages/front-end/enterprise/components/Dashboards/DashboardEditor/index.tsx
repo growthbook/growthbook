@@ -18,12 +18,13 @@ import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
-import { isPersistedDashboardBlock } from "shared/enterprise";
+import { dashboardBlockHasIds } from "shared/enterprise";
 import {
   DashboardEditLevel,
   DashboardInterface,
   DashboardShareLevel,
 } from "back-end/src/enterprise/validators/dashboard";
+import { dashboardBlockHasIds } from "shared/src/enterprise/dashboards/utils";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
@@ -681,7 +682,7 @@ function DashboardEditor({
             blocks.map((block, i) =>
               renderSingleBlock({
                 i,
-                key: isPersistedDashboardBlock(block)
+                key: dashboardBlockHasIds(block)
                   ? block.id
                   : `${block.type}-${i}`,
                 block: block,

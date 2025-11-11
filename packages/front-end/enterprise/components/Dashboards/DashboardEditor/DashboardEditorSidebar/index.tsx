@@ -8,7 +8,7 @@ import React, { useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
-import { isPersistedDashboardBlock } from "shared/enterprise";
+import { dashboardBlockHasIds } from "shared/enterprise";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenuItem,
@@ -283,7 +283,7 @@ export default function DashboardEditorSidebar({
                   <Flex
                     width="100%"
                     justify="between"
-                    key={isPersistedDashboardBlock(block) ? block.id : i}
+                    key={dashboardBlockHasIds(block) ? block.id : i}
                     my="2"
                     onClick={() => focusBlock(i)}
                     className="hover-border-violet"
