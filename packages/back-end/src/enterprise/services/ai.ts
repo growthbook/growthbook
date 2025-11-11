@@ -94,7 +94,14 @@ const getMessageTokenLimit = (provider: AIProvider) =>
 export const getAIProvider = (
   context: ReqContext | ApiReqContext,
   overrideModel?: string,
-) => {
+): {
+  provider:
+    | ReturnType<typeof createAnthropic>
+    | ReturnType<typeof createOpenAI>
+    | null;
+  model: string;
+  config: (typeof AI_PROVIDER_CONFIGS)[AIProvider];
+} => {
   const { aiEnabled, openAIAPIKey, anthropicAPIKey, defaultAIModel } =
     getAISettingsForOrg(context, true);
 
