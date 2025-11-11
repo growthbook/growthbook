@@ -24,7 +24,6 @@ import {
   DashboardInterface,
   DashboardShareLevel,
 } from "back-end/src/enterprise/validators/dashboard";
-import { dashboardBlockHasIds } from "shared/src/enterprise/dashboards/utils";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
