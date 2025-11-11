@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ProjectInterface } from "back-end/types/project";
 import PQueue from "p-queue";
 import { FeatureInterface } from "back-end/types/feature";
@@ -19,12 +19,15 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
+import Checkbox from "@/ui/Checkbox";
 import { ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { isCloud } from "@/services/env";
 import {
   FeatureVariationsMap,
   getLDEnvironments,
@@ -645,9 +648,20 @@ function ImportHeader({
 export default function ImportFromLaunchDarkly() {
   const [token, setToken] = useSessionStorage("ldApiToken", "");
   const [intervalCap, setIntervalCap] = useState(50);
+  const [useBackendProxy, setUseBackendProxy] = useLocalStorage(
+    "launchdarkly_use_backend_proxy",
+    false,
+  );
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
+
+  // Force useBackendProxy to false for cloud users (prevent localStorage hijacking)
+  useEffect(() => {
+    if (isCloud() && useBackendProxy) {
+      setUseBackendProxy(false);
+    }
+  }, [useBackendProxy, setUseBackendProxy]);
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
   const { projects, mutateDefinitions } = useDefinitions();
@@ -699,6 +713,22 @@ export default function ImportFromLaunchDarkly() {
                   onChange={(e) => setIntervalCap(parseInt(e.target.value))}
                 />
               </div>
+              {!isCloud() && (
+                <div className="col-auto" style={{ maxWidth: 180 }}>
+                  <label className="form-label d-block">Backend Proxy</label>
+                  <Checkbox
+                    label="Proxy through API"
+                    value={useBackendProxy}
+                    setValue={setUseBackendProxy}
+                    size="lg"
+                    weight="regular"
+                    mt="2"
+                  />
+                  <div className="text-muted small mt-1">
+                    Workaround for HTTP origin requests
+                  </div>
+                </div>
+              )}
             </div>
             <Button
               type="button"

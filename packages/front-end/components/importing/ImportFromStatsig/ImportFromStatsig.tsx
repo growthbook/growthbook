@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
@@ -29,6 +29,7 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import track from "@/services/track";
+import { isCloud } from "@/services/env";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
 function ImportStatusDisplay({
@@ -166,6 +167,17 @@ export default function ImportFromStatsig() {
     "statsig_skip_attribute_mapping",
     false,
   );
+  const [useBackendProxy, setUseBackendProxy] = useLocalStorage(
+    "statsig_use_backend_proxy",
+    false,
+  );
+
+  // Force useBackendProxy to false for cloud users (prevent localStorage hijacking)
+  useEffect(() => {
+    if (isCloud() && useBackendProxy) {
+      setUseBackendProxy(false);
+    }
+  }, [useBackendProxy, setUseBackendProxy]);
 
   // Item-level checkbox states (all enabled by default)
   const [itemEnabled, setItemEnabled] = useState<{
@@ -604,6 +616,22 @@ export default function ImportFromStatsig() {
                   onChange={(e) => setIntervalCap(parseInt(e.target.value))}
                 />
               </div>
+              {!isCloud() && (
+                <div className="col-auto" style={{ maxWidth: 180 }}>
+                  <label className="form-label d-block">Backend Proxy</label>
+                  <Checkbox
+                    label="Proxy through API"
+                    value={useBackendProxy}
+                    setValue={setUseBackendProxy}
+                    size="lg"
+                    weight="regular"
+                    mt="2"
+                  />
+                  <div className="text-muted small mt-1">
+                    Workaround for HTTP origin requests
+                  </div>
+                </div>
+              )}
               <div className="col" style={{ maxWidth: 350 }}>
                 <Field
                   label="GrowthBook Project"
@@ -640,6 +668,8 @@ export default function ImportFromStatsig() {
                     existingExperiments,
                     callback: (d) => setData(d),
                     skipAttributeMapping,
+                    useBackendProxy: isCloud() ? false : useBackendProxy,
+                    apiCall,
                   };
                   const featuresMap = await buildImportedData(buildOptions);
                   // Store featuresMap for use in runImport
