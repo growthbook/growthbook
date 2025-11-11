@@ -568,10 +568,27 @@ export async function updateResource(req: Request, res: Response) {
 }
 
 export async function getInstallationProducts(req: Request, res: Response) {
-  await authContext(req, res);
+  const { integration } = await authContext(req, res);
+
+  const plans = [...availableBillingPlans];
+
+  // Make sure the current plan (if set) is included in the list
+  if (integration) {
+    const existingBillingPlan = allBillingPlans.find(
+      ({ id }) => id === integration.billingPlanId,
+    );
+    if (existingBillingPlan) {
+      const alreadyIncluded = plans.find(
+        ({ id }) => id === existingBillingPlan.id,
+      );
+      if (!alreadyIncluded) {
+        plans.unshift(existingBillingPlan);
+      }
+    }
+  }
 
   return res.json({
-    plans: availableBillingPlans,
+    plans,
   });
 }
 
