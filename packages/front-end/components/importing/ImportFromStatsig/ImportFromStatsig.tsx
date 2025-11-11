@@ -172,7 +172,7 @@ export default function ImportFromStatsig() {
     false,
   );
 
-  // Force useBackendProxy to false for cloud users (prevent localStorage hijacking)
+  // Force useBackendProxy to false for cloud users
   useEffect(() => {
     if (isCloud() && useBackendProxy) {
       setUseBackendProxy(false);

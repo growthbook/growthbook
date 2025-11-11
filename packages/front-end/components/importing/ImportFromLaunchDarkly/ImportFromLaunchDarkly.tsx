@@ -144,6 +144,9 @@ async function buildImportedData(
   existingEnvs: Set<string>,
   features: FeatureInterface[],
   callback: (data: ImportData) => void,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
 ): Promise<void> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
 
@@ -165,7 +168,7 @@ async function buildImportedData(
   };
 
   // Get projects
-  const ldProjects = await getLDProjects(apiToken);
+  const ldProjects = await getLDProjects(apiToken, useBackendProxy, apiCall);
   const projects: ProjectImport[] = transformLDProjectsToGBProject(
     ldProjects,
   ).map((p) => {
@@ -219,7 +222,12 @@ async function buildImportedData(
     // Get environments for each project
     queue.add(async () => {
       try {
-        const ldEnvs = await getLDEnvironments(apiToken, p.key);
+        const ldEnvs = await getLDEnvironments(
+          apiToken,
+          p.key,
+          useBackendProxy,
+          apiCall,
+        );
         ldEnvs.items.forEach((env) => {
           envs[env.key] = envs[env.key] || { name: env.name, projects: [] };
           envs[env.key].projects.push(p.key);
@@ -234,7 +242,12 @@ async function buildImportedData(
     // Get feature flags for the project
     queue.add(async () => {
       try {
-        const ldFeatures = await getLDFeatureFlags(apiToken, p.key);
+        const ldFeatures = await getLDFeatureFlags(
+          apiToken,
+          p.key,
+          useBackendProxy,
+          apiCall,
+        );
         // Build a map of feature key to type and variations
         // This is required for prerequisites
         const featureVarMap: FeatureVariationsMap = new Map();
@@ -257,7 +270,13 @@ async function buildImportedData(
           importedFeatureIds.add(f.key);
           queue.add(async () => {
             try {
-              const def = await getLDFeatureFlag(apiToken, p.key, f.key);
+              const def = await getLDFeatureFlag(
+                apiToken,
+                p.key,
+                f.key,
+                useBackendProxy,
+                apiCall,
+              );
               try {
                 const feature = transformLDFeatureFlag(
                   def,
@@ -656,7 +675,7 @@ export default function ImportFromLaunchDarkly() {
     status: "init",
   });
 
-  // Force useBackendProxy to false for cloud users (prevent localStorage hijacking)
+  // Force useBackendProxy to false for cloud users
   useEffect(() => {
     if (isCloud() && useBackendProxy) {
       setUseBackendProxy(false);
@@ -753,6 +772,8 @@ export default function ImportFromLaunchDarkly() {
                     existingEnvironments,
                     features,
                     (d) => setData(d),
+                    isCloud() ? false : useBackendProxy,
+                    apiCall,
                   );
                 } catch (e) {
                   setData({
