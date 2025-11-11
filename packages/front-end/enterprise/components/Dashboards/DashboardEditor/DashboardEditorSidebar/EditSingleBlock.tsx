@@ -47,49 +47,6 @@ import {
 } from "./types";
 import { useBlockContext } from "./useBlockContext";
 
-function calculateBlockConfig({
-  savedQueryVizIds,
-  currentBlockConfig,
-  newVisualizationIds,
-  isNewQuery,
-}: {
-  savedQueryVizIds: string[];
-  currentBlockConfig: string[];
-  newVisualizationIds?: string[];
-  isNewQuery: boolean;
-}): string[] {
-  // No visualizations: always show results table
-  if (savedQueryVizIds.length === 0) {
-    return [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE];
-  }
-
-  // New query: show all visualizations
-  if (isNewQuery) {
-    return savedQueryVizIds;
-  }
-
-  // Editing existing query
-  const onlyHasResultsTable =
-    currentBlockConfig.length === 1 &&
-    currentBlockConfig[0] === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
-
-  if (onlyHasResultsTable) {
-    // Replace results table with all visualizations
-    return savedQueryVizIds;
-  }
-
-  // Keep existing visualizations that still exist in the saved query, and add newly created ones
-  const existingVizIdsInBlock = currentBlockConfig.filter(
-    (id) =>
-      id !== BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE &&
-      savedQueryVizIds.includes(id),
-  );
-  const newlyAddedVizIds = (newVisualizationIds ?? []).filter(
-    (id) => !currentBlockConfig.includes(id),
-  );
-  return [...existingVizIdsInBlock, ...newlyAddedVizIds];
-}
-
 type RequiredField = {
   field: string;
   validation: (val: unknown) => boolean;
@@ -545,6 +502,7 @@ export default function EditSingleBlock({
 
   useEffect(() => {
     if (
+      block?.type === "sql-explorer" &&
       sqlExplorerType === "existing" &&
       !savedQueryOptions.length &&
       !savedQueryId
@@ -552,7 +510,8 @@ export default function EditSingleBlock({
       setSqlExplorerType("create");
       setShowSqlExplorerModal(true);
     }
-  }, [savedQueryId, savedQueryOptions.length, sqlExplorerType]);
+  }, [block?.type, savedQueryId, savedQueryOptions.length, sqlExplorerType]);
+
   const dimensionValueOptions = analysis?.results
     ? analysis.results.map(({ name }) => ({ value: name, label: name }))
     : [];
@@ -613,33 +572,36 @@ export default function EditSingleBlock({
           projects={projects}
           id={savedQuery?.id}
           dashboardId={dashboardId}
-          onSave={async (
-            savedQueryId: string | undefined,
-            name: string | undefined,
-            existingVisualizationIds?: string[],
-            newVisualizationIds?: string[],
-            allCurrentVisualizationIds?: string[],
-          ) => {
+          onSave={async ({
+            savedQueryId,
+            name,
+            newVisualizationIds,
+            allVisualizationIds,
+          }) => {
             if (!block || block.type !== "sql-explorer" || !savedQueryId)
               return;
 
-            const isNewQuery = !existingVisualizationIds?.length;
-            const savedQueryVizIds =
-              allCurrentVisualizationIds ??
-              (isNewQuery
-                ? newVisualizationIds
-                : [
-                    ...(existingVisualizationIds || []),
-                    ...(newVisualizationIds || []),
-                  ]) ??
-              [];
+            // Start with existing block config
+            let newBlockConfig = [...(block.blockConfig || [])];
 
-            const newBlockConfig = calculateBlockConfig({
-              savedQueryVizIds,
-              currentBlockConfig: block.blockConfig || [],
-              newVisualizationIds,
-              isNewQuery,
-            });
+            // No visualizations: always show results table
+            if (allVisualizationIds.length === 0) {
+              newBlockConfig = [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE];
+            } else {
+              // Add all new visualizations to existing block config
+              newBlockConfig.push(...newVisualizationIds);
+
+              // Filter out any visualizations that no longer exist
+              newBlockConfig = newBlockConfig.filter((itemId) => {
+                if (itemId === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE) {
+                  return true;
+                }
+                return allVisualizationIds.includes(itemId);
+              });
+
+              // Remove duplicates (this should never happen, but just in case)
+              newBlockConfig = Array.from(new Set(newBlockConfig));
+            }
 
             setBlock({
               ...block,
@@ -1265,7 +1227,7 @@ export default function EditSingleBlock({
                               (option) => option.value === val,
                             )?.label || "SQL Query",
                           savedQueryId: val,
-                          blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+                          blockConfig: [],
                         });
                       }}
                       isClearable
@@ -1318,26 +1280,23 @@ export default function EditSingleBlock({
                               />
                             );
                           })}
-                          {!savedQuery?.dataVizConfig?.length ? (
-                            <Checkbox
-                              label="Query results table"
-                              size="md"
-                              disabled
-                              disabledMessage="This query has no visualizations. Click the pencil icon above to add visualizations."
-                              value={isBlockConfigItemSelected(
-                                block.blockConfig,
+                          <Checkbox
+                            key="results-table"
+                            label="Query results table"
+                            size="md"
+                            value={isBlockConfigItemSelected(
+                              block.blockConfig,
+                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                            )}
+                            setValue={(value) =>
+                              toggleBlockConfigItem(
+                                block,
+                                setBlock,
                                 BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                              )}
-                              setValue={(value) =>
-                                toggleBlockConfigItem(
-                                  block,
-                                  setBlock,
-                                  BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                                  value,
-                                )
-                              }
-                            />
-                          ) : null}
+                                value,
+                              )
+                            }
+                          />
                         </Flex>
                       </>
                     )}

@@ -74,13 +74,12 @@ export interface Props {
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
-  onSave?: (
-    savedQueryId: string | undefined,
-    name: string | undefined,
-    existingVisualizationIds?: string[],
-    newVisualizationIds?: string[],
-    allCurrentVisualizationIds?: string[],
-  ) => Promise<void>;
+  onSave?: (data: {
+    savedQueryId: string | undefined;
+    name: string | undefined;
+    newVisualizationIds: string[];
+    allVisualizationIds: string[];
+  }) => Promise<void>;
   projects?: string[];
 }
 
@@ -213,9 +212,13 @@ export default function SqlExplorerModal({
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
+  const hasResults =
+    !!form.watch("results")?.sql && !form.watch("results")?.error;
+
   const canSave: boolean =
     hasPermission &&
     hasCommercialFeature("saveSqlExplorerQueries") &&
+    (!dashboardId || hasResults) &&
     !!form.watch("sql").trim();
 
   const runQuery = useCallback(
@@ -426,9 +429,8 @@ export default function SqlExplorerModal({
     if (!id) {
       try {
         const res = await apiCall<{
-          id: string;
+          savedQuery: SavedQuery;
           status: number;
-          savedQueryIds: string[];
         }>("/saved-queries", {
           method: "POST",
           body: JSON.stringify({
@@ -444,14 +446,16 @@ export default function SqlExplorerModal({
         });
         mutate();
         if (onSave) {
-          // For new queries: existingVisualizationIds is empty, newVisualizationIds is all current IDs
-          await onSave(
-            res?.id,
-            currentName,
-            [],
-            res?.savedQueryIds || [],
-            res?.savedQueryIds || [],
-          );
+          const visualizationIds =
+            res?.savedQuery?.dataVizConfig
+              ?.map((viz) => viz.id)
+              .filter((id): id is string => !!id) || [];
+          await onSave({
+            savedQueryId: res?.savedQuery?.id,
+            name: currentName,
+            newVisualizationIds: visualizationIds,
+            allVisualizationIds: visualizationIds,
+          });
         }
         close();
       } catch (error) {
@@ -471,9 +475,9 @@ export default function SqlExplorerModal({
     // Something changed, so save the updates
     try {
       const results = form.watch("results");
-      const res = await apiCall<{
+      const { savedQuery: updatedSavedQuery } = await apiCall<{
         status: number;
-        savedQueryIds: string[];
+        savedQuery: SavedQuery;
       }>(`/saved-queries/${id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -494,23 +498,23 @@ export default function SqlExplorerModal({
       const existingVizIds =
         initial?.dataVizConfig
           ?.map((viz) => viz.id)
-          .filter((id): id is string => Boolean(id)) || [];
+          .filter((id): id is string => !!id) || [];
       // Current IDs come from the response (all visualization IDs that exist now)
-      const allCurrentVizIds = res?.savedQueryIds || [];
+      const allCurrentVizIds =
+        updatedSavedQuery?.dataVizConfig
+          ?.map((viz) => viz.id)
+          .filter((id): id is string => !!id) || [];
       // Find which IDs are newly added (in current but not in existing)
       const newlyAddedVizIds = allCurrentVizIds.filter(
         (id) => !existingVizIds.includes(id),
       );
       if (onSave) {
-        // Pass: existingVizIds (what was there before), newlyAddedVizIds (what was just added),
-        // and allCurrentVizIds (current state after save - needed to detect if all were removed)
-        await onSave(
-          id,
-          currentName,
-          existingVizIds,
-          newlyAddedVizIds,
-          allCurrentVizIds,
-        );
+        await onSave({
+          savedQueryId: id,
+          name: currentName,
+          newVisualizationIds: newlyAddedVizIds,
+          allVisualizationIds: allCurrentVizIds,
+        });
       }
       close();
     } catch (error) {
@@ -726,7 +730,9 @@ export default function SqlExplorerModal({
             ? "Upgrade to a Pro or Enterprise plan to save your queries."
             : !hasPermission
               ? "You don't have permission to save this query."
-              : undefined
+              : dashboardId && !hasResults
+                ? "Run the query first before saving."
+                : undefined
         }
         header={header || `${id ? "Update" : "Create"} SQL Query`}
         headerClassName={styles["modal-header-backgroundless"]}

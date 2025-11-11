@@ -157,7 +157,7 @@ export async function postSavedQuery(
   res.status(200).json({
     status: 200,
     id: savedQuery.id,
-    savedQueryIds: savedQuery.dataVizConfig?.map((viz) => viz.id) || [],
+    savedQuery,
   });
 }
 
@@ -182,13 +182,13 @@ export async function putSavedQuery(
       : undefined,
   };
 
-  const updatedSavedQuery = await context.models.savedQueries.updateById(
+  const savedQuery = await context.models.savedQueries.updateById(
     id,
     updateData,
   );
   res.status(200).json({
     status: 200,
-    savedQueryIds: updatedSavedQuery.dataVizConfig?.map((viz) => viz.id) || [],
+    savedQuery,
   });
 }
 
