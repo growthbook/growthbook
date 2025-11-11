@@ -480,7 +480,7 @@ export default function DashboardsPage() {
                         {!items.length && isFiltered && (
                           <tr>
                             <td colSpan={5} align={"center"}>
-                              No matching dashboards
+                              No dashboards match your filters
                             </td>
                           </tr>
                         )}
