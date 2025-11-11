@@ -124,6 +124,7 @@ import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { importingRouter } from "./routers/importing/importing.router";
 
 const app = express();
 
@@ -977,6 +978,9 @@ app.use("/dashboards", dashboardsRouter);
 
 // Custom Hooks
 app.use("/custom-hooks", customHooksRouter);
+
+// 3rd party data importing proxy
+app.use("/importing", importingRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
