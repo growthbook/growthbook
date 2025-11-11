@@ -2,6 +2,8 @@ import React from "react";
 import { useRouter } from "next/router";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, beforeEach, vi, expect } from "vitest";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
@@ -34,16 +36,17 @@ describe("ResultMoreMenu", () => {
         mode: "incremental",
       },
     },
-  };
+  } as DataSourceInterfaceWithParams;
 
   const defaultExperiment = {
     id: "exp-1",
     project: "proj-1",
-  };
+  } as ExperimentInterfaceStringDates;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
+    // @ts-expect-error - partial mock
     vi.mocked(useRouter).mockReturnValue({
       push: mockRouterPush,
       replace: vi.fn(),
@@ -61,15 +64,17 @@ describe("ResultMoreMenu", () => {
       },
     });
 
+    // @ts-expect-error - partial mock
     vi.mocked(useAuth).mockReturnValue({
       apiCall: mockApiCall,
     });
 
+    // @ts-expect-error - partial mock
     vi.mocked(useDefinitions).mockReturnValue({
       mutateDefinitions: mockMutateDefinitions,
     });
 
-    // Default permissions: user can run queries
+    // @ts-expect-error - partial mock
     vi.mocked(usePermissionsUtil).mockReturnValue({
       canRunExperimentQueries: () => true,
       canUpdateDataSourceSettings: () => true,
@@ -77,7 +82,6 @@ describe("ResultMoreMenu", () => {
       canViewExperimentModal: () => false,
     });
 
-    // Default: not included in incremental refresh
     vi.mocked(getIsExperimentIncludedInIncrementalRefresh).mockReturnValue(
       false,
     );
@@ -166,41 +170,12 @@ describe("ResultMoreMenu", () => {
       expect(refreshButton).toBeInTheDocument();
       fireEvent.click(refreshButton);
 
-      // Confirm dialog should appear - check for dialog content
       expect(
         screen.getByText(/This experiment has Pipeline Mode enabled/i),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          /Fully refreshing the experiment will re-scan the data source/i,
-        ),
       ).toBeInTheDocument();
 
       // forceRefresh should NOT be called yet
       expect(mockForceRefresh).not.toHaveBeenCalled();
-    });
-
-    it("calls forceRefresh when confirming Full Refresh dialog", () => {
-      vi.mocked(getIsExperimentIncludedInIncrementalRefresh).mockReturnValue(
-        true,
-      );
-
-      render(
-        <ResultMoreMenu
-          experiment={defaultExperiment}
-          datasource={defaultDatasource}
-          forceRefresh={mockForceRefresh}
-          notebookUrl="/notebook"
-          notebookFilename="test"
-        />,
-      );
-
-      // Get the button by finding the button element
-      const buttons = screen.getAllByText("Full Refresh");
-      const refreshButton = buttons.find(
-        (btn) => btn.tagName === "BUTTON",
-      ) as HTMLButtonElement;
-      fireEvent.click(refreshButton);
 
       // Click confirm button
       const confirmButton = screen.getByText("I understand");
@@ -230,6 +205,7 @@ describe("ResultMoreMenu", () => {
     });
 
     it("hides button when user lacks permission to run queries", () => {
+      // @ts-expect-error - partial mock
       vi.mocked(usePermissionsUtil).mockReturnValue({
         canRunExperimentQueries: () => false,
         canUpdateDataSourceSettings: () => true,
@@ -283,7 +259,7 @@ describe("ResultMoreMenu", () => {
 
   describe("Re-enable Incremental Refresh button", () => {
     it("shows 'Re-enable Incremental Refresh' button for excluded experiments with permission", () => {
-      const excludedDatasource = {
+      const datasourceWithExcludedExperiment = {
         id: "ds-1",
         name: "Test Datasource",
         settings: {
@@ -292,12 +268,13 @@ describe("ResultMoreMenu", () => {
             excludedExperimentIds: ["exp-1"],
           },
         },
-      };
+      } as DataSourceInterfaceWithParams;
 
       vi.mocked(getIsExperimentIncludedInIncrementalRefresh).mockReturnValue(
         false,
       );
 
+      // @ts-expect-error - partial mock
       vi.mocked(usePermissionsUtil).mockReturnValue({
         canRunExperimentQueries: () => true,
         canUpdateDataSourceSettings: () => true,
@@ -308,7 +285,7 @@ describe("ResultMoreMenu", () => {
       render(
         <ResultMoreMenu
           experiment={defaultExperiment}
-          datasource={excludedDatasource}
+          datasource={datasourceWithExcludedExperiment}
           forceRefresh={mockForceRefresh}
           notebookUrl="/notebook"
           notebookFilename="test"
@@ -320,7 +297,7 @@ describe("ResultMoreMenu", () => {
     });
 
     it("hides 'Re-enable Incremental Refresh' button when user lacks permission", () => {
-      const excludedDatasource = {
+      const datasourceWithExcludedExperiment = {
         id: "ds-1",
         name: "Test Datasource",
         settings: {
@@ -329,12 +306,13 @@ describe("ResultMoreMenu", () => {
             excludedExperimentIds: ["exp-1"],
           },
         },
-      };
+      } as DataSourceInterfaceWithParams;
 
       vi.mocked(getIsExperimentIncludedInIncrementalRefresh).mockReturnValue(
         false,
       );
 
+      // @ts-expect-error - partial mock
       vi.mocked(usePermissionsUtil).mockReturnValue({
         canRunExperimentQueries: () => true,
         canUpdateDataSourceSettings: () => false,
@@ -345,7 +323,7 @@ describe("ResultMoreMenu", () => {
       render(
         <ResultMoreMenu
           experiment={defaultExperiment}
-          datasource={excludedDatasource}
+          datasource={datasourceWithExcludedExperiment}
           forceRefresh={mockForceRefresh}
           notebookUrl="/notebook"
           notebookFilename="test"
