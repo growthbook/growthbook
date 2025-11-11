@@ -15,6 +15,7 @@ import {
   ExperimentTemplateInterface,
   MetricOverride,
 } from "back-end/types/experiment";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isNil, omit } from "lodash";
@@ -978,4 +979,32 @@ export function convertExperimentToTemplate(
     },
   };
   return template;
+}
+
+export function getIsExperimentIncludedInIncrementalRefresh(
+  datasource: DataSourceInterfaceWithParams | undefined,
+  experimentId: string | undefined,
+): boolean {
+  const isPipelineIncrementalEnabled =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  if (!isPipelineIncrementalEnabled) {
+    return false;
+  }
+
+  const includedExperimentIds =
+    datasource?.settings.pipelineSettings?.includedExperimentIds;
+  const excludedExperimentIds =
+    datasource?.settings.pipelineSettings?.excludedExperimentIds;
+
+  if (experimentId && excludedExperimentIds?.includes(experimentId)) {
+    return false;
+  }
+
+  // If no specific experiment IDs are set, all experiments are included
+  // If experimentId is not provided, consider it included for the New Experiment form
+  if (includedExperimentIds === undefined || !experimentId) {
+    return true;
+  }
+
+  return includedExperimentIds.includes(experimentId);
 }

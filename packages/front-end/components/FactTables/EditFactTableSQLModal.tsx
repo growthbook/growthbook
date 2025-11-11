@@ -6,7 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 export interface Props {
   factTable: Pick<
     FactTableInterface,
-    "datasource" | "sql" | "eventName" | "userIdTypes"
+    "datasource" | "sql" | "eventName" | "userIdTypes" | "name"
   >;
   close: () => void;
   save: (data: {
@@ -31,6 +31,7 @@ export default function EditFactTableSQLModal({
   return (
     <EditSqlModal
       close={close}
+      sqlObjectInfo={{ objectType: "Fact Table", objectName: factTable.name }}
       datasourceId={factTable.datasource}
       placeholder={
         "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"

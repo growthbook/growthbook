@@ -211,6 +211,7 @@ const webhooksValidator = z.array(
           "standard-no-payload",
           "sdkPayload",
           "edgeConfig",
+          "edgeConfigUnescaped",
           "vercelNativeIntegration",
           "none",
         ])

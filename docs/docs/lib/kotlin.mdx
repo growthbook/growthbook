@@ -31,7 +31,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.growthbook.sdk:GrowthBook:1.1.63")
+    implementation("io.growthbook.sdk:GrowthBook:6.1.1")
 
     // Choose ONE network dispatcher:
     implementation("io.growthbook.sdk:NetworkDispatcherKtor:1.0.6")
@@ -52,7 +52,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.1.63'
+    implementation 'io.growthbook.sdk:GrowthBook:6.1.1'
 
     // Choose ONE network dispatcher:
     implementation 'io.growthbook.sdk:NetworkDispatcherKtor:1.0.6'
@@ -91,10 +91,10 @@ class MainActivity : AppCompatActivity() {
 
         // User attributes for targeting and assigning users to experiment variations
         val attributes = mapOf(
-            "id" to "user-123",
-            "deviceType" to "Android",
-            "appVersion" to "1.2.0",
-            "isPremium" to true
+            "id" to "user-123".toGbString(),
+            "deviceType" to "Android".toGbString(),
+            "appVersion" to "1.2.0".toGbString(),
+            "isPremium" to true.toGbBoolean()
         )
 
         lifecycleScope.launch {
@@ -141,9 +141,9 @@ You can update user attributes at any time using `setAttributes()`. This complet
 ```kotlin
 // Update attributes when user logs in
 growthBook.setAttributes(mapOf(
-    "id" to userId,
-    "isPremium" to true,
-    "country" to "US"
+    "id" to userId.toGbString(),
+    "isPremium" to true.toGbBoolean(),
+    "country" to "US".toGbString(),
 ))
 ```
 
@@ -217,13 +217,13 @@ if (newCheckoutEnabled) {
 }
 
 // String feature
-val buttonColor = growthBook.feature("button-color").value as? String ?: "blue"
+val buttonColor = growthBook.feature("button-color").gbValue as? GBString
 
 // Numeric feature
-val maxRetries = growthBook.feature("max-retries").value as? Int ?: 3
+val maxRetries = growthBook.feature("max-retries").gbValue as? GBNumber
 
 // Complex JSON feature
-val config = growthBook.feature("service-config").value as? Map<String, Any>
+val config = growthBook.feature("service-config").gbValue as? GBJson
 ```
 
 ### Working with GBValue
@@ -235,24 +235,29 @@ val featureResult = growthBook.feature("my-feature")
 
 // Access the typed value
 when (val gbValue = featureResult.gbValue) {
-    is GBValue.GBValueBoolean -> {
+    is GBBoolean -> {
         val boolValue = gbValue.value
         println("Boolean: $boolValue")
     }
-    is GBValue.GBValueString -> {
+    is GBString -> {
         val stringValue = gbValue.value
         println("String: $stringValue")
     }
-    is GBValue.GBValueNumber -> {
+    is GBNumber -> {
         val numberValue = gbValue.value // Double
         println("Number: $numberValue")
     }
-    is GBValue.GBValueJSON -> {
-        val jsonValue = gbValue.value // JsonElement
-        println("JSON: $jsonValue")
+    is GBArray -> {
+        println("GbArray: $gbValue")
     }
-    is GBValue.GBValueNull -> {
+    is GBJson -> {
+        println("JSON: $gbValue")
+    }
+    is GBNull -> {
         println("Null value")
+    }
+    is GBValue.Unknown -> {
+        println("GBValue.Unknown")
     }
 }
 ```
@@ -263,9 +268,9 @@ For convenience, you can directly get a typed feature value (available in versio
 
 ```kotlin
 // Get feature value with inferred type
-val maxRetries: Int? = growthBook.feature("max-retries")
-val buttonColor: String? = growthBook.feature("button-color")
-val isEnabled: Boolean? = growthBook.feature("new-feature-enabled")
+val maxRetries: Int? = growthBook.feature<Int>("max-retries")
+val buttonColor: String? = growthBook.feature<String>("button-color")
+val isEnabled: Boolean? = growthBook.feature<Boolean>("new-feature-enabled")
 
 // Use with default values
 val timeout = growthBook.feature<Long>("api-timeout") ?: 5000L
@@ -278,7 +283,7 @@ Check why a feature value was assigned and access experiment details:
 ```kotlin
 val feature = growthBook.feature("premium-feature")
 
-println("Feature value: ${feature.value}")
+println("Feature value: ${feature.gbValue}")
 println("Is on: ${feature.on}")
 println("Source: ${feature.source}")
 
@@ -298,16 +303,18 @@ if (feature.source == GBFeatureSource.experiment) {
 You can run experiments directly without defining them in the GrowthBook API. This is useful for programmatic experiments:
 
 ```kotlin
-val experiment = GBExperiment().apply {
+val experiment = GBExperiment(
     key = "button-color-test"
-    variations = arrayOf("blue", "red", "green")
-    weights = floatArrayOf(0.5f, 0.3f, 0.2f)
-}
+    variations = listOf(
+        "blue", "red", "green"
+    ).map { it.toGbString() },
+    weights = listOf(0.5f, 0.3f, 0.2f),
+)
 
 val result = growthBook.run(experiment)
 
 // Get the assigned variation
-val color = result.value as String // "blue", "red", or "green"
+val color = result.value as GBString // "blue", "red", or "green"
 println("Assigned color: $color")
 
 if (result.inExperiment) {
@@ -352,24 +359,26 @@ The `GBExperimentResult` object contains:
 
 ```kotlin
 // Complex experiment with targeting and custom weights
-val pricingExperiment = GBExperiment().apply {
-    key = "pricing-test"
-    variations = arrayOf(9.99, 14.99, 19.99)
-    weights = floatArrayOf(0.5f, 0.3f, 0.2f)
-    coverage = 0.8f // Only 80% of users
+val pricingExperiment = GBExperiment(
+    key = "pricing-test",
+    variations = listOf(9.99, 14.99, 19.99)
+        .map { it.toGbNumber() },
     hashAttribute = "userId" // Use custom attribute for hashing
+).apply {
+    weights = listOf(0.5f, 0.3f, 0.2f)
+    coverage = 0.8f // Only 80% of users
 
     // Only target premium users in the US
-    condition = GBCondition(mapOf(
-        "country" to "US",
-        "plan" to "premium"
+    condition = JsonObject(mapOf(
+        "country" to JsonPrimitive("US"),
+        "plan" to JsonPrimitive("premium"),
     ))
 }
 
 val result = growthBook.run(pricingExperiment)
 
 if (result.inExperiment) {
-    val price = result.value as Double
+    val price = result.value as GBNumber
     displayPrice(price)
 
     // Track the experiment view
@@ -485,26 +494,9 @@ The GrowthBook SDK supports automatic feature refresh through multiple mechanism
 Server-Sent Events provide real-time feature updates without polling. When enabled, the SDK maintains a persistent connection to receive live updates whenever features change.
 
 ```kotlin
-val growthBook = GBSDKBuilder(
-    apiKey = "sdk_abc123",
-    apiHost = "https://cdn.growthbook.io/",
-    attributes = mapOf("id" to userId),
-    networkDispatcher = NetworkDispatcherKtor(),
-
-    // Enable SSE for real-time updates
-    enableSSE = true,
-
-    // Optional: Handle feature refresh events
-    onFeatureRefresh = { success, error ->
-        if (success) {
-            Log.d("GrowthBook", "Features updated via SSE")
-            // Notify your app components about feature changes
-            eventBus.post(FeaturesUpdatedEvent())
-        } else {
-            Log.w("GrowthBook", "SSE feature refresh failed", error)
-        }
-    }
-).initialize()
+val growthBook = gbSdkBuilder.initialize()
+val flow = growthBook.autoRefreshFeatures()
+flow.launchIn(lifecycleScope)
 ```
 
 ### Manual Refresh
@@ -851,6 +843,10 @@ val growthBook = GBSDKBuilder(
 ```
 
 ## Remote Evaluation
+
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
 
 Remote Evaluation evaluates feature flags on a secure server instead of the client, ensuring sensitive targeting rules and unused variations never reach the client.
 

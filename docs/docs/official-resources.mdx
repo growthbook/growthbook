@@ -27,7 +27,6 @@ Official Resources are particularly useful for:
 - Fact Tables
 - Fact Metrics
 - Fact Filters
-- Legacy Metrics
 - Segments
 - Dimensions
 
@@ -44,7 +43,7 @@ When creating resources via the REST API, use the optional `managedBy` property:
 - **`managedBy: "api"`**: The resource is not editable in the app but can be modified via the REST API. This is ideal for resources managed by external repositories or systems.
 - **`managedBy: "admin"`**: The resource can be modified in the app or via the REST API, but only by users with the `ManageOfficialResources` policy.
 
-:::note
+:::note Official Resources only available on Enterprise plans
 
 Create Official Resources via the UI (or via the REST API while setting `managedBy: "admin"`) is only available to Enterprise organizations.
 
@@ -54,9 +53,9 @@ Create Official Resources via the UI (or via the REST API while setting `managed
 
 When resources are created via the `config.yml` file, they are automatically marked as "Official" and are not editable in the app. To make changes to these resources, you must update the `config.yml` file.
 
-:::note
+:::note Restrictions on creating Official Resources
 
-Currently only Legacy Metrics, Segments, and Dimensions can be created via the `config.yml` file, Fact Tables, Fact Metrics, and Fact Filters can only be created via the UI or REST API.
+Currently only Segments, and Dimensions can be created via the `config.yml` file, Fact Tables, Fact Metrics, and Fact Filters can only be created via the UI or REST API.
 
 :::
 
@@ -76,9 +75,9 @@ Removing the "Official" status from a resource is possible for users with the `M
 - If a resource was created via the REST API and has `managedBy: "api"`, you will need to update the resource via the REST API and remove the `managedBy` property.
 - If a resource was created in the app or via the REST API (and has `managedBy: "admin"`), it can be unmarked as "Official" in the app or via the REST API.
 
-:::note
+:::note Limited support for marking Official Resources
 
-At this time, only `Legacy Metrics`, `Fact Metrics`, and `Fact Tables` can be marked or unmarked as "Official" in the app. We are actively working on adding this feature to other resource types.
+At this time, only `Fact Metrics`, and `Fact Tables` can be marked or unmarked as "Official" in the app. We are actively working on adding this feature to other resource types.
 
 :::
 

@@ -9,9 +9,7 @@ import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 # Multiple Testing Corrections
 
-:::note
-
-Multiple testing corrections are only implemented for the Frequentist statistics engine.
+:::info Multiple testing corrections are only implemented for the Frequentist statistics engine.
 
 :::
 
@@ -53,7 +51,7 @@ You can set this for your organization in the Organization → Settings page, as
 
 Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI or in downloadable CSVs and not exportable via the API.
 
-:::tip
+:::tip Adjusted p-values do not have directly analogous confidence intervals
 
 The corrections we implement do not have directly analogous confidence intervals. Nonetheless, we do construct confidence intervals in an ad-hoc manner after adjusting p-values. We take the adjusted p-values and we back out what the experiment effect standard deviation would need to be to produce that adjusted p-value. We then construct CIs using this adjusted standard deviation. In this way, adjusted p-values below your p-value threshold should always coincide with confidence intervals that do not cross zero.
 
@@ -79,7 +77,7 @@ Therefore, in order to provide a reasonably powered approach that controls the F
 
 Controlling for multiple comparisons across all of the tests one can run in GrowthBook, even within the context of one experiment, is impractical and can be prohibitively costly in terms of statistical power. Instead, GrowthBook corrects across all Goal metrics, variations, (and dimension values, if available) in a particular result view.
 
-:::tip
+:::tip Adjusted p-values are corrected using all Goal metrics
 
 We correct using all p-values for all **Goal** metrics; this excludes Secondary and Guardrail metrics.
 

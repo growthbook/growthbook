@@ -61,6 +61,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       variationNames: ["control", "variation"],
       queryParentId: this.model.id,
       factTableMap: params.factTableMap,
+      experimentQueryMetadata: null,
     };
 
     return startExperimentResultQueries(

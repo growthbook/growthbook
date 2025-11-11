@@ -109,6 +109,7 @@ export async function checkAndRollbackSafeRollout({
     });
     await editFeatureRule(
       context,
+      feature,
       revision,
       updatedSafeRollout.environment,
       ruleIndex,

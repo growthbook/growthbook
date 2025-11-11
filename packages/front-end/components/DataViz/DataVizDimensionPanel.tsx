@@ -15,10 +15,12 @@ export default function DataVizDimensionPanel({
   dataVizConfig,
   onDataVizConfigChange,
   axisKeys,
+  label = "Dimension",
 }: {
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
   axisKeys: string[];
+  label?: string;
 }) {
   if (!supportsDimension(dataVizConfig)) {
     return null;
@@ -54,14 +56,16 @@ export default function DataVizDimensionPanel({
               <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
                 <Flex justify="between" align="center">
                   <Flex align="center" gap="1">
-                    <PiNetwork
-                      style={{
-                        color: "var(--violet-11)",
-                        transform: "rotate(-90deg)",
-                      }}
-                      size={20}
-                    />
-                    Dimensions
+                    {label === "Dimension" ? (
+                      <PiNetwork
+                        style={{
+                          color: "var(--violet-11)",
+                          transform: "rotate(-90deg)",
+                        }}
+                        size={20}
+                      />
+                    ) : null}
+                    {label}s
                     <Badge
                       label={dimensions.length.toString()}
                       color="violet"
@@ -103,7 +107,9 @@ export default function DataVizDimensionPanel({
                           key={index}
                           label={
                             <Flex justify="between" align="center">
-                              <Text as="label">Dimension {index + 1}</Text>
+                              <Text as="label">
+                                {label} {index + 1}
+                              </Text>
                               <Box mb="2">
                                 <Button
                                   variant="ghost"
@@ -122,13 +128,15 @@ export default function DataVizDimensionPanel({
                           }
                           value={dimension.fieldName ?? ""}
                           setValue={(v) => {
-                            const display =
-                              dataVizConfig.chartType !== "bar"
-                                ? "grouped"
-                                : supportsDimension(dataVizConfig) &&
-                                    dataVizConfig.dimension?.[0]?.display
-                                  ? dataVizConfig.dimension[0].display
-                                  : "grouped";
+                            const isBarOrArea =
+                              dataVizConfig.chartType === "bar" ||
+                              dataVizConfig.chartType === "area";
+                            const display: "grouped" | "stacked" = isBarOrArea
+                              ? supportsDimension(dataVizConfig) &&
+                                dataVizConfig.dimension?.[0]?.display
+                                ? dataVizConfig.dimension[0].display
+                                : "grouped"
+                              : "grouped";
                             onDataVizConfigChange({
                               ...dataVizConfig,
                               dimension: [
@@ -138,7 +146,7 @@ export default function DataVizDimensionPanel({
                                   maxValues: dimension.maxValues || 5,
                                 },
                               ],
-                            });
+                            } as Partial<DataVizConfig>);
                           }}
                           size="2"
                           placeholder="Select a dimension"
@@ -238,7 +246,7 @@ export default function DataVizDimensionPanel({
                                           maxValues,
                                         },
                                       ],
-                                    });
+                                    } as Partial<DataVizConfig>);
                                   }}
                                 />
                               </Flex>
@@ -269,7 +277,7 @@ export default function DataVizDimensionPanel({
                   }}
                 >
                   <FaPlusCircle className="mr-1" />
-                  Add Dimension
+                  Add {label}
                 </a>
               ) : null}
             </Flex>

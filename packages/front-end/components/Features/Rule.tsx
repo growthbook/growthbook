@@ -5,7 +5,7 @@ import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
@@ -232,10 +232,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   color="gray"
                 />
               </Box>
-              <Box flexGrow="1" flexShrink="5" overflowX="auto">
-                <Flex align="center" mb="3" flexGrow="1">
-                  <Box flexGrow="1">
-                    <Heading as="h4" size="3" weight="medium" mb="0">
+              <Box flexGrow="1" pr="2">
+                <Flex align="center" justify="between" mb="3" flexGrow="1">
+                  <Flex
+                    flexGrow="1"
+                    gap="3"
+                    justify="between"
+                    mr="3"
+                    align="center"
+                  >
+                    <Heading
+                      as="h4"
+                      size="3"
+                      weight="medium"
+                      mb="0"
+                      className="w-100"
+                    >
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
                           {linkedExperiment.type === "multi-armed-bandit"
@@ -259,9 +271,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
-                          {!locked && rule.enabled !== false && (
-                            <div
-                              className="ml-auto"
+                          {!locked && rule.enabled !== false ? (
+                            <Flex
+                              flexGrow="1"
+                              justify="end"
                               style={{ marginBottom: -10 }}
                             >
                               <DecisionCTA
@@ -270,15 +283,116 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   setSafeRolloutStatusModalOpen(true);
                                 }}
                               />
-                            </div>
-                          )}
+                            </Flex>
+                          ) : null}
                         </Flex>
                       ) : (
                         title
                       )}
                     </Heading>
-                  </Box>
-                  {info.pill}
+                    {info.pill}
+                  </Flex>
+                  {canEdit && (
+                    <Flex>
+                      <MoreMenu useRadix={true} size={14}>
+                        <a
+                          href="#"
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setRuleModal({ environment, i, mode: "edit" });
+                          }}
+                        >
+                          Edit
+                        </a>
+                        <Button
+                          color=""
+                          className="dropdown-item"
+                          onClick={async () => {
+                            track(
+                              rule.enabled
+                                ? "Disable Feature Rule"
+                                : "Enable Feature Rule",
+                              {
+                                ruleIndex: i,
+                                environment,
+                                type: rule.type,
+                              },
+                            );
+                            const res = await apiCall<{ version: number }>(
+                              `/feature/${feature.id}/${version}/rule`,
+                              {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  environment,
+                                  rule: {
+                                    ...rule,
+                                    enabled: !rule.enabled,
+                                  },
+                                  i,
+                                }),
+                              },
+                            );
+                            await mutate();
+                            res.version && setVersion(res.version);
+                          }}
+                        >
+                          {rule.enabled ? "Disable" : "Enable"}
+                        </Button>
+                        {environments.length > 1 && (
+                          <Button
+                            color=""
+                            className="dropdown-item"
+                            onClick={() => {
+                              setCopyRuleModal({ environment, rules: [rule] });
+                            }}
+                          >
+                            Copy rule to environment(s)
+                          </Button>
+                        )}
+                        {rule.type !== "experiment-ref" && (
+                          <Button
+                            color=""
+                            className="dropdown-item"
+                            onClick={() => {
+                              setRuleModal({
+                                environment,
+                                i,
+                                mode: "duplicate",
+                              });
+                            }}
+                          >
+                            Duplicate rule
+                          </Button>
+                        )}
+                        <DeleteButton
+                          className="dropdown-item"
+                          displayName="Rule"
+                          useIcon={false}
+                          text="Delete"
+                          onClick={async () => {
+                            track("Delete Feature Rule", {
+                              ruleIndex: i,
+                              environment,
+                              type: rule.type,
+                            });
+                            const res = await apiCall<{ version: number }>(
+                              `/feature/${feature.id}/${version}/rule`,
+                              {
+                                method: "DELETE",
+                                body: JSON.stringify({
+                                  environment,
+                                  i,
+                                }),
+                              },
+                            );
+                            await mutate();
+                            res.version && setVersion(res.version);
+                          }}
+                        />
+                      </MoreMenu>
+                    </Flex>
+                  )}
                 </Flex>
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
@@ -291,17 +405,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </>
                   ) : null}
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <Flex align="center" justify="start" gap="3">
-                      <Box pb="3">
-                        <strong className="font-weight-semibold">IF</strong>
-                      </Box>
-                      <Box
-                        width="100%"
-                        flexShrink="4"
-                        flexGrow="1"
-                        overflowX="auto"
-                        pb="3"
-                      >
+                    <Flex direction="row" gap="2" mb="3">
+                      <Text weight="medium">IF</Text>
+                      <Box>
                         <ConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
@@ -381,108 +487,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 </Box>
               </Box>
-              <Flex>
-                {canEdit && (
-                  <MoreMenu useRadix={true} size={14}>
-                    <a
-                      href="#"
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRuleModal({ environment, i, mode: "edit" });
-                      }}
-                    >
-                      Edit
-                    </a>
-                    <Button
-                      color=""
-                      className="dropdown-item"
-                      onClick={async () => {
-                        track(
-                          rule.enabled
-                            ? "Disable Feature Rule"
-                            : "Enable Feature Rule",
-                          {
-                            ruleIndex: i,
-                            environment,
-                            type: rule.type,
-                          },
-                        );
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              environment,
-                              rule: {
-                                ...rule,
-                                enabled: !rule.enabled,
-                              },
-                              i,
-                            }),
-                          },
-                        );
-                        await mutate();
-                        res.version && setVersion(res.version);
-                      }}
-                    >
-                      {rule.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    {environments.length > 1 && (
-                      <Button
-                        color=""
-                        className="dropdown-item"
-                        onClick={() => {
-                          setCopyRuleModal({ environment, rules: [rule] });
-                        }}
-                      >
-                        Copy rule to environment(s)
-                      </Button>
-                    )}
-                    {rule.type !== "experiment-ref" && (
-                      <Button
-                        color=""
-                        className="dropdown-item"
-                        onClick={() => {
-                          setRuleModal({ environment, i, mode: "duplicate" });
-                        }}
-                      >
-                        Duplicate rule
-                      </Button>
-                    )}
-                    <DeleteButton
-                      className="dropdown-item"
-                      displayName="Rule"
-                      useIcon={false}
-                      text="Delete"
-                      onClick={async () => {
-                        track("Delete Feature Rule", {
-                          ruleIndex: i,
-                          environment,
-                          type: rule.type,
-                        });
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "DELETE",
-                            body: JSON.stringify({
-                              environment,
-                              i,
-                            }),
-                          },
-                        );
-                        await mutate();
-                        res.version && setVersion(res.version);
-                      }}
-                    />
-                  </MoreMenu>
-                )}
-              </Flex>
             </Flex>
           </Card>
         </Box>
       </Box>
     );
+
     return safeRollout ? (
       <SafeRolloutSnapshotProvider
         safeRollout={safeRollout}
