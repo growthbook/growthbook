@@ -1,10 +1,16 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
+import { format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
+import { prestoCreateTablePartitions } from "shared/enterprise";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
-import { QueryResponse } from "back-end/src/types/Integration";
+import {
+  QueryResponse,
+  MaxTimestampIncrementalUnitsQueryParams,
+  MaxTimestampMetricSourceQueryParams,
+} from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -25,6 +31,9 @@ export default class Presto extends SqlIntegration {
   }
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
   }
   runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: IPrestoClientOptions = {
@@ -87,6 +96,9 @@ export default class Presto extends SqlIntegration {
             statistics.executionDurationMs = Number(stats.wallTimeMillis);
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
+            statistics.physicalWrittenBytes = Number(
+              stats.physicalWrittenBytes,
+            );
           }
         },
         success: () => {
@@ -127,13 +139,70 @@ export default class Presto extends SqlIntegration {
   hllAggregate(col: string): string {
     return `APPROX_SET(${col})`;
   }
+  castToHyperLogLog(col: string): string {
+    return `CAST(${col} AS HyperLogLog)`;
+  }
   hllReaggregate(col: string): string {
-    return `MERGE(${col})`;
+    return `MERGE(${this.castToHyperLogLog(col)})`;
   }
   hllCardinality(col: string): string {
     return `CARDINALITY(${col})`;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
+  }
+
+  createTablePartitions(columns: string[]) {
+    return prestoCreateTablePartitions(columns);
+  }
+
+  // FIXME(incremental-refresh): Consider using 2 separate queries to create table and insert data instead of ignored cteSql
+  // NB: CREATE AS CTE does not work when inserting databecause of a bug with timestamp columns with Hive
+  getExperimentUnitsTableQueryFromCte(
+    unitsTableFullName: string,
+    _cteSql: string,
+  ): string {
+    return format(
+      `CREATE TABLE ${unitsTableFullName} (
+        user_id ${this.getDataType("string")},
+        variation ${this.getDataType("string")},
+        first_exposure_timestamp ${this.getDataType("timestamp")}
+    )
+      ${this.createUnitsTableOptions()}
+    `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getTablePartitionsTableName(fullTableName: string) {
+    const lastDotIndex = fullTableName.lastIndexOf(".");
+    return lastDotIndex >= 0
+      ? fullTableName.substring(0, lastDotIndex + 1) +
+          `"${fullTableName.substring(lastDotIndex + 1)}$partitions"`
+      : `"${fullTableName}$partitions"`;
+  }
+
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT MAX(max_timestamp) AS max_timestamp
+      FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getMaxTimestampMetricSourceQuery(
+    params: MaxTimestampMetricSourceQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT MAX(max_timestamp) AS max_timestamp
+      FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}
+      `,
+      this.getFormatDialect(),
+    );
   }
 }

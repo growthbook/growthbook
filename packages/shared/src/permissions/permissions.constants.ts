@@ -46,7 +46,9 @@ export const POLICIES = [
   "DecisionCriteriaFullAccess",
   "SqlExplorerFullAccess",
   "HoldoutsFullAccess",
+  "CustomHooksFullAccess",
   "ManageOfficialResources",
+  "GeneralDashboardsFullAccess",
 ] as const;
 
 export type Policy = (typeof POLICIES)[number];
@@ -132,8 +134,10 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
   CustomFieldsFullAccess: ["readData", "manageCustomFields"],
   TemplatesFullAccess: ["readData", "manageTemplates"],
+  GeneralDashboardsFullAccess: ["readData", "manageGeneralDashboards"],
   SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
   HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
+  CustomHooksFullAccess: ["readData", "manageCustomHooks"],
   ManageOfficialResources: [
     "readData",
     "manageOfficialResources",
@@ -403,10 +407,18 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Holdouts Full Access",
     description: "Create, edit, and delete holdouts",
   },
+  CustomHooksFullAccess: {
+    displayName: "Custom Hooks Full Access",
+    description: "Create, edit, and delete custom hooks",
+  },
   ManageOfficialResources: {
     displayName: "Manage Official Resources",
     description:
       "Create, edit, and delete official resources. For example: Manage resources like Fact Tables, Metrics, Segments, etc that have been marked as 'Official'.",
+  },
+  GeneralDashboardsFullAccess: {
+    displayName: "General Dashboards Full Access",
+    description: "Create, edit, and delete Product Analytics dashboards.",
   },
 };
 
@@ -479,6 +491,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   experimenter: {
@@ -511,6 +524,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   admin: {
@@ -564,6 +578,8 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
+  "manageCustomHooks",
+  "manageGeneralDashboards",
   "manageOfficialResources",
   "bypassSavedGroupSizeLimit",
 ] as const;

@@ -40,6 +40,12 @@
     line-height: 1.5 !important;
     font-size: 0.875rem !important;
   }
+
+  &.uppercase {
+    [class^="admonitionHeading"] {
+      text-transform: uppercase;
+    }
+  }
 }
 
 .theme-admonition-note,

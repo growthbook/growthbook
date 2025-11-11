@@ -8,8 +8,10 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
+import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
 import format from "date-fns/format";
+import Link from "next/link";
 import {
   condToJson,
   jsonToConds,
@@ -41,7 +43,7 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { savedGroups } = useDefinitions();
+  const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
 
@@ -440,6 +442,24 @@ export default function ConditionInput(props: Props) {
                       value={value}
                       onChange={(v) => {
                         handleCondsChange(v, "value");
+                      }}
+                      formatOptionLabel={(o, meta) => {
+                        if (meta.context !== "value" || !o.value)
+                          return o.label;
+                        const group = getSavedGroupById(o.value);
+                        const link =
+                          group?.type === "list"
+                            ? `/saved-groups/${group.id}`
+                            : "/saved-groups#conditionGroups";
+                        return (
+                          <Link
+                            href={link}
+                            target="_blank"
+                            style={{ position: "relative", zIndex: 1000 }}
+                          >
+                            {o.label} <PiArrowSquareOut />
+                          </Link>
+                        );
                       }}
                       name="value"
                       initialOption="Choose group..."
