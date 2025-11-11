@@ -10,6 +10,17 @@ class UnrecoverableApiError extends Error {
   }
 }
 
+// Allowed HTTP methods for proxy requests
+const ALLOWED_HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"] as const;
+type AllowedHttpMethod = (typeof ALLOWED_HTTP_METHODS)[number];
+
+function validateHttpMethod(method: string): AllowedHttpMethod {
+  if (!ALLOWED_HTTP_METHODS.includes(method as AllowedHttpMethod)) {
+    throw new UnrecoverableApiError(`Invalid HTTP method: ${method}.`);
+  }
+  return method as AllowedHttpMethod;
+}
+
 export const proxyStatsigRequest = async (
   req: AuthRequest<{
     endpoint: string;
@@ -40,11 +51,14 @@ export const proxyStatsigRequest = async (
     });
   }
 
+  // Validate HTTP method
+  const validatedMethod = validateHttpMethod(method);
+
   try {
     const url = `https://statsigapi.net/console/v1/${endpoint}`;
 
     const response = await fetch(url, {
-      method,
+      method: validatedMethod,
       headers: {
         "STATSIG-API-KEY": apiKey,
         "STATSIG-API-VERSION": apiVersion,
