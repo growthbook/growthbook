@@ -264,7 +264,12 @@ export default function EditSqlModal({
       header={
         <span>
           Edit SQL for {modalInfo.objectType}
-          {modalInfo.objectName && <i>{modalInfo.objectName}</i>}
+          {modalInfo.objectName && (
+            <>
+              {" "}
+              <i>{modalInfo.objectName}</i>
+            </>
+          )}
         </span>
       }
       submit={form.handleSubmit(async (value) => {
