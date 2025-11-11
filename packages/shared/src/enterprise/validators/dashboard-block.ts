@@ -222,11 +222,16 @@ const metricExplorerBlockInterface = baseBlockInterface
   })
   .strict();
 
+const apiMetricExplorerBlockInterface = metricExplorerBlockInterface
+  .omit({ analysisSettings: true })
+  .safeExtend({ analysisSettings: metricAnalysisSettingsStringDatesValidator });
+
 export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
-export const dashboardBlockInterface = z.discriminatedUnion("type", [
+// Blocks that are the same for both the standard interface and the api interface
+const standardAndApiCommonBlocks = [
   markdownBlockInterface,
   experimentMetadataBlockInterface,
   experimentMetricBlockInterface,
@@ -234,7 +239,15 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTimeSeriesBlockInterface,
   experimentTrafficBlockInterface,
   sqlExplorerBlockInterface,
+];
+
+export const dashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorerBlockInterface,
+  ...standardAndApiCommonBlocks,
+]);
+export const apiDashboardBlockInterface = z.discriminatedUnion("type", [
+  apiMetricExplorerBlockInterface,
+  ...standardAndApiCommonBlocks,
 ]);
 export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [
   legacyExperimentDescriptionBlockInterface,
@@ -249,6 +262,9 @@ export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [
 ]);
 
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
+export type ApiDashboardBlockInterface = z.infer<
+  typeof apiDashboardBlockInterface
+>;
 export type DashboardBlockType = DashboardBlockInterface["type"];
 
 export type LegacyDashboardBlockInterface = z.infer<
@@ -271,8 +287,21 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   sqlExplorerBlockInterface.omit(createOmits),
   metricExplorerBlockInterface.omit(createOmits),
 ]);
+export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
+  markdownBlockInterface.omit(createOmits),
+  experimentMetadataBlockInterface.omit(createOmits),
+  experimentMetricBlockInterface.omit(createOmits),
+  experimentDimensionBlockInterface.omit(createOmits),
+  experimentTimeSeriesBlockInterface.omit(createOmits),
+  experimentTrafficBlockInterface.omit(createOmits),
+  sqlExplorerBlockInterface.omit(createOmits),
+  apiMetricExplorerBlockInterface.omit(createOmits),
+]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
+>;
+export type ApiCreateDashboardBlockInterface = z.infer<
+  typeof apiCreateDashboardBlockInterface
 >;
 
 // Allow templates to specify a partial of the individual block fields
