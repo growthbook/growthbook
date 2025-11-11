@@ -89,6 +89,13 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "Product Analytics",
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
+    Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
+  },
+  {
     name: "Metrics and Data",
     href: "/metrics",
     path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
@@ -128,13 +135,6 @@ const navlinks: SidebarLinkProps[] = [
         filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
-  },
-  {
-    name: "Product Analytics",
-    href: "/product-analytics/dashboards",
-    path: /^(product-analytics\/dashboards)/,
-    Icon: GBProductAnalytics,
-    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
   },
   {
     name: "Insights",

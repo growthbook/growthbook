@@ -176,12 +176,9 @@ export default function EditSingleBlock({
     useState<string>("");
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
-  const {
-    defaultSnapshot,
-    dimensionless,
-    updateAllSnapshots,
-    savedQueriesMap,
-  } = useContext(DashboardSnapshotContext);
+  const { defaultSnapshot, dimensionless, updateAllSnapshots } = useContext(
+    DashboardSnapshotContext,
+  );
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
 
@@ -483,24 +480,38 @@ export default function EditSingleBlock({
     incrementalRefresh,
   ]);
 
+  const savedQueryId = blockHasFieldOfType(block, "savedQueryId", isString)
+    ? block.savedQueryId
+    : undefined;
+
   const savedQueryOptions = useMemo(
     () =>
       savedQueriesData?.savedQueries
         ?.filter((savedQuery) => {
-          return savedQuery.linkedDashboardIds?.includes(dashboardId);
+          return (
+            savedQuery.linkedDashboardIds?.includes(dashboardId) ||
+            savedQueryId === savedQuery.id
+          );
         })
         .map(({ id, name }) => ({
           value: id,
           label: name,
         })) || [],
-    [savedQueriesData?.savedQueries, dashboardId],
+    [savedQueriesData?.savedQueries, dashboardId, savedQueryId],
   );
 
   useEffect(() => {
-    if (sqlExplorerType === "existing" && !savedQueryOptions.length) {
+    if (
+      block?.type === "sql-explorer" &&
+      sqlExplorerType === "existing" &&
+      !savedQueryOptions.length &&
+      !savedQueryId
+    ) {
       setSqlExplorerType("create");
+      setShowSqlExplorerModal(true);
     }
-  }, [savedQueryOptions.length, sqlExplorerType]);
+  }, [block?.type, savedQueryId, savedQueryOptions.length, sqlExplorerType]);
+
   const dimensionValueOptions = analysis?.results
     ? analysis.results.map(({ name }) => ({ value: name, label: name }))
     : [];
@@ -561,58 +572,46 @@ export default function EditSingleBlock({
           projects={projects}
           id={savedQuery?.id}
           dashboardId={dashboardId}
-          onSave={async (
-            savedQueryId: string | undefined,
-            name: string | undefined,
-          ) => {
+          onSave={async ({
+            savedQueryId,
+            name,
+            newVisualizationIds,
+            allVisualizationIds,
+          }) => {
             if (!block || block.type !== "sql-explorer" || !savedQueryId)
               return;
 
-            const isNewQuery = !blockHasFieldOfType(
-              block,
-              "savedQueryId",
-              isString,
-            );
+            // Start with existing block config
+            let newBlockConfig = [...(block.blockConfig || [])];
 
-            // Update block with saved query ID
+            // No visualizations: always show results table
+            if (allVisualizationIds.length === 0) {
+              newBlockConfig = [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE];
+            } else {
+              // Add all new visualizations to existing block config
+              newBlockConfig.push(...newVisualizationIds);
+
+              // Filter out any visualizations that no longer exist
+              newBlockConfig = newBlockConfig.filter((itemId) => {
+                if (itemId === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE) {
+                  return true;
+                }
+                return allVisualizationIds.includes(itemId);
+              });
+
+              // Remove duplicates (this should never happen, but just in case)
+              newBlockConfig = Array.from(new Set(newBlockConfig));
+            }
+
             setBlock({
               ...block,
               savedQueryId,
               title: name || "SQL Query",
+              blockConfig: newBlockConfig,
             });
             setSqlExplorerType("existing");
-
-            // Refresh dashboard data to get latest saved query info
+            await mutateQuery();
             await updateAllSnapshots();
-
-            // Update blockConfig based on saved query visualizations
-            const updatedSavedQuery = savedQueriesMap.get(savedQueryId);
-            if (updatedSavedQuery?.dataVizConfig) {
-              const visualizationIds = updatedSavedQuery.dataVizConfig
-                .map((viz) => viz.id)
-                .filter((id): id is string => Boolean(id));
-
-              let newBlockConfig: string[];
-
-              if (isNewQuery) {
-                // New query: enable results table and all visualizations
-                newBlockConfig = [
-                  BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                  ...visualizationIds,
-                ];
-              } else {
-                // Existing query: preserve existing config and add new visualizations
-                const existingConfig = block.blockConfig || [];
-                newBlockConfig = [...existingConfig];
-              }
-
-              setBlock({
-                ...block,
-                blockConfig: newBlockConfig,
-              });
-            }
-
-            mutateQuery();
           }}
         />
       )}
@@ -1228,7 +1227,7 @@ export default function EditSingleBlock({
                               (option) => option.value === val,
                             )?.label || "SQL Query",
                           savedQueryId: val,
-                          blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+                          blockConfig: [],
                         });
                       }}
                       isClearable
@@ -1257,22 +1256,6 @@ export default function EditSingleBlock({
                           >
                             Customize Display
                           </Text>
-                          <Checkbox
-                            label="Query results table"
-                            size="md"
-                            value={isBlockConfigItemSelected(
-                              block.blockConfig,
-                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                            )}
-                            setValue={(value) =>
-                              toggleBlockConfigItem(
-                                block,
-                                setBlock,
-                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                                value,
-                              )
-                            }
-                          />
                           {savedQuery?.dataVizConfig?.map((config, index) => {
                             const title =
                               config.title || `Visualization ${index + 1}`;
@@ -1297,6 +1280,23 @@ export default function EditSingleBlock({
                               />
                             );
                           })}
+                          <Checkbox
+                            key="results-table"
+                            label="Query results table"
+                            size="md"
+                            value={isBlockConfigItemSelected(
+                              block.blockConfig,
+                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                            )}
+                            setValue={(value) =>
+                              toggleBlockConfigItem(
+                                block,
+                                setBlock,
+                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                                value,
+                              )
+                            }
+                          />
                         </Flex>
                       </>
                     )}
