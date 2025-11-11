@@ -77,52 +77,64 @@ export function getModelsForProvider(provider: AIProvider): string[] {
   return AI_PROVIDER_MODEL_MAP[provider] || [];
 }
 
+// Determine provider from model name
+export function getProviderFromModel(model: string): AIProvider | null {
+  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
+    if (models.includes(model as never)) {
+      return provider as AIProvider;
+    }
+  }
+  return null;
+}
+
 // Require a minimum of 30 tokens for responses.
 const getMessageTokenLimit = (provider: AIProvider) =>
   AI_PROVIDER_CONFIGS[provider].maxTokens - 30;
 
 export const getAIProvider = (
   context: ReqContext | ApiReqContext,
-  overrideProvider?: AIProvider,
   overrideModel?: string,
 ) => {
-  const {
-    aiEnabled,
-    aiProvider,
-    openAIAPIKey,
-    anthropicAPIKey,
-    defaultAIModel,
-  } = getAISettingsForOrg(context, true);
+  const { aiEnabled, openAIAPIKey, anthropicAPIKey, defaultAIModel } =
+    getAISettingsForOrg(context, true);
 
-  // Use override provider if specified, otherwise use org default
-  const selectedProvider = overrideProvider || aiProvider;
+  // Determine the model to use (override > default)
+  const modelToUse = overrideModel || defaultAIModel;
+
+  let selectedProvider = null;
+
+  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
+    if (models.includes(modelToUse as never)) {
+      selectedProvider = provider as AIProvider;
+      break;
+    }
+  }
+  if (!selectedProvider) {
+    throw new Error(`Model ${modelToUse} is not supported.`);
+  }
 
   if (!aiEnabled) {
     return {
       provider: null,
-      model: overrideModel || defaultAIModel,
+      model: modelToUse,
       config: AI_PROVIDER_CONFIGS[selectedProvider],
     };
   }
 
   let provider = null;
-  let model = "";
-
   if (selectedProvider === "anthropic" && anthropicAPIKey) {
     provider = createAnthropic({
       apiKey: anthropicAPIKey,
     });
-    model = overrideModel || defaultAIModel;
   } else if (selectedProvider === "openai" && openAIAPIKey) {
     provider = createOpenAI({
       apiKey: openAIAPIKey,
     });
-    model = overrideModel || defaultAIModel;
   }
 
   return {
     provider,
-    model,
+    model: modelToUse,
     config: AI_PROVIDER_CONFIGS[selectedProvider],
   };
 };
@@ -221,7 +233,6 @@ export const simpleCompletion = async ({
   isDefaultPrompt,
   returnType = "text",
   jsonSchema,
-  overrideProvider,
   overrideModel,
 }: {
   context: ReqContext | ApiReqContext;
@@ -233,14 +244,13 @@ export const simpleCompletion = async ({
   isDefaultPrompt: boolean;
   returnType?: "text" | "json";
   jsonSchema?: ZodObject<ZodRawShape>;
-  overrideProvider?: AIProvider;
   overrideModel?: string;
 }) => {
   const {
     provider: aiProvider,
     model,
     config,
-  } = getAIProvider(context, overrideProvider, overrideModel);
+  } = getAIProvider(context, overrideModel);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -328,7 +338,6 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt,
   zodObjectSchema,
   model,
-  overrideProvider,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -339,13 +348,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
   model?: string;
-  overrideProvider?: AIProvider;
 }): Promise<z.infer<T>> => {
   const {
     provider: aiProvider,
     model: defaultModel,
     config,
-  } = getAIProvider(context, overrideProvider, model);
+  } = getAIProvider(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");

@@ -16,20 +16,26 @@ export type AiModel =
   | "gpt-4-turbo"
   | "gpt-4"
   | "gpt-3.5-turbo"
-  | "claude-3-5-sonnet-20241022"
+  | "claude-haiku-4-5-20251001"
+  | "claude-sonnet-4-5-20250929"
+  | "claude-opus-4-1-20250805"
+  | "claude-opus-4-20250514"
+  | "claude-sonnet-4-20250514"
+  | "claude-3-7-sonnet-20250219"
   | "claude-3-5-haiku-20241022"
-  | "claude-3-opus-20240229"
-  | "claude-3-sonnet-20240229"
   | "claude-3-haiku-20240307";
 
 // Available models for each provider
 export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AiModel[]> = {
   openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
   anthropic: [
-    "claude-3-5-sonnet-20241022",
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-5-20250929",
+    "claude-opus-4-1-20250805",
+    "claude-opus-4-20250514",
+    "claude-sonnet-4-20250514",
+    "claude-3-7-sonnet-20250219",
     "claude-3-5-haiku-20241022",
-    "claude-3-opus-20240229",
-    "claude-3-sonnet-20240229",
     "claude-3-haiku-20240307",
   ],
 };
@@ -45,7 +51,7 @@ export const AI_PROVIDER_CONFIGS: Record<AIProvider, AIProviderConfig> = {
   },
   anthropic: {
     provider: "anthropic",
-    textModel: "claude-3-haiku-20240307",
+    textModel: "claude-haiku-4-5-20251001",
     embeddingModel: undefined, // Anthropic doesn't have embedding models
     maxTokens: 200000,
     supportsJSON: true,
