@@ -1,0 +1,13 @@
+allOf:
+  - $ref: "./BaseBlock.yaml"
+  - type: object
+    required:
+      - type
+      - content
+    properties:
+      type:
+        type: string
+        enum:
+          - "markdown"
+      content:
+        type: string

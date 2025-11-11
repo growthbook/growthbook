@@ -1,0 +1,26 @@
+allOf:
+  - $ref: "./BaseBlock.yaml"
+  - type: object
+    required:
+      - type
+      - experimentId
+      - showDescription
+      - showHypothesis
+      - showVariationImages
+    properties:
+      type:
+        type: string
+        enum:
+          - "experiment-metadata"
+      experimentId:
+        type: string
+      showDescription:
+        type: boolean
+      showHypothesis:
+        type: boolean
+      showVariationImages:
+        type: boolean
+      variationIds:
+        type: array
+        items:
+          type: string

@@ -1,0 +1,67 @@
+parameters: []
+tags:
+  - dashboards
+summary: Create a single dashboard
+operationId: postDashboard
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/dashboards \
+        -d '{}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - title
+          - editLevel
+          - shareLevel
+          - enableAutoUpdates
+          - blocks
+        properties:
+          title:
+            type: string
+            description: The display name of the Dashboard
+          editLevel:
+            type: string
+            description: Dashboards that are "published" are editable by organization members with appropriate permissions
+            enum:
+              - published
+              - private
+          shareLevel:
+            type: string
+            description: General dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
+            enum:
+              - published
+              - private
+          enableAutoUpdates:
+            type: boolean
+          updateSchedule:
+            description: General dashboards only. Experiment Dashboards update based on the parent experiment instead
+            $ref: "../schemas/Dashboards/DashboardUpdateSchedule.yaml"
+          experimentId:
+            description: The parent experiment for an Experiment Dashboard, or undefined for a general dashboard
+            type: string
+          projects:
+            description: General dashboards only, experiment dashboards use the experiment's projects
+            type: array
+            items:
+              type: string
+          blocks:
+            type: array
+            items:
+              $ref: "../schemas/Dashboards/CreateDashboardBlock.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - dashboard
+          properties:
+            dashboard:
+              $ref: "../schemas/Dashboard.yaml"

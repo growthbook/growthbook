@@ -1,0 +1,19 @@
+allOf:
+  - $ref: "./BaseBlock.yaml"
+  - type: object
+    required:
+      - type
+      - experimentId
+      - showTable
+      - showTimeseries
+    properties:
+      type:
+        type: string
+        enum:
+          - "experiment-traffic"
+      experimentId:
+        type: string
+      showTable:
+        type: boolean
+      showTimeseries:
+        type: boolean

@@ -1,0 +1,66 @@
+type: object
+required:
+  - id
+  - uid
+  - organization
+  - userId
+  - editLevel
+  - shareLevel
+  - enableAutoUpdates
+  - title
+  - blocks
+  - dateCreated
+  - dateUpdated
+properties:
+  id:
+    type: string
+  uid:
+    type: string
+  organization:
+    type: string
+  experimentId:
+    type: string
+    description: For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment
+  userId:
+    type: string
+    description: The owner of the Dashboard
+  editLevel:
+    type: string
+    description: Dashboards that are "published" are editable by organization members with appropriate permissions
+    enum:
+      - published
+      - private
+  shareLevel:
+    type: string
+    description: Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions
+    enum:
+      - published
+      - private
+  enableAutoUpdates:
+    type: boolean
+  updateSchedule: 
+    description: Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead
+    $ref: "./Dashboards/DashboardUpdateSchedule.yaml"
+  title:
+    type: string
+  blocks:
+    type: array
+    items:
+      $ref: "./Dashboards/DashboardBlock.yaml"
+  projects:
+    type: array
+    description: General dashboards only, experiment dashboards use the experiment's projects
+    items:
+      type: string
+  nextUpdate:
+    type: string
+    format: date-time
+  lastUpdated:
+    type: string
+    format: date-time
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
