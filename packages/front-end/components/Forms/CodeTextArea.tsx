@@ -215,7 +215,7 @@ export type Props = CodeTextAreaFieldProps & {
   label?: React.ReactNode;
   labelClassName?: string;
   fullscreenLabel?: React.ReactNode;
-  additionalTopRightButton?: React.ReactNode;
+  codeEditorToggleButton?: React.ReactNode;
 };
 
 const LIGHT_THEME = "textmate";
@@ -240,7 +240,7 @@ export default function CodeTextArea({
   label,
   labelClassName,
   fullscreenLabel,
-  additionalTopRightButton,
+  codeEditorToggleButton,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -433,9 +433,16 @@ export default function CodeTextArea({
                     })
                   }
                 />
-                {additionalTopRightButton && !isFullscreen && (
-                  <div style={{ position: "absolute", top: 8, right: 8, zIndex: 1000 }}>
-                    {additionalTopRightButton}
+                {codeEditorToggleButton && !isFullscreen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      zIndex: 1000,
+                    }}
+                  >
+                    {codeEditorToggleButton}
                   </div>
                 )}
                 {(showCopyButton || showFullscreenButton) && (

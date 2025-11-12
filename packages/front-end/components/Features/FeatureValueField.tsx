@@ -68,7 +68,6 @@ export default function FeatureValueField({
     timeout: 800,
   });
 
-  // Initialize editor state for JSON fields (must be at top level for React hooks rules)
   const MAX_CODE_EDITOR_SIZE = 10 * 1024;
   const defaultUseCodeEditor = value.length <= MAX_CODE_EDITOR_SIZE;
   const [useCodeEditor, setUseCodeEditor] = useState(defaultUseCodeEditor);
@@ -163,7 +162,7 @@ export default function FeatureValueField({
     }
 
     // Code editor toggle button: used when field has no label, typically small fields
-    const floatingToggleButton = (
+    const codeEditorToggleButton = (
       <Tooltip
         body={
           useCodeEditor
@@ -187,7 +186,7 @@ export default function FeatureValueField({
     );
 
     // Code editor toggle switch: used when field has a label
-    const labelWithToggle = label ? (
+    const labelWithCodeEditorToggleSwitch = label ? (
       <Flex justify="between" align="center" width="100%">
         <div>{label}</div>
         <Switch
@@ -234,7 +233,7 @@ export default function FeatureValueField({
 
       return (
         <CodeTextArea
-          label={labelWithToggle || label}
+          label={labelWithCodeEditorToggleSwitch || label}
           labelClassName={label ? "d-block w-100" : undefined}
           fullscreenLabel={label}
           language="json"
@@ -247,20 +246,20 @@ export default function FeatureValueField({
           defaultHeight={codeInputDefaultHeight}
           showCopyButton={true}
           showFullscreenButton={showFullscreenButton}
-          additionalTopRightButton={label ? undefined : floatingToggleButton}
+          codeEditorToggleButton={label ? undefined : codeEditorToggleButton}
         />
       );
     }
     return (
       <JSONTextEditor
-        label={labelWithToggle || label}
+        label={labelWithCodeEditorToggleSwitch || label}
         labelClassName={label ? "d-block w-100" : undefined}
         value={value}
         setValue={setValue}
         helpText={helpText}
         placeholder={placeholder}
         disabled={disabled}
-        additionalTopRightButton={label ? undefined : floatingToggleButton}
+        codeEditorToggleButton={label ? undefined : codeEditorToggleButton}
       />
     );
   }
@@ -694,7 +693,7 @@ function JSONTextEditor({
   helpText,
   placeholder,
   disabled = false,
-  additionalTopRightButton,
+  codeEditorToggleButton,
 }: {
   label?: string | ReactNode;
   labelClassName?: string;
@@ -704,7 +703,7 @@ function JSONTextEditor({
   helpText?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
-  additionalTopRightButton?: ReactNode;
+  codeEditorToggleButton?: ReactNode;
 }) {
   let formatted;
   try {
@@ -771,9 +770,9 @@ function JSONTextEditor({
           </div>
         }
       />
-      {additionalTopRightButton && (
+      {codeEditorToggleButton && (
         <div style={{ position: "absolute", top: 9, right: 9, zIndex: 1000 }}>
-          {additionalTopRightButton}
+          {codeEditorToggleButton}
         </div>
       )}
     </div>
