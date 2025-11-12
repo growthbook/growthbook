@@ -1281,7 +1281,7 @@ export async function encrypt(
   if (!keyString) {
     throw new Error("Unable to encrypt the feature list.");
   }
-  const bufToBase64 = (x: Uint8Array) => Buffer.from(x).toString("base64");
+  const bufToBase64 = (x: ArrayBufferLike) => Buffer.from(x).toString("base64");
 
   const key = await crypto.subtle.importKey(
     "raw",
@@ -1294,15 +1294,13 @@ export async function encrypt(
     ["encrypt", "decrypt"],
   );
   const iv = crypto.getRandomValues(new Uint8Array(16));
-  const encryptedBuffer = new Uint8Array(
-    await crypto.subtle.encrypt(
-      {
-        name: "AES-CBC",
-        iv,
-      },
-      key,
-      new TextEncoder().encode(plainText),
-    ),
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    {
+      name: "AES-CBC",
+      iv,
+    },
+    key,
+    new TextEncoder().encode(plainText),
   );
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
