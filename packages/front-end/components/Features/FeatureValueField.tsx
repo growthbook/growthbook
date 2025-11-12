@@ -150,6 +150,9 @@ export default function FeatureValueField({
           helpText={helpText}
           placeholder={placeholder}
           disabled={disabled}
+          showCopyButton={true}
+          performCopy={performCopy}
+          copySuccess={copySuccess}
         />
       );
     }
@@ -237,6 +240,9 @@ export default function FeatureValueField({
         helpText={combinedHelpText}
         placeholder={placeholder}
         disabled={disabled}
+        showCopyButton={true}
+        performCopy={performCopy}
+        copySuccess={copySuccess}
       />
     );
   }
@@ -515,6 +521,10 @@ function SimpleSchemaEditor({
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
 
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+
   const fallback = (
     <JSONTextEditor
       value={value}
@@ -522,6 +532,9 @@ function SimpleSchemaEditor({
       label={label}
       placeholder={placeholder}
       disabled={disabled}
+      showCopyButton={true}
+      performCopy={performCopy}
+      copySuccess={copySuccess}
     />
   );
 
@@ -670,6 +683,9 @@ function JSONTextEditor({
   helpText,
   placeholder,
   disabled = false,
+  showCopyButton = false,
+  performCopy,
+  copySuccess,
 }: {
   label?: string | ReactNode;
   labelClassName?: string;
@@ -679,44 +695,77 @@ function JSONTextEditor({
   helpText?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
+  showCopyButton?: boolean;
+  performCopy?: (text: string) => void;
+  copySuccess?: boolean;
 }) {
   return (
-    <Field
-      labelClassName={
-        editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
-      }
-      placeholder={placeholder}
-      disabled={disabled}
-      label={
-        editAsForm ? (
-          <>
-            <div>{label}</div>
-            {editAsForm && (
-              <div className="ml-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    editAsForm();
-                  }}
-                >
-                  Edit as Form
-                </a>
-              </div>
-            )}
-          </>
-        ) : (
-          label
-        )
-      }
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      textarea
-      minRows={1}
-      helpText={helpText}
-    />
+    <div className="mb-2">
+      <div style={{ position: "relative" }}>
+        <Field
+          labelClassName={
+            editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
+          }
+          containerClassName="mb-0"
+          placeholder={placeholder}
+          disabled={disabled}
+          label={
+            editAsForm ? (
+              <>
+                <div>{label}</div>
+                {editAsForm && (
+                  <div className="ml-auto">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        editAsForm();
+                      }}
+                    >
+                      Edit as Form
+                    </a>
+                  </div>
+                )}
+              </>
+            ) : (
+              label
+            )
+          }
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+          }}
+          textarea
+          minRows={1}
+        />
+        {showCopyButton && performCopy && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              right: 16,
+              zIndex: 1000,
+            }}
+          >
+            <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
+              <IconButton
+                type="button"
+                radius="full"
+                variant="ghost"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!copySuccess) performCopy(value);
+                }}
+              >
+                {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+              </IconButton>
+            </Tooltip>
+          </div>
+        )}
+      </div>
+      {helpText && <div className="small form-text text-muted">{helpText}</div>}
+    </div>
   );
 }
 
@@ -747,6 +796,10 @@ function SimpleSchemaObjectArrayEditor({
 
   const [rawJSONInput, setRawJSONInput] = useState(!simpleEditorAllowed);
 
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+
   const fallback = (
     <JSONTextEditor
       label={label}
@@ -761,6 +814,9 @@ function SimpleSchemaObjectArrayEditor({
       }
       placeholder={placeholder}
       disabled={disabled}
+      showCopyButton={true}
+      performCopy={performCopy}
+      copySuccess={copySuccess}
     />
   );
 
