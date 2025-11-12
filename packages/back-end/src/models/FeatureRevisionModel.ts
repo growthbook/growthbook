@@ -12,6 +12,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import { logger } from "back-end/src/util/logger";
+import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -355,6 +356,8 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
+  await runValidateFeatureRevisionHooks(context, feature, revision);
+
   const doc = await FeatureRevisionModel.create(revision);
 
   // Fire and forget - no route that creates the revision expects the log to be there immediately
@@ -381,6 +384,7 @@ export async function createRevision({
 
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   changes: Partial<
     Pick<
@@ -414,6 +418,12 @@ export async function updateRevision(
     status = "pending-review";
   }
 
+  await runValidateFeatureRevisionHooks(context, feature, {
+    ...revision,
+    ...changes,
+    status,
+  });
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -439,6 +449,7 @@ export async function updateRevision(
 
 export async function markRevisionAsPublished(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
@@ -446,6 +457,20 @@ export async function markRevisionAsPublished(
   const action = revision.status === "draft" ? "publish" : "re-publish";
 
   const revisionComment = revision.comment ? revision.comment : comment;
+
+  const changes: Partial<FeatureRevisionInterface> = {
+    status: "published",
+    publishedBy: user,
+    datePublished: new Date(),
+    dateUpdated: new Date(),
+    comment: revisionComment,
+  };
+
+  await runValidateFeatureRevisionHooks(context, feature, {
+    ...revision,
+    ...changes,
+  });
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -453,13 +478,7 @@ export async function markRevisionAsPublished(
       version: revision.version,
     },
     {
-      $set: {
-        status: "published",
-        publishedBy: user,
-        datePublished: new Date(),
-        dateUpdated: new Date(),
-        comment: revisionComment,
-      },
+      $set: changes,
     },
   );
 

@@ -223,6 +223,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
             form.setValue("query", userEnteredQuery);
           }}
           validateResponseOverride={validateResponse}
+          sqlObjectInfo={{
+            objectType: "Experiment Assignment Query",
+            objectName: form.watch("name"),
+          }}
         />
       )}
 
