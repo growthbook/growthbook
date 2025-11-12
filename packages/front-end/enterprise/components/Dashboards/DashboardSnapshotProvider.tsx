@@ -382,7 +382,6 @@ export function useDashboardMetricAnalysis(
     | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>,
 ) {
   const {
-    dashboard,
     loading: contextLoading,
     error: contextError,
     mutateSnapshotsMap: mutateAnalysesMap,
@@ -478,7 +477,7 @@ export function useDashboardMetricAnalysis(
       endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
-      source: dashboard?.id ? `dashboard-${dashboard.id}` : "dashboard",
+      source: "dashboard",
       numeratorFilters: block.analysisSettings.numeratorFilters,
       denominatorFilters: block.analysisSettings.denominatorFilters,
     };
@@ -500,14 +499,7 @@ export function useDashboardMetricAnalysis(
     } finally {
       setPostLoading(false);
     }
-  }, [
-    setBlock,
-    blockHasMetricAnalysis,
-    block,
-    dashboard?.id,
-    apiCall,
-    mutateAnalysesMap,
-  ]);
+  }, [setBlock, blockHasMetricAnalysis, block, apiCall, mutateAnalysesMap]);
 
   useEffect(() => {
     if (

@@ -166,7 +166,6 @@ export async function updateExperimentDashboards({
     const blockUpdated = await updateDashboardMetricAnalyses(
       context,
       editableBlocks,
-      dashboard.id,
     );
     if (blockUpdated) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
@@ -183,7 +182,7 @@ export async function updateNonExperimentDashboard(
 ) {
   // Copy the blocks of the dashboard to overwrite their fields
   const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
-  await updateDashboardMetricAnalyses(context, newBlocks, dashboard.id);
+  await updateDashboardMetricAnalyses(context, newBlocks);
   await updateDashboardSavedQueries(context, newBlocks);
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
@@ -197,11 +196,7 @@ export async function updateNonExperimentDashboard(
 export async function updateDashboardMetricAnalyses(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
-  dashboardId?: string,
 ): Promise<boolean> {
-  // Determine the source to use - prefer dashboard-${dashboardId} if available
-  const source = dashboardId ? `dashboard-${dashboardId}` : "dashboard";
-
   // Filter to only blocks with metric analysis IDs
   const blocksWithMetricAnalysis = blocks.filter(
     (block): block is MetricExplorerBlockInterface =>
@@ -263,18 +258,11 @@ export async function updateDashboardMetricAnalyses(
         ];
       }
 
-      // Use the dashboard-specific source, preserving existing source if it's already dashboard-specific
-      // This ensures analysis from one dashboard doesn't affect another, given the adhoc nature of anaylsisSettings
-      const analysisSource =
-        metricAnalysis.source?.startsWith("dashboard-") && dashboardId
-          ? `dashboard-${dashboardId}`
-          : (metricAnalysis.source ?? source);
-
       const queryRunner = await createMetricAnalysis(
         context,
         metricWithFilters,
         settings,
-        analysisSource,
+        "dashboard",
         false,
       );
 

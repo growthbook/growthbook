@@ -9,18 +9,11 @@ export const metricAnalysisPopulationTypeValidator = z.enum([
   "segment",
 ]);
 
-export const metricAnalysisSourceValidator = z.string().refine(
-  (val) => {
-    // Allow "metric", "northstar", or "dashboard-${dashboardId}" format
-    return (
-      val === "metric" || val === "northstar" || val.startsWith("dashboard-")
-    );
-  },
-  {
-    message:
-      'Source must be "metric", "northstar", or "dashboard-${dashboardId}"',
-  },
-);
+export const metricAnalysisSourceValidator = z.enum([
+  "metric",
+  "northstar",
+  "dashboard",
+]);
 
 export const metricAnalysisSettingsValidator = z
   .object({
