@@ -495,9 +495,9 @@ export function upgradeOrganizationDoc(
         projects: [],
       },
     ];
-  } else if (org.settings?.requireReviews) {
+  } else if (org.settings?.requireReviews !== undefined) {
     org.settings.requireReviews.forEach((review) => {
-      if (!("requireReviewOnRevert" in review)) {
+      if (review.requireReviewOnRevert === undefined) {
         review.requireReviewOnRevert = false;
       }
     });
