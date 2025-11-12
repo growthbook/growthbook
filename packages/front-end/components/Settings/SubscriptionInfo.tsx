@@ -12,6 +12,8 @@ import Modal from "../Modal";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
 
+const CANCELLATION_SURVEY_URL = "https://form.typeform.com/to/kL75SA6F";
+
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
   const {
@@ -57,7 +59,7 @@ export default function SubscriptionInfo() {
           trackingEventModalType="cancellation-survey"
           close={() => setShowCancellationSurveyModal(false)}
           submit={async () => {
-            const surveyUrl = new URL("https://form.typeform.com/to/kL75SA6F");
+            const surveyUrl = new URL(CANCELLATION_SURVEY_URL);
             if (email) {
               surveyUrl.searchParams.set("email", email);
             }
@@ -75,6 +77,11 @@ export default function SubscriptionInfo() {
             <Text as="span">
               Can you spare 30 seconds to let us know what we can do better?
             </Text>
+            {email && (
+              <Text as="p" size="2" color="gray" mt="2">
+                Your email ({email}) will be included with your feedback.
+              </Text>
+            )}
           </Box>
         </Modal>
       )}
