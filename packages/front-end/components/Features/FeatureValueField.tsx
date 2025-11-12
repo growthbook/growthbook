@@ -67,8 +67,9 @@ export default function FeatureValueField({
     timeout: 800,
   });
 
-  const MAX_CODE_EDITOR_SIZE = 10 * 1024; // 10KB
-  const defaultCodeEditorToggledOn = value.length <= MAX_CODE_EDITOR_SIZE;
+  const MEDIUM_FILE_SIZE = 1 * 1024; // 1KB - disable dirty-json parsing
+  const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
+  const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
   const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
     defaultCodeEditorToggledOn,
   );
@@ -140,12 +141,32 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
+    // Skip expensive dirty-json parsing for medium+ files
+    // dirty-json uses slow RegExp operations that block the UI
+    const isMediumOrLargerJSON = value.length > MEDIUM_FILE_SIZE;
+
     let formatted;
-    try {
-      const parsed = dJSON.parse(value);
-      formatted = stringify(parsed);
-    } catch (e) {
-      // Ignore
+    if (!isMediumOrLargerJSON) {
+      try {
+        const parsed = dJSON.parse(value);
+        formatted = stringify(parsed);
+      } catch (e) {
+        // Ignore - if dirty-json fails, try native JSON.parse as fallback
+        try {
+          const parsed = JSON.parse(value);
+          formatted = stringify(parsed);
+        } catch (e2) {
+          // Ignore
+        }
+      }
+    } else {
+      // For medium+ files, only use native JSON.parse (much faster)
+      try {
+        const parsed = JSON.parse(value);
+        formatted = stringify(parsed);
+      } catch (e) {
+        // Invalid JSON - skip formatting for medium+ files to avoid blocking UI
+      }
     }
 
     const codeEditorToggleButton = useCodeInput ? (
