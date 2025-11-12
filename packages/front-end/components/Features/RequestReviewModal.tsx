@@ -77,11 +77,12 @@ export default function RequestReviewModal({
   const mergeResult = useMemo(() => {
     if (isRevert) {
       return {
-        success: true,
-        result: revision,
+        success: true as const,
+        result: {
+          defaultValue: revision?.defaultValue,
+          rules: revision?.rules,
+        },
         conflicts: [],
-        defaultValue: revision?.defaultValue,
-        rules: revision?.rules,
       };
     }
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -188,14 +189,14 @@ export default function RequestReviewModal({
 
     const result = mergeResult.result;
 
-    if (result?.defaultValue !== undefined) {
+    if (result.defaultValue !== undefined) {
       diffs.push({
         title: "Default Value",
         a: feature.defaultValue,
         b: result.defaultValue,
       });
     }
-    if (result?.rules) {
+    if (result.rules) {
       environments.forEach((env) => {
         const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
         if (result?.rules && result?.rules[env.id]) {
