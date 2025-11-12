@@ -1,12 +1,10 @@
 import { format as sqlFormat } from "sql-formatter";
 import { FormatDialect, FormatError } from "./types";
-import { stringToBoolean } from "./util";
 
 export const SQL_ROW_LIMIT = 1000;
 
 export const MAX_SQL_LENGTH_TO_FORMAT = parseInt(
-  process.env.MAX_SQL_LENGTH_TO_FORMAT ||
-    (stringToBoolean(process.env.IS_CLOUD) ? "15000" : "0"),
+  process.env.MAX_SQL_LENGTH_TO_FORMAT || "15000",
 );
 
 export function format(
