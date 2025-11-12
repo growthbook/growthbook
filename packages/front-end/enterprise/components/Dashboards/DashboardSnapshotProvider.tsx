@@ -34,6 +34,7 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
+  dashboard?: DashboardInterface;
   projects?: string[];
   defaultSnapshot?: ExperimentSnapshotInterface;
   dimensionless?: ExperimentSnapshotInterface;
@@ -214,6 +215,7 @@ export default function DashboardSnapshotProvider({
     <DashboardSnapshotContext.Provider
       value={{
         experiment,
+        dashboard,
         projects:
           dashboard?.projects ??
           (experiment?.project ? [experiment.project] : undefined),
@@ -380,6 +382,7 @@ export function useDashboardMetricAnalysis(
     | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>,
 ) {
   const {
+    dashboard,
     loading: contextLoading,
     error: contextError,
     mutateSnapshotsMap: mutateAnalysesMap,
@@ -475,7 +478,7 @@ export function useDashboardMetricAnalysis(
       endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
-      source: "metric",
+      source: dashboard?.id ? `dashboard-${dashboard.id}` : "dashboard",
       numeratorFilters: block.analysisSettings.numeratorFilters,
       denominatorFilters: block.analysisSettings.denominatorFilters,
     };
@@ -497,7 +500,14 @@ export function useDashboardMetricAnalysis(
     } finally {
       setPostLoading(false);
     }
-  }, [apiCall, block, blockHasMetricAnalysis, setBlock, mutateAnalysesMap]);
+  }, [
+    setBlock,
+    blockHasMetricAnalysis,
+    block,
+    dashboard?.id,
+    apiCall,
+    mutateAnalysesMap,
+  ]);
 
   useEffect(() => {
     if (

@@ -59,13 +59,13 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
-    numeratorFilters: data.numeratorFilters,
-    denominatorFilters: data.denominatorFilters,
   };
 
   // The MetricExplorer can add filters to a metric analysis in an adhoc manner
   // If included, add them to any existing filters on the metric
   if (data.numeratorFilters) {
+    metricAnalysisSettings.numeratorFilters = data.numeratorFilters;
+
     metricObj.numerator.filters = [
       ...metricObj.numerator.filters,
       ...data.numeratorFilters,
@@ -73,6 +73,7 @@ export const postMetricAnalysis = async (
   }
 
   if (data.denominatorFilters && metricObj.denominator) {
+    metricAnalysisSettings.denominatorFilters = data.denominatorFilters;
     metricObj.denominator.filters = [
       ...metricObj.denominator.filters,
       ...data.denominatorFilters,
@@ -221,7 +222,11 @@ export async function getLatestMetricAnalysis(
     const metricAnalysis =
       await context.models.metricAnalysis.findLatestBySettings(
         req.params.metricid,
-        { settings, withHistogram: stringToBoolean(req.query.withHistogram) },
+        {
+          settings,
+          withHistogram: stringToBoolean(req.query.withHistogram),
+          source: "metric",
+        },
       );
     res.status(200).json({
       status: 200,
@@ -231,8 +236,10 @@ export async function getLatestMetricAnalysis(
   }
 
   // Otherwise, just find the latest one, regardless of settings
+  // Filter by source: "metric" to exclude dashboard analyses
   const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
     req.params.metricid,
+    { source: "metric" },
   );
 
   res.status(200).json({

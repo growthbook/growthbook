@@ -335,7 +335,7 @@ export async function refreshDashboardData(
       });
     }
 
-    await updateDashboardMetricAnalyses(context, newBlocks);
+    await updateDashboardMetricAnalyses(context, newBlocks, dashboard.id);
     await updateDashboardSavedQueries(context, newBlocks);
 
     // Bypassing permissions here to allow anyone to refresh the results of a dashboard

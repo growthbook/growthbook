@@ -639,7 +639,7 @@ export const getMetricNorthstarData = async (
   if (isFactMetricId(req.params.id)) {
     analysis = await context.models.metricAnalysis.findLatestByMetric(
       req.params.id,
-      true,
+      { includeNorthStar: true },
     );
   } else {
     metric = await getMetricById(context, req.params.id, true);

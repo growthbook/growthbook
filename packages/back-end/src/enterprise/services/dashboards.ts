@@ -1,4 +1,4 @@
-import { isEqual, uniqWith } from "lodash";
+import { cloneDeep, isEqual, uniqWith } from "lodash";
 import { isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
@@ -9,6 +9,7 @@ import {
   getBlockSnapshotSettings,
   snapshotSatisfiesBlock,
 } from "shared/enterprise";
+import { getValidDate } from "shared/dates";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -38,6 +39,7 @@ import {
   determineNextDate,
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 
 // To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
 export async function updateExperimentDashboards({
@@ -164,6 +166,7 @@ export async function updateExperimentDashboards({
     const blockUpdated = await updateDashboardMetricAnalyses(
       context,
       editableBlocks,
+      dashboard.id,
     );
     if (blockUpdated) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
@@ -180,7 +183,7 @@ export async function updateNonExperimentDashboard(
 ) {
   // Copy the blocks of the dashboard to overwrite their fields
   const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
-  await updateDashboardMetricAnalyses(context, newBlocks);
+  await updateDashboardMetricAnalyses(context, newBlocks, dashboard.id);
   await updateDashboardSavedQueries(context, newBlocks);
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
@@ -194,44 +197,94 @@ export async function updateNonExperimentDashboard(
 export async function updateDashboardMetricAnalyses(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
+  dashboardId?: string,
 ): Promise<boolean> {
-  const metricAnalyses = await context.models.metricAnalysis.getByIds([
-    ...new Set(
-      blocks
-        .filter(
-          (block) =>
-            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-            block.metricAnalysisId.length > 0,
-        )
-        .map((block: MetricExplorerBlockInterface) => block.metricAnalysisId),
-    ),
-  ]);
+  // Determine the source to use - prefer dashboard-${dashboardId} if available
+  const source = dashboardId ? `dashboard-${dashboardId}` : "dashboard";
 
-  let blockModified = false;
-  for (const metricAnalysis of metricAnalyses) {
-    const metric = await context.models.factMetrics.getById(
-      metricAnalysis.metric,
-    );
-    if (metric) {
+  // Filter to only blocks with metric analysis IDs
+  const blocksWithMetricAnalysis = blocks.filter(
+    (block): block is MetricExplorerBlockInterface =>
+      blockHasFieldOfType(block, "metricAnalysisId", isString) &&
+      block.metricAnalysisId.length > 0,
+  );
+
+  // Process each block individually to use its specific analysisSettings
+  const results = await Promise.all(
+    blocksWithMetricAnalysis.map(async (block) => {
+      const metricAnalysis = await context.models.metricAnalysis.getById(
+        block.metricAnalysisId,
+      );
+
+      if (!metricAnalysis) {
+        return false;
+      }
+
+      const metric = await context.models.factMetrics.getById(
+        metricAnalysis.metric,
+      );
+
+      if (!metric) {
+        return false;
+      }
+
+      // Use the block's analysisSettings instead of the metricAnalysis.settings
+      // This ensures filters and other block-specific settings are preserved
+      const blockSettings = block.analysisSettings;
+      const settings: MetricAnalysisSettings = {
+        userIdType: blockSettings.userIdType,
+        lookbackDays: blockSettings.lookbackDays,
+        startDate:
+          blockSettings.startDate instanceof Date
+            ? blockSettings.startDate
+            : getValidDate(blockSettings.startDate),
+        endDate:
+          blockSettings.endDate instanceof Date
+            ? blockSettings.endDate
+            : getValidDate(blockSettings.endDate),
+        populationType: blockSettings.populationType,
+        populationId: blockSettings.populationId ?? null,
+        numeratorFilters: blockSettings.numeratorFilters,
+        denominatorFilters: blockSettings.denominatorFilters,
+      };
+
+      // Clone the metric to avoid mutating the original, then apply filters from block settings
+      const metricWithFilters = cloneDeep(metric);
+      if (blockSettings.numeratorFilters) {
+        metricWithFilters.numerator.filters = [
+          ...(metricWithFilters.numerator.filters || []),
+          ...blockSettings.numeratorFilters,
+        ];
+      }
+      if (blockSettings.denominatorFilters && metricWithFilters.denominator) {
+        metricWithFilters.denominator.filters = [
+          ...(metricWithFilters.denominator.filters || []),
+          ...blockSettings.denominatorFilters,
+        ];
+      }
+
+      // Use the dashboard-specific source, preserving existing source if it's already dashboard-specific
+      // This ensures analysis from one dashboard doesn't affect another, given the adhoc nature of anaylsisSettings
+      const analysisSource =
+        metricAnalysis.source?.startsWith("dashboard-") && dashboardId
+          ? `dashboard-${dashboardId}`
+          : (metricAnalysis.source ?? source);
+
       const queryRunner = await createMetricAnalysis(
         context,
-        metric,
-        metricAnalysis.settings,
-        metricAnalysis.source ?? "metric",
+        metricWithFilters,
+        settings,
+        analysisSource,
         false,
       );
-      blocks.forEach((block) => {
-        if (
-          blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-          block.metricAnalysisId === metricAnalysis.id
-        ) {
-          blockModified = true;
-          block.metricAnalysisId = queryRunner.model.id;
-        }
-      });
-    }
-  }
-  return blockModified;
+
+      // Mutate the block in place (same object reference as in original blocks array)
+      block.metricAnalysisId = queryRunner.model.id;
+      return true;
+    }),
+  );
+
+  return results.some((updated) => updated);
 }
 
 export async function updateDashboardSavedQueries(

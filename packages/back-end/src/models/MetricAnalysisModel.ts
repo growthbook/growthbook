@@ -8,7 +8,7 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "../util/mongo.util";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass, ScopedFilterQuery } from "./BaseModel";
 
 const COLLECTION_NAME = "metricanalyses";
 const BaseClass = MakeModelClass({
@@ -63,22 +63,29 @@ export class MetricAnalysisModel extends BaseClass {
     {
       settings,
       withHistogram = false,
+      source,
     }: {
       settings: MetricAnalysisSettings;
       withHistogram?: boolean;
+      source?: string;
     },
   ) {
     // 1. Get all possible matches (ignoring date ranges for now)
-    const matches = await this._find(
-      {
-        metric: metricId,
-        source: { $ne: "northstar" },
-        "settings.userIdType": settings.userIdType,
-        "settings.populationType": settings.populationType,
-        "settings.populationId": settings.populationId || undefined,
-      },
-      { sort: { dateCreated: -1 }, limit: 10 },
-    );
+    const query: ScopedFilterQuery<typeof metricAnalysisInterfaceValidator> = {
+      metric: metricId,
+      "settings.userIdType": settings.userIdType,
+      "settings.populationType": settings.populationType,
+      "settings.populationId": settings.populationId || undefined,
+    };
+    if (source !== undefined) {
+      query.source = source;
+    } else {
+      query.source = { $ne: "northstar" };
+    }
+    const matches = await this._find(query, {
+      sort: { dateCreated: -1 },
+      limit: 10,
+    });
 
     // 2. Find the analysis that best matches the requested date range
     const bestMatch = matches.reduce(
@@ -133,14 +140,26 @@ export class MetricAnalysisModel extends BaseClass {
     return null;
   }
 
-  public async findLatestByMetric(metric: string, includeNorthStar?: boolean) {
-    const metricAnalyses = await this._find(
-      {
-        metric,
-        ...(!includeNorthStar ? { source: { $ne: "northstar" } } : {}),
-      },
-      { sort: { dateCreated: -1 }, limit: 1 },
-    );
+  public async findLatestByMetric(
+    metric: string,
+    options?: { includeNorthStar?: boolean; source?: string },
+  ) {
+    const includeNorthStar = options?.includeNorthStar;
+    const source = options?.source;
+
+    const query: ScopedFilterQuery<typeof metricAnalysisInterfaceValidator> = {
+      metric,
+    };
+    if (source !== undefined) {
+      query.source = source;
+    } else if (!includeNorthStar) {
+      query.source = { $ne: "northstar" };
+    }
+
+    const metricAnalyses = await this._find(query, {
+      sort: { dateCreated: -1 },
+      limit: 1,
+    });
     return metricAnalyses[0] ? metricAnalyses[0] : null;
   }
 
