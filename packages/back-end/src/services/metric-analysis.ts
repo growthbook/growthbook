@@ -1,3 +1,4 @@
+import { cloneDeep } from "lodash";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   MetricAnalysisSettings,
@@ -7,7 +8,34 @@ import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnaly
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";
 import { SegmentInterface } from "back-end/types/segment";
+import { MetricAnalysisParams } from "../types/Integration";
 import { getIntegrationFromDatasourceId } from "./datasource";
+
+export function updateMetricByAnalysisSettings(
+  params: MetricAnalysisParams,
+): FactMetricInterface {
+  const { metric, settings } = params;
+
+  // If no adhoc filters are provided, we can return the original metric
+  if (!settings.numeratorFilters && !settings.denominatorFilters) {
+    return metric;
+  }
+
+  const metricWithFilters = cloneDeep(metric);
+  if (settings.numeratorFilters) {
+    metricWithFilters.numerator.filters = [
+      ...(metricWithFilters.numerator.filters || []),
+      ...settings.numeratorFilters,
+    ];
+  }
+  if (settings.denominatorFilters && metricWithFilters.denominator) {
+    metricWithFilters.denominator.filters = [
+      ...(metricWithFilters.denominator.filters || []),
+      ...settings.denominatorFilters,
+    ];
+  }
+  return metricWithFilters;
+}
 
 export async function createMetricAnalysis(
   context: Context,

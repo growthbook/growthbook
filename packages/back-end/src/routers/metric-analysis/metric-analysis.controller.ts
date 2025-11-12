@@ -65,19 +65,10 @@ export const postMetricAnalysis = async (
   // If included, add them to any existing filters on the metric
   if (data.numeratorFilters) {
     metricAnalysisSettings.numeratorFilters = data.numeratorFilters;
-
-    metricObj.numerator.filters = [
-      ...metricObj.numerator.filters,
-      ...data.numeratorFilters,
-    ];
   }
 
   if (data.denominatorFilters && metricObj.denominator) {
     metricAnalysisSettings.denominatorFilters = data.denominatorFilters;
-    metricObj.denominator.filters = [
-      ...metricObj.denominator.filters,
-      ...data.denominatorFilters,
-    ];
   }
 
   const metricAnalysis = await createMetricAnalysis(
