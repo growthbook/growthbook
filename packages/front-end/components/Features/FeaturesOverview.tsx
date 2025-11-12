@@ -405,7 +405,9 @@ export default function FeaturesOverview({
               setVersion(drafts[0].version);
             }}
           >
-            View active draft
+            {drafts[0].datePublished
+              ? "View active revert"
+              : "View active draft"}
           </Button>,
         );
       }
@@ -419,7 +421,7 @@ export default function FeaturesOverview({
               setConfirmDiscard(true);
             }}
           >
-            Discard draft
+            {isRevert ? "Discard revert" : "Discard draft"}
           </Button>,
         );
 
@@ -1229,7 +1231,7 @@ export default function FeaturesOverview({
             trackingEventModalType=""
             open={true}
             close={() => setConfirmDiscard(false)}
-            header="Discard Draft"
+            header={isRevert ? "Discard Revert" : "Discard Draft"}
             cta={"Discard"}
             submitColor="danger"
             closeCta={"Cancel"}
@@ -1250,8 +1252,8 @@ export default function FeaturesOverview({
             }}
           >
             <p>
-              Are you sure you want to discard this draft? This action cannot be
-              undone.
+              Are you sure you want to discard this{" "}
+              {isRevert ? "revert" : "draft"}? This action cannot be undone.
             </p>
           </Modal>
         )}

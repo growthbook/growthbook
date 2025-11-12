@@ -78,6 +78,7 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  discardRevisionRevert,
   getMinimalRevisions,
   getRevision,
   getLatestRevisions,
@@ -1296,7 +1297,6 @@ export async function postFeatureDiscard(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
@@ -1307,9 +1307,11 @@ export async function postFeatureDiscard(
   ) {
     context.permissions.throwPermissionError();
   }
-
-  await discardRevision(context, revision, res.locals.eventAudit);
-
+  if (revision.datePublished) {
+    await discardRevisionRevert(context, revision, res.locals.eventAudit);
+  } else {
+    await discardRevision(context, revision, res.locals.eventAudit);
+  }
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
 
   if (!hasDrafts) {

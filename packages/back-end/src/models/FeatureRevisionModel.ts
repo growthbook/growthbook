@@ -597,6 +597,35 @@ export async function submitReviewAndComments(
     });
 }
 
+export async function discardRevisionRevert(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: { status: "published", dateUpdated: new Date() },
+    },
+  );
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "discard revert",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
+}
+
 export async function discardRevision(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
