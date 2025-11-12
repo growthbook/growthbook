@@ -193,6 +193,8 @@ type CodeTextAreaFieldProps = Omit<
   | "render"
   | "containerClassName"
   | "ref"
+  | "label"
+  | "labelClassName"
 >;
 
 export type Props = CodeTextAreaFieldProps & {
@@ -210,6 +212,10 @@ export type Props = CodeTextAreaFieldProps & {
   defaultHeight?: number;
   showCopyButton?: boolean;
   showFullscreenButton?: boolean;
+  label?: React.ReactNode;
+  labelClassName?: string;
+  fullscreenLabel?: React.ReactNode;
+  additionalTopRightButton?: React.ReactNode;
 };
 
 const LIGHT_THEME = "textmate";
@@ -231,6 +237,10 @@ export default function CodeTextArea({
   defaultHeight = TEN_LINES_HEIGHT, // for resizable
   showCopyButton = false,
   showFullscreenButton = false,
+  label,
+  labelClassName,
+  fullscreenLabel,
+  additionalTopRightButton,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -305,6 +315,8 @@ export default function CodeTextArea({
   return (
     <Field
       {...fieldProps}
+      label={label}
+      labelClassName={labelClassName}
       containerClassName={fullHeight ? "h-100" : ""}
       render={(id) => {
         return (
@@ -338,7 +350,7 @@ export default function CodeTextArea({
               {isFullscreen ? (
                 <Flex align="center" gap="3" mb="2" justify="between">
                   <label className="mb-0 d-block font-weight-bold">
-                    {fieldProps.label}
+                    {fullscreenLabel || label}
                   </label>
                   <Button
                     type="button"
@@ -421,6 +433,11 @@ export default function CodeTextArea({
                     })
                   }
                 />
+                {additionalTopRightButton && !isFullscreen && (
+                  <div style={{ position: "absolute", top: 8, right: 8, zIndex: 1000 }}>
+                    {additionalTopRightButton}
+                  </div>
+                )}
                 {(showCopyButton || showFullscreenButton) && (
                   <Flex
                     align="center"

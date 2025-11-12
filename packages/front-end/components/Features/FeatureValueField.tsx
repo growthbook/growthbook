@@ -11,8 +11,8 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
-import { Flex, IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCopy } from "react-icons/pi";
+import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -23,6 +23,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Switch from "@/ui/Switch";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -66,6 +67,11 @@ export default function FeatureValueField({
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
   });
+
+  // Initialize editor state for JSON fields (must be at top level for React hooks rules)
+  const MAX_CODE_EDITOR_SIZE = 10 * 1024;
+  const defaultUseCodeEditor = value.length <= MAX_CODE_EDITOR_SIZE;
+  const [useCodeEditor, setUseCodeEditor] = useState(defaultUseCodeEditor);
 
   if (
     validationEnabled &&
@@ -134,15 +140,70 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
-    if (useCodeInput) {
-      let formatted;
-      try {
-        const parsed = dJSON.parse(value);
-        formatted = stringify(parsed);
-      } catch (e) {
-        // Ignore
-      }
+    // If useCodeInput is false, always use the legacy editor with no toggle
+    if (!useCodeInput) {
+      return (
+        <JSONTextEditor
+          label={label}
+          value={value}
+          setValue={setValue}
+          helpText={helpText}
+          placeholder={placeholder}
+          disabled={disabled}
+        />
+      );
+    }
 
+    let formatted;
+    try {
+      const parsed = dJSON.parse(value);
+      formatted = stringify(parsed);
+    } catch (e) {
+      // Ignore
+    }
+
+    // Code editor toggle button: used when field has no label, typically small fields
+    const floatingToggleButton = (
+      <Tooltip
+        body={
+          useCodeEditor
+            ? "Switch to simple text editor"
+            : "Switch to code editor"
+        }
+      >
+        <IconButton
+          type="button"
+          radius="full"
+          variant="ghost"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUseCodeEditor(!useCodeEditor);
+          }}
+        >
+          <PiBracketsCurly size={12} />
+        </IconButton>
+      </Tooltip>
+    );
+
+    // Code editor toggle switch: used when field has a label
+    const labelWithToggle = label ? (
+      <Flex justify="between" align="center" width="100%">
+        <div>{label}</div>
+        <Switch
+          size="1"
+          label={
+            <Text size="1" color="violet">
+              Code editor
+            </Text>
+          }
+          value={useCodeEditor}
+          onChange={setUseCodeEditor}
+        />
+      </Flex>
+    ) : undefined;
+
+    if (useCodeEditor) {
       const formatJSONButton = (
         <a
           href="#"
@@ -173,7 +234,9 @@ export default function FeatureValueField({
 
       return (
         <CodeTextArea
-          label={label}
+          label={labelWithToggle || label}
+          labelClassName={label ? "d-block w-100" : undefined}
+          fullscreenLabel={label}
           language="json"
           value={value}
           setValue={setValue}
@@ -184,17 +247,20 @@ export default function FeatureValueField({
           defaultHeight={codeInputDefaultHeight}
           showCopyButton={true}
           showFullscreenButton={showFullscreenButton}
+          additionalTopRightButton={label ? undefined : floatingToggleButton}
         />
       );
     }
     return (
       <JSONTextEditor
-        label={label}
+        label={labelWithToggle || label}
+        labelClassName={label ? "d-block w-100" : undefined}
         value={value}
         setValue={setValue}
         helpText={helpText}
         placeholder={placeholder}
         disabled={disabled}
+        additionalTopRightButton={label ? undefined : floatingToggleButton}
       />
     );
   }
@@ -621,20 +687,24 @@ function SimpleSchemaEditor({
 
 function JSONTextEditor({
   label,
+  labelClassName,
   editAsForm,
   value,
   setValue,
   helpText,
   placeholder,
   disabled = false,
+  additionalTopRightButton,
 }: {
   label?: string | ReactNode;
+  labelClassName?: string;
   editAsForm?: () => void;
   value: string;
   setValue: (value: string) => void;
   helpText?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
+  additionalTopRightButton?: ReactNode;
 }) {
   let formatted;
   try {
@@ -645,59 +715,68 @@ function JSONTextEditor({
   }
 
   return (
-    <Field
-      labelClassName={editAsForm ? "d-flex w-100" : ""}
-      placeholder={placeholder}
-      disabled={disabled}
-      label={
-        editAsForm ? (
-          <>
-            <div>{label}</div>
-            {editAsForm && (
-              <div className="ml-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    editAsForm();
-                  }}
-                >
-                  Edit as Form
-                </a>
-              </div>
-            )}
-          </>
-        ) : (
-          label
-        )
-      }
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      textarea
-      minRows={1}
-      helpText={
-        <div className="d-flex align-items-top">
-          {helpText && <div>{helpText}</div>}
-          <a
-            href="#"
-            className={clsx("text-purple ml-auto", {
-              "text-muted cursor-default no-underline":
-                !formatted || formatted === value,
-            })}
-            onClick={(e) => {
-              e.preventDefault();
-              if (formatted && formatted !== value) {
-                setValue(formatted);
-              }
-            }}
-          >
-            <FaMagic /> Format JSON
-          </a>
+    <div style={{ position: "relative" }}>
+      <Field
+        labelClassName={
+          editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
+        }
+        placeholder={placeholder}
+        disabled={disabled}
+        label={
+          editAsForm ? (
+            <>
+              <div>{label}</div>
+              {editAsForm && (
+                <div className="ml-auto">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editAsForm();
+                    }}
+                  >
+                    Edit as Form
+                  </a>
+                </div>
+              )}
+            </>
+          ) : (
+            label
+          )
+        }
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        textarea
+        minRows={1}
+        helpText={
+          <div className="d-flex align-items-top">
+            {helpText && <div>{helpText}</div>}
+            <a
+              href="#"
+              className={clsx("text-purple ml-auto", {
+                "text-muted cursor-default no-underline":
+                  !formatted || formatted === value,
+              })}
+              onClick={(e) => {
+                e.preventDefault();
+                if (formatted && formatted !== value) {
+                  setValue(formatted);
+                }
+              }}
+            >
+              <FaMagic /> Format JSON
+            </a>
+          </div>
+        }
+      />
+      {additionalTopRightButton && (
+        <div style={{ position: "absolute", top: 9, right: 9, zIndex: 1000 }}>
+          {additionalTopRightButton}
         </div>
-      }
-    />
+      )}
+    </div>
   );
 }
 
