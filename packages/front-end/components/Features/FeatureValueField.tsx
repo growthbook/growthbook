@@ -68,8 +68,10 @@ export default function FeatureValueField({
   });
 
   const MAX_CODE_EDITOR_SIZE = 10 * 1024;
-  const defaultUseCodeEditor = value.length <= MAX_CODE_EDITOR_SIZE;
-  const [useCodeEditor, setUseCodeEditor] = useState(defaultUseCodeEditor);
+  const defaultCodeEditorToggledOn = value.length <= MAX_CODE_EDITOR_SIZE;
+  const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
+    defaultCodeEditorToggledOn,
+  );
 
   if (
     validationEnabled &&
@@ -166,12 +168,12 @@ export default function FeatureValueField({
         className="text-purple"
         onClick={(e) => {
           e.preventDefault();
-          setUseCodeEditor(!useCodeEditor);
+          setCodeEditorToggledOn(!codeEditorToggledOn);
         }}
         style={{ whiteSpace: "nowrap" }}
       >
         <PiBracketsCurly />{" "}
-        {useCodeEditor ? "Use text editor" : "Use code editor"}
+        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
       </a>
     );
 
@@ -209,7 +211,7 @@ export default function FeatureValueField({
       </Flex>
     );
 
-    if (useCodeEditor) {
+    if (codeEditorToggledOn) {
       return (
         <CodeTextArea
           label={label}
