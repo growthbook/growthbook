@@ -67,7 +67,7 @@ export default function FeatureValueField({
     timeout: 800,
   });
 
-  const MAX_CODE_EDITOR_SIZE = 10 * 1024;
+  const MAX_CODE_EDITOR_SIZE = 10 * 1024; // 10KB
   const defaultCodeEditorToggledOn = value.length <= MAX_CODE_EDITOR_SIZE;
   const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
     defaultCodeEditorToggledOn,
