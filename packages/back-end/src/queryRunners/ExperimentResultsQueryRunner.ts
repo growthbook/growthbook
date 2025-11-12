@@ -560,8 +560,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         result.health.covariateImbalance = tabulateCovariateImbalance(
           analysisForCovariateImbalance,
           this.model.settings.goalMetrics,
-          this.model.settings.secondaryMetrics,
           this.model.settings.guardrailMetrics,
+          this.model.settings.secondaryMetrics,
         );
       }
     }
