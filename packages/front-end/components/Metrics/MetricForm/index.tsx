@@ -625,6 +625,7 @@ const MetricForm: FC<MetricFormProps> = ({
       {supportsSQL && sqlOpen && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
+          sqlObjectInfo={{ objectType: "Metric", objectName: value.name }}
           datasourceId={value.datasource}
           placeholder={
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"

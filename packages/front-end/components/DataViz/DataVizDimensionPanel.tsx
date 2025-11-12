@@ -128,13 +128,15 @@ export default function DataVizDimensionPanel({
                           }
                           value={dimension.fieldName ?? ""}
                           setValue={(v) => {
-                            const display =
-                              dataVizConfig.chartType !== "bar"
-                                ? "grouped"
-                                : supportsDimension(dataVizConfig) &&
-                                    dataVizConfig.dimension?.[0]?.display
-                                  ? dataVizConfig.dimension[0].display
-                                  : "grouped";
+                            const isBarOrArea =
+                              dataVizConfig.chartType === "bar" ||
+                              dataVizConfig.chartType === "area";
+                            const display: "grouped" | "stacked" = isBarOrArea
+                              ? supportsDimension(dataVizConfig) &&
+                                dataVizConfig.dimension?.[0]?.display
+                                ? dataVizConfig.dimension[0].display
+                                : "grouped"
+                              : "grouped";
                             onDataVizConfigChange({
                               ...dataVizConfig,
                               dimension: [
@@ -144,7 +146,7 @@ export default function DataVizDimensionPanel({
                                   maxValues: dimension.maxValues || 5,
                                 },
                               ],
-                            });
+                            } as Partial<DataVizConfig>);
                           }}
                           size="2"
                           placeholder="Select a dimension"
@@ -244,7 +246,7 @@ export default function DataVizDimensionPanel({
                                           maxValues,
                                         },
                                       ],
-                                    });
+                                    } as Partial<DataVizConfig>);
                                   }}
                                 />
                               </Flex>

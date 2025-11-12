@@ -615,9 +615,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       : null;
 
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
+    const metricGroups = await this.context.models.metricGroups.getAll();
     const selectedMetrics = getAllMetricIdsFromExperiment(
       snapshotSettings,
       false,
+      metricGroups,
     )
       .map((m) => metricMap.get(m))
       .filter((m) => m) as ExperimentMetricInterface[];

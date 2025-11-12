@@ -123,6 +123,8 @@ import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
+import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { importingRouter } from "./routers/importing/importing.router";
 
 const app = express();
 
@@ -611,6 +613,10 @@ app.post(
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
+app.get(
+  "/experiment/:id/incremental-refresh",
+  experimentsController.getExperimentIncrementalRefresh,
+);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post(
   "/experiment/:id/targeting",
@@ -969,6 +975,12 @@ app.get(
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);
+
+// Custom Hooks
+app.use("/custom-hooks", customHooksRouter);
+
+// 3rd party data importing proxy
+app.use("/importing", importingRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
