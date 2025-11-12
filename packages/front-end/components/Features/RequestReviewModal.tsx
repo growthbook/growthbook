@@ -188,17 +188,17 @@ export default function RequestReviewModal({
 
     const result = mergeResult.result;
 
-    if (result.defaultValue !== undefined) {
+    if (result?.defaultValue !== undefined) {
       diffs.push({
         title: "Default Value",
         a: feature.defaultValue,
         b: result.defaultValue,
       });
     }
-    if (result.rules) {
+    if (result?.rules) {
       environments.forEach((env) => {
         const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
+        if (result?.rules && result?.rules[env.id]) {
           diffs.push({
             title: `Rules - ${env.id}`,
             a: JSON.stringify(liveRules, null, 2),
