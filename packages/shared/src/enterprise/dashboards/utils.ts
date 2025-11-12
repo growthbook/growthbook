@@ -232,7 +232,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     savedQueryId: "",
-    blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+    blockConfig: [],
     ...(initialValues || {}),
   }),
   "metric-explorer": ({ initialValues }) => ({
