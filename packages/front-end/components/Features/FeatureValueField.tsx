@@ -11,7 +11,7 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
-import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
@@ -23,7 +23,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import Switch from "@/ui/Switch";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -161,81 +160,59 @@ export default function FeatureValueField({
       // Ignore
     }
 
-    // Code editor toggle button: used when field has no label, typically small fields
     const codeEditorToggleButton = (
-      <Tooltip
-        body={
-          useCodeEditor
-            ? "Switch to simple text editor"
-            : "Switch to code editor"
-        }
+      <a
+        href="#"
+        className="text-purple"
+        onClick={(e) => {
+          e.preventDefault();
+          setUseCodeEditor(!useCodeEditor);
+        }}
+        style={{ whiteSpace: "nowrap" }}
       >
-        <IconButton
-          type="button"
-          radius="full"
-          variant="ghost"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setUseCodeEditor(!useCodeEditor);
-          }}
-        >
-          <PiBracketsCurly size={12} />
-        </IconButton>
-      </Tooltip>
+        <PiBracketsCurly />{" "}
+        {useCodeEditor ? "Use text editor" : "Use code editor"}
+      </a>
     );
 
-    // Code editor toggle switch: used when field has a label
-    const labelWithCodeEditorToggleSwitch = label ? (
-      <Flex justify="between" align="center" width="100%">
-        <div>{label}</div>
-        <Switch
-          size="1"
-          label={
-            <Text size="1" color="violet">
-              Code editor
-            </Text>
+    const formatJSONButton = (
+      <a
+        href="#"
+        className={clsx("text-purple", {
+          "text-muted cursor-default no-underline":
+            !formatted || formatted === value,
+        })}
+        onClick={(e) => {
+          e.preventDefault();
+          if (formatted && formatted !== value) {
+            setValue(formatted);
           }
-          value={useCodeEditor}
-          onChange={setUseCodeEditor}
-        />
-      </Flex>
-    ) : undefined;
+        }}
+        style={{ whiteSpace: "nowrap" }}
+      >
+        <FaMagic /> Format JSON
+      </a>
+    );
 
-    if (useCodeEditor) {
-      const formatJSONButton = (
-        <a
-          href="#"
-          className={clsx("text-purple", {
-            "text-muted cursor-default no-underline":
-              !formatted || formatted === value,
-          })}
-          onClick={(e) => {
-            e.preventDefault();
-            if (formatted && formatted !== value) {
-              setValue(formatted);
-            }
-          }}
-          style={{ whiteSpace: "nowrap" }}
-        >
-          <FaMagic /> Format JSON
-        </a>
-      );
-
-      const combinedHelpText = helpText ? (
-        <Flex align="center" gap="3" style={{ width: "100%" }}>
-          <div style={{ flex: 1 }}>{helpText}</div>
+    const combinedHelpText = helpText ? (
+      <Flex align="center" gap="3" style={{ width: "100%" }}>
+        <div style={{ flex: 1 }}>{helpText}</div>
+        <Flex gap="3">
+          {codeEditorToggleButton}
           {formatJSONButton}
         </Flex>
-      ) : (
-        <Flex justify="end">{formatJSONButton}</Flex>
-      );
+      </Flex>
+    ) : (
+      <Flex justify="end" gap="3">
+        {codeEditorToggleButton}
+        {formatJSONButton}
+      </Flex>
+    );
 
+    if (useCodeEditor) {
       return (
         <CodeTextArea
-          label={labelWithCodeEditorToggleSwitch || label}
-          labelClassName={label ? "d-block w-100" : undefined}
-          fullscreenLabel={label}
+          label={label}
           language="json"
           value={value}
           setValue={setValue}
@@ -246,20 +223,18 @@ export default function FeatureValueField({
           defaultHeight={codeInputDefaultHeight}
           showCopyButton={true}
           showFullscreenButton={showFullscreenButton}
-          codeEditorToggleButton={label ? undefined : codeEditorToggleButton}
         />
       );
     }
+
     return (
       <JSONTextEditor
-        label={labelWithCodeEditorToggleSwitch || label}
-        labelClassName={label ? "d-block w-100" : undefined}
+        label={label}
         value={value}
         setValue={setValue}
-        helpText={helpText}
+        helpText={combinedHelpText}
         placeholder={placeholder}
         disabled={disabled}
-        codeEditorToggleButton={label ? undefined : codeEditorToggleButton}
       />
     );
   }
@@ -693,7 +668,6 @@ function JSONTextEditor({
   helpText,
   placeholder,
   disabled = false,
-  codeEditorToggleButton,
 }: {
   label?: string | ReactNode;
   labelClassName?: string;
@@ -703,79 +677,44 @@ function JSONTextEditor({
   helpText?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
-  codeEditorToggleButton?: ReactNode;
 }) {
-  let formatted;
-  try {
-    const parsed = dJSON.parse(value);
-    formatted = stringify(parsed);
-  } catch (e) {
-    // Ignore
-  }
-
   return (
-    <div style={{ position: "relative" }}>
-      <Field
-        labelClassName={
-          editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
-        }
-        placeholder={placeholder}
-        disabled={disabled}
-        label={
-          editAsForm ? (
-            <>
-              <div>{label}</div>
-              {editAsForm && (
-                <div className="ml-auto">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      editAsForm();
-                    }}
-                  >
-                    Edit as Form
-                  </a>
-                </div>
-              )}
-            </>
-          ) : (
-            label
-          )
-        }
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-        }}
-        textarea
-        minRows={1}
-        helpText={
-          <div className="d-flex align-items-top">
-            {helpText && <div>{helpText}</div>}
-            <a
-              href="#"
-              className={clsx("text-purple ml-auto", {
-                "text-muted cursor-default no-underline":
-                  !formatted || formatted === value,
-              })}
-              onClick={(e) => {
-                e.preventDefault();
-                if (formatted && formatted !== value) {
-                  setValue(formatted);
-                }
-              }}
-            >
-              <FaMagic /> Format JSON
-            </a>
-          </div>
-        }
-      />
-      {codeEditorToggleButton && (
-        <div style={{ position: "absolute", top: 9, right: 9, zIndex: 1000 }}>
-          {codeEditorToggleButton}
-        </div>
-      )}
-    </div>
+    <Field
+      labelClassName={
+        editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
+      }
+      placeholder={placeholder}
+      disabled={disabled}
+      label={
+        editAsForm ? (
+          <>
+            <div>{label}</div>
+            {editAsForm && (
+              <div className="ml-auto">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editAsForm();
+                  }}
+                >
+                  Edit as Form
+                </a>
+              </div>
+            )}
+          </>
+        ) : (
+          label
+        )
+      }
+      value={value}
+      onChange={(e) => {
+        setValue(e.target.value);
+      }}
+      textarea
+      minRows={1}
+      helpText={helpText}
+    />
   );
 }
 
