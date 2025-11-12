@@ -103,6 +103,7 @@ export default function FactTableModal({
             sql: form.watch("sql"),
             eventName: form.watch("eventName"),
             userIdTypes: form.watch("userIdTypes"),
+            name: form.watch("name"),
           }}
           save={async ({ sql, userIdTypes, eventName }) => {
             form.setValue("sql", sql);

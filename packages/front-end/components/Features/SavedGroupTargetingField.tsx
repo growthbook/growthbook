@@ -1,6 +1,8 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
+import { PiArrowSquareOut } from "react-icons/pi";
 import React from "react";
+import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -138,6 +140,19 @@ export default function SavedGroupTargetingField({
                       setValue(newValue);
                     }}
                     options={options}
+                    formatOptionLabel={(o, meta) => {
+                      if (meta.context !== "value") return o.label;
+                      const group = getSavedGroupById(o.value);
+                      const link =
+                        group?.type === "list"
+                          ? `/saved-groups/${group.id}`
+                          : "/saved-groups#conditionGroups";
+                      return (
+                        <Link href={link} target="_blank">
+                          {o.label} <PiArrowSquareOut />
+                        </Link>
+                      );
+                    }}
                     required
                     placeholder="Select groups..."
                     closeMenuOnSelect={true}

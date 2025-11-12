@@ -244,7 +244,10 @@ export default function DashboardsPage() {
       )}
       <div className="p-3 container-fluid pagecontents">
         <Flex justify="between" align="center">
-          <h1>Product Analytics Dashboards</h1>
+          <Flex align="center">
+            <h1>Product Analytics Dashboards</h1>
+            <span className="badge badge-purple text-uppercase ml-2">Beta</span>
+          </Flex>
           {filteredDashboards.length ? (
             <LinkButton
               href="/product-analytics/dashboards/new"
@@ -258,14 +261,14 @@ export default function DashboardsPage() {
           <div className="mt-4">
             {!hasCommercialFeature("product-analytics-dashboards") ? (
               <PremiumEmptyState
-                title="Explore & Share Custom Analyses"
-                description="Create curated dashboards to visualize key metrics and track performance."
+                title="Explore Your Data"
+                description="Turn your data and metrics into actionable product insights, share with your team, and make smarter decisions about what to build next."
                 commercialFeature="product-analytics-dashboards"
               />
             ) : (
               <EmptyState
-                title="Explore & Share Custom Analyses"
-                description="Create curated dashboards to visualize key metrics and track performance."
+                title="Explore Your Data"
+                description="Turn your data and metrics into actionable product insights, share with your team, and make smarter decisions about what to build next."
                 leftButton={
                   <Button
                     onClick={() =>
