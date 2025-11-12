@@ -82,7 +82,7 @@ export default function RevertModal({
   });
   const submit = async () => {
     if (requiresReviewOnRevert) {
-      const res = await apiCall<{ version: number }>(
+      await apiCall<{ version: number }>(
         `/feature/${feature.id}/${revision.version}/request-revert-review`,
         {
           method: "POST",
@@ -90,7 +90,6 @@ export default function RevertModal({
         },
       );
       await mutate();
-      res && res.version && setVersion(res.version);
     } else {
       const res = await apiCall<{ version: number }>(
         `/feature/${feature.id}/${revision.version}/revert`,
