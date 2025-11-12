@@ -140,23 +140,6 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
-    // If useCodeInput is false, always use the legacy editor with no toggle
-    if (!useCodeInput) {
-      return (
-        <JSONTextEditor
-          label={label}
-          value={value}
-          setValue={setValue}
-          helpText={helpText}
-          placeholder={placeholder}
-          disabled={disabled}
-          showCopyButton={true}
-          performCopy={performCopy}
-          copySuccess={copySuccess}
-        />
-      );
-    }
-
     let formatted;
     try {
       const parsed = dJSON.parse(value);
@@ -165,7 +148,7 @@ export default function FeatureValueField({
       // Ignore
     }
 
-    const codeEditorToggleButton = (
+    const codeEditorToggleButton = useCodeInput ? (
       <a
         href="#"
         className="text-purple"
@@ -178,7 +161,7 @@ export default function FeatureValueField({
         <PiBracketsCurly />{" "}
         {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
       </a>
-    );
+    ) : null;
 
     const formatJSONButton = (
       <a
@@ -214,7 +197,7 @@ export default function FeatureValueField({
       </Flex>
     );
 
-    if (codeEditorToggledOn) {
+    if (useCodeInput && codeEditorToggledOn) {
       return (
         <CodeTextArea
           label={label}
