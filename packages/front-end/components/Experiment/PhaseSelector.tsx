@@ -1,5 +1,6 @@
 import { date } from "shared/dates";
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
+import { isEqual } from "lodash";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -46,6 +47,42 @@ export default function PhaseSelector({
     const phaseIndex = parseInt(value) || 0;
     const phase = (phases ?? experiment?.phases)?.[phaseIndex];
     if (!phase) return value;
+    const phaseChanges = () => {
+      if (phaseIndex > 0) {
+        const previousPhase = experiment?.phases?.[phaseIndex - 1];
+        const currentPhase = experiment?.phases?.[phaseIndex];
+        if (!previousPhase || !currentPhase) return null;
+        const changes = {
+          seedChanged: currentPhase.seed !== previousPhase.seed,
+          namespaceChanged: !isEqual(
+            currentPhase.namespace,
+            previousPhase.namespace,
+          ),
+          variationWeightsChanged: !isEqual(
+            currentPhase.variationWeights,
+            previousPhase.variationWeights,
+          ),
+          prerequisitesChanged: !isEqual(
+            currentPhase.prerequisites,
+            previousPhase.prerequisites,
+          ),
+          savedGroupsChanged: !isEqual(
+            currentPhase.savedGroups,
+            previousPhase.savedGroups,
+          ),
+          disableStickyBucketing:
+            currentPhase.disableStickyBucketing !==
+            previousPhase.disableStickyBucketing,
+          conditionChanged: currentPhase.condition !== previousPhase.condition,
+          coverageChanged: currentPhase.coverage !== previousPhase.coverage,
+        };
+        // no changes
+        if (Object.values(changes).every((change) => change === false))
+          return null;
+        return changes;
+      }
+      return null;
+    };
 
     return (
       <>
@@ -58,6 +95,36 @@ export default function PhaseSelector({
               {!isHoldout && (
                 <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
               )}
+              <span className="phase-selector-select-option-metadata">
+                <div>Changes</div>
+                {phaseChanges() === null && (
+                  <div className="text-muted">None</div>
+                )}
+                {phaseChanges()?.seedChanged && (
+                  <div className="text-muted">Seed</div>
+                )}
+                {phaseChanges()?.namespaceChanged && (
+                  <div className="text-muted">Namespace</div>
+                )}
+                {phaseChanges()?.variationWeightsChanged && (
+                  <div className="text-muted">Variation Weights</div>
+                )}
+                {phaseChanges()?.prerequisitesChanged && (
+                  <div className="text-muted">Prerequisites</div>
+                )}
+                {phaseChanges()?.savedGroupsChanged && (
+                  <div className="text-muted">Saved Groups</div>
+                )}
+                {phaseChanges()?.conditionChanged && (
+                  <div className="text-muted">Condition</div>
+                )}
+                {phaseChanges()?.coverageChanged && (
+                  <div className="text-muted">Coverage</div>
+                )}
+                {phaseChanges()?.disableStickyBucketing && (
+                  <div className="text-muted">Sticky Bucketing</div>
+                )}
+              </span>
             </>
           }
           shouldDisplay={!isBandit}
