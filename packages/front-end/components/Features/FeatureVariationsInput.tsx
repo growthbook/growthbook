@@ -40,7 +40,6 @@ export interface Props {
   customSplitOn?: boolean;
   feature?: FeatureInterface;
   showCohortValidation?: boolean;
-  showIdTooltip?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -61,7 +60,6 @@ export default function FeatureVariationsInput({
   customSplitOn,
   feature,
   showCohortValidation = false,
-  showIdTooltip = false,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -143,8 +141,20 @@ export default function FeatureVariationsInput({
               <th className="pl-3">
                 <span className="d-inline-flex align-items-center">
                   Id
-                  {showIdTooltip && (
-                    <ExperimentNameFormatTooltip className="ml-1" />
+                  {valueAsId && (
+                    <ExperimentNameFormatTooltip
+                      className="ml-1"
+                      body={
+                        <>
+                          These are the <code>&lt;variantName&gt;</code> values
+                          from the experiment naming format{" "}
+                          <code>
+                            exp1:&lt;experimentName&gt;:&lt;variantName&gt;
+                          </code>
+                          .
+                        </>
+                      }
+                    />
                   )}
                 </span>
               </th>

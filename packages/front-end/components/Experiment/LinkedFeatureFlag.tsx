@@ -6,6 +6,10 @@ import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
+import {
+  validateCohort,
+  CohortValidationWarning,
+} from "@/components/Features/CohortValidation";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -76,20 +80,33 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
         <div className="font-weight-bold mb-2">Feature values</div>
         <table className="table table-sm table-bordered w-auto">
           <tbody>
-            {orderedValues.map((v, j) => (
-              <tr key={j}>
-                <td
-                  className={`px-3 variation with-variation-label with-variation-right-shadow border-right-0 variation${j}`}
-                >
-                  <span className="name font-weight-bold">
-                    {j}: {experiment.variations[j]?.name}
-                  </span>
-                </td>
-                <td className="px-3 border-left-0">
-                  <ForceSummary value={v} feature={info.feature} />
-                </td>
-              </tr>
-            ))}
+            {orderedValues.map((v, j) => {
+              const validation = validateCohort(
+                typeof v === "string" ? v : JSON.stringify(v ?? "")
+              );
+              return (
+                <tr key={j}>
+                  <td
+                    className={`px-3 variation with-variation-label with-variation-right-shadow border-right-0 variation${j}`}
+                  >
+                    <span className="name font-weight-bold">
+                      {j}: {experiment.variations[j]?.name}
+                    </span>
+                  </td>
+                  <td className="px-3 border-left-0">
+                    <ForceSummary
+                      value={v}
+                      feature={info.feature}
+                      showExperimentWarning={false}
+                    />
+                    <CohortValidationWarning
+                      validation={validation}
+                      variationIndex={j}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 

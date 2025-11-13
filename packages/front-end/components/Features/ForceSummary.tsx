@@ -7,14 +7,16 @@ export default function ForceSummary({
   value,
   feature,
   isDefault = false,
+  showExperimentWarning = true,
 }: {
   value: string;
   feature: FeatureInterface;
   isDefault?: boolean;
+  showExperimentWarning?: boolean;
 }) {
   return (
     <>
-      <NonExperimentCohortWarning value={value} />
+      {showExperimentWarning && <NonExperimentCohortWarning value={value} />}
       <div className="row align-items-top">
         <div className="col-auto">
           <strong>SERVE</strong>
