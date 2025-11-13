@@ -162,12 +162,10 @@ export async function updateDashboard(
 
   if (updates.blocks) {
     const migratedBlocks = updates.blocks.map(migrateBlock);
-    const createdBlocks = await Promise.all(
-      migratedBlocks.map((blockData) =>
-        dashboardBlockHasIds(blockData)
-          ? blockData
-          : generateDashboardBlockIds(context.org.id, blockData),
-      ),
+    const createdBlocks = migratedBlocks.map((blockData) =>
+      dashboardBlockHasIds(blockData)
+        ? blockData
+        : generateDashboardBlockIds(context.org.id, blockData),
     );
     updates.blocks = createdBlocks;
   }
