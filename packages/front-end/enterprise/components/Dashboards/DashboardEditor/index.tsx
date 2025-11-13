@@ -18,7 +18,7 @@ import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
-import { isPersistedDashboardBlock } from "shared/enterprise";
+import { dashboardBlockHasIds } from "shared/enterprise";
 import {
   DashboardEditLevel,
   DashboardInterface,
@@ -681,7 +681,7 @@ function DashboardEditor({
             blocks.map((block, i) =>
               renderSingleBlock({
                 i,
-                key: isPersistedDashboardBlock(block)
+                key: dashboardBlockHasIds(block)
                   ? block.id
                   : `${block.type}-${i}`,
                 block: block,
