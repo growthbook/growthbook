@@ -21,7 +21,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
+import Results, {
+  ResultsMetricFilters,
+  ExperimentMetricFilters,
+} from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -55,6 +58,8 @@ export interface Props {
   setSortBy: (s: "metric-tags" | "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
   setSortDirection: (d: "asc" | "desc" | null) => void;
+  experimentMetricFilters?: ExperimentMetricFilters;
+  setExperimentMetricFilters?: (filters: ExperimentMetricFilters) => void;
 }
 
 export default function ResultsTab({
@@ -75,6 +80,8 @@ export default function ResultsTab({
   setSortBy,
   sortDirection,
   setSortDirection,
+  experimentMetricFilters,
+  setExperimentMetricFilters,
 }: Props) {
   const {
     getDatasourceById,
@@ -324,6 +331,8 @@ export default function ResultsTab({
                   setSortBy={setSortBy}
                   sortDirection={sortDirection}
                   setSortDirection={setSortDirection}
+                  experimentMetricFilters={experimentMetricFilters}
+                  setExperimentMetricFilters={setExperimentMetricFilters}
                 />
               )}
             </>

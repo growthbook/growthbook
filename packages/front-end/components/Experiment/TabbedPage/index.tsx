@@ -15,6 +15,7 @@ import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validator
 import { FeatureInterface } from "back-end/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useMetricFilters } from "@/hooks/useMetricFilters";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
@@ -32,7 +33,10 @@ import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import {
+  ResultsMetricFilters,
+  ExperimentMetricFilters,
+} from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
@@ -224,6 +228,15 @@ export default function TabbedPage({
 
   const { phase, setPhase } = useSnapshot();
   const { metricGroups } = useDefinitions();
+
+  // New metric filters with URL params
+  const { filters, setFilters } = useMetricFilters(experiment.id);
+
+  // Convert MetricFilterState to ExperimentMetricFilters format
+  const experimentMetricFilters: ExperimentMetricFilters = filters;
+  const setExperimentMetricFilters = (newFilters: ExperimentMetricFilters) => {
+    setFilters(newFilters);
+  };
 
   const variables = {
     experiment: experiment.name,
@@ -614,6 +627,8 @@ export default function TabbedPage({
           setSortBy={setSortByWithPriority}
           sortDirection={sortDirection}
           setSortDirection={setSortDirectionDirect}
+          experimentMetricFilters={experimentMetricFilters}
+          setExperimentMetricFilters={setExperimentMetricFilters}
         />
       </div>
       <div

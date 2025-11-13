@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -11,10 +11,12 @@ import {
   ExperimentMetricInterface,
   generatePinnedSliceKey,
   SliceLevelsData,
+  expandMetricGroups,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { Box } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -31,6 +33,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import MultiSelectSearch from "@/ui/MultiSelectSearch";
+import { useExperimentMetricOptions } from "@/hooks/useExperimentMetricOptions";
+import { getAllMetricTags } from "@/hooks/useExperimentTableRows";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
@@ -66,6 +71,8 @@ const Results: FC<{
   setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
+  experimentMetricFilters?: ExperimentMetricFilters;
+  setExperimentMetricFilters?: (filters: ExperimentMetricFilters) => void;
 }> = ({
   experiment,
   envs,
@@ -92,6 +99,8 @@ const Results: FC<{
   setSortBy,
   sortDirection,
   setSortDirection,
+  experimentMetricFilters,
+  setExperimentMetricFilters,
 }) => {
   const { apiCall } = useAuth();
 
@@ -163,7 +172,89 @@ const Results: FC<{
   }, [experiment.phases.length, setPhase]);
 
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById, metricGroups } =
+    useDefinitions();
+
+  // Get expanded metric IDs and all tags for the filter options (must be before early returns)
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        experiment.goalMetrics,
+        metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        experiment.secondaryMetrics,
+        metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        experiment.guardrailMetrics,
+        metricGroups,
+      );
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      experiment.goalMetrics,
+      experiment.secondaryMetrics,
+      experiment.guardrailMetrics,
+      metricGroups,
+    ]);
+
+  const allMetricTags = useMemo(() => {
+    return getAllMetricTags(
+      expandedGoals,
+      expandedSecondaries,
+      expandedGuardrails,
+      undefined,
+      getExperimentMetricById,
+    );
+  }, [
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+    getExperimentMetricById,
+  ]);
+
+  // Prepare options for MultiSelectSearch
+  const filterOptions = useExperimentMetricOptions(
+    experiment,
+    metricGroups,
+    allMetricTags,
+    getExperimentMetricById,
+  );
+
+  // Convert filter format to selectedValues format
+  const selectedValues = useMemo(() => {
+    if (!experimentMetricFilters) return [];
+    const values: string[] = [];
+    if (experimentMetricFilters.tags) {
+      experimentMetricFilters.tags.forEach((tag) => {
+        values.push(`tag:${tag}`);
+      });
+    }
+    if (experimentMetricFilters.metricGroups) {
+      experimentMetricFilters.metricGroups.forEach((groupId) => {
+        values.push(`group:${groupId}`);
+      });
+    }
+    return values;
+  }, [experimentMetricFilters]);
+
+  // Handle filter change
+  const handleFilterChange = (values: string[]) => {
+    if (!setExperimentMetricFilters) return;
+
+    const tags: string[] = [];
+    const metricGroups: string[] = [];
+
+    values.forEach((value) => {
+      if (value.startsWith("tag:")) {
+        tags.push(value.substring(4));
+      } else if (value.startsWith("group:")) {
+        metricGroups.push(value.substring(6));
+      }
+    });
+
+    setExperimentMetricFilters({ tags, metricGroups });
+  };
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
@@ -246,6 +337,20 @@ const Results: FC<{
 
   return (
     <>
+      {!draftMode && setExperimentMetricFilters && (
+        <Box mb="3" mx="3">
+          <MultiSelectSearch
+            options={filterOptions}
+            selectedValues={selectedValues}
+            onChange={handleFilterChange}
+            placeholder="Filter metrics by tags or groups..."
+            groupLabels={{
+              Tags: "Tags",
+              "Metric Groups": "Metric Groups",
+            }}
+          />
+        </Box>
+      )}
       {!draftMode ? (
         <AnalysisSettingsBar
           envs={envs}
@@ -539,6 +644,12 @@ export type ResultsMetricFilters = {
   filterByTag?: boolean;
   tagFilter?: string[] | null; // if null, use tagOrder
 };
+
+// New filter type for tag and metric group filtering
+export interface ExperimentMetricFilters {
+  tags: string[]; // Tag names to filter by
+  metricGroups: string[]; // Metric group IDs to filter by
+}
 export function sortAndFilterMetricsByTags(
   metrics: ExperimentMetricInterface[],
   filters?: ResultsMetricFilters,
