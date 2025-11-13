@@ -6,6 +6,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import clsx from "clsx";
+import { isEqual } from "lodash";
 import { isBinomialMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
@@ -157,34 +158,13 @@ function settingsMatch(
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
 
-  // Helper to compare values, handling arrays and nulls
-  const valuesMatch = (a: unknown, b: unknown): boolean => {
-    // Handle null/undefined cases
-    if (a === null || a === undefined) {
-      return b === null || b === undefined;
-    }
-    if (b === null || b === undefined) {
-      return false;
-    }
-
-    // Handle arrays
-    if (Array.isArray(a) && Array.isArray(b)) {
-      if (a.length !== b.length) {
-        return false;
-      }
-      return a.every((item, index) => item === b[index]);
-    }
-
-    return a === b;
-  };
-
   return Object.entries(settings).every(([key, value]) => {
     const canDiffer = fieldsThatCanDiffer.includes(key);
     if (canDiffer) {
       return true;
     }
     const desiredValue = desiredSettings[key];
-    return valuesMatch(value, desiredValue);
+    return isEqual(value, desiredValue);
   });
 }
 

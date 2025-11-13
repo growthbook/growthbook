@@ -218,7 +218,6 @@ export async function getLatestMetricAnalysis(
   }
 
   // Otherwise, just find the latest one, regardless of settings
-  // Filter by source: "metric" to exclude dashboard analyses
   const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
     req.params.metricid,
   );
