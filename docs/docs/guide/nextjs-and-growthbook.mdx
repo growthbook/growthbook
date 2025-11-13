@@ -108,7 +108,7 @@ growthbook.init();
 export default function MyApp({ Component, pageProps, router }) {
   // Refresh features and targeting attributes on navigation
   useEffect(() => {
-    gb.setURL(window.location.href);
+    growthbook.setURL(window.location.href);
     growthbook.setAttributes({
       id: "123",
       loggedIn: true,
