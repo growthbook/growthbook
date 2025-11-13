@@ -48,35 +48,31 @@ export function CohortValidationWarning({
   if (validation.valid) return null;
 
   return (
-    <tr>
-      <td colSpan={4}>
-        <div
-          className="alert alert-warning mb-0"
-          style={{ fontSize: "0.9em", padding: "0.5rem" }}
-        >
-          <FaExclamationTriangle className="mr-1" />
-          {validation.reason === "not-json" ? (
-            <>
-              Invalid experiment setup. Variation {variationIndex} does not have
-              a json payload.
-            </>
-          ) : validation.reason === "missing-cohort" ? (
-            <>
-              Invalid experiment setup. Variation {variationIndex} does not have
-              a <code>cohort</code> key.
-            </>
-          ) : (
-            <>
-              Invalid experiment setup. Variation {variationIndex} has an
-              invalid cohort value. Please follow the experiment naming format:{" "}
-              <code>
-                exp1:&lt;experimentNameInCamelCaseYYMMDD&gt;:&lt;variantName&gt;
-              </code>
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
+    <div
+      className="alert alert-warning mb-0 mt-2"
+      style={{ fontSize: "0.9em", padding: "0.5rem" }}
+    >
+      <FaExclamationTriangle className="mr-1" />
+      {validation.reason === "not-json" ? (
+        <>
+          Invalid experiment setup. Variation {variationIndex} does not have a
+          json payload.
+        </>
+      ) : validation.reason === "missing-cohort" ? (
+        <>
+          Invalid experiment setup. Variation {variationIndex} does not have a{" "}
+          <code>cohort</code> key.
+        </>
+      ) : (
+        <>
+          Invalid experiment setup. Variation {variationIndex} has an invalid
+          cohort value. Please follow the experiment naming format:{" "}
+          <code>
+            exp1:&lt;experimentNameInCamelCaseYYMMDD&gt;:&lt;variantName&gt;
+          </code>
+        </>
+      )}
+    </div>
   );
 }
 

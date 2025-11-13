@@ -146,52 +146,50 @@ export default function ExperimentSummary({
           {values.map((r, j) => {
             const validation = validateCohort(r.value);
             return (
-              <React.Fragment key={j}>
-                <CohortValidationWarning
-                  validation={validation}
-                  variationIndex={j}
-                />
-                <tr>
-                  <td
-                    className="text-muted position-relative"
-                    style={{ fontSize: "0.9em", width: 25 }}
-                  >
+              <tr key={j}>
+                <td
+                  className="text-muted position-relative"
+                  style={{ fontSize: "0.9em", width: 25 }}
+                >
+                  <div
+                    style={{
+                      width: "6px",
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      left: 0,
+                      backgroundColor: getVariationColor(j),
+                    }}
+                  />
+                  {j}.
+                </td>
+                <td>
+                  <ValueDisplay
+                    value={r.value}
+                    type={type}
+                    defaultVal={feature.defaultValue}
+                  />
+                  <ValidateValue value={r.value} feature={feature} />
+                  <CohortValidationWarning
+                    validation={validation}
+                    variationIndex={j}
+                  />
+                </td>
+                <td>{r?.name}</td>
+                <td>
+                  <div className="d-flex">
                     <div
                       style={{
-                        width: "6px",
-                        position: "absolute",
-                        top: 0,
-                        bottom: 0,
-                        left: 0,
-                        backgroundColor: getVariationColor(j),
+                        width: "4em",
+                        maxWidth: "4em",
+                        margin: "0 0 0 auto",
                       }}
-                    />
-                    {j}.
-                  </td>
-                  <td>
-                    <ValueDisplay
-                      value={r.value}
-                      type={type}
-                      defaultVal={feature.defaultValue}
-                    />
-                    <ValidateValue value={r.value} feature={feature} />
-                  </td>
-                  <td>{r?.name}</td>
-                  <td>
-                    <div className="d-flex">
-                      <div
-                        style={{
-                          width: "4em",
-                          maxWidth: "4em",
-                          margin: "0 0 0 auto",
-                        }}
-                      >
-                        {percentFormatter.format(r.weight)}
-                      </div>
+                    >
+                      {percentFormatter.format(r.weight)}
                     </div>
-                  </td>
-                </tr>
-              </React.Fragment>
+                  </div>
+                </td>
+              </tr>
             );
           })}
           <tr>
