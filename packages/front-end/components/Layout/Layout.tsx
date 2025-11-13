@@ -89,6 +89,13 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "Product Analytics",
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
+    Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
+  },
+  {
     name: "Metrics and Data",
     href: "/metrics",
     path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
@@ -125,19 +132,9 @@ const navlinks: SidebarLinkProps[] = [
         name: "SQL Explorer",
         href: "/sql-explorer",
         path: /^sql-explorer/,
-        filter: ({ gb, savedQueries }) =>
-          !!gb?.isOn("sql-explorer") &&
-          // Only show SQL Explorer for orgs with saved queries that weren't created by dashboards
-          savedQueries.some((sq) => (sq.linkedDashboardIds ?? []).length === 0),
+        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
-  },
-  {
-    name: "Product Analytics",
-    href: "/product-analytics/dashboards",
-    path: /^(product-analytics\/dashboards)/,
-    Icon: GBProductAnalytics,
-    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
   },
   {
     name: "Insights",
@@ -347,6 +344,13 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("cdn-usage-data"),
       },
       {
+        name: "Custom Hooks",
+        href: "/settings/custom-hooks",
+        path: /^settings\/custom-hooks/,
+        filter: ({ permissionsUtils, isCloud }) =>
+          !isCloud && permissionsUtils.canCreateCustomHook({ projects: [] }),
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
@@ -442,7 +446,10 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
+  let pageTitle = [...breadcrumb]
+    .reverse()
+    .map((b) => b.display)
+    .join(" - ");
 
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {

@@ -1,4 +1,5 @@
 import { FC, ReactElement, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -257,7 +258,7 @@ const CompactResults: FC<{
             </div>
           )}
 
-          <div className="mx-3">
+          <Flex direction="column" gap="2" mx="3">
             {experimentType !== "multi-armed-bandit" && (
               <DataQualityWarning
                 results={results}
@@ -271,7 +272,7 @@ const CompactResults: FC<{
               totalUsers={totalUsers}
               multipleExposures={multipleExposures}
             />
-          </div>
+          </Flex>
         </>
       )}
 

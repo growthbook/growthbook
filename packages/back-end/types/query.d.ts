@@ -17,8 +17,23 @@ export type QueryStatistics = {
   rowsProcessed?: number;
   bytesProcessed?: number;
   bytesBilled?: number;
+  rowsInserted?: number;
   warehouseCachedResult?: boolean;
   partitionsUsed?: boolean;
+  physicalWrittenBytes?: number;
+};
+
+export type ExperimentQueryMetadata = {
+  experimentProject?: string;
+  experimentOwner?: string;
+  experimentTags?: string[];
+};
+
+export type AdditionalQueryMetadata = ExperimentQueryMetadata;
+
+export type QueryMetadata = AdditionalQueryMetadata & {
+  userName?: string;
+  userId?: string;
 };
 
 export type QueryType =
@@ -33,10 +48,24 @@ export type QueryType =
   | "experimentTraffic"
   | "experimentMultiMetric"
   | "populationMetric"
-  | "populationMultiMetric";
+  | "populationMultiMetric"
+  | "experimentIncrementalRefreshCreateUnitsTable"
+  | "experimentIncrementalRefreshDropUnitsTable"
+  | "experimentIncrementalRefreshDropTempUnitsTable"
+  | "experimentIncrementalRefreshUpdateUnitsTable"
+  | "experimentIncrementalRefreshAlterUnitsTable"
+  | "experimentIncrementalRefreshMaxTimestampUnitsTable"
+  | "experimentIncrementalRefreshCreateMetricsSourceTable"
+  | "experimentIncrementalRefreshInsertMetricsSourceData"
+  | "experimentIncrementalRefreshMaxTimestampMetricsSource"
+  | "experimentIncrementalRefreshCreateMetricsCovariateTable"
+  | "experimentIncrementalRefreshInsertMetricsCovariateData"
+  | "experimentIncrementalRefreshStatistics"
+  | "experimentIncrementalRefreshHealth";
 
 export interface QueryInterface {
   id: string;
+  displayTitle?: string;
   organization: string;
   datasource: string;
   language: QueryLanguage;

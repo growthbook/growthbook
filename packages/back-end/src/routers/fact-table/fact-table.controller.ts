@@ -154,12 +154,6 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  // This method is called with an empty object when we just want to refresh columns
-  let bypassManagedByCheck = false;
-  if (Object.keys(data).length === 0) {
-    bypassManagedByCheck = true;
-  }
-
   // Update the columns
   if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
     const originalColumns = cloneDeep(factTable.columns || []);
@@ -224,7 +218,7 @@ export const putFactTable = async (
     }
   }
 
-  await updateFactTable(context, factTable, data, { bypassManagedByCheck });
+  await updateFactTable(context, factTable, data);
 
   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
 
@@ -318,7 +312,7 @@ export const putColumn = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
     context.permissions.throwPermissionError();
   }
 

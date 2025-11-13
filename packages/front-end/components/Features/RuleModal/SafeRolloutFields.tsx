@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
@@ -394,6 +395,9 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
+              useCodeInput={true}
+              showFullscreenButton={true}
+              codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />
           </Box>
           <Box
@@ -416,6 +420,9 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields}
               useDropdown={true}
+              useCodeInput={true}
+              showFullscreenButton={true}
+              codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />
           </Box>
         </Grid>

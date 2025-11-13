@@ -1,5 +1,5 @@
 import { Flex, Text, TextProps } from "@radix-ui/themes";
-import { forwardRef, ReactElement } from "react";
+import { forwardRef, ReactElement, ReactNode } from "react";
 import {
   PiCheckCircleFill,
   PiInfoFill,
@@ -71,7 +71,7 @@ export function RadixStatusIcon({
 export default forwardRef<
   HTMLDivElement,
   {
-    children: string | string[];
+    children: string | string[] | ReactNode;
     status: Status;
     size?: "sm" | "md";
   } & MarginProps

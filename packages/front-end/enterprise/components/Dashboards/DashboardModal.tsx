@@ -38,12 +38,14 @@ const defaultFormInit = {
 export default function DashboardModal({
   mode,
   initial,
+  dashboardFirstSave,
   close,
   submit,
   type = "experiment",
 }: {
   mode: "create" | "edit" | "duplicate";
   initial?: CreateDashboardArgs["data"];
+  dashboardFirstSave?: boolean;
   close: () => void;
   submit: (data: CreateDashboardArgs["data"]) => void;
   type?: "general" | "experiment";
@@ -142,13 +144,15 @@ export default function DashboardModal({
       size="md"
       trackingEventModalType={`${mode}-dashboard`}
       header={
-        mode === "edit"
-          ? "Edit Dashboard Settings"
-          : mode === "create"
-            ? "Create New Dashboard"
-            : "Duplicate Dashboard"
+        dashboardFirstSave
+          ? "Save Dashboard"
+          : mode === "edit"
+            ? "Edit Dashboard Settings"
+            : mode === "create"
+              ? "Create New Dashboard"
+              : "Duplicate Dashboard"
       }
-      cta={initial ? "Done" : "Create"}
+      cta={dashboardFirstSave ? "Save" : initial ? "Done" : "Create"}
       submit={() => submit(form.getValues())}
       ctaEnabled={!!form.watch("title")}
       close={close}
@@ -282,7 +286,7 @@ export default function DashboardModal({
             )}
           </>
         )}
-        {mode === "create" ? (
+        {mode === "create" || dashboardFirstSave ? (
           // Creating a dashboard: show view access for general dashboards only, edit access for all
           <>
             {isGeneralDashboard && (

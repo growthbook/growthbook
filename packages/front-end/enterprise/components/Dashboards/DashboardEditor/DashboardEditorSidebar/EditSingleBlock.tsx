@@ -34,6 +34,7 @@ import Avatar from "@/ui/Avatar";
 import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { BLOCK_TYPE_INFO } from "..";
 import {
   useDashboardSnapshot,
@@ -84,6 +85,7 @@ const metricSelectorLabels: {
 };
 
 interface Props {
+  projects: string[];
   dashboardId: string;
   experiment: ExperimentInterfaceStringDates | null;
   cancel: () => void;
@@ -143,6 +145,7 @@ export default function EditSingleBlock({
   submit,
   block,
   setBlock,
+  projects,
 }: Props) {
   const {
     dimensions,
@@ -173,12 +176,11 @@ export default function EditSingleBlock({
     useState<string>("");
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
-  const {
-    defaultSnapshot,
-    dimensionless,
-    updateAllSnapshots,
-    savedQueriesMap,
-  } = useContext(DashboardSnapshotContext);
+  const { defaultSnapshot, dimensionless, updateAllSnapshots } = useContext(
+    DashboardSnapshotContext,
+  );
+
+  const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
 
   // Get block context from workspace level
   const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
@@ -186,8 +188,28 @@ export default function EditSingleBlock({
 
   // TODO: does this need to handle metric groups
   const factMetricOptions = useMemo(
-    () => factMetrics.map((m) => ({ label: m.name, value: m.id })),
-    [factMetrics],
+    () =>
+      factMetrics
+        // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
+        .filter((factMetric) => {
+          if (!projects.length || !factMetric.projects.length) {
+            return true;
+          }
+
+          // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
+          if (
+            blockHasFieldOfType(block, "factMetricId", isString) &&
+            factMetric.id === block.factMetricId
+          ) {
+            return true;
+          }
+
+          return projects.every((project) =>
+            factMetric.projects.includes(project),
+          );
+        })
+        .map((m) => ({ label: m.name, value: m.id })),
+    [block, factMetrics, projects],
   );
 
   const metricOptions = useMemo(() => {
@@ -432,6 +454,7 @@ export default function EditSingleBlock({
 
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
+      incrementalRefresh,
       precomputedDimensions: getPrecomputedDimensions(
         defaultSnapshot,
         dimensionless,
@@ -454,26 +477,41 @@ export default function EditSingleBlock({
     getDatasourceById,
     defaultSnapshot,
     dimensionless,
+    incrementalRefresh,
   ]);
+
+  const savedQueryId = blockHasFieldOfType(block, "savedQueryId", isString)
+    ? block.savedQueryId
+    : undefined;
 
   const savedQueryOptions = useMemo(
     () =>
       savedQueriesData?.savedQueries
         ?.filter((savedQuery) => {
-          return savedQuery.linkedDashboardIds?.includes(dashboardId);
+          return (
+            savedQuery.linkedDashboardIds?.includes(dashboardId) ||
+            savedQueryId === savedQuery.id
+          );
         })
         .map(({ id, name }) => ({
           value: id,
           label: name,
         })) || [],
-    [savedQueriesData?.savedQueries, dashboardId],
+    [savedQueriesData?.savedQueries, dashboardId, savedQueryId],
   );
 
   useEffect(() => {
-    if (sqlExplorerType === "existing" && !savedQueryOptions.length) {
+    if (
+      block?.type === "sql-explorer" &&
+      sqlExplorerType === "existing" &&
+      !savedQueryOptions.length &&
+      !savedQueryId
+    ) {
       setSqlExplorerType("create");
+      setShowSqlExplorerModal(true);
     }
-  }, [savedQueryOptions.length, sqlExplorerType]);
+  }, [block?.type, savedQueryId, savedQueryOptions.length, sqlExplorerType]);
+
   const dimensionValueOptions = analysis?.results
     ? analysis.results.map(({ name }) => ({ value: name, label: name }))
     : [];
@@ -531,60 +569,49 @@ export default function EditSingleBlock({
           }}
           mutate={mutateQuery}
           initial={savedQuery}
+          projects={projects}
           id={savedQuery?.id}
           dashboardId={dashboardId}
-          onSave={async (
-            savedQueryId: string | undefined,
-            name: string | undefined,
-          ) => {
+          onSave={async ({
+            savedQueryId,
+            name,
+            newVisualizationIds,
+            allVisualizationIds,
+          }) => {
             if (!block || block.type !== "sql-explorer" || !savedQueryId)
               return;
 
-            const isNewQuery = !blockHasFieldOfType(
-              block,
-              "savedQueryId",
-              isString,
-            );
+            // Start with existing block config
+            let newBlockConfig = [...(block.blockConfig || [])];
 
-            // Update block with saved query ID
+            // No visualizations: always show results table
+            if (allVisualizationIds.length === 0) {
+              newBlockConfig = [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE];
+            } else {
+              // Add all new visualizations to existing block config
+              newBlockConfig.push(...newVisualizationIds);
+
+              // Filter out any visualizations that no longer exist
+              newBlockConfig = newBlockConfig.filter((itemId) => {
+                if (itemId === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE) {
+                  return true;
+                }
+                return allVisualizationIds.includes(itemId);
+              });
+
+              // Remove duplicates (this should never happen, but just in case)
+              newBlockConfig = Array.from(new Set(newBlockConfig));
+            }
+
             setBlock({
               ...block,
               savedQueryId,
               title: name || "SQL Query",
+              blockConfig: newBlockConfig,
             });
             setSqlExplorerType("existing");
-
-            // Refresh dashboard data to get latest saved query info
+            await mutateQuery();
             await updateAllSnapshots();
-
-            // Update blockConfig based on saved query visualizations
-            const updatedSavedQuery = savedQueriesMap.get(savedQueryId);
-            if (updatedSavedQuery?.dataVizConfig) {
-              const visualizationIds = updatedSavedQuery.dataVizConfig
-                .map((viz) => viz.id)
-                .filter((id): id is string => Boolean(id));
-
-              let newBlockConfig: string[];
-
-              if (isNewQuery) {
-                // New query: enable results table and all visualizations
-                newBlockConfig = [
-                  BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                  ...visualizationIds,
-                ];
-              } else {
-                // Existing query: preserve existing config and add new visualizations
-                const existingConfig = block.blockConfig || [];
-                newBlockConfig = [...existingConfig];
-              }
-
-              setBlock({
-                ...block,
-                blockConfig: newBlockConfig,
-              });
-            }
-
-            mutateQuery();
           }}
         />
       )}
@@ -1200,7 +1227,7 @@ export default function EditSingleBlock({
                               (option) => option.value === val,
                             )?.label || "SQL Query",
                           savedQueryId: val,
-                          blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+                          blockConfig: [],
                         });
                       }}
                       isClearable
@@ -1229,22 +1256,6 @@ export default function EditSingleBlock({
                           >
                             Customize Display
                           </Text>
-                          <Checkbox
-                            label="Query results table"
-                            size="md"
-                            value={isBlockConfigItemSelected(
-                              block.blockConfig,
-                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                            )}
-                            setValue={(value) =>
-                              toggleBlockConfigItem(
-                                block,
-                                setBlock,
-                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
-                                value,
-                              )
-                            }
-                          />
                           {savedQuery?.dataVizConfig?.map((config, index) => {
                             const title =
                               config.title || `Visualization ${index + 1}`;
@@ -1269,6 +1280,23 @@ export default function EditSingleBlock({
                               />
                             );
                           })}
+                          <Checkbox
+                            key="results-table"
+                            label="Query results table"
+                            size="md"
+                            value={isBlockConfigItemSelected(
+                              block.blockConfig,
+                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                            )}
+                            setValue={(value) =>
+                              toggleBlockConfigItem(
+                                block,
+                                setBlock,
+                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                                value,
+                              )
+                            }
+                          />
                         </Flex>
                       </>
                     )}

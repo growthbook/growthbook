@@ -33,8 +33,11 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -220,6 +223,12 @@ const AnalysisForm: FC<{
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
+
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
 
   if (upgradeModal) {
     return (
@@ -523,23 +532,56 @@ const AnalysisForm: FC<{
           </div>
         )}
         {!!datasource && !isBandit && !isHoldout && (
-          <MetricSelector
-            datasource={form.watch("datasource")}
-            exposureQueryId={exposureQueryId}
-            project={experiment.project}
-            includeFacts={true}
-            labelClassName="font-weight-bold"
-            label={
-              <>
-                Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
-              </>
-            }
-            initialOption="None"
-            onlyBinomial
-            value={form.watch("activationMetric")}
-            onChange={(value) => form.setValue("activationMetric", value || "")}
-            helpText="Users must convert on this metric before being included"
-          />
+          <>
+            <Tooltip
+              shouldDisplay={
+                isExperimentIncludedInIncrementalRefresh &&
+                form.watch("activationMetric") === ""
+              }
+              body="Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
+            >
+              <MetricSelector
+                disabled={isExperimentIncludedInIncrementalRefresh}
+                datasource={form.watch("datasource")}
+                exposureQueryId={exposureQueryId}
+                project={experiment.project}
+                includeFacts={true}
+                labelClassName="font-weight-bold"
+                label={
+                  <>
+                    Activation Metric
+                    {!isExperimentIncludedInIncrementalRefresh ? (
+                      <>
+                        {" "}
+                        <MetricsSelectorTooltip onlyBinomial={true} />
+                      </>
+                    ) : null}
+                  </>
+                }
+                initialOption="None"
+                onlyBinomial
+                value={form.watch("activationMetric")}
+                onChange={(value) =>
+                  form.setValue("activationMetric", value || "")
+                }
+                helpText="Users must convert on this metric before being included"
+              />
+            </Tooltip>
+            {isExperimentIncludedInIncrementalRefresh &&
+              form.watch("activationMetric") !== "" && (
+                <Callout status="warning" mb="2">
+                  Activation metrics are not yet supported with Incremental
+                  Refresh. Please{" "}
+                  <Link
+                    style={{ display: "inline" }}
+                    onClick={() => form.setValue("activationMetric", "")}
+                  >
+                    click to remove it
+                  </Link>
+                  .
+                </Callout>
+              )}
+          </>
         )}
         <StatsEngineSelect
           label={
@@ -677,6 +719,8 @@ const AnalysisForm: FC<{
         {editMetrics && (
           <>
             <ExperimentMetricsSelector
+              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+              excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               project={experiment.project}
@@ -699,6 +743,7 @@ const AnalysisForm: FC<{
               noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
+              experimentId={experiment.id}
             />
 
             <CustomMetricSlicesSelector
@@ -751,25 +796,37 @@ const AnalysisForm: FC<{
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
-                        <SelectField
-                          label="Metric Conversion Windows"
-                          labelClassName="font-weight-bold"
-                          value={form.watch("skipPartialData")}
-                          onChange={(value) =>
-                            form.setValue("skipPartialData", value)
+                        <Tooltip
+                          shouldDisplay={
+                            isExperimentIncludedInIncrementalRefresh
                           }
-                          options={[
-                            {
-                              label: "Include In-Progress Conversions",
-                              value: "loose",
-                            },
-                            {
-                              label: "Exclude In-Progress Conversions",
-                              value: "strict",
-                            },
-                          ]}
-                          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-                        />
+                          body="In-progress Conversions is not supported with Incremental Refresh while in beta"
+                        >
+                          <SelectField
+                            label="Metric Conversion Windows"
+                            labelClassName="font-weight-bold"
+                            value={form.watch("skipPartialData")}
+                            onChange={(value) =>
+                              form.setValue("skipPartialData", value)
+                            }
+                            options={[
+                              {
+                                label: "Include In-Progress Conversions",
+                                value: "loose",
+                              },
+                              {
+                                label: "Exclude In-Progress Conversions",
+                                value: "strict",
+                              },
+                            ]}
+                            isOptionDisabled={(option) =>
+                              isExperimentIncludedInIncrementalRefresh &&
+                              "value" in option &&
+                              option.value === "strict"
+                            }
+                            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                          />
+                        </Tooltip>
                       </div>
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (
@@ -859,7 +916,10 @@ const AnalysisForm: FC<{
                           form={
                             form as unknown as UseFormReturn<EditMetricsFormInterface>
                           }
-                          disabled={!hasOverrideMetricsFeature}
+                          disabled={
+                            !hasOverrideMetricsFeature ||
+                            isExperimentIncludedInIncrementalRefresh
+                          }
                           setHasMetricOverrideRiskError={(v: boolean) =>
                             setHasMetricOverrideRiskError(v)
                           }

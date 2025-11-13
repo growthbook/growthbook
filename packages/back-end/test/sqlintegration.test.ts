@@ -83,12 +83,14 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        false,
-        new Date(),
-      ).replace(/\s+/g, " "),
+      bqIntegration["addCaseWhenTimeFilter"]({
+        col: "val",
+        metric: normalSqlMetric,
+        overrideConversionWindows: false,
+        endDate: new Date(),
+        metricTimestampColExpr: "m.timestamp",
+        exposureTimestampColExpr: "d.timestamp",
+      }).replace(/\s+/g, " "),
     ).toEqual(
       "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)",
     );
@@ -98,12 +100,14 @@ describe("bigquery integration", () => {
       date,
     )}`;
     expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        true,
-        date,
-      ).replace(/\s+/g, " "),
+      bqIntegration["addCaseWhenTimeFilter"]({
+        col: "val",
+        metric: normalSqlMetric,
+        overrideConversionWindows: true,
+        endDate: date,
+        metricTimestampColExpr: "m.timestamp",
+        exposureTimestampColExpr: "d.timestamp",
+      }).replace(/\s+/g, " "),
     ).toEqual(
       `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`,
     );
