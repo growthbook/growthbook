@@ -47,7 +47,7 @@ export function getBlockData<T extends DashboardBlockInterface>(
   return { ...block, organization: undefined, id: undefined, uid: undefined };
 }
 
-export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
+export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
   data: DashboardBlockInterfaceOrData<T>,
 ): data is T {
   const block = data as T;

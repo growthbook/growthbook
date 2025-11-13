@@ -1282,6 +1282,7 @@ export async function encrypt(
     throw new Error("Unable to encrypt the feature list.");
   }
   const bufToBase64 = (x: ArrayBuffer) => Buffer.from(x).toString("base64");
+
   const key = await crypto.subtle.importKey(
     "raw",
     Buffer.from(keyString, "base64"),
@@ -1301,7 +1302,13 @@ export async function encrypt(
     key,
     new TextEncoder().encode(plainText),
   );
-  return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
+  return (
+    // FIXME: This cast was added when we upgraded to TS 5.7, and we wanted to avoid changing runtime behavior.
+    // We might want to investigate a more robust solution in the future.
+    bufToBase64(iv as unknown as ArrayBuffer) +
+    "." +
+    bufToBase64(encryptedBuffer)
+  );
 }
 
 export function getApiFeatureObj({

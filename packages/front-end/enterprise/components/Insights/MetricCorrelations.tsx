@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
 } from "shared/experiments";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotInterface,
@@ -38,12 +39,17 @@ export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
   metric1: string,
   metric2?: string,
+  metricGroups: MetricGroupInterface[] = [],
 ): ExperimentInterfaceStringDates[] => {
   if (!experiments || experiments.length === 0) {
     return [];
   }
   return experiments.filter((experiment) => {
-    const metricIds = getAllMetricIdsFromExperiment(experiment);
+    const metricIds = getAllMetricIdsFromExperiment(
+      experiment,
+      false,
+      metricGroups,
+    );
     const hasMetric1 = metricIds.includes(metric1);
     const hasMetric2 = metric2 ? metricIds.includes(metric2) : true;
 
@@ -356,6 +362,7 @@ const MetricCorrelationCard = ({
       experiments,
       metric1,
       metric2,
+      metricGroups,
     );
 
     const filteredExperimentsWithSnapshot: Record<
@@ -481,6 +488,7 @@ const MetricCorrelationCard = ({
     setSearchParams,
     apiCall,
     excludedExperimentVariations,
+    metricGroups,
   ]);
 
   useEffect(() => {
