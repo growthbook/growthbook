@@ -1,6 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
-import { FaInfoCircle, FaExclamationTriangle } from "react-icons/fa";
+import { FaInfoCircle } from "react-icons/fa";
 import {
   decimalToPercent,
   distributeWeights,
@@ -13,6 +13,7 @@ import {
 } from "@/services/features";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ExperimentNameFormatTooltip from "@/components/Experiment/ExperimentNameFormatTooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -140,16 +141,12 @@ export default function FeatureVariationsInput({
           <thead className={`${styles.variationSplitHeader}`}>
             <tr>
               <th className="pl-3">
-                {showIdTooltip ? (
-                  <Tooltip
-                    body="These are the variationNames from the experiment naming format exp1:<experimentName>:<variationName>"
-                    tipPosition="top"
-                  >
-                    Id <FaExclamationTriangle />
-                  </Tooltip>
-                ) : (
-                  "Id"
-                )}
+                <span className="d-inline-flex align-items-center">
+                  Id
+                  {showIdTooltip && (
+                    <ExperimentNameFormatTooltip className="ml-1" />
+                  )}
+                </span>
               </th>
               {!valueAsId && <th>Variation</th>}
               <th>

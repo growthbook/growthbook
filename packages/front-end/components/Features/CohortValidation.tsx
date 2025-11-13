@@ -5,7 +5,8 @@ export type CohortValidation =
   | { valid: true }
   | { valid: false; reason: "not-json" }
   | { valid: false; reason: "missing-cohort" }
-  | { valid: false; reason: "invalid-cohort-format" };
+  | { valid: false; reason: "invalid-cohort-format" }
+  | { valid: false; reason: "cohort-trailing-space" };
 
 export function validateCohort(value: string): CohortValidation {
   try {
@@ -30,6 +31,10 @@ export function validateCohort(value: string): CohortValidation {
     const cohortPattern = /^exp1:[^:]+:[^:]+$/;
     if (!cohortPattern.test(cohortValue)) {
       return { valid: false, reason: "invalid-cohort-format" };
+    }
+
+    if (cohortValue.trim() !== cohortValue) {
+      return { valid: false, reason: "cohort-trailing-space" };
     }
 
     return { valid: true };
@@ -63,6 +68,12 @@ export function CohortValidationWarning({
           Invalid experiment setup. Variation {variationIndex} does not have a{" "}
           <code>cohort</code> key.
         </>
+      ) : validation.reason === "cohort-trailing-space" ? (
+        <>
+          Invalid experiment setup. Variation {variationIndex} has trailing
+          whitespace in the cohort value. Please remove any spaces before or
+          after the value.
+        </>
       ) : (
         <>
           Invalid experiment setup. Variation {variationIndex} has an invalid
@@ -92,7 +103,10 @@ export function hasExperimentFormatCohort(value: string): boolean {
     }
 
     const cohortPattern = /^exp1:[^:]+:[^:]+$/;
-    return cohortPattern.test(cohortValue);
+    if (!cohortPattern.test(cohortValue)) {
+      return false;
+    }
+    return cohortValue.trim() === cohortValue;
   } catch {
     return false;
   }

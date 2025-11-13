@@ -46,6 +46,7 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import Toggle from "@/components/Forms/Toggle";
+import ExperimentNameFormatTooltip from "./ExperimentNameFormatTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -378,7 +379,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
 
           <Field
-            label="Name"
+            label={
+              <span className="d-inline-flex align-items-center">
+                Name
+                <ExperimentNameFormatTooltip
+                  className="ml-1"
+                  tipPosition="right"
+                />
+              </span>
+            }
             required
             minLength={2}
             {...form.register("name")}
