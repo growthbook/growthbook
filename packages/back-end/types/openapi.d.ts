@@ -13392,6 +13392,10 @@ export interface operations {
           populationType?: "factTable" | "segment";
           /** @description The ID of the population (e.g., segment ID) when populationType is not 'factTable'. Defaults to null. */
           populationId?: string | null;
+          /** @description Array of Fact Table Filter Ids */
+          numeratorFilters?: (string)[];
+          /** @description Array of Fact Table Filter Ids */
+          denominatorFilters?: (string)[];
           /** @description Whether to use a cached query if one exists. Defaults to true. */
           useCache?: boolean;
         };
