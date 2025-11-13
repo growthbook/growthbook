@@ -175,7 +175,6 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                   </SelectItem>
                 </Select>
               )}
-              {/* // Should this be it's own collapsible component? */}
               <Select
                 label="Date Range"
                 size="2"
@@ -243,7 +242,6 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                   onChange={(e) => {
                     const value = e.target.value;
                     setCustomDaysInput(value); // Always update local state for typing
-
                     const days = parseInt(value);
                     // Update block state when we have a valid positive number
                     if (days > 0 && !isNaN(days)) {
@@ -436,8 +434,6 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                   }
                 />
               ) : null}
-              {/* Also need to support user filters here? */}
-              {/* Also need to identify how to support ad-hoc filters here */}
             </Flex>
           </Box>
         </Collapsible>

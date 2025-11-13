@@ -157,14 +157,10 @@ function settingsMatch(
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
-
   return Object.entries(settings).every(([key, value]) => {
-    const canDiffer = fieldsThatCanDiffer.includes(key);
-    if (canDiffer) {
-      return true;
-    }
-    const desiredValue = desiredSettings[key];
-    return isEqual(value, desiredValue);
+    return (
+      fieldsThatCanDiffer.includes(key) || isEqual(value, desiredSettings[key])
+    );
   });
 }
 
