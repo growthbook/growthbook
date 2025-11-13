@@ -729,12 +729,21 @@ export default function EditSingleBlock({
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
+                  const isMetricExplorer = block.type === "metric-explorer";
                   setBlock({
                     ...block,
                     title:
                       factMetricOptions.find((option) => option.value === value)
                         ?.label || "Metric",
                     factMetricId: value,
+                    ...(isMetricExplorer && {
+                      metricAnalysisId: "",
+                      analysisSettings: {
+                        ...block.analysisSettings,
+                        numeratorFilters: null,
+                        denominatorFilters: null,
+                      },
+                    }),
                   });
                 }}
                 options={factMetricOptions}
