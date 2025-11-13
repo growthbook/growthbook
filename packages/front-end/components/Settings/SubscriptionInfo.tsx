@@ -23,7 +23,7 @@ export default function SubscriptionInfo() {
     accountPlan,
     users,
     refreshOrganization,
-    email,
+    organization,
   } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -60,9 +60,11 @@ export default function SubscriptionInfo() {
           close={() => setShowCancellationSurveyModal(false)}
           submit={async () => {
             const surveyUrl = new URL(CANCELLATION_SURVEY_URL);
-            if (email) {
-              surveyUrl.searchParams.set("email", email);
+
+            if (organization.id) {
+              surveyUrl.searchParams.set("org_id", organization.id);
             }
+
             window.open(surveyUrl.toString(), "_blank");
             setShowCancellationSurveyModal(false);
           }}
@@ -77,11 +79,6 @@ export default function SubscriptionInfo() {
             <Text as="span">
               Can you spare 30 seconds to let us know what we can do better?
             </Text>
-            {email && (
-              <Text as="p" size="2" color="gray" mt="2">
-                Your email ({email}) will be included with your feedback.
-              </Text>
-            )}
           </Box>
         </Modal>
       )}
