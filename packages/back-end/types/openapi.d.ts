@@ -14610,12 +14610,13 @@ export interface operations {
            */
           editLevel: "published" | "private";
           /**
-           * @description General dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+           * @description General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
            * @enum {string}
            */
           shareLevel: "published" | "private";
+          /** @description If enabled for a General Dashboard, also requires an updateSchedule */
           enableAutoUpdates: boolean;
-          /** @description General dashboards only. Experiment Dashboards update based on the parent experiment instead */
+          /** @description General Dashboards only. Experiment Dashboards update based on the parent experiment instead */
           updateSchedule?: {
             /** @enum {string} */
             type: "stale";
@@ -14627,7 +14628,7 @@ export interface operations {
           };
           /** @description The parent experiment for an Experiment Dashboard, or undefined for a general dashboard */
           experimentId?: string;
-          /** @description General dashboards only, experiment dashboards use the experiment's projects */
+          /** @description General Dashboards only, Experiment Dashboards use the experiment's projects */
           projects?: (string)[];
           blocks: (({
               title: string;
@@ -15186,12 +15187,13 @@ export interface operations {
            */
           editLevel?: "published" | "private";
           /**
-           * @description General dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+           * @description General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
            * @enum {string}
            */
           shareLevel?: "published" | "private";
+          /** @description If enabled for a General Dashboard, also requires an updateSchedule */
           enableAutoUpdates?: boolean;
-          /** @description General dashboards only. Experiment Dashboards update based on the parent experiment instead */
+          /** @description General Dashboards only. Experiment Dashboards update based on the parent experiment instead */
           updateSchedule?: {
             /** @enum {string} */
             type: "stale";
@@ -15201,7 +15203,7 @@ export interface operations {
             type: "cron";
             cron: string;
           };
-          /** @description General dashboards only, experiment dashboards use the experiment's projects */
+          /** @description General Dashboards only, Experiment Dashboards use the experiment's projects */
           projects?: (string)[];
           blocks?: (((({
               title: string;

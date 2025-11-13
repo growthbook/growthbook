@@ -5845,7 +5845,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/dashboards \
-              -d '{}' \
+              -d '{ "title": "My dashboard", "editLevel": "private", "shareLevel": "private", "enableAutoUpdates": false, "blocks": []}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -5871,14 +5871,15 @@ paths:
                     - private
                 shareLevel:
                   type: string
-                  description: General dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
+                  description: General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
                   enum:
                     - published
                     - private
                 enableAutoUpdates:
+                  description: 'If enabled for a General Dashboard, also requires an updateSchedule'
                   type: boolean
                 updateSchedule:
-                  description: General dashboards only. Experiment Dashboards update based on the parent experiment instead
+                  description: General Dashboards only. Experiment Dashboards update based on the parent experiment instead
                   anyOf:
                     - type: object
                       required:
@@ -5906,7 +5907,7 @@ paths:
                   description: 'The parent experiment for an Experiment Dashboard, or undefined for a general dashboard'
                   type: string
                 projects:
-                  description: 'General dashboards only, experiment dashboards use the experiment''s projects'
+                  description: 'General Dashboards only, Experiment Dashboards use the experiment''s projects'
                   type: array
                   items:
                     type: string
@@ -5960,7 +5961,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/dashboards/dash_123abc \
-              -d '{}' \
+              -d '{ "title": "Renamed", "shareLevel": "published" }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -5981,17 +5982,18 @@ paths:
                     - private
                 shareLevel:
                   type: string
-                  description: General dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
+                  description: General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
                   enum:
                     - published
                     - private
                 enableAutoUpdates:
+                  description: 'If enabled for a General Dashboard, also requires an updateSchedule'
                   type: boolean
                 updateSchedule:
-                  description: General dashboards only. Experiment Dashboards update based on the parent experiment instead
+                  description: General Dashboards only. Experiment Dashboards update based on the parent experiment instead
                   $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/updateSchedule'
                 projects:
-                  description: 'General dashboards only, experiment dashboards use the experiment''s projects'
+                  description: 'General Dashboards only, Experiment Dashboards use the experiment''s projects'
                   type: array
                   items:
                     type: string
