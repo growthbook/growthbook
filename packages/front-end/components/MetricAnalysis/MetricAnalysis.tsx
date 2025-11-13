@@ -156,10 +156,36 @@ function settingsMatch(
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
-  return Object.entries(settings).every(
-    ([key, value]) =>
-      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key),
-  );
+
+  // Helper to compare values, handling arrays and nulls
+  const valuesMatch = (a: unknown, b: unknown): boolean => {
+    // Handle null/undefined cases
+    if (a === null || a === undefined) {
+      return b === null || b === undefined;
+    }
+    if (b === null || b === undefined) {
+      return false;
+    }
+
+    // Handle arrays
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) {
+        return false;
+      }
+      return a.every((item, index) => item === b[index]);
+    }
+
+    return a === b;
+  };
+
+  return Object.entries(settings).every(([key, value]) => {
+    const canDiffer = fieldsThatCanDiffer.includes(key);
+    if (canDiffer) {
+      return true;
+    }
+    const desiredValue = desiredSettings[key];
+    return valuesMatch(value, desiredValue);
+  });
 }
 
 function isOutdated(
@@ -190,6 +216,8 @@ function getAnalysisSettingsForm(
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
+    numeratorFilters: settings?.numeratorFilters ?? null,
+    denominatorFilters: settings?.denominatorFilters ?? null,
   };
 }
 
@@ -201,6 +229,8 @@ export type MetricAnalysisFormFields = {
 
   populationType: MetricAnalysisPopulationType;
   populationId: string | null;
+  numeratorFilters: string[] | null;
+  denominatorFilters: string[] | null;
 };
 
 interface MetricAnalysisProps {

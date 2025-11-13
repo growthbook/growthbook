@@ -9,11 +9,7 @@ export const metricAnalysisPopulationTypeValidator = z.enum([
   "segment",
 ]);
 
-export const metricAnalysisSourceValidator = z.enum([
-  "metric",
-  "northstar",
-  "dashboard",
-]);
+export const metricAnalysisSourceValidator = z.enum(["metric", "northstar"]);
 
 export const metricAnalysisSettingsValidator = z
   .object({
@@ -25,8 +21,8 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
-    numeratorFilters: z.array(z.string()).optional(),
-    denominatorFilters: z.array(z.string()).optional(),
+    numeratorFilters: z.array(z.string()).nullable(),
+    denominatorFilters: z.array(z.string()).nullable(),
   })
   .strict();
 export const metricAnalysisSettingsStringDatesValidator =
@@ -46,8 +42,8 @@ export const createMetricAnalysisPropsValidator = z
     populationId: z.string().nullable(),
     source: metricAnalysisSourceValidator,
     force: z.boolean().optional(),
-    numeratorFilters: z.array(z.string()).optional(),
-    denominatorFilters: z.array(z.string()).optional(),
+    numeratorFilters: z.array(z.string()).nullable(),
+    denominatorFilters: z.array(z.string()).nullable(),
   })
   .strict();
 

@@ -1,4 +1,4 @@
-import { cloneDeep, isEqual, uniqWith } from "lodash";
+import { isEqual, uniqWith } from "lodash";
 import { isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
@@ -243,26 +243,11 @@ export async function updateDashboardMetricAnalyses(
         denominatorFilters: blockSettings.denominatorFilters,
       };
 
-      // Clone the metric to avoid mutating the original, then apply filters from block settings
-      const metricWithFilters = cloneDeep(metric);
-      if (blockSettings.numeratorFilters) {
-        metricWithFilters.numerator.filters = [
-          ...(metricWithFilters.numerator.filters || []),
-          ...blockSettings.numeratorFilters,
-        ];
-      }
-      if (blockSettings.denominatorFilters && metricWithFilters.denominator) {
-        metricWithFilters.denominator.filters = [
-          ...(metricWithFilters.denominator.filters || []),
-          ...blockSettings.denominatorFilters,
-        ];
-      }
-
       const queryRunner = await createMetricAnalysis(
         context,
-        metricWithFilters,
+        metric,
         settings,
-        "dashboard",
+        "metric",
         false,
       );
 
