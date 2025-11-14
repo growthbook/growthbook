@@ -606,7 +606,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 : "This is just for documentation purposes and has no effect on the analysis."
             }
             showPreview={!!isNewExperiment}
-            showIdTooltip={true}
           />
         </div>
       </Page>

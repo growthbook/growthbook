@@ -96,9 +96,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                     showExperimentWarning={false}
                   />
                   <CohortValidationWarning
-                    validation={validateCohort(
-                      typeof v === "string" ? v : JSON.stringify(v ?? "")
-                    )}
+                    validation={validateCohort(v)}
                     variationIndex={j}
                   />
                 </td>
