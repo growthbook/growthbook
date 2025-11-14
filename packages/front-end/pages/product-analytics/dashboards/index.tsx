@@ -462,8 +462,6 @@ export default function DashboardsPage() {
                                         disabled={!canDelete}
                                         color="red"
                                         confirmation={{
-                                          getConfirmationContent: async () =>
-                                            "Are you sure? This action cannot be undone.",
                                           confirmationTitle: (
                                             <span>
                                               Delete Dashboard <i>{d.title}</i>?

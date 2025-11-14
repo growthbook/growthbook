@@ -108,7 +108,7 @@ type DropdownItemProps = {
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   confirmation?: {
     submit: () => Promise<void> | void;
-    getConfirmationContent: () => Promise<string | ReactElement | null>;
+    getConfirmationContent?: () => Promise<string | ReactElement | null>;
     confirmationTitle: string | ReactElement;
     cta: string;
     submitColor: string;
@@ -130,7 +130,7 @@ export function DropdownMenuItem({
   const [confirming, setConfirming] = useState(false);
   const [confirmationContent, setConfirmationContent] = useState<
     string | ReactElement | null
-  >("");
+  >(null);
   useEffect(() => {
     if (!confirming || !confirmation || !confirmation.getConfirmationContent)
       return;
@@ -155,7 +155,7 @@ export function DropdownMenuItem({
           submit={confirmation.submit}
           increasedElevation={true}
         >
-          {confirmationContent}
+          {confirmationContent ?? "Are you sure? This action cannot be undone."}
         </Modal>
       )}
       <RadixDropdownMenu.Item
