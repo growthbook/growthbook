@@ -19,10 +19,11 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   Variation,
 } from "back-end/src/validators/experiments";
+import { validateCustomFields } from "./validation";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
-    const { datasourceId, owner: ownerEmail, project } = req.body;
+    const { datasourceId, owner: ownerEmail, project, customFields } = req.body;
 
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (project) {
@@ -63,6 +64,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
+    // check if the custom fields are valid
+    if (customFields) {
+      await validateCustomFields(customFields, req.context, project);
+    }
+
     const ownerId = await (async () => {
       if (!ownerEmail) return req.context.userId;
       const user = await getUserByEmail(ownerEmail);
@@ -77,12 +83,17 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     })();
 
     // Validate that specified metrics exist and belong to the organization
-    const metricIds = getAllMetricIdsFromExperiment({
-      goalMetrics: req.body.metrics,
-      secondaryMetrics: req.body.secondaryMetrics,
-      guardrailMetrics: req.body.guardrailMetrics,
-      activationMetric: req.body.activationMetric,
-    });
+    const metricGroups = await req.context.models.metricGroups.getAll();
+    const metricIds = getAllMetricIdsFromExperiment(
+      {
+        goalMetrics: req.body.metrics,
+        secondaryMetrics: req.body.secondaryMetrics,
+        guardrailMetrics: req.body.guardrailMetrics,
+        activationMetric: req.body.activationMetric,
+      },
+      true,
+      metricGroups,
+    );
     if (metricIds.length) {
       if (!datasource) {
         throw new Error("Must provide a datasource when including metrics");

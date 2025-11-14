@@ -100,7 +100,7 @@ export default function DashboardSnapshotProvider({
     savedQueries: SavedQuery[];
     metricAnalyses: MetricAnalysisInterface[];
   }>(`/dashboards/${dashboard?.id}/snapshots`, {
-    shouldRun: () => !!dashboard?.id,
+    shouldRun: () => !!dashboard?.id && dashboard.id !== "new",
   });
 
   const { mutate: mutateSavedQueries } = useApi(`/saved-queries/`);
@@ -194,7 +194,7 @@ export default function DashboardSnapshotProvider({
   }, [mutateAllSnapshots, status, runningMetricAnalyses, apiCall]);
 
   const updateAllSnapshots = async () => {
-    if (!dashboard) return;
+    if (!dashboard || dashboard.id === "new") return;
     setRefreshError(undefined);
     try {
       await apiCall(`/dashboards/${dashboard.id}/refresh`, {

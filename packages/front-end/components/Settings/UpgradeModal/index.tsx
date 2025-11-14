@@ -73,6 +73,9 @@ export default function UpgradeModal({
   const orgIsManagedByVercel = organization.isVercelIntegration;
 
   function shouldShowEnterpriseTreatment(): boolean {
+    // Self-hosted Pro is not allowed, always show Enterprise
+    if (!isCloud()) return true;
+
     // if no commercialFeature is provided, determine what plan to show based on org's current plan
     if (!commercialFeature) {
       if (
@@ -530,12 +533,12 @@ export default function UpgradeModal({
                   Base price
                 </Text>
                 <Text size="3" weight={"bold"}>
-                  ${numOfCurrentMembers * 20} / month
+                  ${numOfCurrentMembers * 40} / month
                 </Text>
               </Flex>
               <Box mb="5">
                 <Text size="2">
-                  $20 per seat per month, {numOfCurrentMembers} current seat
+                  $40 per seat per month, {numOfCurrentMembers} current seat
                   {numOfCurrentMembers > 1 ? "s" : ""}
                 </Text>
               </Box>
@@ -645,10 +648,10 @@ export default function UpgradeModal({
                     className="pl-1"
                   />
                 </span>
-                <label>~${numOfCurrentMembers * 20} / month</label>
+                <label>~${numOfCurrentMembers * 40} / month</label>
               </Flex>
               <p className="mb-0 text-secondary">
-                $20 per seat per month, {numOfCurrentMembers} current seat
+                $40 per seat per month, {numOfCurrentMembers} current seat
                 {numOfCurrentMembers > 1 ? "s" : ""}
               </p>
             </div>

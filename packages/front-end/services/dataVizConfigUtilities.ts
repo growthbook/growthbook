@@ -4,9 +4,10 @@ import {
   DataVizConfig,
   LineChart,
   ScatterChart,
+  dimensionAxisConfiguration,
   xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
-import { requiresXAxis } from "./dataVizTypeGuards";
+import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
 
 export function getXAxisConfig(
   config: Partial<DataVizConfig>,
@@ -74,4 +75,44 @@ export function updateXAxisConfig(
   };
 
   return setXAxisConfig(config, updated);
+}
+
+// Not all chart types support stacked dimensions, so this function ensures only bar and area can have a "stacked" display
+export function normalizeDimensionsForChartType(
+  config: Partial<DataVizConfig>,
+): Partial<DataVizConfig> {
+  if (supportsDimension(config)) {
+    // No need to normalize if there are no dimensions
+    if (!config.dimension) {
+      return config;
+    }
+
+    // If display is stacked, and chart type isn't bar or area, we need to reset the display to grouped
+    const needsNormalization =
+      (config.dimension as dimensionAxisConfiguration[]).some(
+        (dim) => dim.display === "stacked",
+      ) &&
+      config.chartType !== "bar" &&
+      config.chartType !== "area";
+
+    if (!needsNormalization) {
+      return config;
+    }
+
+    // Set display to grouped for all dimensions
+    const normalizedDimensions = config.dimension.map((dim) => ({
+      ...dim,
+      display: "grouped" as const,
+    }));
+
+    return {
+      ...config,
+      dimension: normalizedDimensions,
+    } as Partial<DataVizConfig>;
+  } else {
+    return {
+      ...config,
+      dimension: undefined,
+    } as Partial<DataVizConfig>;
+  }
 }

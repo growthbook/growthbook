@@ -426,6 +426,7 @@ export function useExperimentSearch({
     getProjectById,
     getDatasourceById,
     getSavedGroupById,
+    metricGroups,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
@@ -540,7 +541,7 @@ export function useExperimentSearch({
       datasource: (item) => item.datasource,
       metric: (item) => [
         ...(item.metricNames ?? []),
-        ...getAllMetricIdsFromExperiment(item),
+        ...getAllMetricIdsFromExperiment(item, true, metricGroups),
       ],
       savedgroup: (item) => item.savedGroups || [],
       goal: (item) => [...(item.metricNames ?? []), ...item.goalMetrics],
@@ -993,6 +994,12 @@ export function getIsExperimentIncludedInIncrementalRefresh(
 
   const includedExperimentIds =
     datasource?.settings.pipelineSettings?.includedExperimentIds;
+  const excludedExperimentIds =
+    datasource?.settings.pipelineSettings?.excludedExperimentIds;
+
+  if (experimentId && excludedExperimentIds?.includes(experimentId)) {
+    return false;
+  }
 
   // If no specific experiment IDs are set, all experiments are included
   // If experimentId is not provided, consider it included for the New Experiment form

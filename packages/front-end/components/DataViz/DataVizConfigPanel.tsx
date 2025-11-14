@@ -15,6 +15,7 @@ import {
   getXAxisConfig,
   setXAxisConfig,
   updateXAxisConfig,
+  normalizeDimensionsForChartType,
 } from "@/services/dataVizConfigUtilities";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizFilterPanel from "./DataVizFilterPanel";
@@ -169,10 +170,12 @@ export default function DataVizConfigPanel({
                   });
                   return;
                 }
-                onDataVizConfigChange({
+                // Update chart type and normalize dimensions if needed
+                const updatedConfig = normalizeDimensionsForChartType({
                   ...dataVizConfig,
                   chartType: v as DataVizConfig["chartType"],
-                });
+                } as Partial<DataVizConfig>);
+                onDataVizConfigChange(updatedConfig);
               }}
             >
               <SelectItem value="bar">Bar</SelectItem>

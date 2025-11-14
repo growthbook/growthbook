@@ -41,14 +41,27 @@ const yAxisConfigurationValidator = z.object({
 export type yAxisConfiguration = z.infer<typeof yAxisConfigurationValidator>;
 export type yAxisAggregationType = z.infer<typeof aggregationEnum>;
 
-const dimensionAxisConfigurationValidator = z.object({
+const baseDimensionAxisConfigurationValidator = z.object({
   fieldName: z.string(),
-  display: z.enum(["grouped", "stacked"]),
+  display: z.enum(["grouped"]),
   maxValues: z.number().optional(),
 });
-export type dimensionAxisConfiguration = z.infer<
-  typeof dimensionAxisConfigurationValidator
+export type baseDimensionAxisConfiguration = z.infer<
+  typeof baseDimensionAxisConfigurationValidator
 >;
+
+const extendedDimensionAxisConfigurationValidator =
+  baseDimensionAxisConfigurationValidator.extend({
+    display: z.enum(["stacked", "grouped"]),
+  });
+export type extendedDimensionAxisConfiguration = z.infer<
+  typeof extendedDimensionAxisConfigurationValidator
+>;
+
+// Union type for all dimension axis configurations
+export type dimensionAxisConfiguration =
+  | baseDimensionAxisConfiguration
+  | extendedDimensionAxisConfiguration;
 
 const filterConfigurationValidator = z.union([
   // Date filters
@@ -146,8 +159,18 @@ const withXAxes = z.object({
   xAxes: z.array(xAxisConfigurationValidator).nonempty(),
 });
 
-const withDimensions = z.object({
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+const withBaseDimensions = z.object({
+  dimension: z
+    .array(baseDimensionAxisConfigurationValidator)
+    .nonempty()
+    .optional(),
+});
+
+const withExtendedDimensions = z.object({
+  dimension: z
+    .array(extendedDimensionAxisConfigurationValidator)
+    .nonempty()
+    .optional(),
 });
 
 const withFormat = z.object({
@@ -158,22 +181,22 @@ const withFormat = z.object({
 const barChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("bar") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withExtendedDimensions);
 
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withBaseDimensions);
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withExtendedDimensions);
 
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withBaseDimensions);
 
 const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))
@@ -182,7 +205,7 @@ const bigValueChartValidator = baseChartConfig
 const pivotTableValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("pivot-table") }))
   .merge(withXAxes)
-  .merge(withDimensions);
+  .merge(withBaseDimensions);
 
 // Union of all chart type validators
 export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
