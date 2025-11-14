@@ -1,17 +1,11 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useEffect, useMemo } from "react";
-import { getSRMHealthData } from "shared/health";
-import {
-  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_THRESHOLD,
-} from "shared/constants";
+import { useEffect } from "react";
 import { CovariateImbalanceResult } from "shared/enterprise";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
-import { useUser } from "@/services/UserContext";
 import {
   CovariateImbalanceMetricVariationTable,
   CovariateImbalanceMetricSummaryTable,
@@ -39,36 +33,19 @@ export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 
 export default function CovariateImbalanceCard({
   covariateImbalanceResult,
-  traffic,
   variations,
-  totalUsers,
   onNotify,
   dataSource: _dataSource,
   exposureQuery: _exposureQuery,
   healthTabConfigParams: _healthTabConfigParams,
   canConfigHealthTab: _canConfigHealthTab,
   newDesign = false,
-  hideDimensions = false,
+  hideDimensions: _hideDimensions = false,
 }: Props) {
-  const { settings } = useUser();
-
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-  const srmHealth = useMemo(
-    () =>
-      getSRMHealthData({
-        srm: traffic.overall.srm,
-        srmThreshold,
-        numOfVariations: variations.length,
-        totalUsersCount: totalUsers,
-        minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-      }),
-    [traffic.overall.srm, srmThreshold, variations.length, totalUsers],
-  );
-
   const covariateImbalanceHealth = covariateImbalanceResult?.isImbalanced
     ? "unhealthy"
     : "healthy";
+
   useEffect(() => {
     if (covariateImbalanceHealth === "unhealthy") {
       onNotify &&
@@ -77,7 +54,6 @@ export default function CovariateImbalanceCard({
   }, [covariateImbalanceHealth, onNotify]);
 
   const classes = !newDesign ? "appbox container-fluid my-4 pl-3 py-3" : "";
-  const hideRightTable = hideDimensions;
 
   return (
     <div
@@ -92,19 +68,18 @@ export default function CovariateImbalanceCard({
     >
       <div>
         <h2 className="d-inline">Covariate Imbalance Check</h2>{" "}
-        {srmHealth !== "healthy" && (
+        {covariateImbalanceHealth !== "healthy" && (
           <StatusBadge status={covariateImbalanceHealth} />
         )}
         <p className="mt-1">
-          Pre-experiment metric imbalances across control and treatment groups.
+          Pre-experiment metric imbalances across control and treatment groups
+          by metric type.
         </p>
         <hr className="mb-0"></hr>
         <div style={{ paddingTop: "10px" }}>
-          {!hideRightTable && (
-            <div className="mb-4">
-              {CovariateImbalanceMetricSummaryTable(covariateImbalanceResult)}
-            </div>
-          )}
+          <div className="mb-4">
+            {CovariateImbalanceMetricSummaryTable(covariateImbalanceResult)}
+          </div>
           <div className="row justify-content-start w-100 overflow-auto">
             <CovariateImbalanceMetricVariationTable
               covariateImbalanceResult={covariateImbalanceResult}
@@ -112,15 +87,8 @@ export default function CovariateImbalanceCard({
             />
           </div>
           <div>
-            {covariateImbalanceHealth === "unhealthy" ? (
+            {covariateImbalanceHealth === "unhealthy" && (
               <CovariateImbalanceWarning />
-            ) : (
-              <div className="alert alert-info">
-                <b>
-                  More traffic is required to detect a Sample Ratio Mismatch
-                  (SRM).
-                </b>
-              </div>
             )}
           </div>
         </div>
