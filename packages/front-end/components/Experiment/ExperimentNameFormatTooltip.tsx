@@ -1,4 +1,3 @@
-import { ReactNode } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -6,7 +5,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 type Props = {
   tipPosition?: "bottom" | "top" | "left" | "right";
   className?: string;
-  body?: ReactNode;
+  body?: string | JSX.Element;
 };
 
 export default function ExperimentNameFormatTooltip({
