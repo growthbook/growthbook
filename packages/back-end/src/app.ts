@@ -7,6 +7,7 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
+import mongoose from "mongoose";
 import { stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
@@ -169,11 +170,49 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
 app.use(cookieParser());
 
 // Health check route (does not require JWT or cors)
-app.get("/healthcheck", (req, res) => {
-  // TODO: more robust health check?
-  res.status(200).json({
-    status: 200,
-    healthy: true,
+app.get("/healthcheck", async (req, res) => {
+  const mongoConnected = mongoose.connection.readyState === 1;
+  let mongoOk = mongoConnected;
+  let pingMs: number | undefined;
+
+  if (mongoConnected && mongoose.connection.db) {
+    const start = Date.now();
+    try {
+      await mongoose.connection.db.admin().ping();
+      pingMs = Date.now() - start;
+    } catch (e: any) {
+      mongoOk = false;
+    }
+  } else if (!mongoConnected) {
+    mongoOk = false;
+  }
+
+  const healthy = mongoOk;
+  const status = healthy ? 200 : 500;
+  res.status(status).json({
+    status,
+    healthy,
+    app: {
+      uptimeSec: Math.round(process.uptime()),
+    },
+    build: getBuild(),
+    resources: {
+      memory: (() => {
+        const m = process.memoryUsage();
+        const toMb = (n: number) => Math.round(n / (1024 * 1024));
+        return {
+          rssMb: toMb(m.rss),
+          heapUsedMb: toMb(m.heapUsed),
+          heapTotalMb: toMb(m.heapTotal),
+          externalMb: toMb(m.external),
+        };
+      })(),
+    },
+    mongo: {
+      connected: mongoConnected,
+      ok: mongoOk,
+      pingMs,
+    },
   });
 });
 
