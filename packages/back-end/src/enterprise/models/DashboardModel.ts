@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
+import { getValidDate } from "shared/dates";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -15,6 +16,11 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import {
+  ApiCreateDashboardBlock,
+  ApiDashboard,
+  ApiDashboardBlock,
+} from "back-end/types/openapi";
 import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
@@ -238,6 +244,22 @@ export class DashboardModel extends BaseClass {
     });
   }
 
+  protected async customValidation(toSave: DashboardDocument) {
+    if (toSave.experimentId) {
+      if (toSave.updateSchedule) {
+        throw new Error(
+          "Cannot specify an update schedule for experiment dashboards",
+        );
+      }
+    } else {
+      if (toSave.enableAutoUpdates && !toSave.updateSchedule) {
+        throw new Error(
+          "Must define an update schedule to enable auto updates",
+        );
+      }
+    }
+  }
+
   protected async afterCreate(doc: DashboardDocument) {
     const queryIdSet = getSavedQueryIds(doc);
     for (const queryId of queryIdSet) {
@@ -278,6 +300,19 @@ export class DashboardModel extends BaseClass {
     if (!existing) return;
     await this._deleteOne(existing);
     return existing;
+  }
+
+  public toApiInterface(
+    dashboard: DashboardInterface | DashboardDocument,
+  ): ApiDashboard {
+    return {
+      ...removeMongooseFields(dashboard),
+      blocks: dashboard.blocks.map(toBlockApiInterface),
+      dateCreated: dashboard.dateCreated.toISOString(),
+      dateUpdated: dashboard.dateUpdated.toISOString(),
+      nextUpdate: dashboard.nextUpdate?.toISOString(),
+      lastUpdated: dashboard.lastUpdated?.toISOString(),
+    };
   }
 }
 
@@ -377,5 +412,43 @@ export function migrateBlock(
       };
     default:
       return doc;
+  }
+}
+
+function toBlockApiInterface(
+  block: DashboardBlockInterface,
+): ApiDashboardBlock {
+  switch (block.type) {
+    case "metric-explorer":
+      return {
+        ...block,
+        analysisSettings: {
+          ...block.analysisSettings,
+          startDate: getValidDate(
+            block.analysisSettings.startDate,
+          ).toISOString(),
+          endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
+        },
+      };
+    default:
+      return block;
+  }
+}
+
+export function fromBlockApiInterface(
+  apiBlock: ApiDashboardBlock | ApiCreateDashboardBlock,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  switch (apiBlock.type) {
+    case "metric-explorer":
+      return {
+        ...apiBlock,
+        analysisSettings: {
+          ...apiBlock.analysisSettings,
+          startDate: getValidDate(apiBlock.analysisSettings.startDate),
+          endDate: getValidDate(apiBlock.analysisSettings.endDate),
+        },
+      };
+    default:
+      return apiBlock;
   }
 }

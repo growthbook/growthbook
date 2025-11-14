@@ -1,0 +1,3 @@
+allOf:
+  - $ref: "./CreateExperimentMetricBlock.yaml"
+  - $ref: "./BlockWithIds.yaml"

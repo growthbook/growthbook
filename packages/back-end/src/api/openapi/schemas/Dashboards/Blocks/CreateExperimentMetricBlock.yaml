@@ -1,0 +1,56 @@
+allOf:
+  - $ref: "./BaseBlock.yaml"
+  - $ref: "./BlockWithMetricSlices.yaml"
+  - type: object
+    required:
+      - type
+      - experimentId
+      - metricSelector
+      - variationIds
+      - baselineRow
+      - differenceType
+      - columnsFilter
+      - snapshotId
+    properties:
+      type:
+        type: string
+        enum:
+          - "experiment-metric"
+      experimentId:
+        type: string
+      metricSelector:
+        type: string
+        enum:
+          - experiment-goal
+          - experiment-secondary
+          - experiment-guardrail
+          - custom
+      metricIds:
+        type: array
+        items:
+          type: string
+      variationIds:
+        type: array
+        items:
+          type: string
+      baselineRow:
+        type: number
+      differenceType:
+        type: string
+        enum:
+          - absolute
+          - relative
+          - scaled
+      columnsFilter:
+        type: array
+        items:
+          type: string
+          enum:
+            - Metric & Variation Names
+            - Baseline Average
+            - Variation Averages
+            - Chance to Win
+            - CI Graph
+            - Lift
+      snapshotId:
+        type: string

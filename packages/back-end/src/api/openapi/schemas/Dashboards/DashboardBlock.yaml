@@ -1,0 +1,9 @@
+anyOf:
+  - $ref: "./Blocks/MarkdownBlock.yaml"
+  - $ref: "./Blocks/ExperimentMetadataBlock.yaml"
+  - $ref: "./Blocks/ExperimentMetricBlock.yaml"
+  - $ref: "./Blocks/ExperimentDimensionBlock.yaml"
+  - $ref: "./Blocks/ExperimentTimeSeriesBlock.yaml"
+  - $ref: "./Blocks/ExperimentTrafficBlock.yaml"
+  - $ref: "./Blocks/SqlExplorerBlock.yaml"
+  - $ref: "./Blocks/MetricExplorerBlock.yaml"
