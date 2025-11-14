@@ -111,6 +111,8 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
+export const QUERY_TIMEOUT_MS =
+  parseInt(process.env.QUERY_TIMEOUT_MS || "") || 1 * 60 * 60 * 1000; // Defaults to 1 hour
 export const JOB_TIMEOUT_MS =
   parseInt(process.env.JOB_TIMEOUT_MS || "") || 2 * 60 * 60 * 1000; // Defaults to 2 hours
 
