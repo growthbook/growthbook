@@ -32,6 +32,7 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  isRevert?: boolean;
 }
 
 export function ExpandableDiff({

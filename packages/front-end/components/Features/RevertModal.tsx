@@ -2,12 +2,16 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { filterEnvironmentsByFeature } from "shared/util";
+import {
+  checkIfRevisionNeedsReviewOnRevert,
+  filterEnvironmentsByFeature,
+} from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
@@ -28,6 +32,7 @@ export default function RevertModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const permissionsUtil = usePermissionsUtil();
+  const orgSettings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
@@ -65,6 +70,41 @@ export default function RevertModal({
     feature,
     getAffectedRevisionEnvs(feature, revision, environments),
   );
+  const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
+    feature,
+    changedEnvironments: getAffectedRevisionEnvs(
+      feature,
+      revision,
+      environments,
+    ),
+    defaultValueChanged: revision.defaultValue !== feature.defaultValue,
+    settings: orgSettings,
+  });
+  const submit = async () => {
+    if (requiresReviewOnRevert) {
+      const res = await apiCall<{ version: number }>(
+        `/feature/${feature.id}/${revision.version}/request-revert-review`,
+        {
+          method: "POST",
+          body: JSON.stringify({ comment }),
+        },
+      );
+      await mutate();
+      res && res.version && setVersion(res.version);
+    } else {
+      const res = await apiCall<{ version: number }>(
+        `/feature/${feature.id}/${revision.version}/revert`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            comment,
+          }),
+        },
+      );
+      await mutate();
+      res && res.version && setVersion(res.version);
+    }
+  };
 
   return (
     <Modal
@@ -74,21 +114,12 @@ export default function RevertModal({
       submit={
         hasPermission
           ? async () => {
-              const res = await apiCall<{ version: number }>(
-                `/feature/${feature.id}/${revision.version}/revert`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    comment,
-                  }),
-                },
-              );
-              await mutate();
-              res && res.version && setVersion(res.version);
+              await submit();
+              close();
             }
           : undefined
       }
-      cta="Revert and Publish"
+      cta={requiresReviewOnRevert ? "Request Review" : "Revert and Publish"}
       close={close}
       closeCta="Cancel"
       size="max"

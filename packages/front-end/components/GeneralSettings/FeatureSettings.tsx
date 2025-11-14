@@ -416,6 +416,29 @@ export default function FeatureSettings() {
                                   Reset review on changes
                                 </Text>
                               </Flex>
+                              <Flex gap="3" mt="3">
+                                <Checkbox
+                                  id={`toggle-require-review-on-revert-${i}`}
+                                  value={
+                                    !!form.watch(
+                                      `requireReviews.${i}.requireReviewOnRevert`,
+                                    )
+                                  }
+                                  setValue={(value) => {
+                                    form.setValue(
+                                      `requireReviews.${i}.requireReviewOnRevert`,
+                                      value,
+                                    );
+                                  }}
+                                />
+                                <Text
+                                  as="label"
+                                  className="font-weight-semibold"
+                                  htmlFor={`toggle-require-review-on-revert-${i}`}
+                                >
+                                  Require review on revert
+                                </Text>
+                              </Flex>
                             </Box>
                           )}
                         </Box>

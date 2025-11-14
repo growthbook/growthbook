@@ -3719,6 +3719,7 @@ export interface components {
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
+          requireReviewOnRevert?: boolean;
           environments?: (string)[];
           projects?: (string)[];
         })[];
@@ -13846,6 +13847,7 @@ export interface operations {
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
+                  requireReviewOnRevert?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
                 })[];

@@ -130,6 +130,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         {
           requireReviewOn: false,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: [],
           projects: [],
         },

@@ -54,6 +54,7 @@ export type UserPermissions = {
 export type RequireReview = {
   requireReviewOn: boolean;
   resetReviewOnChange: boolean;
+  requireReviewOnRevert: boolean;
   environments: string[];
   projects: string[];
 };

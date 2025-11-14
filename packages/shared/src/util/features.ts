@@ -937,6 +937,32 @@ export function resetReviewOnChange({
   }
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
+// check if the revision needs review on revert
+export function checkIfRevisionNeedsReviewOnRevert({
+  feature,
+  changedEnvironments,
+  defaultValueChanged,
+  settings,
+}: {
+  feature: FeatureInterface;
+  changedEnvironments: string[];
+  defaultValueChanged: boolean;
+  settings?: OrganizationSettings;
+}) {
+  const requiresReviewSettings = settings?.requireReviews;
+  //legacy check
+  if (
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false ||
+    requiresReviewSettings === undefined
+  ) {
+    return false;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
+  if (!reviewSetting || !reviewSetting.requireReviewOnRevert) return false;
+  if (defaultValueChanged) return true;
+  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+}
 
 export function checkIfRevisionNeedsReview({
   feature,
