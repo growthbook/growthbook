@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
+import { tabulateCovariateImbalance } from "shared/enterprise";
 import { Flex } from "@radix-ui/themes";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
@@ -47,6 +48,33 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
+
+  const goalMetrics = experiment.goalMetrics ?? [];
+  const guardrailMetrics = experiment.guardrailMetrics ?? [];
+  const secondaryMetrics = experiment.secondaryMetrics ?? [];
+
+  const analysisForCovariateImbalance = snapshot?.analyses.find(
+    (a) => a.settings.useCovariateAsResponse === true,
+  );
+
+  const isEligibleForCovariateImbalanceAnalysis =
+    Boolean(analysisForCovariateImbalance) && (
+      goalMetrics.length > 0 ||
+      guardrailMetrics.length > 0 ||
+      secondaryMetrics.length > 0);
+
+  const _covariateImbalanceResult =
+    isEligibleForCovariateImbalanceAnalysis && analysisForCovariateImbalance
+      ? tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          goalMetrics,
+          guardrailMetrics,
+          secondaryMetrics,
+        )
+      : null;
+  console.log("tristan experiment", experiment);
+  console.log("yvette _covariateImbalanceResult", _covariateImbalanceResult);
+
   const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -291,6 +319,7 @@ export default function HealthTab({
       <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <CovariateImbalanceCard
+            covariateImbalanceResult={_covariateImbalanceResult}
             traffic={traffic}
             variations={variations}
             totalUsers={totalUsers}

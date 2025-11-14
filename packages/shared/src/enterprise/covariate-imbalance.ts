@@ -13,8 +13,8 @@ export const MetricVariationCovariateImbalanceResultValidator = z.object({
   variationSampleSize: z.number(),
   baselineMean: z.number(),
   variationMean: z.number(),
-  baselineStdDev: z.number().optional(),
-  variationStdDev: z.number().optional(),
+  baselineStandardError: z.number().optional(),
+  variationStandardError: z.number().optional(),
   pValue: z.number(),
   errorMessage: z.string().optional(),
 });
@@ -74,8 +74,8 @@ export interface CovariateImbalanceTableRow {
   variationSampleSize: number;
   baselineMean: number;
   variationMean: number;
-  baselineStdDev?: number;
-  variationStdDev?: number;
+  baselineStandardError?: number;
+  variationStandardError?: number;
   pValue: number;
   errorMessage?: string;
 }
@@ -139,6 +139,14 @@ function tabulateCovariateImbalanceByGroup(
 
         isImbalanced = true;
         numMetricsImbalanced += 1;
+        const baselineStandardError =
+          baselineMetric.users > 0 && baselineMetric.stats?.stddev
+            ? baselineMetric.stats.stddev / Math.sqrt(baselineMetric.users)
+            : 0;
+        const variationStandardError =
+          treatmentMetric.users > 0 && treatmentMetric.stats?.stddev
+            ? treatmentMetric.stats.stddev / Math.sqrt(treatmentMetric.users)
+            : 0;
         covariateImbalanceTable.push({
           metricId,
           variation: variationIndex,
@@ -146,8 +154,8 @@ function tabulateCovariateImbalanceByGroup(
           variationSampleSize: treatmentMetric.users,
           baselineMean: baselineMetric.cr,
           variationMean: treatmentMetric.cr,
-          baselineStdDev: baselineMetric.stats?.stddev,
-          variationStdDev: treatmentMetric.stats?.stddev,
+          baselineStandardError,
+          variationStandardError,
           pValue: pValueForTable,
           errorMessage: treatmentMetric.errorMessage,
         });
