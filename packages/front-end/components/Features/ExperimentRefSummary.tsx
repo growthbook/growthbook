@@ -11,7 +11,7 @@ import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
-import { validateCohort, CohortValidationWarning } from "./CohortValidation";
+import { CohortValidationWarning } from "./CohortValidation";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -243,8 +243,6 @@ export default function ExperimentRefSummary({
                     ?.value ?? "null";
 
                 const weight = phase.variationWeights?.[j] || 0;
-                const validation = validateCohort(value);
-
                 return (
                   <tr key={j}>
                     <td
@@ -271,7 +269,7 @@ export default function ExperimentRefSummary({
                       />
                       <ValidateValue value={value} feature={feature} />
                       <CohortValidationWarning
-                        validation={validation}
+                        value={value}
                         variationIndex={j}
                       />
                     </td>

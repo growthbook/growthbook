@@ -23,7 +23,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
-import { validateCohort, CohortValidationWarning } from "./CohortValidation";
+import { CohortValidationWarning } from "./CohortValidation";
 
 export type SortableVariation = ExperimentValue & {
   id: string;
@@ -99,7 +99,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <>
               {showCohortValidation && (
                 <CohortValidationWarning
-                  validation={validateCohort(variation.value)}
+                  value={variation.value}
                   variationIndex={i}
                 />
               )}

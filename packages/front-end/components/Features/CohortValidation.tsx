@@ -44,12 +44,13 @@ export function validateCohort(value: string): CohortValidation {
 }
 
 export function CohortValidationWarning({
-  validation,
+  value,
   variationIndex,
 }: {
-  validation: CohortValidation;
+  value: string;
   variationIndex: number;
 }) {
+  const validation = validateCohort(value);
   if (validation.valid) return null;
 
   return (

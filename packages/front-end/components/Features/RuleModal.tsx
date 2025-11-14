@@ -62,7 +62,6 @@ import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
 import {
-  validateCohort,
   NonExperimentCohortWarning,
   CohortValidationWarning,
 } from "./CohortValidation";
@@ -704,7 +703,7 @@ export default function RuleModal({
                   return (
                     <div key={v.id}>
                       <CohortValidationWarning
-                        validation={validateCohort(value)}
+                        value={value}
                         variationIndex={i}
                       />
                       <FeatureValueField

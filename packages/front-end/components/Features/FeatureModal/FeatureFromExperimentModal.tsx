@@ -31,10 +31,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  validateCohort,
-  CohortValidationWarning,
-} from "@/components/Features/CohortValidation";
+import { CohortValidationWarning } from "@/components/Features/CohortValidation";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -437,10 +434,7 @@ export default function FeatureFromExperimentModal({
             const value = form.watch(`variations.${i}.value`) || "";
             return (
               <div key={v.id}>
-                <CohortValidationWarning
-                  validation={validateCohort(value)}
-                  variationIndex={i}
-                />
+                <CohortValidationWarning value={value} variationIndex={i} />
                 <FeatureValueField
                   label={v.name}
                   id={v.id}

@@ -6,10 +6,7 @@ import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
-import {
-  CohortValidationWarning,
-  validateCohort,
-} from "@/components/Features/CohortValidation";
+import { CohortValidationWarning } from "@/components/Features/CohortValidation";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -95,10 +92,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                     feature={info.feature}
                     showExperimentWarning={false}
                   />
-                  <CohortValidationWarning
-                    validation={validateCohort(v)}
-                    variationIndex={j}
-                  />
+                  <CohortValidationWarning value={v} variationIndex={j} />
                 </td>
               </tr>
             ))}
