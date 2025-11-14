@@ -26,7 +26,7 @@ export async function postExperimentLaunchChecklist(
   const { tasks, projectId } = req.body;
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
-    throw new Error(
+    context.throwUnauthorizedError(
       "Must have a commercial License Key to customize the organization's pre-launch checklist.",
     );
   }
@@ -160,7 +160,7 @@ export async function putExperimentLaunchChecklist(
   const { id } = req.params;
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
-    throw new Error(
+    context.throwUnauthorizedError(
       "Must have a commercial License Key to update a pre-launch checklist.",
     );
   }
