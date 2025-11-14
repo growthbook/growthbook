@@ -18,6 +18,16 @@ properties:
     type: string
     nullable: true
     description: The ID of the population (e.g., segment ID) when populationType is not 'factTable'. Defaults to null.
+  numeratorFilters:
+    type: array
+    items:
+      type: string
+    description: Array of Fact Table Filter Ids
+  denominatorFilters:
+    type: array
+    items:
+      type: string
+    description: Array of Fact Table Filter Ids
   useCache:
     type: boolean
     description: Whether to use a cached query if one exists. Defaults to true.

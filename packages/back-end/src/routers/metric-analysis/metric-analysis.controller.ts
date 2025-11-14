@@ -51,6 +51,7 @@ export const postMetricAnalysis = async (
   ) {
     throw new Error("Custom metric populations are a premium feature");
   }
+
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,
@@ -58,7 +59,10 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
+    numeratorFilters: data.numeratorFilters ?? null,
+    denominatorFilters: data.denominatorFilters ?? null,
   };
+
   const metricAnalysis = await createMetricAnalysis(
     context,
     metricObj,
@@ -201,7 +205,10 @@ export async function getLatestMetricAnalysis(
     const metricAnalysis =
       await context.models.metricAnalysis.findLatestBySettings(
         req.params.metricid,
-        { settings, withHistogram: stringToBoolean(req.query.withHistogram) },
+        {
+          settings,
+          withHistogram: stringToBoolean(req.query.withHistogram),
+        },
       );
     res.status(200).json({
       status: 200,
