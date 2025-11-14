@@ -259,6 +259,7 @@ export interface OrganizationSettings {
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
+  postStratificationDisabled?: boolean;
 }
 
 export interface OrganizationConnections {

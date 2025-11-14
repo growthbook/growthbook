@@ -183,6 +183,7 @@ export type SafeRolloutReportResultDimension = z.infer<
 const safeRolloutSnapshotAnalysisSettingsValidator = z.object({
   statsEngine: statsEnginesValidator,
   regressionAdjusted: z.boolean().optional(),
+  postStratificationEnabled: z.boolean().optional(),
   sequentialTesting: z.boolean().optional(),
   sequentialTestingTuningParameter: z.number().optional(),
   pValueCorrection: z

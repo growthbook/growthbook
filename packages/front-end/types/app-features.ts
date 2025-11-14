@@ -105,4 +105,5 @@ export type AppFeatures = {
   "october16-ff": boolean;
   "general-dashboards": boolean;
   "incremental-refresh": boolean;
+  "post-stratification": boolean;
 };
