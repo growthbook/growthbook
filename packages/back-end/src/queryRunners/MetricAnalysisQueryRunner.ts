@@ -47,7 +47,6 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runMetricAnalysisQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "metricAnalysis",
       }),
     ];
