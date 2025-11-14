@@ -13,12 +13,10 @@ export const updateDashboard = createApiRequestHandler(
   updateDashboardValidator,
 )(async (req): Promise<UpdateDashboardResponse> => {
   const { id } = req.params;
-  const updates: Partial<DashboardInterface> = {
-    ...req.body,
-    blocks: undefined,
-  };
-  if (req.body.blocks) {
-    const migratedBlocks = req.body.blocks
+  const { blocks: blockUpdates, ...otherUpdates } = req.body;
+  const updates: Partial<DashboardInterface> = otherUpdates;
+  if (blockUpdates) {
+    const migratedBlocks = blockUpdates
       .map(fromBlockApiInterface)
       .map(migrateBlock);
     const createdBlocks = await Promise.all(

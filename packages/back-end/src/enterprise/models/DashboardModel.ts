@@ -340,9 +340,11 @@ export class DashboardModel extends BaseClass {
     });
   }
 
-  public toApiInterface(dashboard: DashboardInterface): ApiDashboard {
+  public toApiInterface(
+    dashboard: DashboardInterface | DashboardDocument,
+  ): ApiDashboard {
     return {
-      ...dashboard,
+      ...removeMongooseFields(dashboard),
       blocks: dashboard.blocks.map(toBlockApiInterface),
       dateCreated: dashboard.dateCreated.toISOString(),
       dateUpdated: dashboard.dateUpdated.toISOString(),
