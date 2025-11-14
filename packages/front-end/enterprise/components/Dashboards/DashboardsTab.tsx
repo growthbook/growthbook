@@ -304,6 +304,7 @@ function DashboardsTab({
                 editLevel: dashboard.editLevel,
                 shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
+                updateSchedule: dashboard.updateSchedule || undefined,
                 title: dashboard.title,
                 projects: dashboard.projects || [],
                 userId: dashboard.userId,
@@ -325,6 +326,7 @@ function DashboardsTab({
                 editLevel: dashboard.editLevel,
                 shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
+                updateSchedule: dashboard.updateSchedule || undefined,
                 title: `Copy of ${dashboard.title}`,
                 projects: dashboard.projects || [],
                 userId: dashboard.userId,
@@ -639,6 +641,7 @@ function DashboardsTab({
                           experiment.project ? [experiment.project] : []
                         }
                         isEditing={false}
+                        updateSchedule={dashboard.updateSchedule}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
                         isGeneralDashboard={false}

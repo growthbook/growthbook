@@ -148,6 +148,8 @@ export default function DashboardsPage() {
 
   if (loading || saving) return <LoadingOverlay />;
 
+  console.log("showEditModal", showEditModal);
+
   return (
     <>
       {isEditing && dashboard && (
@@ -173,11 +175,12 @@ export default function DashboardsPage() {
             shareLevel: showEditModal.shareLevel,
             enableAutoUpdates: showEditModal.enableAutoUpdates,
             projects: showEditModal.projects || [],
-            updateSchedule: showEditModal.updateSchedule,
+            updateSchedule: showEditModal.updateSchedule || undefined,
             userId: showEditModal.userId,
           }}
           close={() => setShowEditModal(undefined)}
           submit={async (data) => {
+            console.log("data", data);
             await submitDashboard({
               method: "PUT",
               dashboardId: showEditModal.id,
@@ -197,6 +200,7 @@ export default function DashboardsPage() {
             editLevel: showDuplicateModal.editLevel,
             shareLevel: showDuplicateModal.shareLevel,
             enableAutoUpdates: showDuplicateModal.enableAutoUpdates,
+            updateSchedule: showDuplicateModal.updateSchedule || undefined,
             userId: userId || "",
             projects: showDuplicateModal.projects || [],
           }}
@@ -332,6 +336,9 @@ export default function DashboardsPage() {
                       </thead>
                       <tbody>
                         {items.map((d) => {
+                          if (d.id === "dash_1lbfvg219ymhw6gp87") {
+                            console.log("d", d);
+                          }
                           const isOwner = d.userId === userId;
                           const isAdmin =
                             permissionsUtil.canManageOrgSettings();
