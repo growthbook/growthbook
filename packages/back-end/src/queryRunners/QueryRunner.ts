@@ -59,7 +59,9 @@ export type StartQueryParams<Rows, ProcessedRows> = {
     query: string,
     setExternalId: ExternalIdCallback,
   ) => Promise<QueryResponse<Rows>>;
-  process: (rows: Rows) => ProcessedRows;
+  /** @deprecated */
+  process?: (rows: Rows) => ProcessedRows;
+  onSuccess?: (rows: Rows) => void | Promise<void>;
   onFailure?: () => void;
   queryType: QueryType;
   runAtEnd?: boolean;
@@ -120,7 +122,8 @@ export abstract class QueryRunner<
         query: string,
         setExternalId: ExternalIdCallback,
       ) => Promise<QueryResponse<RowsType>>;
-      process: (rows: RowsType) => ProcessedRowsType;
+      process?: (rows: RowsType) => ProcessedRowsType;
+      onSuccess?: (rows: RowsType) => void | Promise<void>;
       onFailure: () => void;
     };
   } = {};
@@ -363,12 +366,7 @@ export abstract class QueryRunner<
           if (await this.concurrencyLimitReached()) {
             this.queueQueryExecution(query);
           } else {
-            await this.executeQuery(
-              query,
-              runCallbacks.run,
-              runCallbacks.process,
-              runCallbacks.onFailure,
-            );
+            await this.executeQuery(query, runCallbacks);
           }
         }
       }
@@ -530,12 +528,7 @@ export abstract class QueryRunner<
       });
       return this.onQueryFinish();
     }
-    return this.executeQuery(
-      doc,
-      runCallbacks.run,
-      runCallbacks.process,
-      runCallbacks.onFailure,
-    );
+    return this.executeQuery(doc, runCallbacks);
   }
 
   public async executeQuery<
@@ -543,12 +536,20 @@ export abstract class QueryRunner<
     ProcessedRows extends ProcessedRowsType,
   >(
     doc: QueryInterface,
-    run: (
-      query: string,
-      setExternalId: ExternalIdCallback,
-    ) => Promise<QueryResponse<Rows>>,
-    process: (rows: Rows) => ProcessedRows,
-    onFailure: () => void,
+    {
+      run,
+      process,
+      onFailure,
+      onSuccess,
+    }: {
+      run: (
+        query: string,
+        setExternalId: ExternalIdCallback,
+      ) => Promise<QueryResponse<Rows>>;
+      process?: (rows: Rows) => ProcessedRows;
+      onFailure: () => void;
+      onSuccess?: (rows: Rows) => void | Promise<void>;
+    },
   ): Promise<void> {
     // Update heartbeat for the query once every 30 seconds
     // This lets us detect orphaned queries where the thread died
@@ -582,9 +583,12 @@ export abstract class QueryRunner<
           finishedAt: new Date(),
           status: "succeeded",
           rawResult: rows,
-          result: process(rows),
+          result: process ? process(rows) : rows,
           statistics: statistics,
         });
+        if (onSuccess) {
+          await onSuccess(rows);
+        }
         this.onQueryFinish();
       })
       .catch(async (e) => {
@@ -616,6 +620,7 @@ export abstract class QueryRunner<
       run,
       process,
       onFailure: specifiedOnFailureCallback,
+      onSuccess,
       queryType,
     } = params;
     // Re-use recent identical query if it exists
@@ -710,17 +715,18 @@ export abstract class QueryRunner<
     const defaultOnFailure = () => {};
     const onFailure = specifiedOnFailureCallback ?? defaultOnFailure;
     if (readyToRun) {
-      this.executeQuery(doc, run, process, onFailure);
+      this.executeQuery(doc, { run, process, onFailure, onSuccess });
     } else if (dependenciesComplete && !runAtEnd) {
       this.runCallbacks[doc.id] = {
         run,
         process,
         onFailure,
+        onSuccess,
       };
       this.queueQueryExecution(doc);
     } else {
       // save callback methods for execution later
-      this.runCallbacks[doc.id] = { run, process, onFailure };
+      this.runCallbacks[doc.id] = { run, process, onFailure, onSuccess };
     }
 
     return {

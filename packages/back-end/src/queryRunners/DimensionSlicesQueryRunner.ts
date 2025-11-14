@@ -57,7 +57,6 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runDimensionSlicesQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "dimensionSlices",
       }),
     ];
