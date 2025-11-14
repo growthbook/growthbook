@@ -503,7 +503,7 @@ def analyze_metric_df(
 
             stats = list(zip(control_stats, variation_stats))
 
-            # TODO throw error if post-stratify is false and there are 2+ rows?
+            # TODO(post-stratification): throw error if post-stratify is false and there are 2+ rows?
             post_stratify = (
                 analysis.post_stratification_enabled
                 and metric.statistic_type not in ["quantile_event", "quantile_unit"]
@@ -787,7 +787,7 @@ def process_analysis(
         num_variations=len(var_names),
         max=max_dimensions,
         keep_other=keep_other,
-        combine_strata=analysis.post_stratification_enabled,
+        combine_strata=not analysis.post_stratification_enabled,
     )
 
     result = analyze_metric_df(
