@@ -147,7 +147,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
-import { updateMetricByAnalysisSettings } from "../services/metric-analysis";
+import { getMetricWithFiltersApplied } from "../services/metric-analysis";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -890,7 +890,7 @@ export default abstract class SqlIntegration
   }
 
   getMetricAnalysisQuery(params: MetricAnalysisParams): string {
-    const metric = updateMetricByAnalysisSettings(params);
+    const metric = getMetricWithFiltersApplied(params);
     const { settings } = params;
 
     // Get any required identity join queries; only use same id type for now,
