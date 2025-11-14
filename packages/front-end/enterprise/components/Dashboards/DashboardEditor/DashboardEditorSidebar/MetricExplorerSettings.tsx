@@ -70,7 +70,6 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
     }
   }, [block, factTable?.userIdTypes, setBlock]);
 
-  // TODO: reset invalid values when metric changes
   return (
     <Flex direction="column" gap="3" mb="3">
       <Flex

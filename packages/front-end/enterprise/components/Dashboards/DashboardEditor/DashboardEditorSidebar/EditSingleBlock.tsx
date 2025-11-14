@@ -742,6 +742,9 @@ export default function EditSingleBlock({
                         ...block.analysisSettings,
                         numeratorFilters: null,
                         denominatorFilters: null,
+                        populationId: "",
+                        populationType: "factTable",
+                        userIdType: "",
                       },
                     }),
                   });
