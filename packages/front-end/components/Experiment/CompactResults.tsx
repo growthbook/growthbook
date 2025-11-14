@@ -1,4 +1,4 @@
-import { FC, ReactElement, useMemo, useState, useEffect } from "react";
+import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
@@ -243,35 +243,56 @@ const CompactResults: FC<{
     [guardrailMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
 
-  // Auto-expand all metrics when slice tags are selected
+  // Track previous sliceTagsFilter to detect when it goes from non-empty to empty
+  const prevSliceTagsFilterRef = useRef<string[] | undefined>(sliceTagsFilter);
+
+  // Auto-expand all metrics when slice tags are selected, collapse when slice filters are cleared
   useEffect(() => {
-    if (sliceTagsFilter && sliceTagsFilter.length > 0) {
-      const allMetricIds = [
-        ...expandedGoals,
-        ...expandedSecondaries,
-        ...expandedGuardrails,
-      ];
-      const newExpandedMetrics: Record<string, boolean> = {};
-      
+    const allMetricIds = [
+      ...expandedGoals,
+      ...expandedSecondaries,
+      ...expandedGuardrails,
+    ];
+
+    const prevHadSliceFilters =
+      prevSliceTagsFilterRef.current &&
+      prevSliceTagsFilterRef.current.length > 0;
+    const currentHasSliceFilters =
+      sliceTagsFilter && sliceTagsFilter.length > 0;
+
+    if (currentHasSliceFilters) {
       // Expand all metrics for all result groups when slice filter is active
+      const newExpandedMetrics: Record<string, boolean> = {};
       allMetricIds.forEach((metricId) => {
         ["goal", "secondary", "guardrail"].forEach((resultGroup) => {
           const key = `${metricId}:${resultGroup}`;
           newExpandedMetrics[key] = true;
         });
       });
-      
+
       setExpandedMetrics((prev) => ({
         ...prev,
         ...newExpandedMetrics,
       }));
+    } else if (prevHadSliceFilters && !currentHasSliceFilters) {
+      // Collapse all metrics when slice filters go from non-empty to empty
+      const collapsedMetrics: Record<string, boolean> = {};
+      allMetricIds.forEach((metricId) => {
+        ["goal", "secondary", "guardrail"].forEach((resultGroup) => {
+          const key = `${metricId}:${resultGroup}`;
+          collapsedMetrics[key] = false;
+        });
+      });
+
+      setExpandedMetrics((prev) => ({
+        ...prev,
+        ...collapsedMetrics,
+      }));
     }
-  }, [
-    sliceTagsFilter,
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  ]);
+
+    // Update ref for next render
+    prevSliceTagsFilterRef.current = sliceTagsFilter;
+  }, [sliceTagsFilter, expandedGoals, expandedSecondaries, expandedGuardrails]);
 
   const isBandit = experimentType === "multi-armed-bandit";
 

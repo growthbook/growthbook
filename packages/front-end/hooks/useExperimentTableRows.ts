@@ -469,6 +469,11 @@ export function generateRowsForMetric({
 
   numSlices = sliceData.length;
 
+  // If slice filter is active and metric has no slices, don't show parent row
+  if (sliceTagsFilter && sliceTagsFilter.length > 0 && numSlices === 0) {
+    return [];
+  }
+
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
     metric: newMetric,
@@ -489,7 +494,7 @@ export function generateRowsForMetric({
     numSlices,
   };
 
-  const rows: ExperimentTableRow[] = [parentRow];
+  const rows: ExperimentTableRow[] = [];
 
   if (numSlices > 0) {
     const expandedKey = `${metricId}:${resultGroup}`;
@@ -498,6 +503,9 @@ export function generateRowsForMetric({
       sliceTagsFilter && sliceTagsFilter.length > 0
         ? true
         : !!expandedMetrics?.[expandedKey];
+
+    // Track if any slice matches the filter (for parent row visibility)
+    let hasMatchingSlice = false;
 
     sliceData.forEach((slice) => {
       // Generate pinned key from all slice levels
@@ -535,6 +543,9 @@ export function generateRowsForMetric({
         }
         // Check if any slice tag matches the filter
         sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
+        if (sliceMatches) {
+          hasMatchingSlice = true;
+        }
       }
 
       // Show if: (expanded or pinned) AND matches filter (no special treatment for pinned when filter is active)
@@ -597,7 +608,15 @@ export function generateRowsForMetric({
       }
       rows.push(sliceRow);
     });
+
+    // If slice filter is active and no slices match, don't show parent row
+    if (sliceTagsFilter && sliceTagsFilter.length > 0 && !hasMatchingSlice) {
+      return [];
+    }
   }
+
+  // Add parent row only if we should show it
+  rows.unshift(parentRow);
 
   return rows;
 }
