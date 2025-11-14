@@ -34,7 +34,6 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
-  dashboard?: DashboardInterface;
   projects?: string[];
   defaultSnapshot?: ExperimentSnapshotInterface;
   dimensionless?: ExperimentSnapshotInterface;
@@ -215,7 +214,6 @@ export default function DashboardSnapshotProvider({
     <DashboardSnapshotContext.Provider
       value={{
         experiment,
-        dashboard,
         projects:
           dashboard?.projects ??
           (experiment?.project ? [experiment.project] : undefined),
