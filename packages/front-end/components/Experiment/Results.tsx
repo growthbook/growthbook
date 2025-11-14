@@ -58,6 +58,9 @@ const Results: FC<{
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
   availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
@@ -87,6 +90,9 @@ const Results: FC<{
   metricGroupsFilter,
   setMetricGroupsFilter,
   availableMetricGroups,
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
   isTabActive = true,
   setTab,
   holdout,
@@ -421,6 +427,9 @@ const Results: FC<{
           metricGroupsFilter={metricGroupsFilter}
           setMetricGroupsFilter={setMetricGroupsFilter}
           availableMetricGroups={availableMetricGroups}
+          availableSliceTags={availableSliceTags}
+          sliceTagsFilter={sliceTagsFilter}
+          setSliceTagsFilter={setSliceTagsFilter}
           experimentType={experiment.type}
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -469,6 +478,9 @@ const Results: FC<{
             metricGroupsFilter={metricGroupsFilter}
             setMetricGroupsFilter={setMetricGroupsFilter}
             availableMetricGroups={availableMetricGroups}
+            availableSliceTags={availableSliceTags}
+            sliceTagsFilter={sliceTagsFilter}
+            setSliceTagsFilter={setSliceTagsFilter}
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}

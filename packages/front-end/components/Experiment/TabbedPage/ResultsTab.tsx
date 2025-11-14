@@ -52,6 +52,9 @@ export interface Props {
   metricGroupsFilter: string[];
   setMetricGroupsFilter: (groups: string[]) => void;
   availableMetricGroups: Array<{ id: string; name: string }>;
+  availableSliceTags: string[];
+  sliceTagsFilter: string[];
+  setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   sortBy: "metric-tags" | "significance" | "change" | null;
@@ -77,6 +80,9 @@ export default function ResultsTab({
   metricGroupsFilter,
   setMetricGroupsFilter,
   availableMetricGroups,
+  availableSliceTags,
+  sliceTagsFilter,
+  setSliceTagsFilter,
   sortBy,
   setSortBy,
   sortDirection,
@@ -328,6 +334,9 @@ export default function ResultsTab({
                   metricGroupsFilter={metricGroupsFilter}
                   setMetricGroupsFilter={setMetricGroupsFilter}
                   availableMetricGroups={availableMetricGroups}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
                   setTab={setTab}
                   sortBy={sortBy}
                   setSortBy={setSortBy}

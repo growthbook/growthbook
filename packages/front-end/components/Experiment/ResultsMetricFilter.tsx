@@ -15,6 +15,9 @@ export default function ResultsMetricFilter({
   availableMetricGroups = [],
   metricGroupsFilter = [],
   setMetricGroupsFilter,
+  availableSliceTags = [],
+  sliceTagsFilter = [],
+  setSliceTagsFilter,
   sortBy,
   setSortBy,
   showMetricFilter,
@@ -26,6 +29,9 @@ export default function ResultsMetricFilter({
   availableMetricGroups?: Array<{ id: string; name: string }>;
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
   setSortBy?: (
     s: "metric-tags" | "significance" | "change" | "custom" | null,
@@ -36,6 +42,7 @@ export default function ResultsMetricFilter({
   const filteringApplied =
     metricTagFilter?.length > 0 ||
     metricGroupsFilter?.length > 0 ||
+    sliceTagsFilter?.length > 0 ||
     sortBy === "metric-tags";
 
   return (
@@ -118,6 +125,26 @@ export default function ResultsMetricFilter({
                   />
                 </Box>
               )}
+              {availableSliceTags.length > 0 && (
+                <Box mb="4">
+                  <Heading size="2" weight="medium">
+                    By slice tags
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    value={sliceTagsFilter || []}
+                    options={availableSliceTags.map((tag) => ({
+                      label: tag,
+                      value: tag,
+                    }))}
+                    onChange={(v) => {
+                      setSliceTagsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Box>
+              )}
               <Box>
                 <Heading size="2" weight="medium">
                   By metric tags
@@ -159,6 +186,7 @@ export default function ResultsMetricFilter({
                   onClick={async () => {
                     setMetricTagFilter?.([]);
                     setMetricGroupsFilter?.([]);
+                    setSliceTagsFilter?.([]);
                     setSortBy?.(null);
                   }}
                 >

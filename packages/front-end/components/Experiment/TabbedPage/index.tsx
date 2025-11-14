@@ -4,7 +4,15 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
-import { isMetricGroupId } from "shared/experiments";
+import {
+  isMetricGroupId,
+  expandMetricGroups,
+  createAutoSliceDataForMetric,
+  isFactMetric,
+  SliceDataForMetric,
+  generateSliceString,
+} from "shared/experiments";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -150,6 +158,10 @@ export default function TabbedPage({
     `experiment-page__${experiment.id}__metric_groups_filter`,
     [],
   );
+  const [sliceTagsFilter, setSliceTagsFilter] = useLocalStorage<string[]>(
+    `experiment-page__${experiment.id}__slice_tags_filter`,
+    [],
+  );
   const [sortBy, setSortBy] = useLocalStorage<
     "metric-tags" | "significance" | "change" | null
   >(`experiment-page__${experiment.id}__sort_by`, null);
@@ -195,7 +207,8 @@ export default function TabbedPage({
   }, [experiment.defaultDashboardId]);
 
   const { phase, setPhase } = useSnapshot();
-  const { metricGroups } = useDefinitions();
+  const { metricGroups, getExperimentMetricById, getFactTableById } =
+    useDefinitions();
 
   // Extract metric group IDs from experiment metrics (dedupe using Map)
   const availableMetricGroups = useMemo(() => {
@@ -221,6 +234,154 @@ export default function TabbedPage({
     experiment.secondaryMetrics,
     experiment.guardrailMetrics,
     metricGroups,
+  ]);
+
+  // Extract all slice tags from expanded metrics
+  const availableSliceTags = useMemo(() => {
+    const sliceTagsMap = new Map<string, boolean>();
+
+    // Expand all metrics
+    const expandedGoals = expandMetricGroups(
+      experiment.goalMetrics,
+      metricGroups,
+    );
+    const expandedSecondaries = expandMetricGroups(
+      experiment.secondaryMetrics,
+      metricGroups,
+    );
+    const expandedGuardrails = expandMetricGroups(
+      experiment.guardrailMetrics,
+      metricGroups,
+    );
+
+    // Extract from customMetricSlices
+    if (
+      experiment.customMetricSlices &&
+      experiment.customMetricSlices.length > 0
+    ) {
+      experiment.customMetricSlices.forEach((group) => {
+        // Generate single dimension tags
+        group.slices.forEach((slice) => {
+          slice.levels.forEach((level) => {
+            const tag = generateSliceString({ [slice.column]: level });
+            sliceTagsMap.set(tag, true);
+          });
+          // Add "other" tag for empty level
+          const otherTag = generateSliceString({ [slice.column]: "" });
+          sliceTagsMap.set(otherTag, true);
+        });
+
+        // Generate combined tag for multi-dimensional slices
+        if (group.slices.length > 1) {
+          // Build cartesian product of all level combinations
+          const allLevelCombinations: Array<
+            Array<{ column: string; level: string }>
+          > = [];
+
+          group.slices.forEach((slice) => {
+            const newCombinations: Array<
+              Array<{ column: string; level: string }>
+            > = [];
+
+            slice.levels.forEach((level) => {
+              if (allLevelCombinations.length === 0) {
+                newCombinations.push([{ column: slice.column, level }]);
+              } else {
+                allLevelCombinations.forEach((combo) => {
+                  newCombinations.push([
+                    ...combo,
+                    { column: slice.column, level },
+                  ]);
+                });
+              }
+            });
+
+            // Also add "other" level combinations
+            if (allLevelCombinations.length > 0) {
+              allLevelCombinations.forEach((combo) => {
+                newCombinations.push([
+                  ...combo,
+                  { column: slice.column, level: "" },
+                ]);
+              });
+            } else {
+              newCombinations.push([{ column: slice.column, level: "" }]);
+            }
+
+            allLevelCombinations.length = 0;
+            allLevelCombinations.push(...newCombinations);
+          });
+
+          // Generate combined tags
+          allLevelCombinations.forEach((combo) => {
+            const slices: Record<string, string> = {};
+            combo.forEach(({ column, level }) => {
+              slices[column] = level;
+            });
+            const tag = generateSliceString(slices);
+            sliceTagsMap.set(tag, true);
+          });
+        }
+      });
+    }
+
+    // Extract from auto slice data for all fact metrics
+    const allMetricIds = [
+      ...expandedGoals,
+      ...expandedSecondaries,
+      ...expandedGuardrails,
+    ];
+
+    allMetricIds.forEach((metricId) => {
+      const metric = getExperimentMetricById(metricId);
+
+      if (metric && isFactMetric(metric)) {
+        const factMetric = metric as FactMetricInterface;
+        const factTableId = factMetric.numerator?.factTableId;
+
+        if (factTableId) {
+          const factTable = getFactTableById(factTableId);
+
+          if (factTable) {
+            const autoSliceData = createAutoSliceDataForMetric({
+              parentMetric: metric,
+              factTable,
+              includeOther: true,
+            });
+
+            // Extract tags from slice data
+            autoSliceData.forEach((slice: SliceDataForMetric) => {
+              // Generate single dimension tags
+              slice.sliceLevels.forEach((sliceLevel) => {
+                const value = sliceLevel.levels[0] || "";
+                const tag = generateSliceString({ [sliceLevel.column]: value });
+                sliceTagsMap.set(tag, true);
+              });
+
+              // Generate combined tag for multi-dimensional slices
+              if (slice.sliceLevels.length > 1) {
+                const slices: Record<string, string> = {};
+                slice.sliceLevels.forEach((sl) => {
+                  slices[sl.column] = sl.levels[0] || "";
+                });
+                const comboTag = generateSliceString(slices);
+                sliceTagsMap.set(comboTag, true);
+              }
+            });
+          }
+        }
+      }
+    });
+
+    return Array.from(sliceTagsMap.keys()).sort();
+  }, [
+    experiment.goalMetrics,
+    experiment.secondaryMetrics,
+    experiment.guardrailMetrics,
+    experiment.customMetricSlices,
+    metricGroups,
+    getExperimentMetricById,
+    getFactTableById,
   ]);
 
   const variables = {
@@ -608,6 +769,9 @@ export default function TabbedPage({
           metricGroupsFilter={metricGroupsFilter}
           setMetricGroupsFilter={setMetricGroupsFilter}
           availableMetricGroups={availableMetricGroups}
+          availableSliceTags={availableSliceTags}
+          sliceTagsFilter={sliceTagsFilter}
+          setSliceTagsFilter={setSliceTagsFilter}
           analysisBarSettings={analysisBarSettings}
           setAnalysisBarSettings={setAnalysisBarSettings}
           setMetricTagFilter={setMetricTagFilterWithPriority}

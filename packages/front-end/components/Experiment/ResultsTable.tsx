@@ -105,6 +105,9 @@ export type ResultsTableProps = {
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
   availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   metricTags?: string[];
   isTabActive: boolean;
   noStickyHeader?: boolean;
@@ -174,6 +177,9 @@ export default function ResultsTable({
   metricGroupsFilter,
   setMetricGroupsFilter,
   availableMetricGroups,
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
   metricTags = [],
   isTabActive,
   noStickyHeader,
@@ -564,6 +570,9 @@ export default function ResultsTable({
                           availableMetricGroups={availableMetricGroups}
                           metricGroupsFilter={metricGroupsFilter}
                           setMetricGroupsFilter={setMetricGroupsFilter}
+                          availableSliceTags={availableSliceTags}
+                          sliceTagsFilter={sliceTagsFilter}
+                          setSliceTagsFilter={setSliceTagsFilter}
                           sortBy={sortBy}
                           setSortBy={setSortBy}
                           showMetricFilter={showMetricFilter}

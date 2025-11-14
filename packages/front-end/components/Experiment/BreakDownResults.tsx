@@ -76,6 +76,9 @@ const BreakDownResults: FC<{
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
   availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
@@ -126,6 +129,9 @@ const BreakDownResults: FC<{
   metricGroupsFilter,
   setMetricGroupsFilter,
   availableMetricGroups,
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
   experimentType,
   ssrPolyfills,
   hideDetails,
@@ -240,6 +246,9 @@ const BreakDownResults: FC<{
                   metricTagFilter={metricTagFilter}
                   setMetricTagFilter={setMetricTagFilter}
                   availableMetricGroups={availableMetricGroups}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
                   metricGroupsFilter={metricGroupsFilter}
                   setMetricGroupsFilter={setMetricGroupsFilter}
                   sortBy={sortBy}

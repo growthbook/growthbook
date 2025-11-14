@@ -1,4 +1,4 @@
-import { FC, ReactElement, useMemo, useState } from "react";
+import { FC, ReactElement, useMemo, useState, useEffect } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
@@ -76,6 +76,9 @@ const CompactResults: FC<{
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
   availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
   mainTableOnly?: boolean;
@@ -134,6 +137,9 @@ const CompactResults: FC<{
   metricGroupsFilter,
   setMetricGroupsFilter,
   availableMetricGroups,
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
   isTabActive,
   setTab,
   mainTableOnly,
@@ -199,6 +205,7 @@ const CompactResults: FC<{
     pinnedMetricSlices,
     metricTagFilter,
     metricGroupsFilter,
+    sliceTagsFilter,
     sortBy,
     sortDirection,
     analysisBarSettings,
@@ -235,6 +242,36 @@ const CompactResults: FC<{
       ),
     [guardrailMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
+
+  // Auto-expand all metrics when slice tags are selected
+  useEffect(() => {
+    if (sliceTagsFilter && sliceTagsFilter.length > 0) {
+      const allMetricIds = [
+        ...expandedGoals,
+        ...expandedSecondaries,
+        ...expandedGuardrails,
+      ];
+      const newExpandedMetrics: Record<string, boolean> = {};
+      
+      // Expand all metrics for all result groups when slice filter is active
+      allMetricIds.forEach((metricId) => {
+        ["goal", "secondary", "guardrail"].forEach((resultGroup) => {
+          const key = `${metricId}:${resultGroup}`;
+          newExpandedMetrics[key] = true;
+        });
+      });
+      
+      setExpandedMetrics((prev) => ({
+        ...prev,
+        ...newExpandedMetrics,
+      }));
+    }
+  }, [
+    sliceTagsFilter,
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+  ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
 
@@ -324,6 +361,7 @@ const CompactResults: FC<{
             getFactTableById,
             shouldShowMetricSlices: true,
             getChildRowCounts,
+            sliceTagsFilter,
           })}
           metricTagFilter={
             experimentType !== "multi-armed-bandit"
@@ -350,6 +388,9 @@ const CompactResults: FC<{
               ? availableMetricGroups
               : undefined
           }
+          availableSliceTags={availableSliceTags}
+          sliceTagsFilter={sliceTagsFilter}
+          setSliceTagsFilter={setSliceTagsFilter}
           metricTags={allMetricTags}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -402,6 +443,7 @@ const CompactResults: FC<{
               getFactTableById,
               shouldShowMetricSlices: true,
               getChildRowCounts,
+              sliceTagsFilter,
             })}
             metricTagFilter={metricTagFilter}
             setMetricTagFilter={setMetricTagFilter}
@@ -460,6 +502,7 @@ const CompactResults: FC<{
               getFactTableById,
               shouldShowMetricSlices: true,
               getChildRowCounts,
+              sliceTagsFilter,
             })}
             metricTagFilter={metricTagFilter}
             setMetricTagFilter={setMetricTagFilter}
@@ -499,6 +542,7 @@ export function getRenderLabelColumn({
   shouldShowMetricSlices,
   getChildRowCounts,
   pinSource,
+  sliceTagsFilter,
   className = "pl-3",
 }: {
   statsEngine?: StatsEngine;
@@ -520,6 +564,7 @@ export function getRenderLabelColumn({
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
   pinSource?: "experiment" | "custom" | "none";
+  sliceTagsFilter?: string[];
   className?: string;
 }) {
   return function renderLabelColumn({
@@ -558,56 +603,62 @@ export function getRenderLabelColumn({
 
       return (
         <div className={className} style={{ position: "relative" }}>
-          {isExpanded && pinSource === "experiment" && isPinned && (
-            <Tooltip
-              body="Pinned: will be visible when the metric is collapsed"
-              tipPosition="top"
-              tipMinWidth="50px"
-            >
-              <PiPushPinFill
-                style={{
-                  position: "absolute",
-                  left: 4,
-                  top: 3,
-                }}
-                size={14}
-                className="link-purple"
-              />
-            </Tooltip>
-          )}
-          {isExpanded &&
-            (pinSource === "custom" || !pinSource) &&
-            togglePinnedMetricSlice && (
-              <Tooltip
-                body={
-                  isPinned
-                    ? "Pinned: will be visible when the metric is collapsed"
-                    : "Not pinned: will be hidden when the metric is collapsed"
-                }
-                tipPosition="top"
-                tipMinWidth="50px"
-              >
-                <PiPushPinFill
-                  style={{
-                    position: "absolute",
-                    left: 4,
-                    top: 3,
-                    cursor: "pointer",
-                  }}
-                  size={14}
-                  className={isPinned ? "link-purple" : "text-muted opacity50"}
-                  onClick={() => {
-                    if (togglePinnedMetricSlice && row?.sliceLevels) {
-                      togglePinnedMetricSlice(
-                        metric.id,
-                        row.sliceLevels,
-                        location || "goal",
-                      );
+          {(!sliceTagsFilter || sliceTagsFilter.length === 0) && (
+            <>
+              {isExpanded && pinSource === "experiment" && isPinned && (
+                <Tooltip
+                  body="Pinned: will be visible when the metric is collapsed"
+                  tipPosition="top"
+                  tipMinWidth="50px"
+                >
+                  <PiPushPinFill
+                    style={{
+                      position: "absolute",
+                      left: 4,
+                      top: 3,
+                    }}
+                    size={14}
+                    className="link-purple"
+                  />
+                </Tooltip>
+              )}
+              {isExpanded &&
+                (pinSource === "custom" || !pinSource) &&
+                togglePinnedMetricSlice && (
+                  <Tooltip
+                    body={
+                      isPinned
+                        ? "Pinned: will be visible when the metric is collapsed"
+                        : "Not pinned: will be hidden when the metric is collapsed"
                     }
-                  }}
-                />
-              </Tooltip>
-            )}
+                    tipPosition="top"
+                    tipMinWidth="50px"
+                  >
+                    <PiPushPinFill
+                      style={{
+                        position: "absolute",
+                        left: 4,
+                        top: 3,
+                        cursor: "pointer",
+                      }}
+                      size={14}
+                      className={
+                        isPinned ? "link-purple" : "text-muted opacity50"
+                      }
+                      onClick={() => {
+                        if (togglePinnedMetricSlice && row?.sliceLevels) {
+                          togglePinnedMetricSlice(
+                            metric.id,
+                            row.sliceLevels,
+                            location || "goal",
+                          );
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                )}
+            </>
+          )}
           <div
             className="ml-2 font-weight-bold"
             style={{
@@ -693,7 +744,11 @@ export function getRenderLabelColumn({
           style={{
             position: "relative",
             top:
-              childRowCounts.total > 0 && toggleExpandedMetric ? -6 : undefined,
+              childRowCounts.total > 0 &&
+              toggleExpandedMetric &&
+              (!sliceTagsFilter || sliceTagsFilter.length === 0)
+                ? -6
+                : undefined,
           }}
         >
           <span
@@ -801,20 +856,22 @@ export function getRenderLabelColumn({
           </span>
         </div>
 
-        {childRowCounts.total > 0 && toggleExpandedMetric && (
-          <div
-            className="text-muted small"
-            style={{
-              position: "absolute",
-              bottom: "8%",
-              left: 28,
-              width: "100%",
-              fontStyle: "italic",
-            }}
-          >
-            {childRowCounts.pinned} of {childRowCounts.total} pinned
-          </div>
-        )}
+        {childRowCounts.total > 0 &&
+          toggleExpandedMetric &&
+          (!sliceTagsFilter || sliceTagsFilter.length === 0) && (
+            <div
+              className="text-muted small"
+              style={{
+                position: "absolute",
+                bottom: "8%",
+                left: 28,
+                width: "100%",
+                fontStyle: "italic",
+              }}
+            >
+              {childRowCounts.pinned} of {childRowCounts.total} pinned
+            </div>
+          )}
       </>
     );
   };

@@ -20,6 +20,7 @@ import {
   dedupeSliceMetrics,
   SliceDataForMetric,
   isFactMetric,
+  generateSliceString,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -47,6 +48,7 @@ export interface UseExperimentTableRowsParams {
   }>;
   metricTagFilter?: string[];
   metricGroupsFilter?: string[];
+  sliceTagsFilter?: string[];
   sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
@@ -80,6 +82,7 @@ export function useExperimentTableRows({
   pinnedMetricSlices,
   metricTagFilter,
   metricGroupsFilter,
+  sliceTagsFilter,
   sortBy,
   sortDirection,
   customMetricOrder,
@@ -202,6 +205,7 @@ export function useExperimentTableRows({
         expandedMetrics,
         getExperimentMetricById,
         getFactTableById,
+        sliceTagsFilter,
       });
     }
 
@@ -363,6 +367,7 @@ export function useExperimentTableRows({
     pinnedMetricSlices,
     expandedMetrics,
     shouldShowMetricSlices,
+    sliceTagsFilter,
     customMetricSlices,
     enablePinning,
     sortBy,
@@ -400,6 +405,7 @@ export function generateRowsForMetric({
   expandedMetrics,
   getExperimentMetricById,
   getFactTableById,
+  sliceTagsFilter,
 }: {
   metricId: string;
   resultGroup: "goal" | "secondary" | "guardrail";
@@ -417,6 +423,7 @@ export function generateRowsForMetric({
   expandedMetrics?: Record<string, boolean>;
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
   getFactTableById: (id: string) => FactTableInterface | null;
+  sliceTagsFilter?: string[];
 }): ExperimentTableRow[] {
   const resultsArray = Array.isArray(results) ? results : [results];
   const metric = getExperimentMetricById(metricId);
@@ -485,10 +492,14 @@ export function generateRowsForMetric({
   const rows: ExperimentTableRow[] = [parentRow];
 
   if (numSlices > 0) {
-    sliceData.forEach((slice) => {
-      const expandedKey = `${metricId}:${resultGroup}`;
-      const isExpanded = !!expandedMetrics?.[expandedKey];
+    const expandedKey = `${metricId}:${resultGroup}`;
+    // Auto-expand all metrics when slice filter is active
+    const isExpanded =
+      sliceTagsFilter && sliceTagsFilter.length > 0
+        ? true
+        : !!expandedMetrics?.[expandedKey];
 
+    sliceData.forEach((slice) => {
       // Generate pinned key from all slice levels
       const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
         column: dl.column,
@@ -502,7 +513,32 @@ export function generateRowsForMetric({
       );
       const isPinned = !!pinnedMetricSlices?.includes(pinnedKey);
 
-      const shouldShowLevel = isExpanded || isPinned;
+      // Check if slice matches filter
+      let sliceMatches = true;
+      if (sliceTagsFilter && sliceTagsFilter.length > 0) {
+        // Extract slice tags from slice data
+        const sliceTags: string[] = [];
+        // Generate single dimension tags
+        slice.sliceLevels.forEach((sliceLevel) => {
+          const value = sliceLevel.levels[0] || "";
+          const tag = generateSliceString({ [sliceLevel.column]: value });
+          sliceTags.push(tag);
+        });
+        // Generate combined tag for multi-dimensional slices
+        if (slice.sliceLevels.length > 1) {
+          const slices: Record<string, string> = {};
+          slice.sliceLevels.forEach((sl) => {
+            slices[sl.column] = sl.levels[0] || "";
+          });
+          const comboTag = generateSliceString(slices);
+          sliceTags.push(comboTag);
+        }
+        // Check if any slice tag matches the filter
+        sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
+      }
+
+      // Show if: (expanded or pinned) AND matches filter (no special treatment for pinned when filter is active)
+      const shouldShowLevel = (isExpanded || isPinned) && sliceMatches;
 
       const label = slice.sliceLevels
         .map((dl, _index) => {
