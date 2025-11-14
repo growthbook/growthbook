@@ -43,13 +43,7 @@ export function validateCohort(value: string): CohortValidation {
   }
 }
 
-export function CohortValidationWarning({
-  value,
-  variationIndex,
-}: {
-  value: string;
-  variationIndex: number;
-}) {
+export function CohortValidationWarning({ value }: { value: string }) {
   const validation = validateCohort(value);
   if (validation.valid) return null;
 
@@ -60,25 +54,21 @@ export function CohortValidationWarning({
     >
       <FaExclamationTriangle className="mr-1" />
       {validation.reason === "not-json" ? (
-        <>
-          Invalid experiment setup. Variation {variationIndex} does not have a
-          json payload.
-        </>
+        <>Invalid experiment setup. Variation does not have a json payload.</>
       ) : validation.reason === "missing-cohort" ? (
         <>
-          Invalid experiment setup. Variation {variationIndex} does not have a{" "}
+          Invalid experiment setup. Variation does not have a{" "}
           <code>cohort</code> key.
         </>
       ) : validation.reason === "cohort-trailing-space" ? (
         <>
-          Invalid experiment setup. Variation {variationIndex} has trailing
-          whitespace in the cohort value. Please remove any spaces before or
-          after the value.
+          Invalid experiment setup. Variation has trailing whitespace in the
+          cohort value. Please remove any spaces before or after the value.
         </>
       ) : (
         <>
-          Invalid experiment setup. Variation {variationIndex} has an invalid
-          cohort value. Please follow the experiment naming format:{" "}
+          Invalid experiment setup. Variation has an invalid cohort value.
+          Please follow the experiment naming format:{" "}
           <code>
             exp1:&lt;experimentNameInCamelCaseYYMMDD&gt;:&lt;variantName&gt;
           </code>

@@ -702,10 +702,7 @@ export default function RuleModal({
                   const value = form.watch(`variations.${i}.value`) || "";
                   return (
                     <div key={v.id}>
-                      <CohortValidationWarning
-                        value={value}
-                        variationIndex={i}
-                      />
+                      <CohortValidationWarning value={value} />
                       <FeatureValueField
                         label={v.name}
                         id={v.id}

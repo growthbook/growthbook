@@ -168,7 +168,7 @@ export default function ExperimentSummary({
                   defaultVal={feature.defaultValue}
                 />
                 <ValidateValue value={r.value} feature={feature} />
-                <CohortValidationWarning value={r.value} variationIndex={j} />
+                <CohortValidationWarning value={r.value} />
               </td>
               <td>{r?.name}</td>
               <td>

@@ -98,10 +98,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
           {setVariations ? (
             <>
               {showCohortValidation && (
-                <CohortValidationWarning
-                  value={variation.value}
-                  variationIndex={i}
-                />
+                <CohortValidationWarning value={variation.value} />
               )}
               <FeatureValueField
                 id={`value_${i}`}
