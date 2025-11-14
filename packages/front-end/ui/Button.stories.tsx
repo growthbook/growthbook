@@ -68,7 +68,7 @@ export default function ButtonStories() {
             mb="2"
             icon={<BsArrowRepeat />}
             onClick={async () =>
-              await new Promise((resolve, reject) =>
+              await new Promise<void>((resolve, reject) =>
                 setTimeout(() => {
                   if (Math.random() < 0.5) {
                     resolve();

@@ -28,10 +28,6 @@ import {
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import {
-  ResultsMetricFilters,
-  sortAndFilterMetricsByTags,
-} from "@/components/Experiment/Results";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
@@ -52,7 +48,6 @@ const CompactResults: FC<{
   isLatestPhase: boolean;
   status: ExperimentStatus;
   goalMetrics: string[];
-  secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
   id: string;
@@ -60,8 +55,6 @@ const CompactResults: FC<{
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
@@ -79,15 +72,12 @@ const CompactResults: FC<{
   status,
   goalMetrics,
   guardrailMetrics,
-  secondaryMetrics,
   metricOverrides,
   id,
   statsEngine,
   pValueCorrection,
   regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
-  metricFilter,
-  setMetricFilter,
   noTooltip,
   experimentType,
   ssrPolyfills,
@@ -99,50 +89,18 @@ const CompactResults: FC<{
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
-  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
-    useMemo(() => {
-      const expandedGoals = expandMetricGroups(
-        goalMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-      const expandedSecondaries = expandMetricGroups(
-        secondaryMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-      const expandedGuardrails = expandMetricGroups(
-        guardrailMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-
-      return { expandedGoals, expandedSecondaries, expandedGuardrails };
-    }, [
+  const { expandedGoals, expandedGuardrails } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(
       goalMetrics,
-      metricGroups,
-      ssrPolyfills?.metricGroups,
-      secondaryMetrics,
-      guardrailMetrics,
-    ]);
-
-  const allMetricTags = useMemo(() => {
-    const allMetricTagsSet: Set<string> = new Set();
-    [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
-      (metricId) => {
-        const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
-        metric?.tags?.forEach((tag) => {
-          allMetricTagsSet.add(tag);
-        });
-      },
+      ssrPolyfills?.metricGroups || metricGroups,
     );
-    return [...allMetricTagsSet];
-  }, [
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-    ssrPolyfills,
-    getExperimentMetricById,
-  ]);
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      ssrPolyfills?.metricGroups || metricGroups,
+    );
+
+    return { expandedGoals, expandedGuardrails };
+  }, [goalMetrics, metricGroups, ssrPolyfills?.metricGroups, guardrailMetrics]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(
@@ -190,19 +148,7 @@ const CompactResults: FC<{
       setAdjustedCIs([results], pValueThreshold);
     }
 
-    const guardrailDefs = expandedGuardrails
-      .map(
-        (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId),
-      )
-      .filter(isDefined);
-    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
-      guardrailDefs,
-      metricFilter,
-    );
-
-    const retGuardrails = sortedFilteredGuardrails
+    const retGuardrails = expandedGuardrails
       .map((metricId) => getRow(metricId, "guardrail"))
       .filter(isDefined);
     return [...retGuardrails];
@@ -218,7 +164,6 @@ const CompactResults: FC<{
     ready,
     ssrPolyfills,
     getExperimentMetricById,
-    metricFilter,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
@@ -247,9 +192,6 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
             })}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-            metricTags={allMetricTags}
             isTabActive={true}
             noStickyHeader={true}
             noTooltip={noTooltip}
