@@ -243,6 +243,7 @@ export default function ExperimentRefSummary({
                     ?.value ?? "null";
 
                 const weight = phase.variationWeights?.[j] || 0;
+
                 return (
                   <tr key={j}>
                     <td
