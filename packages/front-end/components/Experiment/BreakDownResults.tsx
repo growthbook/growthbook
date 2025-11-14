@@ -73,6 +73,9 @@ const BreakDownResults: FC<{
   differenceType: DifferenceType;
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
@@ -120,6 +123,9 @@ const BreakDownResults: FC<{
   differenceType,
   metricTagFilter,
   setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
   experimentType,
   ssrPolyfills,
   hideDetails,
@@ -163,6 +169,7 @@ const BreakDownResults: FC<{
     metricOverrides,
     ssrPolyfills,
     metricTagFilter,
+    metricGroupsFilter,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -232,6 +239,9 @@ const BreakDownResults: FC<{
                   metricTags={allMetricTags}
                   metricTagFilter={metricTagFilter}
                   setMetricTagFilter={setMetricTagFilter}
+                  availableMetricGroups={availableMetricGroups}
+                  metricGroupsFilter={metricGroupsFilter}
+                  setMetricGroupsFilter={setMetricGroupsFilter}
                   sortBy={sortBy}
                   setSortBy={setSortBy}
                   showMetricFilter={showMetricFilter}

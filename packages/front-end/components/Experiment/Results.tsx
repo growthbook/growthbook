@@ -55,6 +55,9 @@ const Results: FC<{
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
@@ -81,6 +84,9 @@ const Results: FC<{
   setAnalysisBarSettings,
   metricTagFilter,
   setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
   isTabActive = true,
   setTab,
   holdout,
@@ -412,6 +418,9 @@ const Results: FC<{
           differenceType={analysis?.settings?.differenceType || "relative"}
           metricTagFilter={metricTagFilter}
           setMetricTagFilter={setMetricTagFilter}
+          metricGroupsFilter={metricGroupsFilter}
+          setMetricGroupsFilter={setMetricGroupsFilter}
+          availableMetricGroups={availableMetricGroups}
           experimentType={experiment.type}
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -457,6 +466,9 @@ const Results: FC<{
             differenceType={analysis.settings?.differenceType}
             metricTagFilter={metricTagFilter}
             setMetricTagFilter={setMetricTagFilter}
+            metricGroupsFilter={metricGroupsFilter}
+            setMetricGroupsFilter={setMetricGroupsFilter}
+            availableMetricGroups={availableMetricGroups}
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}

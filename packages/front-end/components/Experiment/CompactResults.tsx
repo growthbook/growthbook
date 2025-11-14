@@ -73,6 +73,9 @@ const CompactResults: FC<{
   differenceType: DifferenceType;
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
   mainTableOnly?: boolean;
@@ -128,6 +131,9 @@ const CompactResults: FC<{
   differenceType,
   metricTagFilter,
   setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
   isTabActive,
   setTab,
   mainTableOnly,
@@ -192,6 +198,7 @@ const CompactResults: FC<{
     customMetricSlices,
     pinnedMetricSlices,
     metricTagFilter,
+    metricGroupsFilter,
     sortBy,
     sortDirection,
     analysisBarSettings,
@@ -328,6 +335,21 @@ const CompactResults: FC<{
               ? setMetricTagFilter
               : undefined
           }
+          metricGroupsFilter={
+            experimentType !== "multi-armed-bandit"
+              ? metricGroupsFilter
+              : undefined
+          }
+          setMetricGroupsFilter={
+            experimentType !== "multi-armed-bandit"
+              ? setMetricGroupsFilter
+              : undefined
+          }
+          availableMetricGroups={
+            experimentType !== "multi-armed-bandit"
+              ? availableMetricGroups
+              : undefined
+          }
           metricTags={allMetricTags}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -383,6 +405,9 @@ const CompactResults: FC<{
             })}
             metricTagFilter={metricTagFilter}
             setMetricTagFilter={setMetricTagFilter}
+            metricGroupsFilter={metricGroupsFilter}
+            setMetricGroupsFilter={setMetricGroupsFilter}
+            availableMetricGroups={availableMetricGroups}
             metricTags={allMetricTags}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -438,6 +463,9 @@ const CompactResults: FC<{
             })}
             metricTagFilter={metricTagFilter}
             setMetricTagFilter={setMetricTagFilter}
+            metricGroupsFilter={metricGroupsFilter}
+            setMetricGroupsFilter={setMetricGroupsFilter}
+            availableMetricGroups={availableMetricGroups}
             metricTags={allMetricTags}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}

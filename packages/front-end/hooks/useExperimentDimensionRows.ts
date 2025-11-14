@@ -35,6 +35,7 @@ export interface UseExperimentDimensionRowsParams {
   metricOverrides: MetricOverride[];
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
+  metricGroupsFilter?: string[];
   sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
@@ -65,6 +66,7 @@ export function useExperimentDimensionRows({
   metricOverrides,
   ssrPolyfills,
   metricTagFilter,
+  metricGroupsFilter,
   sortBy,
   sortDirection,
   customMetricOrder: _customMetricOrder,
@@ -84,17 +86,52 @@ export function useExperimentDimensionRows({
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
+      const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
+
+      // Filter by metric groups if filter is active
+      let filteredGoalMetrics = goalMetrics;
+      let filteredSecondaryMetrics = secondaryMetrics;
+      let filteredGuardrailMetrics = guardrailMetrics;
+
+      if (metricGroupsFilter && metricGroupsFilter.length > 0) {
+        // Create a set of all metric IDs that belong to the selected groups
+        const allowedMetricIds = new Set<string>();
+        metricGroupsFilter.forEach((groupId) => {
+          const group = allMetricGroups.find((g) => g.id === groupId);
+          if (group) {
+            group.metrics.forEach((metricId) => allowedMetricIds.add(metricId));
+          }
+        });
+
+        // Filter metrics: only include group IDs that are selected, or individual metrics that are in selected groups
+        filteredGoalMetrics = goalMetrics.filter((id) => {
+          if (metricGroupsFilter.includes(id)) return true; // Selected group
+          if (!allowedMetricIds.has(id)) return false; // Not in any selected group
+          return true; // Individual metric in a selected group
+        });
+        filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
+          if (metricGroupsFilter.includes(id)) return true;
+          if (!allowedMetricIds.has(id)) return false;
+          return true;
+        });
+        filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
+          if (metricGroupsFilter.includes(id)) return true;
+          if (!allowedMetricIds.has(id)) return false;
+          return true;
+        });
+      }
+
       const expandedGoals = expandMetricGroups(
-        goalMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
+        filteredGoalMetrics,
+        allMetricGroups,
       );
       const expandedSecondaries = expandMetricGroups(
-        secondaryMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
+        filteredSecondaryMetrics,
+        allMetricGroups,
       );
       const expandedGuardrails = expandMetricGroups(
-        guardrailMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
+        filteredGuardrailMetrics,
+        allMetricGroups,
       );
 
       return { expandedGoals, expandedSecondaries, expandedGuardrails };
@@ -104,6 +141,7 @@ export function useExperimentDimensionRows({
       ssrPolyfills?.metricGroups,
       secondaryMetrics,
       guardrailMetrics,
+      metricGroupsFilter,
     ]);
 
   const allMetricTags = useMemo(() => {

@@ -12,6 +12,9 @@ export default function ResultsMetricFilter({
   metricTags = [],
   metricTagFilter = [],
   setMetricTagFilter,
+  availableMetricGroups = [],
+  metricGroupsFilter = [],
+  setMetricGroupsFilter,
   sortBy,
   setSortBy,
   showMetricFilter,
@@ -20,6 +23,9 @@ export default function ResultsMetricFilter({
   metricTags?: string[];
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
   sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
   setSortBy?: (
     s: "metric-tags" | "significance" | "change" | "custom" | null,
@@ -28,7 +34,9 @@ export default function ResultsMetricFilter({
   setShowMetricFilter: (show: boolean) => void;
 }) {
   const filteringApplied =
-    metricTagFilter?.length > 0 || sortBy === "metric-tags";
+    metricTagFilter?.length > 0 ||
+    metricGroupsFilter?.length > 0 ||
+    sortBy === "metric-tags";
 
   return (
     <div
@@ -90,6 +98,26 @@ export default function ResultsMetricFilter({
                 />
                 Filter Results
               </Heading>
+              {availableMetricGroups.length > 0 && (
+                <Box mb="4">
+                  <Heading size="2" weight="medium">
+                    By metric groups
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    value={metricGroupsFilter || []}
+                    options={availableMetricGroups.map((group) => ({
+                      label: group.name,
+                      value: group.id,
+                    }))}
+                    onChange={(v) => {
+                      setMetricGroupsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Box>
+              )}
               <Box>
                 <Heading size="2" weight="medium">
                   By metric tags
@@ -130,6 +158,7 @@ export default function ResultsMetricFilter({
                   icon={<PiX />}
                   onClick={async () => {
                     setMetricTagFilter?.([]);
+                    setMetricGroupsFilter?.([]);
                     setSortBy?.(null);
                   }}
                 >

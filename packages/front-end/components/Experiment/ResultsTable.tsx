@@ -102,6 +102,9 @@ export type ResultsTableProps = {
   sequentialTestingEnabled?: boolean;
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
   metricTags?: string[];
   isTabActive: boolean;
   noStickyHeader?: boolean;
@@ -168,6 +171,9 @@ export default function ResultsTable({
   sequentialTestingEnabled = false,
   metricTagFilter,
   setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
   metricTags = [],
   isTabActive,
   noStickyHeader,
@@ -555,6 +561,9 @@ export default function ResultsTable({
                           metricTags={metricTags}
                           metricTagFilter={metricTagFilter}
                           setMetricTagFilter={setMetricTagFilter}
+                          availableMetricGroups={availableMetricGroups}
+                          metricGroupsFilter={metricGroupsFilter}
+                          setMetricGroupsFilter={setMetricGroupsFilter}
                           sortBy={sortBy}
                           setSortBy={setSortBy}
                           showMetricFilter={showMetricFilter}

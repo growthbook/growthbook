@@ -4,6 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
+import { isMetricGroupId } from "shared/experiments";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -145,6 +146,10 @@ export default function TabbedPage({
     `experiment-page__${experiment.id}__metric_tag_filter`,
     [],
   );
+  const [metricGroupsFilter, setMetricGroupsFilter] = useLocalStorage<string[]>(
+    `experiment-page__${experiment.id}__metric_groups_filter`,
+    [],
+  );
   const [sortBy, setSortBy] = useLocalStorage<
     "metric-tags" | "significance" | "change" | null
   >(`experiment-page__${experiment.id}__sort_by`, null);
@@ -191,6 +196,32 @@ export default function TabbedPage({
 
   const { phase, setPhase } = useSnapshot();
   const { metricGroups } = useDefinitions();
+
+  // Extract metric group IDs from experiment metrics (dedupe using Map)
+  const availableMetricGroups = useMemo(() => {
+    const groupIdsMap = new Map<string, boolean>();
+    [
+      ...experiment.goalMetrics,
+      ...experiment.secondaryMetrics,
+      ...experiment.guardrailMetrics,
+    ].forEach((id) => {
+      if (isMetricGroupId(id)) {
+        groupIdsMap.set(id, true);
+      }
+    });
+    const groupIds = Array.from(groupIdsMap.keys());
+    return groupIds
+      .map((id) => {
+        const group = metricGroups.find((g) => g.id === id);
+        return group ? { id: group.id, name: group.name } : null;
+      })
+      .filter((g) => g !== null) as Array<{ id: string; name: string }>;
+  }, [
+    experiment.goalMetrics,
+    experiment.secondaryMetrics,
+    experiment.guardrailMetrics,
+    metricGroups,
+  ]);
 
   const variables = {
     experiment: experiment.name,
@@ -574,6 +605,9 @@ export default function TabbedPage({
           isTabActive={tab === "results"}
           safeToEdit={safeToEdit}
           metricTagFilter={metricTagFilter}
+          metricGroupsFilter={metricGroupsFilter}
+          setMetricGroupsFilter={setMetricGroupsFilter}
+          availableMetricGroups={availableMetricGroups}
           analysisBarSettings={analysisBarSettings}
           setAnalysisBarSettings={setAnalysisBarSettings}
           setMetricTagFilter={setMetricTagFilterWithPriority}
