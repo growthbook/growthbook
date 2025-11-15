@@ -98,8 +98,20 @@ export default function ExperimentRefSummary({
   }
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
+  // Calculate total namespace allocation - support both old (single range) and new (multiple ranges) formats
   const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
+    ? (() => {
+        const ns = phase.namespace!;
+        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+          return ns.ranges.reduce(
+            (sum, [start, end]) => sum + (end - start),
+            0,
+          );
+        } else if ("range" in ns && ns.range) {
+          return ns.range[1] - ns.range[0];
+        }
+        return 1;
+      })()
     : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 

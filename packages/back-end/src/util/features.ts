@@ -330,6 +330,7 @@ export function getFeatureDefinition({
   date,
   safeRolloutMap,
   holdoutsMap,
+  namespaces = [],
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -342,6 +343,7 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
+  namespaces?: { name: string; hashAttribute?: string }[];
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -475,13 +477,46 @@ export function getFeatureDefinition({
             phase.namespace.enabled &&
             phase.namespace.name
           ) {
-            rule.namespace = [
-              phase.namespace.name,
-              // eslint-disable-next-line
-              parseFloat(phase.namespace.range[0] as any) || 0,
-              // eslint-disable-next-line
-              parseFloat(phase.namespace.range[1] as any) || 0,
-            ];
+            const ns = phase.namespace;
+            const nsDefinition = namespaces.find((n) => n.name === ns.name);
+
+            // New format: namespace has hashAttribute defined
+            if (nsDefinition?.hashAttribute) {
+              let ranges: [number, number][];
+
+              if ("ranges" in ns && ns.ranges) {
+                // Multiple ranges
+                ranges = ns.ranges;
+              } else {
+                // Single range
+                const legacyNs = ns as {
+                  name: string;
+                  range: [number, number];
+                  enabled: boolean;
+                };
+                ranges = [[legacyNs.range[0] || 0, legacyNs.range[1] || 0]];
+              }
+
+              rule.filters = [
+                {
+                  attribute:
+                    "hashAttribute" in ns && ns.hashAttribute
+                      ? ns.hashAttribute
+                      : nsDefinition.hashAttribute,
+                  seed: ns.name,
+                  hashVersion: 2,
+                  ranges,
+                },
+              ];
+            } else {
+              // Legacy format: use tuple for backward compatibility
+              const range =
+                "ranges" in ns && ns.ranges
+                  ? ns.ranges[0]
+                  : (ns as { range: [number, number] }).range;
+
+              rule.namespace = [ns.name, range[0] || 0, range[1] || 0];
+            }
           }
 
           if (phase.seed) {
@@ -582,13 +617,46 @@ export function getFeatureDefinition({
             rule.minBucketVersion = r.minBucketVersion;
           }
           if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-            rule.namespace = [
-              r.namespace.name,
-              // eslint-disable-next-line
-              parseFloat(r.namespace.range[0] as any) || 0,
-              // eslint-disable-next-line
-              parseFloat(r.namespace.range[1] as any) || 0,
-            ];
+            const ns = r.namespace;
+            const nsDefinition = namespaces.find((n) => n.name === ns.name);
+
+            // New format: namespace has hashAttribute defined
+            if (nsDefinition?.hashAttribute) {
+              let ranges: [number, number][];
+
+              if ("ranges" in ns && ns.ranges) {
+                // Multiple ranges
+                ranges = ns.ranges;
+              } else {
+                // Single range
+                const legacyNs = ns as {
+                  name: string;
+                  range: [number, number];
+                  enabled: boolean;
+                };
+                ranges = [[legacyNs.range[0] || 0, legacyNs.range[1] || 0]];
+              }
+
+              rule.filters = [
+                {
+                  attribute:
+                    "hashAttribute" in ns && ns.hashAttribute
+                      ? ns.hashAttribute
+                      : nsDefinition.hashAttribute,
+                  seed: ns.name,
+                  hashVersion: 2,
+                  ranges,
+                },
+              ];
+            } else {
+              // Legacy format: use tuple for backward compatibility
+              const range =
+                "ranges" in ns && ns.ranges
+                  ? ns.ranges[0]
+                  : (ns as { range: [number, number] }).range;
+
+              rule.namespace = [ns.name, range[0] || 0, range[1] || 0];
+            }
           }
         } else if (r.type === "rollout") {
           rule.force = getJSONValue(feature.valueType, r.value);
