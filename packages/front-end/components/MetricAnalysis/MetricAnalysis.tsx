@@ -192,8 +192,9 @@ function getAnalysisSettingsForm(
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
-    numeratorFilters: settings?.additionalNumeratorFilters ?? null,
-    denominatorFilters: settings?.additionalDenominatorFilters ?? null,
+    additionalNumeratorFilters: settings?.additionalNumeratorFilters ?? null,
+    additionalDenominatorFilters:
+      settings?.additionalDenominatorFilters ?? null,
   };
 }
 
@@ -205,8 +206,8 @@ export type MetricAnalysisFormFields = {
 
   populationType: MetricAnalysisPopulationType;
   populationId: string | null;
-  numeratorFilters: string[] | null;
-  denominatorFilters: string[] | null;
+  additionalNumeratorFilters: string[] | null;
+  additionalDenominatorFilters: string[] | null;
 };
 
 interface MetricAnalysisProps {

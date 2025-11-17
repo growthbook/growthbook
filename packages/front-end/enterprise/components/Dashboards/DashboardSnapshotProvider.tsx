@@ -526,9 +526,9 @@ export function useDashboardMetricAnalysis(
         startDate: getValidDate(metricAnalysis.settings.startDate),
         endDate: getValidDate(metricAnalysis.settings.endDate),
         populationId: metricAnalysis.settings.populationId || "",
-        numeratorFilters:
+        additionalNumeratorFilters:
           metricAnalysis.settings.additionalNumeratorFilters ?? [],
-        denominatorFilters:
+        additionalDenominatorFilters:
           metricAnalysis.settings.additionalDenominatorFilters ?? [],
       };
       // Check if analysisSettings match (including filters)
