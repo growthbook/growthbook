@@ -1,8 +1,8 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
-import { format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { prestoCreateTablePartitions } from "shared/enterprise";
+import { formatAsync } from "back-end/src/util/sql";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
@@ -158,11 +158,11 @@ export default class Presto extends SqlIntegration {
 
   // FIXME(incremental-refresh): Consider using 2 separate queries to create table and insert data instead of ignored cteSql
   // NB: CREATE AS CTE does not work when inserting databecause of a bug with timestamp columns with Hive
-  getExperimentUnitsTableQueryFromCte(
+  async getExperimentUnitsTableQueryFromCte(
     unitsTableFullName: string,
     _cteSql: string,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `CREATE TABLE ${unitsTableFullName} (
         user_id ${this.getDataType("string")},
         variation ${this.getDataType("string")},
@@ -182,10 +182,10 @@ export default class Presto extends SqlIntegration {
       : `"${fullTableName}$partitions"`;
   }
 
-  getMaxTimestampIncrementalUnitsQuery(
+  async getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
@@ -194,10 +194,10 @@ export default class Presto extends SqlIntegration {
     );
   }
 
-  getMaxTimestampMetricSourceQuery(
+  async getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}

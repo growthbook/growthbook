@@ -1,4 +1,7 @@
+import { Worker } from "worker_threads";
+import path from "path";
 import Handlebars from "handlebars";
+import { FormatDialect, FormatError } from "shared/src/types";
 import { SQLVars } from "back-end/types/sql";
 import {
   FactTableColumnType,
@@ -317,4 +320,58 @@ export function determineColumnTypes(
   });
 
   return columns;
+}
+interface FormatMessage {
+  sql: string;
+  dialect?: FormatDialect;
+}
+
+interface FormatResult {
+  formatted: string;
+  error?: FormatError;
+}
+
+/**
+ * Format SQL asynchronously using a worker thread to avoid blocking the main thread.
+ * This is useful for CPU-intensive formatting operations.
+ *
+ * @param sql - The SQL string to format
+ * @param dialect - The SQL dialect to use for formatting
+ * @param onError - Optional callback for handling format errors
+ * @returns Promise that resolves to the formatted SQL string
+ */
+export async function formatAsync(
+  sql: string,
+  dialect?: FormatDialect,
+  onError?: (error: FormatError) => void,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // Create a new worker for this formatting task
+    const worker = new Worker(path.join(__dirname, "sql-format.worker.js"));
+
+    const message: FormatMessage = {
+      sql,
+      dialect,
+    };
+
+    // Set up error handler
+    worker.on("error", (error) => {
+      worker.terminate();
+      reject(error);
+    });
+
+    // Set up message handler for the result
+    worker.on("message", (result: FormatResult) => {
+      worker.terminate();
+
+      if (result.error && onError) {
+        onError(result.error);
+      }
+
+      resolve(result.formatted);
+    });
+
+    // Send the formatting request to the worker
+    worker.postMessage(message);
+  });
 }

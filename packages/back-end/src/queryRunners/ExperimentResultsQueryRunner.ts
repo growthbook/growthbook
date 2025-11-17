@@ -295,7 +295,7 @@ export const startExperimentResultQueries = async (
     }
     unitQuery = await startQuery({
       name: queryParentId,
-      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      query: await integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
