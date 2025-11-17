@@ -419,7 +419,6 @@ function DashboardEditor({
           }}
           close={() => setEditDashboard(false)}
           submit={async (data) => {
-            console.log("data", data);
             await apiCall(`/dashboards/${id}`, {
               method: "PUT",
               body: JSON.stringify(data),

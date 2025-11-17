@@ -185,6 +185,7 @@ function SingleDashboardPage() {
             setBlock={canEdit ? memoizedSetBlock : undefined}
             projects={dashboard.projects ? dashboard.projects : []}
             mutate={mutate}
+            updateSchedule={dashboard.updateSchedule || undefined}
             nextUpdate={dashboard.nextUpdate}
             dashboardLastUpdated={dashboard.lastUpdated}
             setIsEditing={setIsEditing}
