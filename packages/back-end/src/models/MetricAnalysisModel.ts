@@ -76,8 +76,10 @@ export class MetricAnalysisModel extends BaseClass {
         "settings.userIdType": settings.userIdType,
         "settings.populationType": settings.populationType,
         "settings.populationId": settings.populationId || undefined,
-        "settings.numeratorFilters": settings.numeratorFilters || undefined,
-        "settings.denominatorFilters": settings.denominatorFilters || undefined,
+        "settings.numeratorFilters":
+          settings.additionalNumeratorFilters || undefined,
+        "settings.denominatorFilters":
+          settings.additionalDenominatorFilters || undefined,
       },
       { sort: { dateCreated: -1 }, limit: 10 },
     );

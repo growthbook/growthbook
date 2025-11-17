@@ -322,10 +322,10 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                     <Badge
                       label={
                         (
-                          (block.analysisSettings.numeratorFilters?.length ||
-                            0) +
-                          (block.analysisSettings.denominatorFilters?.length ||
-                            0)
+                          (block.analysisSettings.additionalNumeratorFilters
+                            ?.length || 0) +
+                          (block.analysisSettings.additionalDenominatorFilters
+                            ?.length || 0)
                         ).toString() || "0"
                       }
                       color="violet"
@@ -338,16 +338,18 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       variant="ghost"
                       color="red"
                       disabled={
-                        block.analysisSettings.numeratorFilters?.length === 0 &&
-                        block.analysisSettings.denominatorFilters?.length === 0
+                        block.analysisSettings.additionalNumeratorFilters
+                          ?.length === 0 &&
+                        block.analysisSettings.additionalDenominatorFilters
+                          ?.length === 0
                       }
                       onClick={() => {
                         setBlock({
                           ...block,
                           analysisSettings: {
                             ...block.analysisSettings,
-                            numeratorFilters: [],
-                            denominatorFilters: [],
+                            additionalNumeratorFilters: [],
+                            additionalDenominatorFilters: [],
                           },
                         });
                       }}
@@ -378,7 +380,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                     ) : null}
                   </Flex>
                 }
-                value={block.analysisSettings.numeratorFilters ?? []}
+                value={block.analysisSettings.additionalNumeratorFilters ?? []}
                 containerClassName="mb-0"
                 labelClassName="mb-0"
                 onChange={(filters) =>
@@ -386,7 +388,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                     ...block,
                     analysisSettings: {
                       ...block.analysisSettings,
-                      numeratorFilters: filters,
+                      additionalNumeratorFilters: filters,
                     },
                   })
                 }
@@ -412,7 +414,9 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       </Text>
                     </Flex>
                   }
-                  value={block.analysisSettings.denominatorFilters ?? []}
+                  value={
+                    block.analysisSettings.additionalDenominatorFilters ?? []
+                  }
                   containerClassName="mb-0"
                   labelClassName="mb-0"
                   onChange={(filters) =>
@@ -420,7 +424,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       ...block,
                       analysisSettings: {
                         ...block.analysisSettings,
-                        denominatorFilters: filters,
+                        additionalDenominatorFilters: filters,
                       },
                     })
                   }

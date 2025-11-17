@@ -21,8 +21,8 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
-    numeratorFilters: z.array(z.string()).nullable(),
-    denominatorFilters: z.array(z.string()).nullable(),
+    additionalNumeratorFilters: z.array(z.string()).nullable(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
+    additionalDenominatorFilters: z.array(z.string()).nullable(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
   })
   .strict();
 export const metricAnalysisSettingsStringDatesValidator =
@@ -42,8 +42,8 @@ export const createMetricAnalysisPropsValidator = z
     populationId: z.string().nullable(),
     source: metricAnalysisSourceValidator,
     force: z.boolean().optional(),
-    numeratorFilters: z.array(z.string()).nullable(),
-    denominatorFilters: z.array(z.string()).nullable(),
+    additionalNumeratorFilters: z.array(z.string()).nullable(),
+    additionalDenominatorFilters: z.array(z.string()).nullable(),
   })
   .strict();
 

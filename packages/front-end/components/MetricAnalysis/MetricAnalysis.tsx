@@ -192,8 +192,8 @@ function getAnalysisSettingsForm(
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
-    numeratorFilters: settings?.numeratorFilters ?? null,
-    denominatorFilters: settings?.denominatorFilters ?? null,
+    numeratorFilters: settings?.additionalNumeratorFilters ?? null,
+    denominatorFilters: settings?.additionalDenominatorFilters ?? null,
   };
 }
 
