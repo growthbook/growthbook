@@ -14,6 +14,7 @@ import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -378,6 +379,10 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                         (Numerator)
                       </Text>
                     ) : null}
+                    <Tooltip
+                      body={`Row Filters specified here are combined with any existing filters on the metric ${metric?.denominator?.factTableId ? "numerator" : ""}.`}
+                      className="mb-2"
+                    />
                   </Flex>
                 }
                 value={block.analysisSettings.additionalNumeratorFilters ?? []}
@@ -392,7 +397,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                     },
                   })
                 }
-                placeholder="Apply filters..."
+                placeholder="Apply additional filters..."
                 options={
                   factTable?.filters?.map((f) => ({
                     value: f.id,
@@ -412,6 +417,10 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                         {" "}
                         (Denominator)
                       </Text>
+                      <Tooltip
+                        body="Row Filters specified here are combined with any existing denominatorfilters defined on the metric."
+                        className="mb-2"
+                      />
                     </Flex>
                   }
                   value={
@@ -428,7 +437,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       },
                     })
                   }
-                  placeholder="Apply filters..."
+                  placeholder="Apply additionalfilters..."
                   options={
                     denominatorFactTable?.filters?.map((f) => ({
                       value: f.id,
