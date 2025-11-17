@@ -23,6 +23,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
+import { CohortValidationWarning } from "./CohortValidation";
 
 export type SortableVariation = ExperimentValue & {
   id: string;
@@ -38,6 +39,7 @@ interface SortableProps {
   customSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
+  showCohortValidation?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -58,6 +60,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       customSplit,
       setWeight,
       feature,
+      showCohortValidation = false,
       ...props
     },
     ref
@@ -93,23 +96,28 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         )}
         <td>
           {setVariations ? (
-            <FeatureValueField
-              id={`value_${i}`}
-              value={variation.value}
-              placeholder={valueAsId ? i + "" : ""}
-              setValue={(value) => {
-                const newVariations = [...variations];
-                newVariations[i] = {
-                  ...variation,
-                  value,
-                };
-                setVariations(newVariations);
-              }}
-              label=""
-              valueType={valueType}
-              feature={feature}
-              renderJSONInline={false}
-            />
+            <>
+              {showCohortValidation && (
+                <CohortValidationWarning value={variation.value} />
+              )}
+              <FeatureValueField
+                id={`value_${i}`}
+                value={variation.value}
+                placeholder={valueAsId ? i + "" : ""}
+                setValue={(value) => {
+                  const newVariations = [...variations];
+                  newVariations[i] = {
+                    ...variation,
+                    value,
+                  };
+                  setVariations(newVariations);
+                }}
+                label=""
+                valueType={valueType}
+                feature={feature}
+                renderJSONInline={false}
+              />
+            </>
           ) : (
             <>{variation.value}</>
           )}

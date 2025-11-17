@@ -13,6 +13,7 @@ import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
+import { CohortValidationWarning } from "./CohortValidation";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -167,6 +168,7 @@ export default function ExperimentSummary({
                   defaultVal={feature.defaultValue}
                 />
                 <ValidateValue value={r.value} feature={feature} />
+                <CohortValidationWarning value={r.value} />
               </td>
               <td>{r?.name}</td>
               <td>

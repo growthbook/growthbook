@@ -11,6 +11,7 @@ import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
+import { CohortValidationWarning } from "./CohortValidation";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -268,6 +269,7 @@ export default function ExperimentRefSummary({
                         defaultVal={featureDefault}
                       />
                       <ValidateValue value={value} feature={feature} />
+                      <CohortValidationWarning value={value} />
                     </td>
                     <td>{variation.name}</td>
                     <td>

@@ -61,6 +61,10 @@ import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
+import {
+  NonExperimentCohortWarning,
+  CohortValidationWarning,
+} from "./CohortValidation";
 
 export interface Props {
   close: () => void;
@@ -694,18 +698,25 @@ export default function RuleModal({
             <div className="form-group">
               <label>Variation Values</label>
               <div className="mb-3 bg-light border p-3">
-                {selectedExperiment.variations.map((v, i) => (
-                  <FeatureValueField
-                    key={v.id}
-                    label={v.name}
-                    id={v.id}
-                    value={form.watch(`variations.${i}.value`) || ""}
-                    setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-                    valueType={feature.valueType}
-                    feature={feature}
-                    renderJSONInline={false}
-                  />
-                ))}
+                {selectedExperiment.variations.map((v, i) => {
+                  const value = form.watch(`variations.${i}.value`) || "";
+                  return (
+                    <div key={v.id}>
+                      <CohortValidationWarning value={value} />
+                      <FeatureValueField
+                        label={v.name}
+                        id={v.id}
+                        value={value}
+                        setValue={(v) =>
+                          form.setValue(`variations.${i}.value`, v)
+                        }
+                        valueType={feature.valueType}
+                        feature={feature}
+                        renderJSONInline={false}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -726,19 +737,23 @@ export default function RuleModal({
         />
       )}
       {type === "force" && (
-        <FeatureValueField
-          label="Value to Force"
-          id="value"
-          value={form.watch("value")}
-          setValue={(v) => form.setValue("value", v)}
-          valueType={feature.valueType}
-          feature={feature}
-          renderJSONInline={true}
-        />
+        <>
+          <NonExperimentCohortWarning value={form.watch("value") || ""} />
+          <FeatureValueField
+            label="Value to Force"
+            id="value"
+            value={form.watch("value")}
+            setValue={(v) => form.setValue("value", v)}
+            valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
+          />
+        </>
       )}
 
       {type === "rollout" && (
         <div>
+          <NonExperimentCohortWarning value={form.watch("value") || ""} />
           <FeatureValueField
             label="Value to roll out"
             id="value"
@@ -890,6 +905,7 @@ export default function RuleModal({
             }
             setVariations={(variations) => form.setValue("values", variations)}
             feature={feature}
+            showCohortValidation={true}
           />
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector

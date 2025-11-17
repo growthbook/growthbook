@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
+import { NonExperimentCohortWarning } from "./CohortValidation";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -21,6 +22,7 @@ export default function RolloutSummary({
   const type = feature.valueType;
   return (
     <div>
+      <NonExperimentCohortWarning value={value} />
       <div className="mb-3">
         <strong className="mr-2">SAMPLE</strong> users by{" "}
         <span className="mr-1 border px-2 py-1 bg-light rounded">

@@ -31,6 +31,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { CohortValidationWarning } from "@/components/Features/CohortValidation";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -429,16 +430,21 @@ export default function FeatureFromExperimentModal({
       <div className="form-group">
         <label>Variation Values</label>
         <div className="mb-3 bg-light border p-3">
-          {experiment.variations.map((v, i) => (
-            <FeatureValueField
-              key={v.id}
-              label={v.name}
-              id={v.id}
-              value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-              valueType={form.watch("valueType")}
-            />
-          ))}
+          {experiment.variations.map((v, i) => {
+            const value = form.watch(`variations.${i}.value`) || "";
+            return (
+              <div key={v.id}>
+                <CohortValidationWarning value={value} />
+                <FeatureValueField
+                  label={v.name}
+                  id={v.id}
+                  value={value}
+                  setValue={(v) => form.setValue(`variations.${i}.value`, v)}
+                  valueType={form.watch("valueType")}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 

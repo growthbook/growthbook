@@ -13,6 +13,7 @@ import {
 } from "@/services/features";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ExperimentNameFormatTooltip from "@/components/Experiment/ExperimentNameFormatTooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -38,6 +39,7 @@ export interface Props {
   label?: string;
   customSplitOn?: boolean;
   feature?: FeatureInterface;
+  showCohortValidation?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -57,6 +59,7 @@ export default function FeatureVariationsInput({
   label,
   customSplitOn,
   feature,
+  showCohortValidation = false,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -135,7 +138,26 @@ export default function FeatureVariationsInput({
         <table className="table bg-light mb-0">
           <thead className={`${styles.variationSplitHeader}`}>
             <tr>
-              <th className="pl-3">Id</th>
+              <th className="pl-3">
+                <span className="d-inline-flex align-items-center">
+                  Id
+                  {valueAsId && (
+                    <ExperimentNameFormatTooltip
+                      className="ml-1"
+                      body={
+                        <>
+                          These are the <code>&lt;variantName&gt;</code> values
+                          from the experiment naming format{" "}
+                          <code>
+                            exp1:&lt;experimentName&gt;:&lt;variantName&gt;
+                          </code>
+                          .
+                        </>
+                      }
+                    />
+                  )}
+                </span>
+              </th>
               {!valueAsId && <th>Variation</th>}
               <th>
                 <Tooltip
@@ -188,6 +210,7 @@ export default function FeatureVariationsInput({
                   valueType={valueType}
                   valueAsId={valueAsId}
                   feature={feature}
+                  showCohortValidation={showCohortValidation}
                 />
               ))}
             </SortableVariationsList>
