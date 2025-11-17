@@ -47,13 +47,21 @@ The concept of regression adjustment has been around for a long time, but you sh
 
 We have combined CUPED with post-stratification to bring additional accuracy gains in three ways.
 
-Most importantly, we estimate average lift across all users by weighting the strata-specific (e.g. country-specific) lifts. If the strata strongly correlate with the metric of interest, then the variance we estimate will not be inflated by the differences in metric behavior across strata. In other words, if average user revenue is high in the US and UK, but low in France, then more of the variance in the lift can be attributed to the experiment rather than the differences in revenue behavior across countries.
+Most importantly, we estimate average lift across all users by weighting the strata-specific (e.g. country-specific) lifts.
+Leveraging within-strata lifts isolates the treatment effect from the often substantial between-strata noise (e.g., the large natural differences in revenue between countries).
+This can significantly increase the precision of the overall lift estimate.
+For example, suppose average user revenue is high in the US and UK, but low in France.
+A two-sample t-test simply compares the averages of the two groups, ignoring strata information.  
+In contrast, CUPEDps estimates are weighted averages of the lift for US users, the lift for UK users, and the lift for French users.
+Each of these three apples-to-apples comparisons are unaffected by the between-strata variability, and appropriately weighting them provides our lift estimate.
 
 Second, if there is an imbalance in the observed proportion of treatment users in a country compared to the variation split, then post-stratification will adjust the lift estimate for that country to account for the imbalance.
+For example, if the desired variation split for an experiment is 50/50, but within France it is 48/52, post-stratification will upweight the French control user metrics and downweight their treatment counterparts to reflect the true variation split.
 
-Finally, we can estimate country-specific lifts by running CUPED for each country individually. Estimating strata-specific relationships in pre-experiment and post-exposure metric behavior can lead to additional variance reduction when the relationship between the two varies.
+Finally, we can estimate country-specific lifts by running CUPED for each country individually.
+This can lead to additional variance reduction when the country-specific relationships in pre-experiment and post-exposure metric behavior vary.
 
-You can also read more technical details about when post-stratification is useful and how, with large enough data, it is often as good as stratifying your experiment ahead of time (see section 3.4 in [Xie and Aurisset 2016](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)).
+You can read more technical details about when post-stratification is useful and how, with large enough data, it is often as good as stratifying your experiment ahead of time (see section 3.4 in [Xie and Aurisset 2016](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)).
 
 ## Configuring CUPEDps
 
