@@ -170,10 +170,12 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
+    const phaseIndex = experiment.phases.length - 1;
+
     const queryRunner = await createSnapshot({
       experiment,
       context,
-      phaseIndex: experiment.phases.length - 1,
+      phaseIndex,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings:
         getAdditionalExperimentAnalysisSettings(analysisSettings),
