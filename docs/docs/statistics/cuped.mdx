@@ -45,7 +45,7 @@ The concept of regression adjustment has been around for a long time, but you sh
 
 ### Why CUPEDps is different
 
-Regression adjustment combined with post-stratification can bring additional accuracy gains in three ways.
+We have combined CUPED with post-stratification to bring additional accuracy gains in three ways.
 
 Most importantly, we estimate average lift across all users by weighting the strata-specific (e.g. country-specific) lifts. If the strata strongly correlate with the metric of interest, then the variance we estimate will not be inflated by the differences in metric behavior across strata. In other words, if average user revenue is high in the US and UK, but low in France, then more of the variance in the lift can be attributed to the experiment rather than the differences in revenue behavior across countries.
 
