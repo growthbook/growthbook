@@ -249,6 +249,8 @@ export const CREATE_BLOCK_TYPE: {
       userIdType: "",
       additionalNumeratorFilters: null,
       additionalDenominatorFilters: null,
+      metricAutoSlices: [],
+      customMetricSlices: [],
     },
     visualizationType: "timeseries",
     valueType: "avg",

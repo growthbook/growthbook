@@ -676,6 +676,8 @@ export const getMetricNorthstarData = async (
           populationId: metric.segment ?? null,
           additionalNumeratorFilters: null,
           additionalDenominatorFilters: null,
+          metricAutoSlices: null,
+          customMetricSlices: null,
         },
         queries: metric.queries,
       };

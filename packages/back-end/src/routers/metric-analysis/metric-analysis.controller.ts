@@ -61,6 +61,8 @@ export const postMetricAnalysis = async (
     populationId: data.populationId ?? null,
     additionalNumeratorFilters: data.additionalNumeratorFilters ?? null,
     additionalDenominatorFilters: data.additionalDenominatorFilters ?? null,
+    metricAutoSlices: [],
+    customMetricSlices: [],
   };
 
   const metricAnalysis = await createMetricAnalysis(

@@ -242,6 +242,10 @@ export async function updateDashboardMetricAnalyses(
         additionalNumeratorFilters: blockSettings.additionalNumeratorFilters,
         additionalDenominatorFilters:
           blockSettings.additionalDenominatorFilters,
+        // metricAutoSlices: blockSettings.metricAutoSlices,
+        // customMetricSlices: blockSettings.customMetricSlices,
+        metricAutoSlices: [],
+        customMetricSlices: [],
       };
 
       const queryRunner = await createMetricAnalysis(

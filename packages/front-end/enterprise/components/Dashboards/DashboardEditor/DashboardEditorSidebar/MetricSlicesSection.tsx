@@ -1,16 +1,19 @@
-import { Flex, Text, Box } from "@radix-ui/themes";
+import React, { useCallback } from "react";
+import { Flex, Text, Box, Separator } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
+import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { FactTableInterface } from "back-end/types/fact-table";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { PiSlidersHorizontal, PiArrowSquareOut } from "react-icons/pi";
-import { FactTableInterface } from "back-end/types/fact-table";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MetricExplorerMetricSliceSelector from "./MetricExplorerMetricSliceSelector";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -158,6 +161,7 @@ export default function MetricSlicesSection({
                 )}
               </div>
             </div>
+            <Separator size="4" my="2" />
             <div>
               <label className="font-weight-bold mb-1">
                 <span style={{ opacity: hasMetricSlicesFeature ? 1 : 0.5 }}>
@@ -183,8 +187,31 @@ export default function MetricSlicesSection({
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </Text>
-              Custom Slice Builder goes here Make sure to disable it if the user
-              doesn't have the feature
+              <MetricExplorerMetricSliceSelector
+                factMetricId={block.factMetricId}
+                customMetricSlices={
+                  (
+                    block.analysisSettings as typeof block.analysisSettings & {
+                      customMetricSlices?: CustomMetricSlice[];
+                    }
+                  ).customMetricSlices || []
+                }
+                setCustomMetricSlices={useCallback(
+                  (slices: CustomMetricSlice[]) => {
+                    setBlock({
+                      ...block,
+                      analysisSettings: {
+                        ...block.analysisSettings,
+                        customMetricSlices: slices,
+                      } as typeof block.analysisSettings & {
+                        customMetricSlices?: CustomMetricSlice[];
+                      },
+                    });
+                  },
+                  [block, setBlock],
+                )}
+                disabled={!hasMetricSlicesFeature}
+              />
             </div>
           </Flex>
         </Box>
