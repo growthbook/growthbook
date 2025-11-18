@@ -22,8 +22,8 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
-    metricAutoSlices: z.array(z.string()).nullable(), //MKTODO: Is nullable the right approach?
-    customMetricSlices: z.array(customMetricSlice).nullable(), //MKTODO: Is nullable the right approach?
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
     // pinnedMetricSlices: z.array(z.string()).nullable(), - This is the shape of the data for exp analysis
     //MKTODO: Add metricSliceIds: z.array(z.string()).optional(),
     //MKTODO: Add customMetricSlices: z.array(z.string()).optional(), - this needs to be a custom type, an array of key value pairs (e.g. column: "country", value: "US", column: "product_type", value: "apparel")
