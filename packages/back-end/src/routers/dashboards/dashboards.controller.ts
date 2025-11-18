@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
@@ -122,7 +121,6 @@ export async function createDashboard(
   );
 
   const dashboard = await context.models.dashboards.create({
-    uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
     isDefault: false,
     isDeleted: false,
     userId: context.userId,

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
@@ -38,7 +39,7 @@ export type BaseSchema = typeof baseSchema;
 
 export type CreateProps<T extends object> = Omit<
   T,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
+  "id" | "uid" | "organization" | "dateCreated" | "dateUpdated"
 > & { id?: string };
 export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
   Omit<z.infer<T>, "organization">
@@ -47,7 +48,7 @@ export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
 export type CreateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
+    "id" | "uid" | "organization" | "dateCreated" | "dateUpdated"
   >]: T[k];
 } & {
   id: z.ZodOptional<z.ZodString>;
@@ -65,6 +66,7 @@ export type CreateZodObject<T> =
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
+      uid: true,
       organization: true,
       dateCreated: true,
       dateUpdated: true,
@@ -73,13 +75,13 @@ export const createSchema = <T extends BaseSchema>(schema: T) =>
     .strict() as unknown as CreateZodObject<T>;
 
 export type UpdateProps<T extends object> = Partial<
-  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
+  Omit<T, "id" | "uid" | "organization" | "dateCreated" | "dateUpdated">
 >;
 
 export type UpdateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
+    "id" | "uid" | "organization" | "dateCreated" | "dateUpdated"
   >]: z.ZodOptional<T[k]>;
 };
 
@@ -382,6 +384,9 @@ export abstract class BaseModel<
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
+  protected _generateUid() {
+    return uuidv4().replace(/-/g, "");
+  }
   protected async _find(
     query: ScopedFilterQuery<T> = {},
     {
@@ -494,6 +499,7 @@ export abstract class BaseModel<
 
     const doc = {
       id: this._generateId(),
+      uid: "uid" in this.config.schema.shape ? this._generateUid() : undefined,
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
