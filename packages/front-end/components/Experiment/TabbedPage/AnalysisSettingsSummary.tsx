@@ -173,7 +173,7 @@ export default function AnalysisSettingsSummary({
   const allExpandedMetrics = Array.from(
     new Set(
       expandMetricGroups(
-        getAllMetricIdsFromExperiment(experiment, false),
+        getAllMetricIdsFromExperiment(experiment, false, metricGroups),
         metricGroups,
       ),
     ),
