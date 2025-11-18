@@ -235,6 +235,7 @@ export class DashboardModel extends BaseClass {
       editLevel:
         orig.editLevel === "organization" ? "published" : orig.editLevel,
       shareLevel: orig.shareLevel ?? "private",
+      updateSchedule: orig.updateSchedule || undefined,
     });
   }
 
