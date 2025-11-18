@@ -173,7 +173,7 @@ export default function DashboardsPage() {
             shareLevel: showEditModal.shareLevel,
             enableAutoUpdates: showEditModal.enableAutoUpdates,
             projects: showEditModal.projects || [],
-            updateSchedule: showEditModal.updateSchedule,
+            updateSchedule: showEditModal.updateSchedule || undefined,
             userId: showEditModal.userId,
           }}
           close={() => setShowEditModal(undefined)}
@@ -197,6 +197,7 @@ export default function DashboardsPage() {
             editLevel: showDuplicateModal.editLevel,
             shareLevel: showDuplicateModal.shareLevel,
             enableAutoUpdates: showDuplicateModal.enableAutoUpdates,
+            updateSchedule: showDuplicateModal.updateSchedule || undefined,
             userId: userId || "",
             projects: showDuplicateModal.projects || [],
           }}
