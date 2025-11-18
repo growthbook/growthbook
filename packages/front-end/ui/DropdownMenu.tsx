@@ -111,7 +111,7 @@ type DropdownItemProps = {
     getConfirmationContent?: () => Promise<string | ReactElement | null>;
     confirmationTitle: string | ReactElement;
     cta: string;
-    submitColor: string;
+    submitColor?: string;
   };
 } & MarginProps;
 
@@ -151,7 +151,7 @@ export function DropdownMenuItem({
           close={() => setConfirming(false)}
           open={true}
           cta={confirmation.cta}
-          submitColor={confirmation.submitColor}
+          submitColor={confirmation.submitColor ?? "danger"}
           submit={confirmation.submit}
           increasedElevation={true}
         >

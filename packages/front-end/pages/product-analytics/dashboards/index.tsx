@@ -468,7 +468,6 @@ export default function DashboardsPage() {
                                             </span>
                                           ),
                                           cta: "Delete",
-                                          submitColor: "danger",
                                           submit: async () => {
                                             await apiCall(
                                               `/dashboards/${d.id}`,
