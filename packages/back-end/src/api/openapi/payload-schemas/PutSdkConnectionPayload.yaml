@@ -24,6 +24,10 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
+  includeTags:
+    type: boolean
+  includeCustomFields:
+    type: boolean
   proxyEnabled:
     type: boolean
   proxyHost:

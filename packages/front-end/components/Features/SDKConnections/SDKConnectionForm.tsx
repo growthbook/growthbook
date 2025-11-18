@@ -70,8 +70,7 @@ function getSecurityTabState(
   if (value.remoteEvalEnabled) return "remote";
   if (
     value.encryptPayload ||
-    value.hashSecureAttributes ||
-    !value.includeExperimentNames
+    value.hashSecureAttributes
   )
     return "ciphered";
   return "none";
@@ -149,6 +148,8 @@ export default function SDKConnectionForm({
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
       includeRuleIds: initialValue.includeRuleIds ?? false,
+      includeTags: initialValue.includeTags ?? false,
+      includeCustomFields: initialValue.includeCustomFields ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -309,13 +310,11 @@ export default function SDKConnectionForm({
       if (
         !(
           form.watch("encryptPayload") ||
-          form.watch("hashSecureAttributes") ||
-          !form.watch("includeExperimentNames")
+          form.watch("hashSecureAttributes")
         )
       ) {
         form.setValue("encryptPayload", enableEncryption);
         form.setValue("hashSecureAttributes", enableSecureAttributes);
-        form.setValue("includeExperimentNames", false);
       }
     } else if (selectedSecurityTab === "remote") {
       if (!hasRemoteEvaluationFeature) {
@@ -814,39 +813,6 @@ export default function SDKConnectionForm({
                         />
                       </div>
 
-                      <div className="d-flex align-items-center">
-                        <Checkbox
-                          value={!form.watch("includeExperimentNames")}
-                          setValue={(val) =>
-                            form.setValue("includeExperimentNames", !val)
-                          }
-                          label={
-                            <Tooltip
-                              body={
-                                <>
-                                  <p>
-                                    Experiment and variation names can help add
-                                    context when debugging or tracking events.
-                                  </p>
-                                  <p>
-                                    However, this could expose potentially
-                                    sensitive information to your users if
-                                    enabled for a client-side or mobile
-                                    application.
-                                  </p>
-                                  <p className="mb-0">
-                                    For maximum privacy and security, we
-                                    recommend hiding these fields.
-                                  </p>
-                                </>
-                              }
-                            >
-                              Hide experiment and variation names{" "}
-                              <FaInfoCircle />
-                            </Tooltip>
-                          }
-                        />
-                      </div>
                     </div>
 
                     {form.watch("encryptPayload") &&
@@ -1223,13 +1189,37 @@ export default function SDKConnectionForm({
           </div>
         )}
         <div className="mt-4">
-          <label>Feature Options</label>
-          <div>
-            <Checkbox
-              label={"Include Feature Rule IDs in Payload"}
-              value={!!form.watch("includeRuleIds")}
-              setValue={(val) => form.setValue("includeRuleIds", val)}
-            />
+          <label>Included Metadata</label>
+          <div className="mt-2">
+            <div className="mb-2 d-flex align-items-center">
+              <Checkbox
+                label={"Include tags"}
+                value={!!form.watch("includeTags")}
+                setValue={(val) => form.setValue("includeTags", val)}
+              />
+            </div>
+            <div className="mb-2 d-flex align-items-center">
+              <Checkbox
+                label={"Include custom fields"}
+                value={!!form.watch("includeCustomFields")}
+                setValue={(val) => form.setValue("includeCustomFields", val)}
+              />
+            </div>
+
+            <div className="mb-2 d-flex align-items-center">
+              <Checkbox
+                label={"Include rule IDs"}
+                value={!!form.watch("includeRuleIds")}
+                setValue={(val) => form.setValue("includeRuleIds", val)}
+              />
+            </div>
+            <div className="mb-2 d-flex align-items-center">
+              <Checkbox
+                label={"Include experiment & variation names"}
+                value={!!form.watch("includeExperimentNames")}
+                setValue={(val) => form.setValue("includeExperimentNames", val)}
+              />
+            </div>
           </div>
         </div>
       </div>

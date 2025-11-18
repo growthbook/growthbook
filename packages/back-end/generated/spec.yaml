@@ -1609,6 +1609,10 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeTags:
+                  type: boolean
+                includeCustomFields:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1697,6 +1701,10 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeTags:
+                  type: boolean
+                includeCustomFields:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -6967,6 +6975,10 @@ components:
         includeRedirectExperiments:
           type: boolean
         includeRuleIds:
+          type: boolean
+        includeTags:
+          type: boolean
+        includeCustomFields:
           type: boolean
         key:
           type: string

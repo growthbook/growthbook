@@ -56,6 +56,10 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
+  includeTags:
+    type: boolean
+  includeCustomFields:
+    type: boolean
   key:
     type: string
   proxyEnabled:
