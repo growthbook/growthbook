@@ -674,10 +674,10 @@ export const getMetricNorthstarData = async (
           lookbackDays: daysBetween(startDate, endDate),
           populationType: metric.segment ? "segment" : "metric",
           populationId: metric.segment ?? null,
-          additionalNumeratorFilters: null,
-          additionalDenominatorFilters: null,
           metricAutoSlices: null,
           customMetricSlices: null,
+          additionalNumeratorFilters: undefined,
+          additionalDenominatorFilters: undefined,
         },
         queries: metric.queries,
       };

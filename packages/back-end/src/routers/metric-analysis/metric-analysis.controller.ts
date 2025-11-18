@@ -59,10 +59,10 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
-    additionalNumeratorFilters: data.additionalNumeratorFilters ?? null,
-    additionalDenominatorFilters: data.additionalDenominatorFilters ?? null,
     metricAutoSlices: [],
     customMetricSlices: [],
+    additionalNumeratorFilters: data.additionalNumeratorFilters,
+    additionalDenominatorFilters: data.additionalDenominatorFilters,
   };
 
   const metricAnalysis = await createMetricAnalysis(

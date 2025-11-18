@@ -477,9 +477,9 @@ export function useDashboardMetricAnalysis(
       populationId: block.analysisSettings.populationId || null,
       source: "metric",
       additionalNumeratorFilters:
-        block.analysisSettings.additionalNumeratorFilters || null,
+        block.analysisSettings.additionalNumeratorFilters,
       additionalDenominatorFilters:
-        block.analysisSettings.additionalDenominatorFilters || null,
+        block.analysisSettings.additionalDenominatorFilters,
     };
 
     setPostLoading(true);
