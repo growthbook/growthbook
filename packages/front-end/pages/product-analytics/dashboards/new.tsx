@@ -68,6 +68,7 @@ export default function NewDashboardPage() {
               blocks: args.data.blocks || dashboard.blocks,
               updateSchedule:
                 args.data.updateSchedule || dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);
