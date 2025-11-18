@@ -356,6 +356,7 @@ export default function DashboardWorkspace({
               id={dashboard.id}
               ownerId={dashboard.userId}
               initialEditLevel={dashboard.editLevel}
+              updateSchedule={dashboard.updateSchedule || undefined}
               initialShareLevel={dashboard.shareLevel}
               dashboardOwnerId={dashboard.userId}
               projects={
