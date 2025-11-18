@@ -18,8 +18,8 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     populationType,
     populationId,
     useCache,
-    numeratorFilters,
-    denominatorFilters,
+    additionalNumeratorFilters,
+    additionalDenominatorFilters,
   } = req.body;
 
   const factMetric = await context.models.factMetrics.getById(id);
@@ -68,8 +68,8 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     lookbackDays: lookbackDaysValue,
     populationType: populationType ?? "factTable",
     populationId: populationId ?? null,
-    numeratorFilters: numeratorFilters ?? null,
-    denominatorFilters: denominatorFilters ?? null,
+    additionalNumeratorFilters: additionalNumeratorFilters ?? null,
+    additionalDenominatorFilters: additionalDenominatorFilters ?? null,
   };
 
   // Create the metric analysis

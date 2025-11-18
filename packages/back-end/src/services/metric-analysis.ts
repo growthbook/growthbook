@@ -19,21 +19,24 @@ export function getMetricWithFiltersApplied(
   const { metric, settings } = params;
 
   // If no adhoc filters are provided, we can return the original metric
-  if (!settings.numeratorFilters && !settings.denominatorFilters) {
+  if (
+    !settings.additionalNumeratorFilters &&
+    !settings.additionalDenominatorFilters
+  ) {
     return metric;
   }
 
   const metricWithFilters = cloneDeep(metric);
-  if (settings.numeratorFilters) {
+  if (settings.additionalNumeratorFilters) {
     metricWithFilters.numerator.filters = [
       ...(metricWithFilters.numerator.filters || []),
-      ...settings.numeratorFilters,
+      ...settings.additionalNumeratorFilters,
     ];
   }
-  if (settings.denominatorFilters && metricWithFilters.denominator) {
+  if (settings.additionalDenominatorFilters && metricWithFilters.denominator) {
     metricWithFilters.denominator.filters = [
       ...(metricWithFilters.denominator.filters || []),
-      ...settings.denominatorFilters,
+      ...settings.additionalDenominatorFilters,
     ];
   }
   return metricWithFilters;

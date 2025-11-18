@@ -740,8 +740,8 @@ export default function EditSingleBlock({
                       metricAnalysisId: "",
                       analysisSettings: {
                         ...block.analysisSettings,
-                        numeratorFilters: null,
-                        denominatorFilters: null,
+                        additionalNumeratorFilters: null,
+                        additionalDenominatorFilters: null,
                         populationId: "",
                         populationType: "factTable",
                         userIdType: "",

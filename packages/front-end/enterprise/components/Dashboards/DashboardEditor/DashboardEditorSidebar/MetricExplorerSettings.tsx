@@ -14,6 +14,7 @@ import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricSlicesSection from "./MetricSlicesSection";
 
 interface Props {
@@ -327,10 +328,10 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                     <Badge
                       label={
                         (
-                          (block.analysisSettings.numeratorFilters?.length ||
-                            0) +
-                          (block.analysisSettings.denominatorFilters?.length ||
-                            0)
+                          (block.analysisSettings.additionalNumeratorFilters
+                            ?.length || 0) +
+                          (block.analysisSettings.additionalDenominatorFilters
+                            ?.length || 0)
                         ).toString() || "0"
                       }
                       color="violet"
@@ -343,16 +344,18 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       variant="ghost"
                       color="red"
                       disabled={
-                        block.analysisSettings.numeratorFilters?.length === 0 &&
-                        block.analysisSettings.denominatorFilters?.length === 0
+                        block.analysisSettings.additionalNumeratorFilters
+                          ?.length === 0 &&
+                        block.analysisSettings.additionalDenominatorFilters
+                          ?.length === 0
                       }
                       onClick={() => {
                         setBlock({
                           ...block,
                           analysisSettings: {
                             ...block.analysisSettings,
-                            numeratorFilters: [],
-                            denominatorFilters: [],
+                            additionalNumeratorFilters: [],
+                            additionalDenominatorFilters: [],
                           },
                         });
                       }}
@@ -381,9 +384,13 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                         (Numerator)
                       </Text>
                     ) : null}
+                    <Tooltip
+                      body={`Row Filters specified here are combined with any existing filters on the metric ${metric?.denominator?.factTableId ? "numerator" : ""}.`}
+                      className="mb-2"
+                    />
                   </Flex>
                 }
-                value={block.analysisSettings.numeratorFilters ?? []}
+                value={block.analysisSettings.additionalNumeratorFilters ?? []}
                 containerClassName="mb-0"
                 labelClassName="mb-0"
                 onChange={(filters) =>
@@ -391,11 +398,11 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                     ...block,
                     analysisSettings: {
                       ...block.analysisSettings,
-                      numeratorFilters: filters,
+                      additionalNumeratorFilters: filters,
                     },
                   })
                 }
-                placeholder="Apply filters..."
+                placeholder="Apply additional filters..."
                 options={
                   factTable?.filters?.map((f) => ({
                     value: f.id,
@@ -415,9 +422,15 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                         {" "}
                         (Denominator)
                       </Text>
+                      <Tooltip
+                        body="Row Filters specified here are combined with any existing denominatorfilters defined on the metric."
+                        className="mb-2"
+                      />
                     </Flex>
                   }
-                  value={block.analysisSettings.denominatorFilters ?? []}
+                  value={
+                    block.analysisSettings.additionalDenominatorFilters ?? []
+                  }
                   containerClassName="mb-0"
                   labelClassName="mb-0"
                   onChange={(filters) =>
@@ -425,11 +438,11 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       ...block,
                       analysisSettings: {
                         ...block.analysisSettings,
-                        denominatorFilters: filters,
+                        additionalDenominatorFilters: filters,
                       },
                     })
                   }
-                  placeholder="Apply filters..."
+                  placeholder="Apply additionalfilters..."
                   options={
                     denominatorFactTable?.filters?.map((f) => ({
                       value: f.id,

@@ -239,8 +239,9 @@ export async function updateDashboardMetricAnalyses(
             : getValidDate(blockSettings.endDate),
         populationType: blockSettings.populationType,
         populationId: blockSettings.populationId ?? null,
-        numeratorFilters: blockSettings.numeratorFilters,
-        denominatorFilters: blockSettings.denominatorFilters,
+        additionalNumeratorFilters: blockSettings.additionalNumeratorFilters,
+        additionalDenominatorFilters:
+          blockSettings.additionalDenominatorFilters,
       };
 
       const queryRunner = await createMetricAnalysis(
