@@ -462,45 +462,48 @@ function DashboardsTab({
                                   Edit Dashboard Settings
                                 </Text>
                               </Button>
-                              {mutateExperiment &&
-                                canUpdateExperiment &&
-                                dashboard.shareLevel === "published" && (
-                                  <Tooltip
-                                    body={
-                                      experiment.defaultDashboardId ===
-                                      dashboard.id
+                              {mutateExperiment && canUpdateExperiment && (
+                                <Tooltip
+                                  body={
+                                    dashboard.shareLevel !== "published"
+                                      ? "Only published dashboards can be set as the default view"
+                                      : experiment.defaultDashboardId ===
+                                          dashboard.id
                                         ? "Remove this dashboard as the default view for the experiment"
                                         : "Set this dashboard as the default view for the experiment"
+                                  }
+                                >
+                                  <Button
+                                    className="dropdown-item"
+                                    disabled={
+                                      dashboard.shareLevel !== "published"
                                     }
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/experiment/${experiment.id}`,
+                                        {
+                                          method: "POST",
+                                          body: JSON.stringify({
+                                            defaultDashboardId:
+                                              experiment.defaultDashboardId ===
+                                              dashboard.id
+                                                ? ""
+                                                : dashboard.id,
+                                          }),
+                                        },
+                                      );
+                                      mutateExperiment();
+                                    }}
                                   >
-                                    <Button
-                                      className="dropdown-item"
-                                      onClick={async () => {
-                                        await apiCall(
-                                          `/experiment/${experiment.id}`,
-                                          {
-                                            method: "POST",
-                                            body: JSON.stringify({
-                                              defaultDashboardId:
-                                                experiment.defaultDashboardId ===
-                                                dashboard.id
-                                                  ? ""
-                                                  : dashboard.id,
-                                            }),
-                                          },
-                                        );
-                                        mutateExperiment();
-                                      }}
-                                    >
-                                      <Text weight="regular">
-                                        {experiment.defaultDashboardId ===
-                                        dashboard.id
-                                          ? "Remove as Default View"
-                                          : "Set as Default View"}
-                                      </Text>
-                                    </Button>
-                                  </Tooltip>
-                                )}
+                                    <Text weight="regular">
+                                      {experiment.defaultDashboardId ===
+                                      dashboard.id
+                                        ? "Remove as Default View"
+                                        : "Set as Default View"}
+                                    </Text>
+                                  </Button>
+                                </Tooltip>
+                              )}
 
                               <Container px="5">
                                 <DropdownMenuSeparator />
