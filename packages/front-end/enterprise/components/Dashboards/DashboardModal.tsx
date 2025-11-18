@@ -149,7 +149,10 @@ export default function DashboardModal({
       helpText={helpText}
       options={[
         { label: "Organization members", value: "published" },
-        { label: "Only me", value: "private" },
+        {
+          label: form.watch("userId") === userId ? "Only me" : "Owner only",
+          value: "private",
+        },
         // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
       ]}
       value={form.watch("shareLevel")}
@@ -176,7 +179,10 @@ export default function DashboardModal({
           label: "Any organization members with editing permission",
           value: "published",
         },
-        { label: "Only me", value: "private" },
+        {
+          label: form.watch("userId") === userId ? "Only me" : "Owner only",
+          value: "private",
+        },
       ]}
       value={form.watch("editLevel")}
       onChange={(value) =>
