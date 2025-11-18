@@ -88,6 +88,7 @@ export default function NewDashboardPage() {
                 args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
               updateSchedule:
                 args.data.updateSchedule ?? dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);
