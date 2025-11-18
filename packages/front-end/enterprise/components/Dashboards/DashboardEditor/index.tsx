@@ -23,6 +23,7 @@ import {
   DashboardEditLevel,
   DashboardInterface,
   DashboardShareLevel,
+  DashboardUpdateSchedule,
 } from "back-end/src/enterprise/validators/dashboard";
 import Button from "@/ui/Button";
 import {
@@ -215,6 +216,7 @@ interface Props {
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
+  updateSchedule: DashboardUpdateSchedule | undefined;
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -241,6 +243,7 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
+  updateSchedule,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -409,6 +412,7 @@ function DashboardEditor({
             title: title,
             editLevel: initialEditLevel,
             enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
             shareLevel: initialShareLevel,
             projects: projects,
             userId: ownerId,
@@ -431,6 +435,7 @@ function DashboardEditor({
             title: `Copy of ${title}`,
             editLevel: initialEditLevel,
             enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
             shareLevel: initialShareLevel,
             projects: projects,
             userId: ownerId,
