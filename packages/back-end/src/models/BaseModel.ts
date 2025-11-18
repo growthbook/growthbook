@@ -57,6 +57,11 @@ export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
   UpdateProps<z.infer<T>>
 >;
 
+type Identifiers = {
+  id: string;
+  uid?: string;
+};
+
 const updateSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
@@ -474,9 +479,15 @@ export abstract class BaseModel<
       props.owner = this.context.userName || "";
     }
 
-    const doc = {
+    const ids: Identifiers = {
       id: this._generateId(),
-      uid: "uid" in this.config.schema.shape ? this._generateUid() : undefined,
+    };
+    if ("uid" in this.config.schema.shape) {
+      ids.uid = this._generateUid();
+    }
+
+    const doc = {
+      ...ids,
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
