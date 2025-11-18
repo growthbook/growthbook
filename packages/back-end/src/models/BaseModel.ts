@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery, trusted } from "mongoose";
 import { Collection } from "mongodb";
@@ -44,6 +45,7 @@ export type CreateZodObject<T extends BaseSchema> = z.ZodType<
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
+      uid: true,
       organization: true,
       dateCreated: true,
       dateUpdated: true,
@@ -359,6 +361,9 @@ export abstract class BaseModel<
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
+  protected _generateUid() {
+    return uuidv4().replace(/-/g, "");
+  }
   protected async _find(
     query: ScopedFilterQuery<T> = {},
     {
@@ -471,6 +476,7 @@ export abstract class BaseModel<
 
     const doc = {
       id: this._generateId(),
+      uid: "uid" in this.config.schema.shape ? this._generateUid() : undefined,
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
