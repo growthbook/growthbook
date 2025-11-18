@@ -461,11 +461,22 @@ export default function DashboardsPage() {
                                       <DropdownMenuItem
                                         disabled={!canDelete}
                                         color="red"
-                                        onClick={async () => {
-                                          await apiCall(`/dashboards/${d.id}`, {
-                                            method: "DELETE",
-                                          });
-                                          mutateDashboards();
+                                        confirmation={{
+                                          confirmationTitle: (
+                                            <span>
+                                              Delete Dashboard <i>{d.title}</i>?
+                                            </span>
+                                          ),
+                                          cta: "Delete",
+                                          submit: async () => {
+                                            await apiCall(
+                                              `/dashboards/${d.id}`,
+                                              {
+                                                method: "DELETE",
+                                              },
+                                            );
+                                            mutateDashboards();
+                                          },
                                         }}
                                       >
                                         Delete
