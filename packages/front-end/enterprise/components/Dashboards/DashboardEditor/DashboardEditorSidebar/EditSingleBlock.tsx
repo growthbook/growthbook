@@ -738,14 +738,21 @@ export default function EditSingleBlock({
                     factMetricId: value,
                     ...(isMetricExplorer && {
                       metricAnalysisId: "",
-                      analysisSettings: {
-                        ...block.analysisSettings,
-                        additionalNumeratorFilters: null,
-                        additionalDenominatorFilters: null,
-                        populationId: "",
-                        populationType: "factTable",
-                        userIdType: "",
-                      },
+                      analysisSettings: (() => {
+                        const {
+                          additionalNumeratorFilters:
+                            _additionalNumeratorFilters,
+                          additionalDenominatorFilters:
+                            _additionalDenominatorFilters,
+                          ...restSettings
+                        } = block.analysisSettings;
+                        return {
+                          ...restSettings,
+                          populationId: "",
+                          populationType: "factTable",
+                          userIdType: "",
+                        };
+                      })(),
                     }),
                   });
                 }}
