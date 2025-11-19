@@ -3,7 +3,11 @@ import { AppearanceUISnippet } from "@/services/AppearanceUIThemeProvider";
 
 export default function Document() {
   return (
-    <Html>
+    // NB: The AppearanceUISnippet modifies the <html> element
+    // so we suppress hydration warnings so React does not attempt to patch
+    // our changes.
+    // This applies only to the <html> element, not affecting any of the children.
+    <Html suppressHydrationWarning>
       <Head>
         <script
           dangerouslySetInnerHTML={{
