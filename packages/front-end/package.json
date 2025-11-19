@@ -130,8 +130,5 @@
   "optionalDependencies": {
     "@babel/core": "^7.26.10"
   },
-  "engines": {
-    "node": ">=20.19"
-  },
   "license": "Mixed"
 }
