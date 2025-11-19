@@ -6,15 +6,7 @@ import {
   StatsigMetricSource,
 } from "@/services/importing/statsig/types";
 
-/**
- * Transform payload for diff display
- * Applies entity-type-specific transformations to ensure consistent diff display
- * This includes omitting metadata fields and sorting keys for consistent comparison
- * @param payload The payload to transform
- * @param type The entity type
- * @param projectNameToIdMap Optional map from Statsig project name to GrowthBook project ID
- *                           Used to map project fields in the update (transformed) column
- */
+//Transform payload for diff display
 export function transformPayloadForDiffDisplay(
   payload: Record<string, unknown>,
   type: "feature" | "experiment" | "segment" | "tag" | "environment",

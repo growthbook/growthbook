@@ -22,10 +22,11 @@ export type ImportStatus =
 export type BaseImportStatus = {
   key: string;
   status: ImportStatus;
+  exists?: boolean;
   error?: string;
-  hasChanges?: boolean; // True if there are differences between existing and transformed
-  transformedData?: string; // JSON string of transformed entity (for diff display - right column)
-  existingData?: string; // JSON string of existing entity (for diff display - left column)
+  hasChanges?: boolean;
+  transformedData?: string; // Diff-friendly string of new entity (right column on diff display)
+  existingData?: string; // Diff-friendly string of existing entity (left column on diff display)
 };
 
 export type EnvironmentImport = BaseImportStatus & {

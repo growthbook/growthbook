@@ -43,33 +43,32 @@ function HasChangesIcon({
 }) {
   // Show icon only if there are changes
   if (!hasChanges) {
-    return <td style={{ width: 20, padding: 0 }}></td>;
+    return null;
   }
 
   const tooltipText = "This item has changes from the existing version";
 
   return (
-    <td style={{ width: 20, padding: 0, textAlign: "center" }}>
-      <Tooltip body={tooltipText}>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle(entityId);
-          }}
-          className="btn btn-link p-0"
-          style={{
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            padding: 0,
-            lineHeight: 1,
-          }}
-        >
-          <FaExchangeAlt size={14} style={{ opacity: 0.7 }} />
-        </button>
-      </Tooltip>
-    </td>
+    <Tooltip body={tooltipText}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(entityId);
+        }}
+        className="btn btn-link p-0 ml-2"
+        style={{
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          padding: 0,
+          lineHeight: 1,
+          verticalAlign: "middle",
+        }}
+      >
+        <FaExchangeAlt size={14} style={{ opacity: 0.7 }} />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -79,39 +78,26 @@ function ImportStatusDisplay({
 }: {
   data: {
     status: ImportStatus;
+    exists?: boolean;
     error?: string;
-    existing?: unknown;
-    existingSavedGroup?: unknown;
-    existingExperiment?: unknown;
-    existingTag?: unknown;
-    existingEnvironment?: unknown;
     hasChanges?: boolean;
   };
   enabled?: boolean;
 }) {
-  // Check if this is an update (has existing item)
-  const isUpdate =
-    !!data.existing ||
-    !!data.existingSavedGroup ||
-    !!data.existingExperiment ||
-    !!data.existingTag ||
-    !!data.existingEnvironment;
-
   // If disabled (checkbox unchecked), show skip status
   if (!enabled) {
-    const skipText = isUpdate ? "skip (update)" : "skip (create)";
     return (
       <Tooltip
         body={
           <div>
-            <strong>{skipText}</strong>{" "}
+            <strong>skip</strong>{" "}
             {data.error ? <>: {data.error}</> : null}
           </div>
         }
       >
         <span className="text-secondary mr-3">
           <FaMinusCircle />
-          <span className="ml-1">{skipText}</span>
+          <span className="ml-1">skip</span>
         </span>
       </Tooltip>
     );
@@ -119,16 +105,20 @@ function ImportStatusDisplay({
 
   const statusText =
     data.status === "pending"
-      ? isUpdate
+      ? data.exists
         ? "update"
         : "create"
       : data.status === "completed"
-        ? isUpdate
+        ? data.exists
           ? "updated"
           : "created"
-        : data.status;
+        : data.status === "failed"
+          ? data.exists
+            ? "failed to update"
+            : "failed to create"
+          : data.status;
 
-  const color = ["failed", "invalid"].includes(data.status)
+  const color = data.status === "failed" || data.status === "invalid"
     ? "danger"
     : data.status === "completed"
       ? "success"
@@ -146,7 +136,7 @@ function ImportStatusDisplay({
       }
     >
       <span className={`text-${color} mr-3`}>
-        {data.status === "invalid" ? (
+        {data.status === "invalid" || data.status === "failed" ? (
           <FaTriangleExclamation />
         ) : data.status === "skipped" ? (
           <FaMinusCircle />
@@ -154,8 +144,6 @@ function ImportStatusDisplay({
           <MdPending />
         ) : data.status === "completed" ? (
           <FaCheck />
-        ) : data.status === "failed" ? (
-          <FaTriangleExclamation />
         ) : null}
         <span className="ml-1">{statusText}</span>
       </span>
@@ -409,7 +397,8 @@ export default function ImportFromStatsig() {
 
   // Helper function to get global checkbox state (true/false/indeterminate)
   const getGlobalCheckboxState = (): boolean | "indeterminate" => {
-    if (data.status !== "ready") return false;
+    // Allow selection when ready or after import completes (to allow re-running)
+    if (data.status !== "ready" && data.status !== "completed") return false;
 
     const allItems: { category: string; items: unknown[] }[] = [];
 
@@ -448,7 +437,8 @@ export default function ImportFromStatsig() {
 
   // Helper function to get total selected items count
   const getSelectedItemsCount = (): number => {
-    if (data.status !== "ready") return 0;
+    // Allow counting when ready or after import completes (to allow re-running)
+    if (data.status !== "ready" && data.status !== "completed") return 0;
 
     let count = 0;
     const allItems: { category: string; items: unknown[] }[] = [];
@@ -480,7 +470,8 @@ export default function ImportFromStatsig() {
 
   // Helper function to toggle all items globally
   const toggleAllItems = (enabled: boolean) => {
-    if (data.status !== "ready") return;
+    // Allow toggling when ready or after import completes (to allow re-running)
+    if (data.status !== "ready" && data.status !== "completed") return;
 
     const updates: { [category: string]: { [key: string]: boolean } } = {};
 
@@ -549,7 +540,8 @@ export default function ImportFromStatsig() {
   // Initialize item checkbox states when data changes
   React.useEffect(
     () => {
-      if (data.status === "ready") {
+      // Initialize when ready, or preserve existing states when completed (to allow re-running)
+      if (data.status === "ready" || data.status === "completed") {
         const newItemEnabled: {
           [category: string]: { [key: string]: boolean };
         } = {};
@@ -558,6 +550,8 @@ export default function ImportFromStatsig() {
           newItemEnabled.environments = {};
           data.environments.forEach((item, index) => {
             const key = getItemKey("environments", index, item);
+            // Preserve existing state, or default to true (enabled)
+            // This ensures failed items can be re-run
             newItemEnabled.environments[key] =
               itemEnabled.environments?.[key] ?? true;
           });
@@ -690,7 +684,7 @@ export default function ImportFromStatsig() {
 
   const step = ["init", "loading", "error"].includes(data.status)
     ? 1
-    : data.status === "ready"
+    : data.status === "ready" || data.status === "completed"
       ? 2
       : 3;
 
@@ -830,7 +824,7 @@ export default function ImportFromStatsig() {
             <Button
               className="ml-2"
               color={step === 2 ? "primary" : "outline-primary"}
-              disabled={step < 2}
+              disabled={step < 2 || data.status === "importing"}
               onClick={async () => {
                 if (!featuresMap) {
                   console.error("featuresMap not available");
@@ -940,8 +934,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>Name</th>
                           <th></th>
                           <th style={{ width: 40 }}></th>
@@ -974,15 +968,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={environment.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={environment}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {environment.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={environment.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>{environment.environment?.name}</td>
@@ -1029,8 +1028,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>Tag</th>
                           <th>Description</th>
                           <th style={{ width: 40 }}></th>
@@ -1058,15 +1057,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={tag.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={tag}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {tag.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={tag.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>{tag.tag?.name || "Unknown"}</td>
@@ -1112,8 +1116,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>Name</th>
                           <th>Type</th>
                           <th>Description</th>
@@ -1148,15 +1152,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={segment.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={segment}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {segment.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={segment.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>
@@ -1214,8 +1223,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>ID</th>
                           <th>Description</th>
                           <th>Enabled</th>
@@ -1249,15 +1258,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={gate.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={gate}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {gate.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={gate.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>{gate.featureGate?.id}</td>
@@ -1310,8 +1324,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>ID</th>
                           <th>Description</th>
                           <th style={{ width: 40 }}></th>
@@ -1344,15 +1358,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={config.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={config}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {config.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={config.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>{config.dynamicConfig?.id}</td>
@@ -1402,8 +1421,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>Name</th>
                           <th>Experiment Status</th>
                           <th style={{ width: 40 }}></th>
@@ -1436,15 +1455,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={exp.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={exp}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {exp.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={exp.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>{exp.experiment?.name}</td>
@@ -1495,8 +1519,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>Name</th>
                           <th>Description</th>
                           <th style={{ width: 40 }}></th>
@@ -1529,15 +1553,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={metricSource.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={metricSource}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {metricSource.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={metricSource.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>{metricSource.metricSource?.name}</td>
@@ -1586,8 +1615,8 @@ export default function ImportFromStatsig() {
                       <thead>
                         <tr>
                           <th style={{ width: 50 }}></th>
-                          <th style={{ width: 20 }}></th>
-                          <th style={{ width: 150 }}>Status</th>
+                          <th style={{ width: 120 }}>Status</th>
+                          <th style={{ width: 100 }}>Exists</th>
                           <th>Name</th>
                           <th>Type</th>
                           <th>Description</th>
@@ -1621,15 +1650,20 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <HasChangesIcon
-                                  hasChanges={metric.hasChanges}
-                                  entityId={entityId}
-                                  onToggle={toggleAccordion}
-                                />
                                 <td>
                                   <ImportStatusDisplay
                                     data={metric}
                                     enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td style={{ width: 100 }}>
+                                  {metric.exists ? (
+                                    <span className="text-muted">exists</span>
+                                  ) : null}
+                                  <HasChangesIcon
+                                    hasChanges={metric.hasChanges}
+                                    entityId={entityId}
+                                    onToggle={toggleAccordion}
                                   />
                                 </td>
                                 <td>

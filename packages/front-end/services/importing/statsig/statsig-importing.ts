@@ -26,6 +26,8 @@ import {
   ImportData,
   StatsigMetric,
   StatsigMetricSource,
+  ImportStatus,
+  EnvironmentImport,
 } from "./types";
 import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
 import { transformStatsigFeatureGateToGB } from "./transformers/featureTransformer";
@@ -598,6 +600,7 @@ export async function buildImportedData(
           data.environments?.push({
             key: envKey,
             status: "pending", // Allow upserting - will use PUT if exists, POST if new
+            exists: !!existingEnv,
             environment: env,
             existingEnvironment: existingEnv,
           });
@@ -611,6 +614,7 @@ export async function buildImportedData(
           data.segments?.push({
             key: seg.id,
             status: "pending", // Allow upserting - will use PUT if exists, POST if new
+            exists: !!existingSavedGroup,
             segment: seg,
             existingSavedGroup: existingSavedGroup,
           });
@@ -624,6 +628,7 @@ export async function buildImportedData(
           data.featureGates?.push({
             key: fg.id, // Use ID instead of name for uniqueness
             status: "pending", // Allow upserting - sync endpoint handles both
+            exists: !!existingFeature,
             featureGate: fg,
             existing: existingFeature, // Store existing feature for reference
           });
@@ -639,6 +644,7 @@ export async function buildImportedData(
           data.dynamicConfigs?.push({
             key: featureKey, // Use ID instead of name for uniqueness
             status: "pending", // Allow upserting - sync endpoint handles both
+            exists: !!existingFeature,
             dynamicConfig: dc,
             existing: existingFeature, // Store existing feature for reference
           });
@@ -652,6 +658,7 @@ export async function buildImportedData(
           data.experiments?.push({
             key: exp.name,
             status: "pending", // Allow upserting - will use PUT if exists, POST if new
+            exists: !!existingExperiment,
             experiment: exp,
             existingExperiment: existingExperiment,
           });
@@ -665,6 +672,7 @@ export async function buildImportedData(
           data.tags?.push({
             key: t.name, // Use name as key since that's what becomes the GB tag ID
             status: "pending", // Allow upserting - POST endpoint handles both
+            exists: !!existingTag,
             tag: t,
             existingTag: existingTag,
           });
@@ -677,6 +685,7 @@ export async function buildImportedData(
           data.metrics?.push({
             key: m.id,
             status: "pending",
+            exists: !!existingMetric,
             metric: m,
             existingMetric: existingMetric,
           });
@@ -689,6 +698,7 @@ export async function buildImportedData(
           data.metricSources?.push({
             key: ms.name,
             status: "pending",
+            exists: !!existingFactTable,
             metricSource: ms,
             existingMetricSource: existingFactTable,
           });
@@ -1303,6 +1313,14 @@ export async function runImport(options: RunImportOptions) {
     return true; // Default to importing if no checkbox state
   };
 
+  // Helper function to check if an item can be processed (pending or re-runnable)
+  const canProcessItem = (status: ImportStatus): boolean => {
+    // Allow processing if pending, or if it's a completed/failed status that can be re-run
+    return (
+      status === "pending" || status === "completed" || status === "failed"
+    );
+  };
+
   // Helper function to get item key (same logic as in component)
   const getItemKey = (
     category: string,
@@ -1338,9 +1356,10 @@ export async function runImport(options: RunImportOptions) {
   // Import Environments in a single API call
   queue.add(async () => {
     const envsToAdd: Environment[] = [];
+    const envsToProcess: EnvironmentImport[] = [];
     data.environments?.forEach((e, index) => {
       if (
-        e.status === "pending" &&
+        canProcessItem(e.status) &&
         e.environment &&
         shouldImportItem("environments", index, e)
       ) {
@@ -1348,6 +1367,9 @@ export async function runImport(options: RunImportOptions) {
           id: e.environment.name,
           description: e.environment.name,
         });
+        envsToProcess.push(e);
+        // Reset status to pending when re-running
+        e.status = "pending";
       }
     });
 
@@ -1359,17 +1381,15 @@ export async function runImport(options: RunImportOptions) {
             environments: envsToAdd,
           }),
         });
-        data.environments?.forEach((env) => {
-          if (env.status === "pending") {
-            env.status = "completed";
-          }
+        envsToProcess.forEach((env) => {
+          env.status = "completed";
+          env.exists = false; // Environments are always created
         });
       } catch (e) {
-        data.environments?.forEach((env) => {
-          if (env.status === "pending") {
-            env.status = "failed";
-            env.error = e.message;
-          }
+        envsToProcess.forEach((env) => {
+          env.status = "failed";
+          env.exists = false;
+          env.error = e.message;
         });
       }
     }
@@ -1380,10 +1400,12 @@ export async function runImport(options: RunImportOptions) {
   // Import Saved Groups (Segments)
   data.segments?.forEach((segment, index) => {
     if (
-      segment.status === "pending" &&
+      canProcessItem(segment.status) &&
       shouldImportItem("segments", index, segment)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        segment.status = "pending";
         try {
           const seg = segment.segment as StatsigSavedGroup;
 
@@ -1430,13 +1452,19 @@ export async function runImport(options: RunImportOptions) {
           }
 
           segment.status = "completed";
+          segment.exists = isUpdate;
           segment.segment = res.savedGroup as unknown as StatsigSavedGroup;
           segment.existingSavedGroup = existingSavedGroup;
 
           // Map Statsig segment name to GrowthBook saved group ID
           savedGroupIdMap.set(seg.id, res.savedGroup.id);
         } catch (e) {
+          const existingSavedGroup = existingSavedGroupsMap.get(
+            (segment.segment as StatsigSavedGroup)?.id || "",
+          );
+          const isUpdate = !!existingSavedGroup;
           segment.status = "failed";
+          segment.exists = isUpdate;
           segment.error = e.message;
         }
         update();
@@ -1448,10 +1476,12 @@ export async function runImport(options: RunImportOptions) {
   // Import Feature Gates
   data.featureGates?.forEach((featureGate, index) => {
     if (
-      featureGate.status === "pending" &&
+      canProcessItem(featureGate.status) &&
       shouldImportItem("featureGates", index, featureGate)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        featureGate.status = "pending";
         try {
           const fg = featureGate.featureGate as StatsigFeatureGate;
           if (!fg) {
@@ -1475,6 +1505,7 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
           );
 
+          const featureIsUpdate = !!featureGate.existing;
           const res: { feature: FeatureInterface } = await apiCall(
             `/feature/${featureGate.key}/sync`,
             {
@@ -1484,9 +1515,12 @@ export async function runImport(options: RunImportOptions) {
           );
 
           featureGate.status = "completed";
+          featureGate.exists = featureIsUpdate;
           featureGate.existing = res.feature;
         } catch (e) {
+          const featureIsUpdate = !!featureGate.existing;
           featureGate.status = "failed";
+          featureGate.exists = featureIsUpdate;
           featureGate.error = e.message;
         }
         update();
@@ -1498,10 +1532,12 @@ export async function runImport(options: RunImportOptions) {
   // Import Dynamic Configs
   data.dynamicConfigs?.forEach((dynamicConfig, index) => {
     if (
-      dynamicConfig.status === "pending" &&
+      canProcessItem(dynamicConfig.status) &&
       shouldImportItem("dynamicConfigs", index, dynamicConfig)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        dynamicConfig.status = "pending";
         try {
           const dc = dynamicConfig.dynamicConfig as StatsigDynamicConfig;
           if (!dc) {
@@ -1525,6 +1561,7 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
           );
 
+          const isUpdate = !!dynamicConfig.existing;
           const res: { feature: FeatureInterface } = await apiCall(
             `/feature/${dynamicConfig.key}/sync`,
             {
@@ -1534,9 +1571,12 @@ export async function runImport(options: RunImportOptions) {
           );
 
           dynamicConfig.status = "completed";
+          dynamicConfig.exists = isUpdate;
           dynamicConfig.existing = res.feature;
         } catch (e) {
+          const isUpdate = !!dynamicConfig.existing;
           dynamicConfig.status = "failed";
+          dynamicConfig.exists = isUpdate;
           dynamicConfig.error = e.message;
         }
         update();
@@ -1548,10 +1588,12 @@ export async function runImport(options: RunImportOptions) {
   // Import Experiments
   data.experiments?.forEach((experiment, index) => {
     if (
-      experiment.status === "pending" &&
+      canProcessItem(experiment.status) &&
       shouldImportItem("experiments", index, experiment)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        experiment.status = "pending";
         const featureId: string | null = null;
         try {
           const exp = experiment.experiment as StatsigExperiment;
@@ -1587,9 +1629,9 @@ export async function runImport(options: RunImportOptions) {
           // Create or update the experiment
           let experimentRes: { experiment: ExperimentInterfaceStringDates };
           if (isUpdate && existingExperiment) {
-            // Use POST to update existing experiment (POST /experiments/:id)
+            // Use POST to update existing experiment (POST /experiment/:id)
             experimentRes = await apiCall(
-              `/experiments/${existingExperiment.id}`,
+              `/experiment/${existingExperiment.id}`,
               {
                 method: "POST",
                 body: JSON.stringify(transformedExperiment),
@@ -1685,7 +1727,9 @@ export async function runImport(options: RunImportOptions) {
             },
           );
 
+          const experimentIsUpdate = !!existingExperiment;
           experiment.status = "completed";
+          experiment.exists = experimentIsUpdate;
           experiment.gbExperiment = experimentRes.experiment;
           experiment.gbFeature = featureRes.feature;
           experiment.existingExperiment = existingExperiment;
@@ -1693,7 +1737,9 @@ export async function runImport(options: RunImportOptions) {
             existingCompanionFeature || featureRes.feature;
         } catch (e) {
           console.warn("import experiment error", e);
+          const experimentIsUpdate = !!experiment.existingExperiment;
           experiment.status = "failed";
+          experiment.exists = experimentIsUpdate;
           experiment.error = e.message;
 
           // Clean up the feature if it was created but experiment failed
@@ -1719,10 +1765,12 @@ export async function runImport(options: RunImportOptions) {
   // Import Tags
   data.tags?.forEach((tagImport, index) => {
     if (
-      tagImport.status === "pending" &&
+      canProcessItem(tagImport.status) &&
       shouldImportItem("tags", index, tagImport)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        tagImport.status = "pending";
         try {
           const tag = tagImport.tag as StatsigTag;
           if (!tag) {
@@ -1736,15 +1784,19 @@ export async function runImport(options: RunImportOptions) {
             color: tag.isCore ? "purple" : "blue",
           };
 
+          const isUpdate = !!tagImport.existingTag;
           const tagRes: TagInterface = await apiCall("/tag", {
             method: "POST",
             body: JSON.stringify(tagPayload),
           });
 
           tagImport.status = "completed";
+          tagImport.exists = isUpdate;
           tagImport.gbTag = tagRes;
         } catch (e) {
+          const isUpdate = !!tagImport.existingTag;
           tagImport.status = "failed";
+          tagImport.exists = isUpdate;
           tagImport.error = e.message;
         }
         update();
@@ -1755,10 +1807,12 @@ export async function runImport(options: RunImportOptions) {
 
   data.metricSources?.forEach((metricSourceImport, index) => {
     if (
-      metricSourceImport.status === "pending" &&
+      canProcessItem(metricSourceImport.status) &&
       shouldImportItem("metricSources", index, metricSourceImport)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        metricSourceImport.status = "pending";
         try {
           const metricSource = metricSourceImport.metricSource;
           if (!metricSource) {
@@ -1774,6 +1828,7 @@ export async function runImport(options: RunImportOptions) {
             );
 
           const existingMetricSource = metricSourceImport.existingMetricSource;
+          const isUpdate = !!existingMetricSource;
 
           // Create new fact table
           let id: string;
@@ -1793,8 +1848,11 @@ export async function runImport(options: RunImportOptions) {
           }
           metricSourceIdMap.set(metricSource.name, id);
           metricSourceImport.status = "completed";
+          metricSourceImport.exists = isUpdate;
         } catch (e) {
+          const isUpdate = !!metricSourceImport.existingMetricSource;
           metricSourceImport.status = "failed";
+          metricSourceImport.exists = isUpdate;
           metricSourceImport.error = e.message;
         }
         update();
@@ -1805,10 +1863,12 @@ export async function runImport(options: RunImportOptions) {
 
   data.metrics?.forEach((metricImport, index) => {
     if (
-      metricImport.status === "pending" &&
+      canProcessItem(metricImport.status) &&
       shouldImportItem("metrics", index, metricImport)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        metricImport.status = "pending";
         try {
           const metric = metricImport.metric;
           if (!metric) {
@@ -1824,6 +1884,7 @@ export async function runImport(options: RunImportOptions) {
           );
 
           const existingMetric = metricImport.existingMetric;
+          const isUpdate = !!existingMetric;
 
           if (existingMetric) {
             // Update existing metric
@@ -1840,8 +1901,11 @@ export async function runImport(options: RunImportOptions) {
           }
 
           metricImport.status = "completed";
+          metricImport.exists = isUpdate;
         } catch (e) {
+          const isUpdate = !!metricImport.existingMetric;
           metricImport.status = "failed";
+          metricImport.exists = isUpdate;
           metricImport.error = e.message;
         }
         update();
