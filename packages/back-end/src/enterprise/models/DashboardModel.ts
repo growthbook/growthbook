@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import { getValidDate } from "shared/dates";
+import { z } from "zod";
+import { dashboardBlockHasIds } from "shared/enterprise";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -21,6 +23,11 @@ import {
   ApiDashboard,
   ApiDashboardBlock,
 } from "back-end/types/openapi";
+import { ApiRequest } from "back-end/src/util/handler";
+import {
+  postDashboardValidator,
+  updateDashboardValidator,
+} from "back-end/src/validators/openapi";
 import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
@@ -312,6 +319,72 @@ export class DashboardModel extends BaseClass {
       dateUpdated: dashboard.dateUpdated.toISOString(),
       nextUpdate: dashboard.nextUpdate?.toISOString(),
       lastUpdated: dashboard.lastUpdated?.toISOString(),
+    };
+  }
+
+  protected async processApiCreateBody(rawBody: unknown) {
+    const {
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId,
+      title,
+      projects,
+      blocks,
+    } = postDashboardValidator.bodySchema.parse(rawBody);
+    const createdBlocks = await Promise.all(
+      blocks.map((blockData) =>
+        generateDashboardBlockIds(
+          this.context.org.id,
+          fromBlockApiInterface(blockData),
+        ),
+      ),
+    );
+    return {
+      uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
+      isDefault: false,
+      isDeleted: false,
+      userId: this.context.userId,
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId: experimentId || undefined,
+      title,
+      projects,
+      blocks: createdBlocks,
+    };
+  }
+  protected async processApiUpdateBody(rawBody: unknown) {
+    const { blocks: blockUpdates, ...otherUpdates } =
+      updateDashboardValidator.bodySchema.parse(rawBody);
+    const updates: UpdateProps<DashboardInterface> = otherUpdates;
+    if (blockUpdates) {
+      const migratedBlocks = blockUpdates
+        .map(fromBlockApiInterface)
+        .map(migrateBlock);
+      const createdBlocks = await Promise.all(
+        migratedBlocks.map((blockData) =>
+          dashboardBlockHasIds(blockData)
+            ? blockData
+            : generateDashboardBlockIds(this.context.org.id, blockData),
+        ),
+      );
+      updates.blocks = createdBlocks;
+    }
+    return updates;
+  }
+
+  protected async apiFindByExperiment(
+    req: ApiRequest<unknown, z.Schema<{ experimentId: string }>>,
+  ) {
+    const dashboards = await req.context.models.dashboards.findByExperiment(
+      req.params.experimentId,
+    );
+
+    return {
+      dashboards: dashboards.map(req.context.models.dashboards.toApiInterface),
     };
   }
 }

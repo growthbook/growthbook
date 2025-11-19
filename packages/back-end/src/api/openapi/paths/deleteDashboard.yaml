@@ -16,5 +16,5 @@ responses:
         schema:
           type: object
           properties:
-            deletedId:
-              type: string
+            dashboard:
+              $ref: "../schemas/Dashboard.yaml"
