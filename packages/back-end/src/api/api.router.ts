@@ -36,7 +36,7 @@ import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
 import customFieldsRouter from "./custom-fields/custom-fields.router";
-import dashboardsRouter from "./dashboards/dashboards.router";
+import { apiModels, defineRouterForApiModel } from "./ApiModel";
 
 const router = Router();
 let openapiSpec: string;
@@ -134,7 +134,9 @@ router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
 router.post("/transform-copy", postCopyTransform);
 router.use("/custom-fields", customFieldsRouter);
-router.use("/dashboards", dashboardsRouter);
+apiModels.forEach((modelConfig) => {
+  router.use(modelConfig.pathBase, defineRouterForApiModel(modelConfig));
+});
 
 // 404 route
 router.use(function (req, res) {

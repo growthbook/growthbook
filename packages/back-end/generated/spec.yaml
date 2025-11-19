@@ -6033,8 +6033,8 @@ paths:
               schema:
                 type: object
                 properties:
-                  deletedId:
-                    type: string
+                  dashboard:
+                    $ref: '#/components/schemas/Dashboard'
   '/dashboards/by-experiment/{experimentId}':
     get:
       parameters:

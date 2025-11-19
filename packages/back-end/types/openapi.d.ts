@@ -15696,7 +15696,200 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            deletedId?: string;
+            dashboard?: {
+              id: string;
+              uid: string;
+              organization: string;
+              /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+              experimentId?: string;
+              /** @description The owner of the Dashboard */
+              userId: string;
+              /**
+               * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              editLevel: "published" | "private";
+              /**
+               * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+              updateSchedule?: {
+                /** @enum {string} */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @enum {string} */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              blocks: ((({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "markdown";
+                  content: string;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-metadata";
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-metric";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "experiment-dimension";
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-time-series";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-traffic";
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "sql-explorer";
+                  savedQueryId: string;
+                  blockConfig?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "metric-explorer";
+                  factMetricId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    /** Format: date-time */
+                    startDate: string;
+                    /** Format: date-time */
+                    endDate: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                  };
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }))[];
+              /** @description General dashboards only, experiment dashboards use the experiment's projects */
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
           };
         };
       };
