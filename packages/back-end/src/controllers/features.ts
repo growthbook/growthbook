@@ -1681,6 +1681,7 @@ async function getDraftRevision(
       environments: getEnvironmentIdsFromOrg(context.org),
       baseVersion: version,
       org,
+      skipValidation: true,
     });
 
     await updateFeature(context, feature, {

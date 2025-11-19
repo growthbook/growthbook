@@ -274,6 +274,7 @@ export async function createRevision({
   comment,
   org,
   canBypassApprovalChecks,
+  skipValidation,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -285,6 +286,7 @@ export async function createRevision({
   comment?: string;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
+  skipValidation?: boolean;
 }) {
   // Get max version number
   const lastRevision = (
@@ -356,7 +358,9 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(context, feature, revision);
+  if (!skipValidation) {
+    await runValidateFeatureRevisionHooks(context, feature, revision);
+  }
 
   const doc = await FeatureRevisionModel.create(revision);
 
