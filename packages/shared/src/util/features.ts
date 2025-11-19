@@ -940,13 +940,13 @@ export function resetReviewOnChange({
 // check if the revision needs review on revert
 export function checkIfRevisionNeedsReviewOnRevert({
   feature,
-  changedEnvironments,
-  defaultValueChanged,
+  featureRevision,
+  baseRevision,
   settings,
 }: {
   feature: FeatureInterface;
-  changedEnvironments: string[];
-  defaultValueChanged: boolean;
+  featureRevision: FeatureRevisionInterface;
+  baseRevision: FeatureRevisionInterface;
   settings?: OrganizationSettings;
 }) {
   const requiresReviewSettings = settings?.requireReviews;
@@ -960,7 +960,8 @@ export function checkIfRevisionNeedsReviewOnRevert({
   }
   const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
   if (!reviewSetting || !reviewSetting.requireReviewOnRevert) return false;
-  if (defaultValueChanged) return true;
+  if (featureRevision.defaultValue !== feature.defaultValue) return true;
+  const changedEnvironments = listChangedEnvironments(baseRevision, featureRevision, settings?.environments?.map((e) => e.id) || []);
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 

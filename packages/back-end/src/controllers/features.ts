@@ -12,7 +12,6 @@ import {
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   checkIfRevisionNeedsReviewOnRevert,
-  listChangedEnvironments,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -1059,9 +1058,6 @@ export async function requestPostRevertReview(
   if (!context.permissions.canUpdateFeature(feature, {})) {
     context.permissions.throwPermissionError();
   }
-  const allEnvironments = getEnvironments(org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentIds = environments.map((e) => e.id);
   const baseRevision = await getRevision({
     context,
     organization: org.id,
@@ -1080,15 +1076,11 @@ export async function requestPostRevertReview(
   if (!revision) {
     throw new Error("Could not find revision");
   }
-  const changedEnvironments = listChangedEnvironments(
-    baseRevision,
-    revision,
-    environmentIds,
-  );
+
   const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
     feature,
-    changedEnvironments,
-    defaultValueChanged: false,
+    featureRevision: revision,
+    baseRevision,
     settings: org.settings,
   });
   if (!requiresReviewOnRevert) {
@@ -1130,7 +1122,13 @@ export async function postFeatureRevert(
     featureId: feature.id,
     version: parseInt(version),
   });
-  if (!revision) {
+  const baseRevision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!revision || !baseRevision) {
     throw new Error("Could not find feature revision");
   }
 
@@ -1143,8 +1141,8 @@ export async function postFeatureRevert(
   }
   const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
     feature,
-    changedEnvironments: environmentIds,
-    defaultValueChanged: false,
+    featureRevision: revision,
+    baseRevision,
     settings: org.settings,
   });
   if (adminOverride && requiresReviewOnRevert) {

@@ -2,16 +2,12 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import {
-  checkIfRevisionNeedsReviewOnRevert,
-  filterEnvironmentsByFeature,
-} from "shared/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
@@ -20,6 +16,7 @@ export interface Props {
   close: () => void;
   mutate: () => void;
   setVersion: (version: number) => void;
+  requiresReviewOnRevert: boolean;
 }
 
 export default function RevertModal({
@@ -28,11 +25,11 @@ export default function RevertModal({
   close,
   mutate,
   setVersion,
+  requiresReviewOnRevert = false,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const permissionsUtil = usePermissionsUtil();
-  const orgSettings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
@@ -70,16 +67,6 @@ export default function RevertModal({
     feature,
     getAffectedRevisionEnvs(feature, revision, environments),
   );
-  const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
-    feature,
-    changedEnvironments: getAffectedRevisionEnvs(
-      feature,
-      revision,
-      environments,
-    ),
-    defaultValueChanged: revision.defaultValue !== feature.defaultValue,
-    settings: orgSettings,
-  });
   const submit = async () => {
     if (requiresReviewOnRevert) {
       await apiCall<{ version: number }>(
