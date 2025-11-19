@@ -418,7 +418,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                         (Denominator)
                       </Text>
                       <Tooltip
-                        body="Row Filters specified here are combined with any existing denominatorfilters defined on the metric."
+                        body="Row Filters specified here are combined with any existing denominator filters defined on the metric."
                         className="mb-2"
                       />
                     </Flex>
