@@ -888,8 +888,11 @@ export default abstract class SqlIntegration
             }`;
   }
 
-  getMetricAnalysisQuery(params: MetricAnalysisParams): string {
-    const { metric, settings } = params;
+  getMetricAnalysisQuery(
+    metric: FactMetricInterface,
+    params: Omit<MetricAnalysisParams, "metric">,
+  ): string {
+    const { settings } = params;
 
     // Get any required identity join queries; only use same id type for now,
     // so not needed
