@@ -5,7 +5,13 @@ import { SavedGroupInterface } from "shared/src/types";
 import { TagInterface } from "back-end/types/tag";
 import { ProjectInterface } from "back-end/types/project";
 import { cloneDeep } from "lodash";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
 import { ApiCallType } from "@/services/auth";
+import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
+import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
 import {
   StatsigFeatureGate,
   StatsigDynamicConfig,
@@ -18,6 +24,8 @@ import {
   StatsigExperimentsResponse,
   StatsigSavedGroupsResponse,
   ImportData,
+  StatsigMetric,
+  StatsigMetricSource,
 } from "./types";
 import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
 import { transformStatsigFeatureGateToGB } from "./transformers/featureTransformer";
@@ -34,6 +42,8 @@ export interface BuildImportedDataOptions {
   existingSavedGroups: Map<string, SavedGroupInterface>;
   existingTags: Map<string, TagInterface>;
   existingExperiments: Map<string, ExperimentInterfaceStringDates>;
+  existingMetrics: Map<string, FactMetricInterface>;
+  existingFactTables: Map<string, FactTableInterface>;
   callback: (data: ImportData) => void;
   skipAttributeMapping?: boolean;
   useBackendProxy?: boolean;
@@ -93,6 +103,7 @@ export interface RunImportOptions {
   skipAttributeMapping?: boolean;
   existingSavedGroups?: SavedGroupInterface[];
   existingExperiments?: ExperimentInterfaceStringDates[];
+  existingFactTables?: FactTableInterface[];
 }
 
 /**
@@ -378,6 +389,7 @@ export const getAllStatsigEntities = async (
     segmentsData,
     tagsData,
     metricsData,
+    metricSourcesData,
   ] = await Promise.all([
     fetchAllPages(
       "environments",
@@ -404,6 +416,13 @@ export const getAllStatsigEntities = async (
       useBackendProxy,
       apiCall,
     ),
+    fetchAllPages(
+      "metrics/metric_source/list",
+      apiKey,
+      intervalCap,
+      useBackendProxy,
+      apiCall,
+    ),
   ]);
 
   // Process segments to fetch ID lists for id_list type segments
@@ -423,6 +442,7 @@ export const getAllStatsigEntities = async (
     segments: { data: processedSegmentsData },
     tags: { data: tagsData },
     metrics: { data: metricsData },
+    metricSources: { data: metricSourcesData },
   };
 };
 
@@ -497,6 +517,8 @@ export async function buildImportedData(
     existingSavedGroups,
     existingTags,
     existingExperiments,
+    existingMetrics,
+    existingFactTables,
     callback,
     useBackendProxy = false,
     apiCall,
@@ -521,6 +543,7 @@ export async function buildImportedData(
     segments: [],
     tags: [],
     metrics: [],
+    metricSources: [],
   };
 
   let featuresMap: Map<string, FeatureInterface> = new Map();
@@ -632,11 +655,27 @@ export async function buildImportedData(
 
         // Process metrics
         entities.metrics.data.forEach((metric) => {
-          const m = metric as { name?: string; id?: string };
+          const m = metric as StatsigMetric;
           data.metrics?.push({
-            key: m.name || m.id || "unknown",
-            status: "pending",
-            metric: metric,
+            key: m.id,
+            status: existingMetrics.has(m.id) ? "skipped" : "pending",
+            metric: m,
+            error: existingMetrics.has(m.id)
+              ? "Metric already exists"
+              : undefined,
+          });
+        });
+
+        // Process metric sources
+        entities.metricSources.data.forEach((metricSource) => {
+          const ms = metricSource as StatsigMetricSource;
+          data.metricSources?.push({
+            key: ms.name,
+            status: existingFactTables.has(ms.name) ? "skipped" : "pending",
+            metricSource: ms,
+            error: existingFactTables.has(ms.name)
+              ? "Metric source already exists"
+              : undefined,
           });
         });
 
@@ -1173,6 +1212,7 @@ export async function runImport(options: RunImportOptions) {
     skipAttributeMapping,
     existingSavedGroups,
     existingExperiments,
+    existingFactTables,
   } = options;
   // We will mutate this shared object and sync it back to the component periodically
   const data = cloneDeep(originalData);
@@ -1212,6 +1252,15 @@ export async function runImport(options: RunImportOptions) {
       if (exp.trackingKey) {
         existingExperimentsMap.set(exp.trackingKey, exp);
       }
+    });
+  }
+
+  const metricSourceIdMap = new Map<string, string>();
+
+  // Build mapping from existing fact table names to IDs
+  if (existingFactTables) {
+    existingFactTables.forEach((ft: FactTableInterface) => {
+      metricSourceIdMap.set(ft.name, ft.id);
     });
   }
 
@@ -1260,7 +1309,9 @@ export async function runImport(options: RunImportOptions) {
       case "experiments":
         return `exp-${item.experiment?.name || item.experiment?.id || index}`;
       case "metrics":
-        return `metric-${item.metric?.name || item.metric?.id || index}`;
+        return `metric-${item.metric?.id || index}`;
+      case "metricSources":
+        return `metricSource-${item.metricSource?.name || index}`;
       default:
         return `${category}-${index}`;
     }
@@ -1687,15 +1738,81 @@ export async function runImport(options: RunImportOptions) {
   });
   await queue.onIdle();
 
-  data.metrics?.forEach((metric, index) => {
+  data.metricSources?.forEach((metricSourceImport, index) => {
     if (
-      metric.status === "pending" &&
-      shouldImportItem("metrics", index, metric)
+      metricSourceImport.status === "pending" &&
+      shouldImportItem("metricSources", index, metricSourceImport)
     ) {
-      metric.status = "failed";
-      metric.error = "Not implemented yet";
+      queue.add(async () => {
+        try {
+          const metricSource = metricSourceImport.metricSource;
+          if (!metricSource) {
+            throw new Error("No metric source data available");
+          }
+
+          // Create new fact table
+          const factTablePayload =
+            await transformStatsigMetricSourceToFactTable(
+              metricSource,
+              apiCall,
+              project,
+              datasource,
+            );
+
+          const res = await apiCall("/fact-tables", {
+            method: "POST",
+            body: JSON.stringify(factTablePayload),
+          });
+
+          metricSourceIdMap.set(metricSource.name, res.factTable.id);
+
+          metricSourceImport.status = "completed";
+        } catch (e) {
+          metricSourceImport.status = "failed";
+          metricSourceImport.error = e.message;
+        }
+        update();
+      });
     }
   });
+  await queue.onIdle();
+
+  data.metrics?.forEach((metricImport, index) => {
+    if (
+      metricImport.status === "pending" &&
+      shouldImportItem("metrics", index, metricImport)
+    ) {
+      queue.add(async () => {
+        try {
+          const metric = metricImport.metric;
+          if (!metric) {
+            throw new Error("No metric data available");
+          }
+
+          // Create new metric
+          const metricPayload = await transformStatsigMetricToMetric(
+            metric,
+            apiCall,
+            metricSourceIdMap,
+            project,
+            datasource,
+          );
+
+          await apiCall("/fact-metrics", {
+            method: "POST",
+            body: JSON.stringify(metricPayload),
+          });
+
+          metricImport.status = "completed";
+        } catch (e) {
+          metricImport.status = "failed";
+          metricImport.error = e.message;
+        }
+        update();
+      });
+    }
+  });
+  await queue.onIdle();
 
   data.status = "completed";
   timer && clearTimeout(timer);
