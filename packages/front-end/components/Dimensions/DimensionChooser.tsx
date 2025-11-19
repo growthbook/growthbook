@@ -8,16 +8,17 @@ import { Flex } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/src/util";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
+import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { analysisUpdate } from "@/components/Experiment/DifferenceTypeChooser";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 
 export interface Props {
   value: string;
@@ -45,6 +46,7 @@ export interface Props {
 }
 
 export function getDimensionOptions({
+  incrementalRefresh,
   precomputedDimensions,
   datasource,
   dimensions,
@@ -52,6 +54,7 @@ export function getDimensionOptions({
   exposureQueryId,
   userIdType,
 }: {
+  incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
   datasource: DataSourceInterfaceWithParams | null;
   dimensions: DimensionInterface[];
@@ -86,6 +89,14 @@ export function getDimensionOptions({
         if (precomputedDimensionOptions.some((p) => p.label === d)) {
           return;
         }
+        // skip experiment dimensions that are not in the incremental refresh model
+        if (
+          incrementalRefresh &&
+          !incrementalRefresh.unitsDimensions.includes(d)
+        ) {
+          return;
+        }
+
         filteredDimensions.push({
           label: d,
           value: "exp:" + d,
@@ -166,6 +177,7 @@ export default function DimensionChooser({
   const { dimensionless: standardSnapshot, experiment } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
+  const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
   // If activation metric is not selected, don't allow using that dimension
   useEffect(() => {
     if (value === "pre:activation" && !activationMetric) {
@@ -180,6 +192,7 @@ export default function DimensionChooser({
   ]);
 
   const dimensionOptions = getDimensionOptions({
+    incrementalRefresh,
     precomputedDimensions,
     exposureQueryId,
     userIdType,
@@ -187,31 +200,6 @@ export default function DimensionChooser({
     dimensions,
     activationMetric,
   });
-
-  const isExperimentIncludedInIncrementalRefresh = experiment
-    ? getIsExperimentIncludedInIncrementalRefresh(
-        datasource ?? undefined,
-        experiment.id,
-      )
-    : false;
-
-  useEffect(() => {
-    if (isExperimentIncludedInIncrementalRefresh && value) {
-      setValue?.("");
-    }
-  }, [isExperimentIncludedInIncrementalRefresh, value, setValue]);
-
-  const incrementalRefreshBetaMessage =
-    "Dimensions are not supported for incremental refresh while in Beta.";
-
-  const effectiveOptions = isExperimentIncludedInIncrementalRefresh
-    ? [
-        {
-          label: incrementalRefreshBetaMessage,
-          value: "__beta_message__",
-        },
-      ]
-    : dimensionOptions;
 
   if (disabled) {
     const dimensionName =
@@ -237,7 +225,7 @@ export default function DimensionChooser({
           label={newUi ? undefined : "Dimension"}
           labelClassName={labelClassName}
           containerClassName={newUi ? "select-dropdown-underline" : ""}
-          options={effectiveOptions}
+          options={dimensionOptions}
           formatGroupLabel={({ label }) => (
             <div className="pt-2 pb-1 border-bottom">{label}</div>
           )}
@@ -313,9 +301,6 @@ export default function DimensionChooser({
             showHelp ? "Break down results for each metric by a dimension" : ""
           }
           disabled={disabled}
-          isOptionDisabled={(opt) =>
-            opt.label === incrementalRefreshBetaMessage
-          }
         />
         {postLoading && <LoadingSpinner className="ml-1" />}
       </Flex>

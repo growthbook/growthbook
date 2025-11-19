@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: 'The first 7 characters of the commit SHA to be rolled back to'
+        description: "The first 7 characters of the commit SHA to be rolled back to"
         required: true
         type: string
 jobs:
@@ -35,7 +35,7 @@ jobs:
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
       - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

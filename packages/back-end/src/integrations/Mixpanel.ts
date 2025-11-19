@@ -57,6 +57,7 @@ import {
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { FactMetricInterface } from "back-end/types/fact-table";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   context: ReqContext;
@@ -88,7 +89,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getCurrentTimestamp(): string {
     throw new Error("Method not implemented.");
   }
-  getMetricAnalysisQuery(_: MetricAnalysisParams): string {
+  getMetricAnalysisQuery(
+    _metric: FactMetricInterface,
+    _params: Omit<MetricAnalysisParams, "metric">,
+  ): string {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(

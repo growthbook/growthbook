@@ -117,6 +117,9 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
+  - name: custom-fields
+    x-displayName: Custom Fields
+    description: Custom fields for the organization.
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
@@ -129,6 +132,9 @@ tags:
   - name: CodeRef_model
     x-displayName: CodeRef
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: CustomField_model
+    x-displayName: CustomField
+    description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -653,6 +659,10 @@ paths:
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -748,6 +758,10 @@ paths:
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -2119,6 +2133,10 @@ paths:
                   enum:
                     - days
                     - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
                 pinnedMetricSlices:
                   type: array
                   items:
@@ -2482,6 +2500,10 @@ paths:
                   enum:
                     - days
                     - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
                 pinnedMetricSlices:
                   type: array
                   items:
@@ -5468,6 +5490,16 @@ paths:
                   type: string
                   nullable: true
                   description: 'The ID of the population (e.g., segment ID) when populationType is not ''factTable''. Defaults to null.'
+                additionalNumeratorFilters:
+                  type: array
+                  items:
+                    type: string
+                  description: 'We support passing in adhoc filters for an analysis that don''t live on the metric itself. These are in addition to the metric''s filters. To use this, you can pass in an array of Fact Table Filter Ids.'
+                additionalDenominatorFilters:
+                  type: array
+                  items:
+                    type: string
+                  description: 'We support passing in adhoc filters for an analysis that don''t live on the metric itself. These are in addition to the metric''s filters. To use this, you can pass in an array of Fact Table Filter Ids.'
                 useCache:
                   type: boolean
                   description: Whether to use a cached query if one exists. Defaults to true.
@@ -5740,6 +5772,27 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
+  /custom-fields:
+    get:
+      summary: Get list of custom fields
+      tags:
+        - custom-fields
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getCustomFields
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/custom-fields?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomField'
 components:
   parameters:
     id:
@@ -8533,6 +8586,42 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    CustomField:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - section
+        - dateCreated
+        - dateUpdated
+        - active
+        - required
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        section:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        values:
+          type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -8589,12 +8678,14 @@ x-tagGroups:
       - archetypes
       - queries
       - settings
+      - custom-fields
       - attributes
   - name: Models
     tags:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
+      - CustomField_model
       - DataSource_model
       - Dimension_model
       - Environment_model

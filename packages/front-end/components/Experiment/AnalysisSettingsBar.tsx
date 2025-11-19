@@ -507,7 +507,7 @@ export function isOutdated({
   const snapshotMetrics = Array.from(
     new Set(
       expandMetricGroups(
-        getAllMetricIdsFromExperiment(snapshotSettings, false),
+        getAllMetricIdsFromExperiment(snapshotSettings, false, metricGroups),
         metricGroups,
       ),
     ),
@@ -515,7 +515,7 @@ export function isOutdated({
   let experimentMetrics = Array.from(
     new Set(
       expandMetricGroups(
-        getAllMetricIdsFromExperiment(experiment, false),
+        getAllMetricIdsFromExperiment(experiment, false, metricGroups),
         metricGroups,
       ),
     ),

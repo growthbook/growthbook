@@ -135,6 +135,7 @@ import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -239,10 +240,9 @@ export async function postAIExperimentAnalysis(
 
   const allMetricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment, false),
+    getAllMetricIdsFromExperiment(experiment, false, allMetricGroups),
     allMetricGroups,
   );
-
   const allOrgMetrics = await getMetricMap(context);
   const experimentMetrics = experimentMetricIds
     .map((id) => allOrgMetrics.get(id))
@@ -751,6 +751,31 @@ export async function getExperiment(
     linkedFeatures: linkedFeatureInfo,
     envs,
     idea,
+  });
+}
+
+export async function getExperimentIncrementalRefresh(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+
+  const incrementalRefresh =
+    await context.models.incrementalRefresh.getByExperimentId(id);
+
+  return res.status(200).json({
+    status: 200,
+    incrementalRefresh: incrementalRefresh || null,
   });
 }
 
@@ -1321,10 +1346,17 @@ export async function postExperiment(
     }
   }
   // Validate that specified metrics exist and belong to the organization
-  const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
-  const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
-    (m) => !oldMetricIds.includes(m),
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const oldMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    allMetricGroups,
   );
+  const newMetricIds = getAllMetricIdsFromExperiment(
+    data,
+    false,
+    allMetricGroups,
+  ).filter((m) => !oldMetricIds.includes(m));
 
   const metricMap = await getMetricMap(context);
 
@@ -2781,7 +2813,8 @@ export async function createExperimentSnapshot({
   snapshot: ExperimentSnapshotInterface;
   queryRunner:
     | ExperimentResultsQueryRunner
-    | ExperimentIncrementalRefreshQueryRunner;
+    | ExperimentIncrementalRefreshQueryRunner
+    | ExperimentIncrementalRefreshExploratoryQueryRunner;
 }> {
   const snapshotType =
     type ??
