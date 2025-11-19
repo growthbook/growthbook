@@ -1,6 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { TagInterface } from "back-end/types/tag";
+import { Environment } from "back-end/types/organization";
+import { SavedGroupInterface } from "shared/src/types";
 
 // beginregion Import Types
 
@@ -15,10 +17,14 @@ export type BaseImportStatus = {
   key: string;
   status: ImportStatus;
   error?: string;
+  hasChanges?: boolean; // True if there are differences between existing and transformed
+  transformedData?: string; // JSON string of transformed entity (for diff display - right column)
+  existingData?: string; // JSON string of existing entity (for diff display - left column)
 };
 
 export type EnvironmentImport = BaseImportStatus & {
   environment?: StatsigEnvironment;
+  existingEnvironment?: Environment;
 };
 
 export type FeatureGateImport = BaseImportStatus & {
@@ -51,10 +57,20 @@ export type ExperimentImport = BaseImportStatus & {
   >;
   existingExperiment?: ExperimentInterfaceStringDates;
   existingFeature?: FeatureInterface;
+  transformedExperiment?: Partial<ExperimentInterfaceStringDates>;
+  transformedFeature?: Omit<
+    FeatureInterface,
+    "organization" | "dateCreated" | "dateUpdated" | "version"
+  >;
 };
 
 export type SegmentImport = BaseImportStatus & {
   segment?: StatsigSavedGroup;
+  existingSavedGroup?: SavedGroupInterface;
+  transformedSavedGroup?: Omit<
+    SavedGroupInterface,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  >;
 };
 
 export type MetricImport = BaseImportStatus & {
@@ -65,6 +81,7 @@ export type TagImport = BaseImportStatus & {
   tag?: StatsigTag;
   gbTag?: TagInterface;
   existingTag?: TagInterface;
+  transformedTag?: TagInterface;
 };
 
 export type StatsigTag = {

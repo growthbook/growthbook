@@ -1,7 +1,9 @@
 import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Environment } from "back-end/types/organization";
 import { SavedGroupInterface } from "shared/src/types";
 import { TagInterface } from "back-end/types/tag";
+import { ProjectInterface } from "back-end/types/project";
 import { cloneDeep } from "lodash";
 import { ApiCallType } from "@/services/auth";
 import {
@@ -21,19 +23,35 @@ import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTr
 import { transformStatsigFeatureGateToGB } from "./transformers/featureTransformer";
 import { transformStatsigExperimentToGB } from "./transformers/experimentTransformer";
 import { transformStatsigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
+import { transformPayloadForDiffDisplay } from "./util";
 
 // Options interfaces for function parameters
 export interface BuildImportedDataOptions {
   apiKey: string;
   intervalCap: number;
   features: FeatureInterface[];
-  existingEnvironments: Set<string>;
-  existingSavedGroups: Set<string>;
-  existingTags: Set<string>;
-  existingExperiments: Set<string>;
+  existingEnvironments: Map<string, Environment>;
+  existingSavedGroups: Map<string, SavedGroupInterface>;
+  existingTags: Map<string, TagInterface>;
+  existingExperiments: Map<string, ExperimentInterfaceStringDates>;
   callback: (data: ImportData) => void;
   skipAttributeMapping?: boolean;
   useBackendProxy?: boolean;
+  project?: string;
+  projects?: ProjectInterface[];
+  existingAttributeSchema?: Array<{
+    property: string;
+    datatype:
+      | "string"
+      | "number"
+      | "boolean"
+      | "enum"
+      | "secureString"
+      | "string[]"
+      | "number[]"
+      | "secureString[]";
+    archived?: boolean;
+  }>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall?: ApiCallType<any>;
 }
@@ -74,6 +92,7 @@ export interface RunImportOptions {
   };
   skipAttributeMapping?: boolean;
   existingSavedGroups?: SavedGroupInterface[];
+  existingExperiments?: ExperimentInterfaceStringDates[];
 }
 
 /**
@@ -481,7 +500,18 @@ export async function buildImportedData(
     callback,
     useBackendProxy = false,
     apiCall,
+    project,
+    projects = [],
+    skipAttributeMapping = false,
+    existingAttributeSchema = [],
   } = options;
+
+  // Create mapping from Statsig project name to GrowthBook project ID
+  // Statsig uses project names (which they call "id") while GrowthBook uses internal IDs
+  const projectNameToIdMap = new Map<string, string>();
+  projects.forEach((p) => {
+    projectNameToIdMap.set(p.name, p.id);
+  });
   const data: ImportData = {
     status: "fetching",
     environments: [],
@@ -524,26 +554,25 @@ export async function buildImportedData(
         entities.environments.data.forEach((environment) => {
           const env = environment as StatsigEnvironment;
           const envKey = env.name || env.id;
+          const existingEnv = existingEnvironments.get(envKey);
           data.environments?.push({
             key: envKey,
-            status: existingEnvironments.has(envKey) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - will use PUT if exists, POST if new
             environment: env,
-            error: existingEnvironments.has(envKey)
-              ? "Environment already exists"
-              : undefined,
+            existingEnvironment: existingEnv,
           });
         });
 
         // Process segments
         entities.segments.data.forEach((segment) => {
           const seg = segment as StatsigSavedGroup;
+          // Match by groupName (which is set to Statsig segment id in transformer)
+          const existingSavedGroup = existingSavedGroups.get(seg.id);
           data.segments?.push({
             key: seg.id,
-            status: existingSavedGroups.has(seg.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - will use PUT if exists, POST if new
             segment: seg,
-            error: existingSavedGroups.has(seg.id)
-              ? "Saved group already exists"
-              : undefined,
+            existingSavedGroup: existingSavedGroup,
           });
         });
 
@@ -551,13 +580,12 @@ export async function buildImportedData(
         featuresMap = new Map(features.map((f) => [f.id, f]));
         entities.featureGates.data.forEach((gate) => {
           const fg = gate as StatsigFeatureGate;
+          const existingFeature = featuresMap.get(fg.id);
           data.featureGates?.push({
             key: fg.id, // Use ID instead of name for uniqueness
-            status: featuresMap.has(fg.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - sync endpoint handles both
             featureGate: fg,
-            error: featuresMap.has(fg.id)
-              ? "Feature already exists"
-              : undefined,
+            existing: existingFeature, // Store existing feature for reference
           });
         });
 
@@ -570,35 +598,35 @@ export async function buildImportedData(
 
           data.dynamicConfigs?.push({
             key: featureKey, // Use ID instead of name for uniqueness
-            status: featuresMap.has(dc.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - sync endpoint handles both
             dynamicConfig: dc,
-            error: featuresMap.has(dc.id)
-              ? "Feature already exists"
-              : undefined,
+            existing: existingFeature, // Store existing feature for reference
           });
         });
 
         // Process experiments
         entities.experiments.data.forEach((experiment) => {
           const exp = experiment as StatsigExperiment;
+          // Match by trackingKey (which is set to Statsig experiment id in transformer)
+          const existingExperiment = existingExperiments.get(exp.id);
           data.experiments?.push({
             key: exp.name,
-            status: existingExperiments.has(exp.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - will use PUT if exists, POST if new
             experiment: exp,
-            error: existingExperiments.has(exp.id)
-              ? "Experiment already exists"
-              : undefined,
+            existingExperiment: existingExperiment,
           });
         });
 
         // Process tags
         entities.tags.data.forEach((tag) => {
           const t = tag as StatsigTag;
+          // Match by tag id (which is set to Statsig tag name)
+          const existingTag = existingTags.get(t.name);
           data.tags?.push({
             key: t.name, // Use name as key since that's what becomes the GB tag ID
-            status: existingTags.has(t.name) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - POST endpoint handles both
             tag: t,
-            error: existingTags.has(t.name) ? "Tag already exists" : undefined,
+            existingTag: existingTag,
           });
         });
 
@@ -619,6 +647,500 @@ export async function buildImportedData(
     });
 
     await queue.onIdle();
+
+    // Phase 2: Transform entities and detect changes
+    if (apiCall && existingAttributeSchema) {
+      try {
+        // Build savedGroupIdMap from existing saved groups
+        const savedGroupIdMap = new Map<string, string>();
+        existingSavedGroups.forEach((sg) => {
+          savedGroupIdMap.set(sg.groupName, sg.id);
+        });
+
+        // Get available environments
+        const availableEnvironments = Array.from(existingEnvironments.keys());
+
+        // Transform and compare environments
+        if (data.environments) {
+          for (const envImport of data.environments) {
+            if (envImport.environment) {
+              try {
+                // Transform new data
+                const transformed = {
+                  id: envImport.environment.name || envImport.environment.id,
+                  description:
+                    envImport.environment.name || envImport.environment.id,
+                };
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (envImport.existingEnvironment) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    envImport.existingEnvironment as Record<string, unknown>,
+                    "environment",
+                  );
+                  envImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "environment",
+                    projectNameToIdMap,
+                  );
+                  envImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  envImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed,
+                    "environment",
+                    projectNameToIdMap,
+                  );
+                  envImport.hasChanges = false;
+                  envImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform environment ${envImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare segments
+        if (data.segments) {
+          for (const segmentImport of data.segments) {
+            if (segmentImport.segment) {
+              try {
+                const transformed = await transformStatsigSegmentToSavedGroup(
+                  segmentImport.segment,
+                  existingAttributeSchema,
+                  apiCall,
+                  project,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                );
+                segmentImport.transformedSavedGroup = transformed;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (segmentImport.existingSavedGroup) {
+                  // Prepare existing data (scrubbed and sorted)
+                  // Note: existing data should already have GrowthBook project IDs,
+                  // but we pass projectNameToIdMap for consistency in case it has names
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    segmentImport.existingSavedGroup as unknown as Record<
+                      string,
+                      unknown
+                    >,
+                    "segment",
+                    projectNameToIdMap,
+                  );
+                  segmentImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  // Transformed data has Statsig project names that need mapping to GrowthBook IDs
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "segment",
+                    projectNameToIdMap,
+                  );
+                  segmentImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  segmentImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "segment",
+                    projectNameToIdMap,
+                  );
+                  segmentImport.hasChanges = false;
+                  segmentImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform segment ${segmentImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare feature gates
+        if (data.featureGates) {
+          for (const gateImport of data.featureGates) {
+            if (gateImport.featureGate) {
+              try {
+                const transformed = transformStatsigFeatureGateToGB(
+                  gateImport.featureGate,
+                  availableEnvironments,
+                  existingAttributeSchema,
+                  apiCall,
+                  "featureGate",
+                  project,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                );
+                gateImport.feature = transformed;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (gateImport.existing) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    gateImport.existing as Record<string, unknown>,
+                    "feature",
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  // Filter existing environmentSettings to only include environments that exist in transformed
+                  if (
+                    "environmentSettings" in existingForDiff &&
+                    "environmentSettings" in transformedForDiff &&
+                    typeof existingForDiff.environmentSettings === "object" &&
+                    typeof transformedForDiff.environmentSettings ===
+                      "object" &&
+                    existingForDiff.environmentSettings !== null &&
+                    transformedForDiff.environmentSettings !== null
+                  ) {
+                    const existingEnvSettings =
+                      existingForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvSettings =
+                      transformedForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvKeys = new Set(
+                      Object.keys(transformedEnvSettings),
+                    );
+                    const filteredExistingEnvSettings: Record<string, unknown> =
+                      {};
+                    for (const key of Object.keys(existingEnvSettings)) {
+                      if (transformedEnvKeys.has(key)) {
+                        filteredExistingEnvSettings[key] =
+                          existingEnvSettings[key];
+                      }
+                    }
+                    existingForDiff.environmentSettings =
+                      filteredExistingEnvSettings;
+                  }
+                  gateImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+                  gateImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  gateImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  gateImport.hasChanges = false;
+                  gateImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform feature gate ${gateImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare dynamic configs
+        if (data.dynamicConfigs) {
+          for (const configImport of data.dynamicConfigs) {
+            if (configImport.dynamicConfig) {
+              try {
+                const transformed = transformStatsigFeatureGateToGB(
+                  configImport.dynamicConfig,
+                  availableEnvironments,
+                  existingAttributeSchema,
+                  apiCall,
+                  "dynamicConfig",
+                  project,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                );
+                configImport.feature = transformed;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (configImport.existing) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    configImport.existing as Record<string, unknown>,
+                    "feature",
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  // Filter existing environmentSettings to only include environments that exist in transformed
+                  if (
+                    "environmentSettings" in existingForDiff &&
+                    "environmentSettings" in transformedForDiff &&
+                    typeof existingForDiff.environmentSettings === "object" &&
+                    typeof transformedForDiff.environmentSettings ===
+                      "object" &&
+                    existingForDiff.environmentSettings !== null &&
+                    transformedForDiff.environmentSettings !== null
+                  ) {
+                    const existingEnvSettings =
+                      existingForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvSettings =
+                      transformedForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvKeys = new Set(
+                      Object.keys(transformedEnvSettings),
+                    );
+                    const filteredExistingEnvSettings: Record<string, unknown> =
+                      {};
+                    for (const key of Object.keys(existingEnvSettings)) {
+                      if (transformedEnvKeys.has(key)) {
+                        filteredExistingEnvSettings[key] =
+                          existingEnvSettings[key];
+                      }
+                    }
+                    existingForDiff.environmentSettings =
+                      filteredExistingEnvSettings;
+                  }
+                  configImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+                  configImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  configImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  configImport.hasChanges = false;
+                  configImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform dynamic config ${configImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare experiments
+        if (data.experiments) {
+          for (const expImport of data.experiments) {
+            if (expImport.experiment) {
+              try {
+                const transformedExp = transformStatsigExperimentToGB(
+                  expImport.experiment,
+                  availableEnvironments,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                );
+                // Set project from the top-level input form's project field
+                transformedExp.project = project || "";
+                expImport.transformedExperiment = transformedExp;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (expImport.existingExperiment) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    expImport.existingExperiment as Record<string, unknown>,
+                    "experiment",
+                  );
+                  expImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformedExp as Record<string, unknown>,
+                    "experiment",
+                    projectNameToIdMap,
+                  );
+                  expImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  // Use JSON.stringify for comparison to handle floating point precision and object reference differences
+                  const existingJsonStr = JSON.stringify(existingForDiff);
+                  const transformedJsonStr = JSON.stringify(transformedForDiff);
+                  expImport.hasChanges = existingJsonStr !== transformedJsonStr;
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformedExp as Record<string, unknown>,
+                    "experiment",
+                    projectNameToIdMap,
+                  );
+                  expImport.hasChanges = false;
+                  expImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform experiment ${expImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare tags
+        if (data.tags) {
+          for (const tagImport of data.tags) {
+            if (tagImport.tag) {
+              const transformed: TagInterface = {
+                id: tagImport.tag.name,
+                description: tagImport.tag.description || "",
+                color: tagImport.tag.isCore ? "purple" : "blue",
+              };
+              tagImport.transformedTag = transformed;
+
+              // Pre-transform and prepare both existing and new for diff display
+              if (tagImport.existingTag) {
+                // Prepare existing data (scrubbed and sorted)
+                const existingForDiff = transformPayloadForDiffDisplay(
+                  tagImport.existingTag as unknown as Record<string, unknown>,
+                  "tag",
+                );
+                tagImport.existingData = JSON.stringify(
+                  existingForDiff,
+                  null,
+                  2,
+                );
+
+                // Prepare transformed data (scrubbed and sorted)
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "tag",
+                  projectNameToIdMap,
+                );
+                tagImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+
+                // Compare for hasChanges
+                tagImport.hasChanges =
+                  JSON.stringify(existingForDiff) !==
+                  JSON.stringify(transformedForDiff);
+              } else {
+                // New item - only prepare transformed data
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "tag",
+                  projectNameToIdMap,
+                );
+                tagImport.hasChanges = false;
+                tagImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+              }
+            }
+          }
+        }
+
+        update();
+      } catch (e) {
+        console.warn("Error transforming entities for preview:", e);
+      }
+    }
+
     timer && clearTimeout(timer);
     data.status = "ready";
     callback(data);
@@ -650,6 +1172,7 @@ export async function runImport(options: RunImportOptions) {
     itemEnabled,
     skipAttributeMapping,
     existingSavedGroups,
+    existingExperiments,
   } = options;
   // We will mutate this shared object and sync it back to the component periodically
   const data = cloneDeep(originalData);
@@ -670,10 +1193,25 @@ export async function runImport(options: RunImportOptions) {
   // Map to track StatSig segment names to GrowthBook saved group IDs
   const savedGroupIdMap = new Map<string, string>();
 
-  // Build mapping from existing saved group names to IDs
+  // Build mapping from existing saved group names to IDs and objects
+  const existingSavedGroupsMap = new Map<string, SavedGroupInterface>();
   if (existingSavedGroups) {
     existingSavedGroups.forEach((sg: SavedGroupInterface) => {
       savedGroupIdMap.set(sg.groupName, sg.id);
+      existingSavedGroupsMap.set(sg.groupName, sg);
+    });
+  }
+
+  // Build mapping from existing experiments by trackingKey
+  const existingExperimentsMap = new Map<
+    string,
+    ExperimentInterfaceStringDates
+  >();
+  if (existingExperiments) {
+    existingExperiments.forEach((exp: ExperimentInterfaceStringDates) => {
+      if (exp.trackingKey) {
+        existingExperimentsMap.set(exp.trackingKey, exp);
+      }
     });
   }
 
@@ -793,16 +1331,41 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
           );
 
-          const res: { savedGroup: SavedGroupInterface } = await apiCall(
-            "/saved-groups",
-            {
+          // Check if saved group already exists (by groupName)
+          const existingSavedGroup = existingSavedGroupsMap.get(
+            savedGroupData.groupName,
+          );
+          const isUpdate = !!existingSavedGroup;
+
+          let res: { savedGroup: SavedGroupInterface };
+          if (isUpdate) {
+            // Use PUT to update existing saved group
+            const putRes = await apiCall(
+              `/saved-groups/${existingSavedGroup.id}`,
+              {
+                method: "PUT",
+                body: JSON.stringify(savedGroupData),
+              },
+            );
+            // PUT returns { status: 200 } or { savedGroup: ... }, handle both
+            if (putRes.savedGroup) {
+              res = putRes as { savedGroup: SavedGroupInterface };
+            } else {
+              // If PUT doesn't return the saved group, fetch it or use existing
+              // For now, use the existing one (API may not return the updated object)
+              res = { savedGroup: existingSavedGroup };
+            }
+          } else {
+            // Use POST to create new saved group
+            res = await apiCall("/saved-groups", {
               method: "POST",
               body: JSON.stringify(savedGroupData),
-            },
-          );
+            });
+          }
 
           segment.status = "completed";
           segment.segment = res.savedGroup as unknown as StatsigSavedGroup;
+          segment.existingSavedGroup = existingSavedGroup;
 
           // Map Statsig segment name to GrowthBook saved group ID
           savedGroupIdMap.set(seg.id, res.savedGroup.id);
@@ -923,7 +1486,7 @@ export async function runImport(options: RunImportOptions) {
       shouldImportItem("experiments", index, experiment)
     ) {
       queue.add(async () => {
-        let featureId: string | null = null;
+        const featureId: string | null = null;
         try {
           const exp = experiment.experiment as StatsigExperiment;
           if (!exp) {
@@ -949,22 +1512,46 @@ export async function runImport(options: RunImportOptions) {
           transformedExperiment.datasource = datasource || "";
           transformedExperiment.exposureQueryId = exposureQueryId || "";
 
-          // Create the experiment first
-          const experimentRes = await apiCall(`/experiments`, {
-            method: "POST",
-            body: JSON.stringify(transformedExperiment),
-          });
+          // Check if experiment already exists (by trackingKey)
+          const existingExperiment = transformedExperiment.trackingKey
+            ? existingExperimentsMap.get(transformedExperiment.trackingKey)
+            : undefined;
+          const isUpdate = !!existingExperiment;
+
+          // Create or update the experiment
+          let experimentRes: { experiment: ExperimentInterfaceStringDates };
+          if (isUpdate && existingExperiment) {
+            // Use POST to update existing experiment (POST /experiments/:id)
+            experimentRes = await apiCall(
+              `/experiments/${existingExperiment.id}`,
+              {
+                method: "POST",
+                body: JSON.stringify(transformedExperiment),
+              },
+            );
+          } else {
+            // Use POST to create new experiment
+            experimentRes = await apiCall(`/experiments`, {
+              method: "POST",
+              body: JSON.stringify(transformedExperiment),
+            });
+          }
 
           // Check if experiment creation was successful
           if (
             !experimentRes ||
             (typeof experimentRes === "object" &&
               "status" in experimentRes &&
+              typeof experimentRes.status === "number" &&
               experimentRes.status >= 400)
           ) {
-            throw new Error(
-              `Experiment creation failed: ${experimentRes?.message || "Unknown error"}`,
-            );
+            const errorMessage =
+              typeof experimentRes === "object" &&
+              "message" in experimentRes &&
+              typeof experimentRes.message === "string"
+                ? experimentRes.message
+                : "Unknown error";
+            throw new Error(`Experiment creation failed: ${errorMessage}`);
           }
 
           // Create the companion feature
@@ -983,11 +1570,46 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
           );
 
-          // Check for duplicate feature ID and add prefix if needed
-          const existingFeature = featuresMap.get(transformedFeature.id);
-          featureId = existingFeature
-            ? `exp_${transformedFeature.id}`
-            : transformedFeature.id;
+          // For updates, check if there's an existing companion feature linked to the experiment
+          let featureId = transformedFeature.id;
+          let existingCompanionFeature: FeatureInterface | undefined;
+
+          if (
+            existingExperiment?.linkedFeatures &&
+            existingExperiment.linkedFeatures.length > 0
+          ) {
+            // Find the companion feature by checking if it references this experiment
+            // The companion feature should have experiment-ref rules pointing to this experiment
+            const linkedFeatureIds = existingExperiment.linkedFeatures;
+            for (const linkedFeatureId of linkedFeatureIds) {
+              const linkedFeature = featuresMap.get(linkedFeatureId);
+              if (linkedFeature) {
+                // Check if this feature has experiment-ref rules for this experiment
+                const hasExperimentRef = Object.values(
+                  linkedFeature.environmentSettings || {},
+                ).some((envSettings) =>
+                  envSettings.rules?.some(
+                    (rule) =>
+                      rule.type === "experiment-ref" &&
+                      rule.experimentId === existingExperiment.id,
+                  ),
+                );
+                if (hasExperimentRef) {
+                  existingCompanionFeature = linkedFeature;
+                  featureId = linkedFeature.id;
+                  break;
+                }
+              }
+            }
+          }
+
+          // If no existing companion feature found, check for ID conflicts
+          if (!existingCompanionFeature) {
+            const existingFeature = featuresMap.get(transformedFeature.id);
+            featureId = existingFeature
+              ? `exp_${transformedFeature.id}`
+              : transformedFeature.id;
+          }
 
           const featureRes: { feature: FeatureInterface } = await apiCall(
             `/feature/${featureId}/sync`,
@@ -1000,8 +1622,9 @@ export async function runImport(options: RunImportOptions) {
           experiment.status = "completed";
           experiment.gbExperiment = experimentRes.experiment;
           experiment.gbFeature = featureRes.feature;
-          experiment.existingExperiment = experimentRes.experiment;
-          experiment.existingFeature = featureRes.feature;
+          experiment.existingExperiment = existingExperiment;
+          experiment.existingFeature =
+            existingCompanionFeature || featureRes.feature;
         } catch (e) {
           console.warn("import experiment error", e);
           experiment.status = "failed";
@@ -1040,7 +1663,7 @@ export async function runImport(options: RunImportOptions) {
             throw new Error("No tag data available");
           }
 
-          // Create new tag
+          // Create or update tag (POST endpoint handles upserts automatically)
           const tagPayload = {
             id: tag.name,
             description: tag.description || "",
