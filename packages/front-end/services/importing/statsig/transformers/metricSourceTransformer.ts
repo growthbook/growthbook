@@ -23,7 +23,7 @@ export async function transformStatsigMetricSourceToFactTable(
 
   const additionalColumnsToSelect: string[] = [];
 
-  // We don't support custom timestamp column names right now
+  // Custom timestamp column name needs an alias
   if (
     metricSource.timestampColumn &&
     metricSource.timestampColumn !== "timestamp"
@@ -32,7 +32,8 @@ export async function transformStatsigMetricSourceToFactTable(
       `${metricSource.timestampColumn} AS timestamp`,
     );
   }
-  // We don't support computed fields right now
+
+  // Materialize all computed fields
   if (metricSource.columnFieldMapping) {
     metricSource.columnFieldMapping.forEach((mapping) => {
       additionalColumnsToSelect.push(`(${mapping.formula}) AS ${mapping.key}`);
@@ -40,9 +41,11 @@ export async function transformStatsigMetricSourceToFactTable(
   }
 
   if (additionalColumnsToSelect.length > 0) {
-    // Wrap in a subquery so we can alias the timestamp column to "timestamp"
+    // Wrap in a subquery if we need to select additional columns
     sql = `SELECT *, ${additionalColumnsToSelect.join(", ")}\nFROM (\n${sql}\n) AS subquery`;
   }
+
+  // TODO: use datePartitionColumn to add WHERE clause for optimization
 
   return {
     name: metricSource.name,

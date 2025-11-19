@@ -31,7 +31,11 @@ import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTr
 import { transformStatsigFeatureGateToGB } from "./transformers/featureTransformer";
 import { transformStatsigExperimentToGB } from "./transformers/experimentTransformer";
 import { transformStatsigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
-import { transformPayloadForDiffDisplay } from "./util";
+import {
+  DUMMY_STATSIG_METRIC_SOURCES,
+  DUMMY_STATSIG_METRICS,
+  transformPayloadForDiffDisplay,
+} from "./util";
 
 // Options interfaces for function parameters
 export interface BuildImportedDataOptions {
@@ -117,6 +121,19 @@ async function getFromStatsig<ResType>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall?: ApiCallType<any>,
 ): Promise<ResType> {
+  // Hard-coded metrics for testing
+  if (location.search.includes("dummyMetrics")) {
+    if (endpoint.startsWith("metrics/metric_source/list")) {
+      return {
+        data: DUMMY_STATSIG_METRIC_SOURCES,
+      } as ResType;
+    } else if (endpoint.startsWith("metrics/list")) {
+      return {
+        data: DUMMY_STATSIG_METRICS,
+      } as ResType;
+    }
+  }
+
   if (useBackendProxy && apiCall) {
     // Use backend proxy
     const response = await apiCall("/importing/statsig", {

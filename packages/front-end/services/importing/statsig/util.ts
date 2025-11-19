@@ -1,6 +1,10 @@
 import { omit } from "lodash";
 import { FeatureInterface } from "back-end/types/feature";
 import { SavedGroupInterface } from "shared/src/types";
+import {
+  StatsigMetric,
+  StatsigMetricSource,
+} from "@/services/importing/statsig/types";
 
 /**
  * Transform payload for diff display
@@ -248,3 +252,54 @@ export function transformPayloadForDiffDisplay(
 
   return transformed;
 }
+
+export const DUMMY_STATSIG_METRIC_SOURCES: StatsigMetricSource[] = [
+  {
+    name: "DummyMetricSource",
+    description: "A dummy Statsig metric source for testing",
+    sql: "SELECT * FROM dummy_table",
+    idTypeMapping: [
+      {
+        statsigUnitID: "UserID",
+        column: "user_id",
+      },
+    ],
+    tags: ["test"],
+    owner: {
+      ownerName: "Test Owner",
+      ownerEmail: "test@example.com",
+      ownerID: "123",
+      ownerType: "user",
+    },
+    timestampColumn: "event_timestamp",
+  },
+];
+
+export const DUMMY_STATSIG_METRICS: StatsigMetric[] = [
+  {
+    id: "metric_dummy",
+    name: "Dummy Metric",
+    description: "A dummy Statsig metric for testing",
+    directionality: "increase",
+    lineage: {
+      events: [],
+      metrics: [],
+    },
+    type: "user_warehouse",
+    isVerified: false,
+    isReadOnly: false,
+    warehouseNative: {
+      aggregation: "sum",
+      criteria: [
+        {
+          type: "metadata",
+          condition: "in",
+          column: "event_name",
+          value: ["dummy_event"],
+        },
+      ],
+      metricSourceName: "DummyMetricSource",
+      valueColumn: "event_value",
+    },
+  },
+];

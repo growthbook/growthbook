@@ -79,6 +79,7 @@ export async function transformStatsigMetricToMetric(
   };
 
   // TODO: how are proportion metrics represented in Statsig?
+  // TODO: support thresholds for proportion metrics
 
   if (data.aggregation === "sum") {
     metricType = "mean";
@@ -179,6 +180,9 @@ export async function transformStatsigMetricToMetric(
 
     // TODO: reject if denominator has separate winsorization settings
     // TODO: reject if using winsorizationLow (not supported)
+  } else if (data.cap) {
+    cappingSettings.type = "absolute";
+    cappingSettings.value = data.cap;
   }
 
   return {
@@ -216,6 +220,7 @@ export async function transformStatsigMetricToMetric(
     targetMDE: 0,
     displayAsPercentage: false,
     windowSettings,
+    metricAutoSlices: data.metricDimensionColumns || [],
   };
 }
 
