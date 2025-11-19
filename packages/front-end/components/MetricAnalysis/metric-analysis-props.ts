@@ -30,5 +30,7 @@ export function getMetricAnalysisProps({
     populationType: values.populationType,
     populationId: values.populationId ?? null,
     source: source ?? "metric",
+    additionalNumeratorFilters: [],
+    additionalDenominatorFilters: [],
   };
 }
