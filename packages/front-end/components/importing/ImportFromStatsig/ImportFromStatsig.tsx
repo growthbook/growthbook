@@ -90,8 +90,7 @@ function ImportStatusDisplay({
       <Tooltip
         body={
           <div>
-            <strong>skip</strong>{" "}
-            {data.error ? <>: {data.error}</> : null}
+            <strong>skip</strong> {data.error ? <>: {data.error}</> : null}
           </div>
         }
       >
@@ -118,13 +117,14 @@ function ImportStatusDisplay({
             : "failed to create"
           : data.status;
 
-  const color = data.status === "failed" || data.status === "invalid"
-    ? "danger"
-    : data.status === "completed"
-      ? "success"
-      : data.status === "skipped"
-        ? "secondary"
-        : "info";
+  const color =
+    data.status === "failed" || data.status === "invalid"
+      ? "danger"
+      : data.status === "completed"
+        ? "success"
+        : data.status === "skipped"
+          ? "secondary"
+          : "info";
 
   return (
     <Tooltip
