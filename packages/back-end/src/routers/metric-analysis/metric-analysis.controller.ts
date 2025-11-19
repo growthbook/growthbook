@@ -205,10 +205,7 @@ export async function getLatestMetricAnalysis(
     const metricAnalysis =
       await context.models.metricAnalysis.findLatestBySettings(
         req.params.metricid,
-        {
-          settings,
-          withHistogram: stringToBoolean(req.query.withHistogram),
-        },
+        { settings, withHistogram: stringToBoolean(req.query.withHistogram) },
       );
     res.status(200).json({
       status: 200,
