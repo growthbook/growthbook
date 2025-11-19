@@ -274,10 +274,6 @@ function DashboardEditor({
   const [editDashboard, setEditDashboard] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
-  const [shareLevel, setShareLevel] =
-    useState<DashboardShareLevel>(initialShareLevel);
-  const [editLevel, setEditLevel] =
-    useState<DashboardEditLevel>(initialEditLevel);
   const { apiCall } = useAuth();
   const { userId, getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -297,7 +293,7 @@ function DashboardEditor({
   });
   const canManageSharingAndEditLevels = canEdit && (isOwner || isAdmin);
 
-  if (editLevel === "private" && !isOwner && !isAdmin) {
+  if (initialEditLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
   const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
@@ -480,13 +476,11 @@ function DashboardEditor({
               editLevel: data.editLevel,
             }),
           });
-          setShareLevel(data.shareLevel);
-          setEditLevel(data.editLevel);
-          mutate?.();
+          await mutate();
         }}
         initialValues={{
-          shareLevel,
-          editLevel,
+          shareLevel: initialShareLevel,
+          editLevel: initialEditLevel,
         }}
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
@@ -510,17 +504,17 @@ function DashboardEditor({
             >
               <Flex align="center" gap="2">
                 {title}
-                {isGeneralDashboard && (
-                  <ShareStatusBadge
-                    shareLevel={
-                      shareLevel === "published" ? "organization" : "private"
-                    }
-                    editLevel={
-                      editLevel === "private" ? "private" : "organization"
-                    }
-                    isOwner={dashboardOwnerId === userId}
-                  />
-                )}
+                <ShareStatusBadge
+                  shareLevel={
+                    initialShareLevel === "published"
+                      ? "organization"
+                      : "private"
+                  }
+                  editLevel={
+                    initialEditLevel === "private" ? "private" : "organization"
+                  }
+                  isOwner={dashboardOwnerId === userId}
+                />
               </Flex>
             </Text>
           )}

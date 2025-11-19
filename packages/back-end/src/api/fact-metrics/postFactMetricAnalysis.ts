@@ -70,8 +70,8 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     populationId: populationId ?? null,
     metricAutoSlices: [],
     customMetricSlices: [],
-    additionalNumeratorFilters: additionalNumeratorFilters,
-    additionalDenominatorFilters: additionalDenominatorFilters,
+    additionalNumeratorFilters,
+    additionalDenominatorFilters,
   };
 
   // Create the metric analysis

@@ -247,8 +247,6 @@ export const CREATE_BLOCK_TYPE: {
       populationId: "",
       populationType: "factTable",
       userIdType: "",
-      metricAutoSlices: [],
-      customMetricSlices: [],
       additionalNumeratorFilters: undefined,
       additionalDenominatorFilters: undefined,
     },
