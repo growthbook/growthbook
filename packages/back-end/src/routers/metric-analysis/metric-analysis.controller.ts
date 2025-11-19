@@ -59,8 +59,8 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
-    metricAutoSlices: [],
-    customMetricSlices: [],
+    metricAutoSlices: data.metricAutoSlices,
+    customMetricSlices: data.customMetricSlices,
     additionalNumeratorFilters: data.additionalNumeratorFilters,
     additionalDenominatorFilters: data.additionalDenominatorFilters,
   };

@@ -50,6 +50,8 @@ export const createMetricAnalysisPropsValidator = z
     force: z.boolean().optional(),
     additionalNumeratorFilters: z.array(z.string()).optional(),
     additionalDenominatorFilters: z.array(z.string()).optional(),
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
   })
   .strict();
 
@@ -79,10 +81,36 @@ export const metricAnalysisResultValidator = z
           stddev: z.number().optional(),
           numerator: z.number().optional(),
           denominator: z.number().optional(),
+          slice: z.record(z.string(), z.string().nullable()).optional(), // Map of column -> value for slices
         }),
       )
       .optional(),
     histogram: metricAnalysisHistogramValidator.optional(),
+    slices: z
+      .array(
+        z.object({
+          slice: z.record(z.string(), z.string().nullable()), // Map of column -> value
+          units: z.number(),
+          mean: z.number(),
+          stddev: z.number().optional(),
+          numerator: z.number().optional(),
+          denominator: z.number().optional(),
+          dates: z
+            .array(
+              z.object({
+                date: z.date(),
+                units: z.number(),
+                mean: z.number(),
+                stddev: z.number().optional(),
+                numerator: z.number().optional(),
+                denominator: z.number().optional(),
+              }),
+            )
+            .optional(),
+          histogram: metricAnalysisHistogramValidator.optional(),
+        }),
+      )
+      .optional(),
   })
   .strict();
 

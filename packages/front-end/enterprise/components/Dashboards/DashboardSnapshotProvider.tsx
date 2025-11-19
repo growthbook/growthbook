@@ -476,6 +476,8 @@ export function useDashboardMetricAnalysis(
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
       source: "metric",
+      metricAutoSlices: block.analysisSettings.metricAutoSlices,
+      customMetricSlices: block.analysisSettings.customMetricSlices,
       additionalNumeratorFilters:
         block.analysisSettings.additionalNumeratorFilters,
       additionalDenominatorFilters:
@@ -523,8 +525,8 @@ export function useDashboardMetricAnalysis(
         // Exclude metricAutoSlices and customMetricSlices from comparison
         // These are stored in the block but don't trigger metric analysis regeneration
         //MKTODO: This is temporary until we actually implment building an analysis with slices
-        metricAutoSlices: [],
-        customMetricSlices: [],
+        metricAutoSlices: block.analysisSettings.metricAutoSlices ?? [],
+        customMetricSlices: block.analysisSettings.customMetricSlices ?? [],
       };
       const metricAnalysisSettings = {
         ...metricAnalysis.settings,
@@ -537,8 +539,8 @@ export function useDashboardMetricAnalysis(
           metricAnalysis.settings.additionalDenominatorFilters ?? [],
         // Exclude metricAutoSlices and customMetricSlices from comparison
         //MKTODO: This is temporary until we actually implment building an analysis with slices
-        metricAutoSlices: [],
-        customMetricSlices: [],
+        metricAutoSlices: metricAnalysis.settings.metricAutoSlices ?? [],
+        customMetricSlices: metricAnalysis.settings.customMetricSlices ?? [],
       };
       // Check if analysisSettings match (excluding slices)
       if (isEqual(blockSettings, metricAnalysisSettings)) {
