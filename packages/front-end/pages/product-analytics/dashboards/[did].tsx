@@ -65,6 +65,7 @@ function SingleDashboardPage() {
         editLevel?: DashboardInterface["editLevel"];
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+        userId?: string;
       };
     }) => {
       const res = (await apiCall(
@@ -78,6 +79,7 @@ function SingleDashboardPage() {
                   title: data.title,
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
+                  userId: data.userId,
                 }
               : data,
           ),

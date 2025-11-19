@@ -104,6 +104,7 @@ export async function createDashboard(
     title,
     blocks,
     projects,
+    userId,
   } = req.body;
 
   if (experimentId) {
@@ -125,7 +126,7 @@ export async function createDashboard(
     uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
     isDefault: false,
     isDeleted: false,
-    userId: context.userId,
+    userId: userId || context.userId,
     editLevel,
     shareLevel,
     enableAutoUpdates,

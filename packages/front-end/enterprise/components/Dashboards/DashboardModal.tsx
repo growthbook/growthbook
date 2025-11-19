@@ -135,8 +135,61 @@ export default function DashboardModal({
   const hasGeneralDashboardSharing = hasCommercialFeature(
     "share-product-analytics-dashboards",
   );
-  const generalDashboardEditPrivateOnly =
-    !hasGeneralDashboardSharing || form.watch("shareLevel") === "private";
+
+  const renderViewAccessSelector = ({
+    disabled,
+    helpText,
+  }: {
+    disabled?: boolean;
+    helpText?: string;
+  }) => (
+    <SelectField
+      label="View access"
+      disabled={disabled}
+      helpText={helpText}
+      options={[
+        { label: "Organization members", value: "published" },
+        {
+          label: form.watch("userId") === userId ? "Only me" : "Owner only",
+          value: "private",
+        },
+        // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+      ]}
+      value={form.watch("shareLevel")}
+      onChange={(value) => {
+        form.setValue("shareLevel", value as DashboardShareLevel);
+        if (value === "private") form.setValue("editLevel", "private");
+      }}
+    />
+  );
+
+  const renderEditAccessSelector = ({
+    disabled,
+    helpText,
+  }: {
+    disabled?: boolean;
+    helpText?: string;
+  }) => (
+    <SelectField
+      label="Edit access"
+      disabled={disabled || form.watch("shareLevel") === "private"}
+      helpText={helpText}
+      options={[
+        {
+          label: "Any organization members with editing permission",
+          value: "published",
+        },
+        {
+          label: form.watch("userId") === userId ? "Only me" : "Owner only",
+          value: "private",
+        },
+      ]}
+      value={form.watch("editLevel")}
+      onChange={(value) =>
+        form.setValue("editLevel", value as DashboardEditLevel)
+      }
+    />
+  );
 
   return (
     <Modal
@@ -286,108 +339,34 @@ export default function DashboardModal({
             )}
           </>
         )}
-        {mode === "create" || dashboardFirstSave ? (
-          // Creating a dashboard: show view access for general dashboards only, edit access for all
+        {mode === "create" || mode === "duplicate" || dashboardFirstSave ? (
           <>
-            {isGeneralDashboard && (
-              <>
-                <SelectField
-                  label="View access"
-                  disabled={!hasGeneralDashboardSharing}
-                  helpText={
-                    !hasGeneralDashboardSharing
-                      ? "Your organization's plan does not support sharing dashboards"
-                      : undefined
-                  }
-                  options={[
-                    { label: "Organization members", value: "published" },
-                    { label: "Only me", value: "private" },
-                    // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
-                  ]}
-                  value={form.watch("shareLevel")}
-                  onChange={(value) =>
-                    form.setValue("shareLevel", value as DashboardShareLevel)
-                  }
-                />
-              </>
-            )}
-            <SelectField
-              label="Edit access"
-              disabled={isGeneralDashboard && generalDashboardEditPrivateOnly}
-              helpText={
+            {renderViewAccessSelector({
+              disabled: isGeneralDashboard && !hasGeneralDashboardSharing,
+              helpText:
                 isGeneralDashboard && !hasGeneralDashboardSharing
                   ? "Your organization's plan does not support sharing dashboards"
-                  : undefined
-              }
-              options={[
-                {
-                  label: "Any organization members with editing permission",
-                  value: "published",
-                },
-                { label: "Only me", value: "private" },
-              ]}
-              value={form.watch("editLevel")}
-              onChange={(value) =>
-                form.setValue("editLevel", value as DashboardEditLevel)
-              }
-            />
+                  : undefined,
+            })}
+            {renderEditAccessSelector({
+              disabled: isGeneralDashboard && !hasGeneralDashboardSharing,
+              helpText:
+                isGeneralDashboard && !hasGeneralDashboardSharing
+                  ? "Your organization's plan does not support sharing dashboards"
+                  : undefined,
+            })}
           </>
         ) : mode === "edit" ? (
-          // Editing a dashboard: hide view and edit access for general dashboards, show edit access for experiment dashboards
+          // Editing a dashboard: hide sharing for general dashboards or if the user doesn't have permissions
           <>
-            {!isGeneralDashboard && (
-              <SelectField
-                label="Edit access"
-                disabled={!canManageSharingAndEditLevels}
-                options={[
-                  {
-                    label: "Any organization members with editing permission",
-                    value: "published",
-                  },
-                  { label: "Only me", value: "private" },
-                ]}
-                value={form.watch("editLevel")}
-                onChange={(value) =>
-                  form.setValue("editLevel", value as DashboardEditLevel)
-                }
-              />
+            {!isGeneralDashboard && canManageSharingAndEditLevels && (
+              <>
+                {renderViewAccessSelector({})}
+                {renderEditAccessSelector({})}
+              </>
             )}
           </>
-        ) : (
-          // Duplicating a dashboard: show view access for general dashboards only, edit access for all
-          <>
-            {isGeneralDashboard && (
-              <SelectField
-                label="View access"
-                disabled={!hasGeneralDashboardSharing}
-                options={[
-                  { label: "Organization members", value: "published" },
-                  { label: "Only me", value: "private" },
-                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
-                ]}
-                value={form.watch("shareLevel")}
-                onChange={(value) =>
-                  form.setValue("shareLevel", value as DashboardShareLevel)
-                }
-              />
-            )}
-            <SelectField
-              label="Edit access"
-              disabled={isGeneralDashboard && generalDashboardEditPrivateOnly}
-              options={[
-                {
-                  label: "Any organization members with editing permission",
-                  value: "published",
-                },
-                { label: "Only me", value: "private" },
-              ]}
-              value={form.watch("editLevel")}
-              onChange={(value) =>
-                form.setValue("editLevel", value as DashboardEditLevel)
-              }
-            />
-          </>
-        )}
+        ) : null}
       </Flex>
     </Modal>
   );
