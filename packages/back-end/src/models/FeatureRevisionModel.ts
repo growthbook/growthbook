@@ -274,7 +274,6 @@ export async function createRevision({
   comment,
   org,
   canBypassApprovalChecks,
-  skipValidation,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -286,7 +285,6 @@ export async function createRevision({
   comment?: string;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
-  skipValidation?: boolean;
 }) {
   // Get max version number
   const lastRevision = (
@@ -358,9 +356,10 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
-  if (!skipValidation) {
-    await runValidateFeatureRevisionHooks(context, feature, revision);
-  }
+  await runValidateFeatureRevisionHooks(context, feature, revision, {
+    feature,
+    revision: baseRevision,
+  });
 
   const doc = await FeatureRevisionModel.create(revision);
 
@@ -422,11 +421,19 @@ export async function updateRevision(
     status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(context, feature, {
-    ...revision,
-    ...changes,
-    status,
-  });
+  await runValidateFeatureRevisionHooks(
+    context,
+    feature,
+    {
+      ...revision,
+      ...changes,
+      status,
+    },
+    {
+      feature,
+      revision,
+    },
+  );
 
   await FeatureRevisionModel.updateOne(
     {
@@ -470,10 +477,18 @@ export async function markRevisionAsPublished(
     comment: revisionComment,
   };
 
-  await runValidateFeatureRevisionHooks(context, feature, {
-    ...revision,
-    ...changes,
-  });
+  await runValidateFeatureRevisionHooks(
+    context,
+    feature,
+    {
+      ...revision,
+      ...changes,
+    },
+    {
+      feature,
+      revision,
+    },
+  );
 
   await FeatureRevisionModel.updateOne(
     {

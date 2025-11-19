@@ -38,6 +38,14 @@ When creating a Custom Hook, there is a built-in test interface where you can tw
 
 We recommend making heavy use of `console.log` statements while developing your hooks. This can help you inspect variables and understand the flow of execution.
 
+### Incremental Changes
+
+There is an option for each Custom Hook called "Incremental Changes Only". This affects the behavior of the hook during update operations. If the same error was already present before the update, the hook will be skipped.
+
+This is especially useful for enforcing rules that may be difficult to fix retroactively. For example, if you require all features to have at least one tag, enabling this option will prevent users from being blocked by existing features that violate this rule when they attempt to make unrelated changes.
+
+There are also cases where you would NOT want to enable this option. For example, if you have a hook that prevents publishing changes to "locked" features, you would want this to run every time to ensure the lock is still in place.
+
 ## Hook Types
 
 GrowthBook supports a few different Custom Hooks. Each hook type is triggered at a different point in the validation process and has different input parameters.
