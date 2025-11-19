@@ -259,6 +259,7 @@ export async function postDataSources(
       datasource: getDataSourceWithParams(integration),
     });
   } catch (e) {
+    req.log.error(e, "Failed to create data source");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",
