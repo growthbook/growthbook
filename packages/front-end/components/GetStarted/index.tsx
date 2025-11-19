@@ -20,7 +20,7 @@ import {
   AnalyzeExperimentFeatureCard,
   ExperimentFeatureCard,
   FeatureFlagFeatureCard,
-  LaunchDarklyImportFeatureCard,
+  ImportFromOtherPlatformFeatureCard,
 } from "@/components/GetStarted/FeaturedCards";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
@@ -340,7 +340,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                   >
                     <FeatureFlagFeatureCard />
                     <ExperimentFeatureCard />
-                    <LaunchDarklyImportFeatureCard />
+                    <ImportFromOtherPlatformFeatureCard />
                     <AnalyzeExperimentFeatureCard />
                   </Grid>
 

@@ -49,9 +49,30 @@ export function ExperimentFeatureCard({ title = "Run an Experiment" }) {
   );
 }
 
-export function LaunchDarklyImportFeatureCard() {
+export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
+  return (
+    <CardLink href="/experiments">
+      <Flex direction="column" height="100%">
+        <Flex>
+          <Heading as="h2" size="4" weight="bold">
+            {title}
+          </Heading>
+          <ActionArrow />
+        </Flex>
+
+        <Text color="gray" mb="8">
+          Explore a demo experiment with sample data
+        </Text>
+
+        <Box mt="auto" mr="-9" className={styles.experimentImage} />
+      </Flex>
+    </CardLink>
+  );
+}
+
+export function ImportFromOtherPlatformFeatureCard() {
   const permissionsUtils = usePermissionsUtil();
-  const canImportLaunchDarkly =
+  const canImportFromPlatform =
     permissionsUtils.canViewFeatureModal() &&
     permissionsUtils.canCreateEnvironment({
       projects: [],
@@ -62,15 +83,15 @@ export function LaunchDarklyImportFeatureCard() {
   return (
     <Tooltip
       body={
-        canImportLaunchDarkly
+        canImportFromPlatform
           ? ""
           : "You do not have permission to complete this action"
       }
       usePortal={true}
     >
       <CardLink
-        href="/importing/launchdarkly"
-        disabled={!canImportLaunchDarkly}
+        href="/importing"
+        disabled={!canImportFromPlatform}
         compact={true}
       >
         <Flex direction="row" align="center" justify="center" height="100%">
@@ -88,7 +109,7 @@ export function LaunchDarklyImportFeatureCard() {
           </svg>
           <PiArrowFatLineRight className={styles.migrateArrowIcon} />
           <Text ml="2" weight="bold" size="4">
-            Migrate from LaunchDarkly
+            Migrate from another platform
           </Text>
           <ActionArrow />
         </Flex>
