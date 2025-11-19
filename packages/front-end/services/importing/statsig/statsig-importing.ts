@@ -656,26 +656,24 @@ export async function buildImportedData(
         // Process metrics
         entities.metrics.data.forEach((metric) => {
           const m = metric as StatsigMetric;
+          const existingMetric = existingMetrics.get(m.id);
           data.metrics?.push({
             key: m.id,
-            status: existingMetrics.has(m.id) ? "skipped" : "pending",
+            status: "pending",
             metric: m,
-            error: existingMetrics.has(m.id)
-              ? "Metric already exists"
-              : undefined,
+            existingMetric: existingMetric,
           });
         });
 
         // Process metric sources
         entities.metricSources.data.forEach((metricSource) => {
           const ms = metricSource as StatsigMetricSource;
+          const existingFactTable = existingFactTables.get(ms.name);
           data.metricSources?.push({
             key: ms.name,
-            status: existingFactTables.has(ms.name) ? "skipped" : "pending",
+            status: "pending",
             metricSource: ms,
-            error: existingFactTables.has(ms.name)
-              ? "Metric source already exists"
-              : undefined,
+            existingMetricSource: existingFactTable,
           });
         });
 
@@ -1750,7 +1748,6 @@ export async function runImport(options: RunImportOptions) {
             throw new Error("No metric source data available");
           }
 
-          // Create new fact table
           const factTablePayload =
             await transformStatsigMetricSourceToFactTable(
               metricSource,
@@ -1759,13 +1756,25 @@ export async function runImport(options: RunImportOptions) {
               datasource,
             );
 
-          const res = await apiCall("/fact-tables", {
-            method: "POST",
-            body: JSON.stringify(factTablePayload),
-          });
+          const existingMetricSource = metricSourceImport.existingMetricSource;
 
-          metricSourceIdMap.set(metricSource.name, res.factTable.id);
-
+          // Create new fact table
+          let id: string;
+          if (existingMetricSource) {
+            id = existingMetricSource.id;
+            // Update existing fact table
+            await apiCall(`/fact-tables/${existingMetricSource.id}`, {
+              method: "PUT",
+              body: JSON.stringify(factTablePayload),
+            });
+          } else {
+            const res = await apiCall("/fact-tables", {
+              method: "POST",
+              body: JSON.stringify(factTablePayload),
+            });
+            id = res.factTable.id;
+          }
+          metricSourceIdMap.set(metricSource.name, id);
           metricSourceImport.status = "completed";
         } catch (e) {
           metricSourceImport.status = "failed";
@@ -1789,7 +1798,6 @@ export async function runImport(options: RunImportOptions) {
             throw new Error("No metric data available");
           }
 
-          // Create new metric
           const metricPayload = await transformStatsigMetricToMetric(
             metric,
             apiCall,
@@ -1798,10 +1806,21 @@ export async function runImport(options: RunImportOptions) {
             datasource,
           );
 
-          await apiCall("/fact-metrics", {
-            method: "POST",
-            body: JSON.stringify(metricPayload),
-          });
+          const existingMetric = metricImport.existingMetric;
+
+          if (existingMetric) {
+            // Update existing metric
+            await apiCall(`/fact-metrics/${existingMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify(metricPayload),
+            });
+          } else {
+            // Create new metric
+            await apiCall("/fact-metrics", {
+              method: "POST",
+              body: JSON.stringify(metricPayload),
+            });
+          }
 
           metricImport.status = "completed";
         } catch (e) {

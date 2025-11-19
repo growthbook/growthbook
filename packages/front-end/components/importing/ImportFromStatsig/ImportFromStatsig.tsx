@@ -625,7 +625,14 @@ export default function ImportFromStatsig() {
   const { apiCall } = useAuth();
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
-  const { mutateDefinitions, savedGroups, tags, projects } = useDefinitions();
+  const {
+    mutateDefinitions,
+    savedGroups,
+    tags,
+    projects,
+    factTables,
+    factMetrics,
+  } = useDefinitions();
   const { experiments } = useExperiments();
   const environments = useEnvironments();
   const attributeSchema = useAttributeSchema();
@@ -644,6 +651,14 @@ export default function ImportFromStatsig() {
   const existingExperimentsMap = useMemo(
     () => new Map((experiments || []).map((e) => [e.trackingKey || "", e])),
     [experiments],
+  );
+  const existingFactTablesMap = useMemo(
+    () => new Map(factTables.map((ft) => [ft.name, ft])),
+    [factTables],
+  );
+  const existingMetricsMap = useMemo(
+    () => new Map(factMetrics.map((m) => [m.id, m])),
+    [factMetrics],
   );
 
   // Function to create or find project
@@ -795,6 +810,8 @@ export default function ImportFromStatsig() {
                     project: projectName || undefined,
                     projects,
                     existingAttributeSchema: attributeSchema,
+                    existingFactTables: existingFactTablesMap,
+                    existingMetrics: existingMetricsMap,
                   };
                   const featuresMap = await buildImportedData(buildOptions);
                   // Store featuresMap for use in runImport
@@ -837,6 +854,7 @@ export default function ImportFromStatsig() {
                   skipAttributeMapping,
                   existingSavedGroups: savedGroups,
                   existingExperiments: experiments || [],
+                  existingFactTables: factTables,
                 };
                 await runImport(runOptions);
                 mutateDefinitions();
@@ -1453,6 +1471,101 @@ export default function ImportFromStatsig() {
               </div>
             ) : null}
 
+            {data.metricSources ? (
+              <div className="appbox mb-4">
+                <ImportHeader
+                  name="Metric Sources"
+                  beta={true}
+                  items={data.metricSources}
+                  checkboxState={getCategoryCheckboxState(
+                    "metricSources",
+                    data.metricSources,
+                  )}
+                  onCategoryToggle={(enabled) =>
+                    toggleCategoryItems(
+                      "metricSources",
+                      data.metricSources,
+                      enabled,
+                    )
+                  }
+                />
+                <div className="p-3">
+                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                    <table className="gbtable table w-100">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 50 }}></th>
+                          <th style={{ width: 20 }}></th>
+                          <th style={{ width: 150 }}>Status</th>
+                          <th>Name</th>
+                          <th>Description</th>
+                          <th style={{ width: 40 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.metricSources?.map((metricSource, i) => {
+                          const entityId = `metricSource-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          const effectiveEnabled = getEffectiveCheckboxState(
+                            "metricSources",
+                            i,
+                            metricSource,
+                          );
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "metricSources",
+                                        i,
+                                        metricSource,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
+                                </td>
+                                <HasChangesIcon
+                                  hasChanges={metricSource.hasChanges}
+                                  entityId={entityId}
+                                  onToggle={toggleAccordion}
+                                />
+                                <td>
+                                  <ImportStatusDisplay
+                                    data={metricSource}
+                                    enabled={effectiveEnabled}
+                                  />
+                                </td>
+                                <td>{metricSource.metricSource?.name}</td>
+                                <td>
+                                  {metricSource.metricSource?.description}
+                                </td>
+                                <EntityAccordion
+                                  entity={metricSource.metricSource}
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent
+                                entity={metricSource.metricSource}
+                                isExpanded={isExpanded}
+                                importItem={metricSource}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {data.metrics ? (
               <div className="appbox mb-4">
                 <ImportHeader
@@ -1520,28 +1633,10 @@ export default function ImportFromStatsig() {
                                   />
                                 </td>
                                 <td>
-                                  {(
-                                    metric.metric as {
-                                      name?: string;
-                                      id?: string;
-                                    }
-                                  )?.name ||
-                                    (
-                                      metric.metric as {
-                                        name?: string;
-                                        id?: string;
-                                      }
-                                    )?.id}
+                                  {metric.metric?.name || metric.metric?.id}
                                 </td>
-                                <td>
-                                  {(metric.metric as { type?: string })?.type}
-                                </td>
-                                <td>
-                                  {
-                                    (metric.metric as { description?: string })
-                                      ?.description
-                                  }
-                                </td>
+                                <td>{metric.metric?.type}</td>
+                                <td>{metric.metric?.description}</td>
                                 <EntityAccordion
                                   entity={metric.metric}
                                   entityId={entityId}

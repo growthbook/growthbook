@@ -3,6 +3,12 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { TagInterface } from "back-end/types/tag";
 import { Environment } from "back-end/types/organization";
 import { SavedGroupInterface } from "shared/src/types";
+import {
+  CreateFactMetricProps,
+  CreateFactTableProps,
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
 
 // beginregion Import Types
 
@@ -75,10 +81,14 @@ export type SegmentImport = BaseImportStatus & {
 
 export type MetricImport = BaseImportStatus & {
   metric?: StatsigMetric;
+  existingMetric?: FactMetricInterface;
+  transformedMetric?: CreateFactMetricProps;
 };
 
 export type MetricSourceImport = BaseImportStatus & {
   metricSource?: StatsigMetricSource;
+  existingMetricSource?: FactTableInterface;
+  transformedMetricSource?: CreateFactTableProps;
 };
 
 export type TagImport = BaseImportStatus & {
