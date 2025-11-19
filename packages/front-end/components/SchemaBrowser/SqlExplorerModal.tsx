@@ -877,6 +877,7 @@ export default function SqlExplorerModal({
                                     ...dataVizConfig,
                                     {
                                       ...config,
+                                      id: undefined, // Generate a new ID once the request hits the backend
                                       title: `${
                                         config.title ||
                                         `Visualization ${index + 1}`
