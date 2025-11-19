@@ -118,13 +118,6 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     }
   }, [preferredTheme, systemTheme]);
 
-  useEffect(() => {
-    document.documentElement.classList.remove("light-theme", "dark-theme");
-    if (preferredTheme !== "system") {
-      document.documentElement.classList.add(`${preferredTheme}-theme`);
-    }
-  }, [preferredTheme]);
-
   const handleThemeChange = useCallback(
     (updated: PreferredAppearanceUITheme) => {
       setPreferredTheme(updated);
