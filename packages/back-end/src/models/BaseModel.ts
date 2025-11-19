@@ -798,6 +798,18 @@ export abstract class BaseModel<
         });
     }
 
+    // If schema uses uid, create a globally unique index
+    if ("uid" in this.config.schema.shape) {
+      this._dangerousGetCollection()
+        .createIndex({ uid: 1 }, { unique: true })
+        .catch((err) => {
+          logger.error(
+            err,
+            `Error creating uid unique index for ${this.config.collectionName}`,
+          );
+        });
+    }
+
     // Remove any explicitly defined indexes that are no longer needed
     const indexesToRemove = this.config.indexesToRemove;
     if (indexesToRemove) {
