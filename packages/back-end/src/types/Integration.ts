@@ -825,7 +825,10 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[],
   ): Promise<TestQueryResult>;
-  getMetricAnalysisQuery(params: MetricAnalysisParams): string;
+  getMetricAnalysisQuery(
+    metric: FactMetricInterface,
+    params: Omit<MetricAnalysisParams, "metric">,
+  ): string;
   runMetricAnalysisQuery(
     query: string,
     setExternalId: ExternalIdCallback,

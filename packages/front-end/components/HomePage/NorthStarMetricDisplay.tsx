@@ -160,6 +160,8 @@ const NorthStarMetricDisplay = ({
                         lookbackDays: analysisDays,
                         populationType: "factTable",
                         populationId: null,
+                        additionalNumeratorFilters: undefined,
+                        additionalDenominatorFilters: undefined,
                       },
                       endOfToday,
                       source: "northstar",

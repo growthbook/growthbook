@@ -217,7 +217,7 @@ rudderstack.getAnonymousId().then((anonymous_id) => {
     } else if (eventTracker === "snowplow") {
       attributesSnippets.push(
         <Box>
-          Snowplow requires an addition step to add the ID attribute from
+          Snowplow requires an additional step to add the ID attribute from
           Snowplow
           <Code
             language="javascript"

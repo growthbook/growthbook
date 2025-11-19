@@ -6,11 +6,12 @@ import {
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
-import React, { useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { amber } from "@radix-ui/colors";
 import Button from "@/ui/Button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Modal from "@/components/Modal";
 
 type AllowedChildren = string | React.ReactNode;
 
@@ -105,6 +106,13 @@ type DropdownItemProps = {
   onClick?: (event: Event) => Promise<void> | void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
+  confirmation?: {
+    submit: () => Promise<void> | void;
+    getConfirmationContent?: () => Promise<string | ReactElement | null>;
+    confirmationTitle: string | ReactElement;
+    cta: string;
+    submitColor?: string;
+  };
 } & MarginProps;
 
 export function DropdownMenuItem({
@@ -113,51 +121,85 @@ export function DropdownMenuItem({
   shortcut,
   color,
   onClick,
+  confirmation,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
     color = undefined;
   }
+  const [confirming, setConfirming] = useState(false);
+  const [confirmationContent, setConfirmationContent] = useState<
+    string | ReactElement | null
+  >(null);
+  useEffect(() => {
+    if (!confirming || !confirmation || !confirmation.getConfirmationContent)
+      return;
+    confirmation
+      .getConfirmationContent()
+      .then((c) => setConfirmationContent(c))
+      .catch((e) => console.error(e));
+  }, [confirming, confirmation]);
+
   const [error, setError] = useState<null | string>(null);
   const [loading, setLoading] = useState(false);
   return (
-    <RadixDropdownMenu.Item
-      disabled={disabled || !!error || !!loading}
-      onSelect={async (event) => {
-        event.preventDefault();
-        if (onClick) {
-          setError(null);
-          setLoading(true);
-          try {
-            await onClick(event);
-            // If this promise is resolved without an error, we need to close
-          } catch (e) {
-            setError(e.message);
-            console.error(e);
+    <>
+      {confirmation && confirming && (
+        <Modal
+          trackingEventModalType=""
+          header={confirmation.confirmationTitle}
+          close={() => setConfirming(false)}
+          open={true}
+          cta={confirmation.cta}
+          submitColor={confirmation.submitColor ?? "danger"}
+          submit={confirmation.submit}
+          increasedElevation={true}
+        >
+          {confirmationContent ?? "Are you sure? This action cannot be undone."}
+        </Modal>
+      )}
+      <RadixDropdownMenu.Item
+        disabled={disabled || !!error || !!loading}
+        onSelect={async (event) => {
+          event.preventDefault();
+          if (confirmation) {
+            setConfirming(true);
+            return;
           }
-          setLoading(false);
-        }
-      }}
-      color={color}
-      shortcut={shortcut}
-      {...props}
-    >
-      <Flex as="div" justify="between" align="center">
-        <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
-          {children}
-        </Box>
-        {loading || error ? (
-          <Box width="14px" className="ml-4">
-            {loading ? <LoadingSpinner /> : null}
-            {error ? (
-              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-                <PiWarningFill color={amber.amber11} />
-              </Tooltip>
-            ) : null}
+          if (onClick) {
+            setError(null);
+            setLoading(true);
+            try {
+              await onClick(event);
+              // If this promise is resolved without an error, we need to close
+            } catch (e) {
+              setError(e.message);
+              console.error(e);
+            }
+            setLoading(false);
+          }
+        }}
+        color={color}
+        shortcut={shortcut}
+        {...props}
+      >
+        <Flex as="div" justify="between" align="center">
+          <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
+            {children}
           </Box>
-        ) : null}
-      </Flex>
-    </RadixDropdownMenu.Item>
+          {loading || error ? (
+            <Box width="14px" className="ml-4">
+              {loading ? <LoadingSpinner /> : null}
+              {error ? (
+                <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
+                  <PiWarningFill color={amber.amber11} />
+                </Tooltip>
+              ) : null}
+            </Box>
+          ) : null}
+        </Flex>
+      </RadixDropdownMenu.Item>
+    </>
   );
 }
 

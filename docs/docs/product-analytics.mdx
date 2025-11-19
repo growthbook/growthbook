@@ -1,0 +1,101 @@
+---
+title: Product Analytics
+description: Build comprehensive product analytics dashboards using your existing GrowthBook data. Create custom reports, visualizations, and insights without leaving the platform.
+slug: /app/product-analytics
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+# Product Analytics
+
+:::note Product Analytics is in early beta and is missing some key features.
+
+:::
+
+Build **general-purpose dashboards** to better understand your product's performance, user behavior, and key business metrics.
+
+## Key Capabilities
+
+- **Build Custom Dashboards:** Monitor KPIs, user engagement, and overall product health using a unified view
+- **Explore Your Data**: Use **SQL Explorer** to run custom queries directly against your data warehouse for deeper, on-the-fly analysis
+- **Visualize Existing Metrics**: Generate visualizations from your existing metrics without launching an experiment
+- **Share Reports with Stakeholders**: Create curated views of your data for non-technical team members and collaborate seamlessly across the organization. (Enterprise only)
+
+:::note
+
+Product Analytics dashboards are available for organizations with **Pro** or **Enterprise** subscriptions. Pro organizations can create unlimited private dashboards, while Enterprise organizations gain access to the full suite of sharing and collaboration options.
+
+:::
+
+## Creating a Product Analytics Dashboard
+
+### Getting Started
+
+1. Navigate to **Product Analytics**
+2. Click **Create Dashboard** to start building
+3. Give your dashboard a descriptive name and configure sharing settings
+
+### Dashboard Settings
+
+When creating a dashboard, you can configure the following properties:
+
+- **Name**: A descriptive title for your dashboard
+- **Projects**: Associate the dashboard with specific projects for better organization
+- **Auto-update**: Enable automatic data refreshes to keep dashboards current
+- **View Access**: Control who can see the dashboard (**Organization** members or **Private**)
+- **Edit Access**: Control who can modify the dashboard
+
+## Dashboard Blocks
+
+Product Analytics dashboards are built from three core block types, each serving a specific purpose:
+
+### Markdown Blocks
+
+Use formatted text, images, and links to provide context and narrative for your data. Perfect for:
+
+- **Introductions and Explanations**: Set the stage for the data being presented
+- **Key Findings**: Highlight insights and recommendations
+- **Contextual Links**: Provide links to related documentation or resources
+- **Visual Elements**: Align dashboards with your organization's design and brand
+
+### SQL Explorer Blocks
+
+Run custom SQL queries against your data warehouse and create visualizations. Ideal for:
+
+- **Ad-hoc Analysis**: Explore data that isn't captured in standard metrics
+- **Custom Reports**: Build specific views for unique business needs
+- **Data Validation**: Verify data quality and investigate anomalies
+- **Complex Joins**: Combine data from multiple tables for comprehensive analysis
+
+:::note
+SQL Explorer only allows read-only SELECT queries. Write operations are prevented for security.
+:::
+
+### Metric Explorer Blocks
+
+Create visualizations from your existing metrics without running experiments. Great for:
+
+- **KPI Monitoring**: Track key business metrics over time
+- **Trend Analysis**: Understand how metrics change over different time periods
+- **Comparative Analysis**: Compare metrics across different segments or timeframes
+- **Baseline Reporting**: Establish benchmarks and monitor performance
+
+## Use Cases by Team
+
+These are just a few examples of the dashboards you can create:
+
+| Team           | Focus Areas                                                                          |
+| :------------- | :----------------------------------------------------------------------------------- |
+| **Leadership** | Revenue, growth, user acquisition/retention, and key business performance indicators |
+| **Product**    | Feature adoption/usage, user engagement patterns, and A/B test results               |
+| **Marketing**  | Campaign performance, conversion funnels, and Customer Lifetime Value (CLV)          |
+| **Operations** | System performance, error rates, reliability, and technical health indicators        |
+
+## Best Practices for Sharing and Collaboration
+
+- **Organize by Project**: Use project-based access to control who sees what
+- **Enable Auto-Updates**: Keep dashboards current with automatic refreshes
+- **Provide Context**: Use **Markdown Blocks** to include explanations of methodology, data sources, and findings.
+- **Share with Organization Members**: Make dashboards accessible to your team. (Enterprise only)
+
+Product Analytics transforms GrowthBook from an experimentation platform into a comprehensive analytics solution, giving you the tools to understand your product performance and make data-driven decisions across your entire organization.
