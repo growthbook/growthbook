@@ -680,7 +680,7 @@ export async function updateFeature(
     });
   }
 
-  await runValidateFeatureHooks(context, updatedFeature);
+  await runValidateFeatureHooks(context, updatedFeature, { feature });
 
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },

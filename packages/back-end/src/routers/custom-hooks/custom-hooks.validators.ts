@@ -15,6 +15,7 @@ export const customHookValidator = z
     code: z.string(),
     lastSuccess: z.date().optional(),
     lastFailure: z.date().optional(),
+    incrementalChangesOnly: z.boolean().optional(),
   })
   .strict();
 
