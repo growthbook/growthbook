@@ -29,13 +29,13 @@
   height: 80px;
 
   background-image: url("/images/get-started/feature-flag-light-2.svg");
-  :global(.dark) & {
+  :global(.dark-theme) & {
     background-image: url("/images/get-started/feature-flag-dark-2.svg");
   }
 
   .cardLink:hover & {
     background-image: url("/images/get-started/feature-flag-light-hover-2.svg");
-    :global(.dark) & {
+    :global(.dark-theme) & {
       background-image: url("/images/get-started/feature-flag-dark-hover-2.svg");
     }
   }
@@ -45,13 +45,13 @@
   height: 80px;
 
   background-image: url("/images/get-started/experiment-light.svg");
-  :global(.dark) & {
+  :global(.dark-theme) & {
     background-image: url("/images/get-started/experiment-dark.svg");
   }
 
   .cardLink:hover & {
     background-image: url("/images/get-started/experiment-light-hover.svg");
-    :global(.dark) & {
+    :global(.dark-theme) & {
       background-image: url("/images/get-started/experiment-dark-hover.svg");
     }
   }
