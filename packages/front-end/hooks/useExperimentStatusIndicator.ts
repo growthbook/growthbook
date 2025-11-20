@@ -97,8 +97,9 @@ export function useExperimentStatusIndicator() {
   return (
     experimentData: ExperimentDataForStatusStringDates,
     skipArchived: boolean = false,
-  ) =>
-    getStatusIndicatorData(
+  ) => {
+    console.log("experimentData", experimentData);
+    return getStatusIndicatorData(
       experimentData,
       skipArchived,
       healthSettings,
@@ -109,6 +110,7 @@ export function useExperimentStatusIndicator() {
         defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
       }),
     );
+  };
 }
 
 function getRunningExperimentResultStatus({
