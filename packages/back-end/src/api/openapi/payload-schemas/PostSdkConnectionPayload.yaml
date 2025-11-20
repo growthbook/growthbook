@@ -28,7 +28,7 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
-  includeProjectName:
+  includeProjectUID:
     type: boolean
   proxyEnabled:
     type: boolean

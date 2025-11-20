@@ -144,7 +144,7 @@ export default function SDKConnectionForm({
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
       includeRuleIds: initialValue.includeRuleIds ?? false,
-      includeProjectName: initialValue.includeProjectName ?? false,
+      includeProjectUID: initialValue.includeProjectUID ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -1184,9 +1184,9 @@ export default function SDKConnectionForm({
           <div className="mt-2">
             <div className="mb-2 d-flex align-items-center">
               <Checkbox
-                label="Include project name"
-                value={!!form.watch("includeProjectName")}
-                setValue={(val) => form.setValue("includeProjectName", val)}
+                label="Include project UID"
+                value={!!form.watch("includeProjectUID")}
+                setValue={(val) => form.setValue("includeProjectUID", val)}
               />
             </div>
             <div className="mb-2 d-flex align-items-center">

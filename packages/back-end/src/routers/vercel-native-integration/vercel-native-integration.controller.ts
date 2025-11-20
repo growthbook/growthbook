@@ -512,7 +512,7 @@ export async function provisionResource(req: Request, res: Response) {
     includeRuleIds: true,
     includeRedirectExperiments: false,
     includeExperimentNames: true,
-    includeProjectName: false,
+    includeProjectUID: false,
     hashSecureAttributes: false,
     projects: [project.id],
     encryptPayload: false,

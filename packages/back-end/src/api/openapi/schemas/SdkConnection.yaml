@@ -56,7 +56,7 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
-  includeProjectName:
+  includeProjectUID:
     type: boolean
   key:
     type: string

@@ -2785,7 +2785,7 @@ export interface components {
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
       includeRuleIds?: boolean;
-      includeProjectName?: boolean;
+      includeProjectUID?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -8622,7 +8622,7 @@ export interface operations {
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
                 includeRuleIds?: boolean;
-                includeProjectName?: boolean;
+                includeProjectUID?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -8660,7 +8660,7 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
-          includeProjectName?: boolean;
+          includeProjectUID?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -8694,7 +8694,7 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
-              includeProjectName?: boolean;
+              includeProjectUID?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8742,7 +8742,7 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
-              includeProjectName?: boolean;
+              includeProjectUID?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8779,7 +8779,7 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
-          includeProjectName?: boolean;
+          includeProjectUID?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -8813,7 +8813,7 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
-              includeProjectName?: boolean;
+              includeProjectUID?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8879,7 +8879,7 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
-              includeProjectName?: boolean;
+              includeProjectUID?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;

@@ -578,7 +578,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
-  includeProjectName?: boolean;
+  includeProjectUID?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -598,7 +598,7 @@ export async function getFeatureDefinitionsResponse({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
-  includeProjectName,
+  includeProjectUID,
   attributes,
   secureAttributeSalt,
   projects,
@@ -654,7 +654,7 @@ export async function getFeatureDefinitionsResponse({
       const projectId = feature.project;
       const featureWithoutProject = omit(feature, ["project"]);
 
-      if (includeProjectName) {
+      if (includeProjectUID) {
         const featureWithMetadata: FeatureDefinition = {
           ...featureWithoutProject,
           metadata: {
@@ -673,7 +673,7 @@ export async function getFeatureDefinitionsResponse({
     const projectId = exp.project;
     const expWithoutProject = omit(exp, ["project"]);
 
-    if (includeProjectName) {
+    if (includeProjectUID) {
       const expWithMetadata: AutoExperiment = {
         ...expWithoutProject,
         metadata: {
@@ -811,7 +811,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
-  includeProjectName?: boolean;
+  includeProjectUID?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -837,7 +837,7 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
-  includeProjectName,
+  includeProjectUID,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -884,7 +884,7 @@ export async function getFeatureDefinitions({
         includeExperimentNames,
         includeRedirectExperiments,
         includeRuleIds,
-        includeProjectName,
+        includeProjectUID,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -993,7 +993,7 @@ export async function getFeatureDefinitions({
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
-    includeProjectName,
+    includeProjectUID,
     attributes,
     secureAttributeSalt,
     projects: projects || [],
