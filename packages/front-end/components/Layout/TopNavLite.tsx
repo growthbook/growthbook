@@ -12,8 +12,8 @@ import { useMemo } from "react";
 import { safeLogout } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Avatar from "@/components/Avatar/Avatar";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { usePageHead } from "@/components/Layout/PageHead";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import {
   DropdownMenu,
