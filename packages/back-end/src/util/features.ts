@@ -330,6 +330,7 @@ export function getFeatureDefinition({
   date,
   safeRolloutMap,
   holdoutsMap,
+  includeDraftExperiments = false,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -342,6 +343,7 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
+  includeDraftExperiments?: boolean;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -419,10 +421,8 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (!includeExperimentInPayload(exp)) return null;
-
-          // Never include experiment drafts
-          if (exp.status === "draft") return null;
+          if (!includeExperimentInPayload(exp, [], includeDraftExperiments))
+            return null;
 
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
