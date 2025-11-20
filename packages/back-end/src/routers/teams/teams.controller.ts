@@ -55,7 +55,12 @@ export const postTeam = async (
     throw new Error("Must have a commercial License Key to create a team.");
   }
 
-  if (!context.permissions.canManageTeam()) {
+  const canManageGlobally = context.permissions.canManageGlobalTeams();
+  const canManageProject = defaultProject
+    ? context.permissions.canManageProjectTeam(defaultProject)
+    : false;
+
+  if (!canManageGlobally && !canManageProject) {
     context.permissions.throwPermissionError();
   }
 
@@ -78,6 +83,22 @@ export const postTeam = async (
       status: 400,
       message: "Invalid role",
     });
+  }
+
+  // If using project-scoped permission, enforce restrictions
+  if (!canManageGlobally && canManageProject) {
+    // Can only set projectRoles for the managed project
+    if (permissions.projectRoles && permissions.projectRoles.length > 0) {
+      const invalidRoles = permissions.projectRoles.filter(
+        (pr) => pr.project !== defaultProject
+      );
+      if (invalidRoles.length > 0) {
+        return res.status(400).json({
+          status: 400,
+          message: "You can only assign project roles for projects you manage",
+        });
+      }
+    }
   }
 
   const team = await createTeam({
@@ -141,17 +162,22 @@ export const updateTeam = async (
   const { name, description, permissions, defaultProject } = req.body;
   const { id } = req.params;
 
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const team = await findTeamById(id, org.id);
+ const team = await findTeamById(id, org.id);
 
   if (!team) {
     return res.status(404).json({
       status: 404,
       message: "Cannot find team",
     });
+  }
+
+  const canManageGlobally = context.permissions.canManageGlobalTeams();
+  const canManageProject = team.defaultProject
+    ? context.permissions.canManageProjectTeam(team.defaultProject)
+    : false;
+
+  if (!canManageGlobally && !canManageProject) {
+    context.permissions.throwPermissionError();
   }
 
   const changes = await updateTeamMetadata(id, org.id, {
@@ -172,6 +198,30 @@ export const updateTeam = async (
       status: 400,
       message: "Invalid role",
     });
+  }
+
+  // If using project-scoped permission, enforce restrictions
+  if (!canManageGlobally && canManageProject) {
+    // Cannot change defaultProject
+    if (defaultProject !== team.defaultProject) {
+      return res.status(400).json({
+        status: 400,
+        message: "You cannot change the team's default project",
+      });
+    }
+
+    // Can only set projectRoles for the managed project
+    if (permissions.projectRoles && permissions.projectRoles.length > 0) {
+      const invalidRoles = permissions.projectRoles.filter(
+        (pr) => pr.project !== team.defaultProject
+      );
+      if (invalidRoles.length > 0) {
+        return res.status(400).json({
+          status: 400,
+          message: "You can only assign project roles for projects you manage",
+        });
+      }
+    }
   }
 
   await req.audit({
@@ -212,11 +262,16 @@ export const deleteTeamById = async (
   const { org } = context;
   const { id } = req.params;
 
-  if (!context.permissions.canManageTeam()) {
+  const team = await findTeamById(id, org.id);
+
+  const canManageGlobally = context.permissions.canManageGlobalTeams();
+  const canManageProject = team?.defaultProject
+    ? context.permissions.canManageProjectTeam(team.defaultProject)
+    : false;
+
+  if (!canManageGlobally && !canManageProject) {
     context.permissions.throwPermissionError();
   }
-
-  const team = await findTeamById(id, org.id);
 
   const members = org.members.filter((member) => member.teams?.includes(id));
 
@@ -271,10 +326,6 @@ export const addTeamMembers = async (
   const { id } = req.params;
   const { members } = req.body;
 
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
   const team = await findTeamById(id, org.id);
 
   if (!team) {
@@ -282,6 +333,15 @@ export const addTeamMembers = async (
       status: 400,
       message: "Team does not exist. Cannot add members.",
     });
+  }
+
+  const canManageGlobally = context.permissions.canManageGlobalTeams();
+  const canManageProject = team.defaultProject
+    ? context.permissions.canManageProjectTeam(team.defaultProject)
+    : false;
+
+  if (!canManageGlobally && !canManageProject) {
+    context.permissions.throwPermissionError();
   }
 
   await addMembersToTeam({
@@ -329,10 +389,6 @@ export const deleteTeamMember = async (
   const { org } = context;
   const { id, memberId } = req.params;
 
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
   const team = await findTeamById(id, org.id);
 
   if (!team) {
@@ -340,6 +396,15 @@ export const deleteTeamMember = async (
       status: 400,
       message: "Team does not exist. Cannot delete member.",
     });
+  }
+
+  const canManageGlobally = context.permissions.canManageGlobalTeams();
+  const canManageProject = team.defaultProject
+    ? context.permissions.canManageProjectTeam(team.defaultProject)
+    : false;
+
+  if (!canManageGlobally && !canManageProject) {
+    context.permissions.throwPermissionError();
   }
 
   const member = org.members.find(

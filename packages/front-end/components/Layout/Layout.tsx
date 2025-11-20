@@ -262,7 +262,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
-        filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
+        filter: ({ permissionsUtils }) => permissionsUtils.canManageGlobalTeams(),
       },
       {
         name: "Tags",

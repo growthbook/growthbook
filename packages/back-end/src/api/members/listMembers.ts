@@ -10,7 +10,7 @@ import { listMembersValidator } from "back-end/src/validators/openapi";
 export const listMembers = createApiRequestHandler(listMembersValidator)(async (
   req,
 ): Promise<ListMembersResponse> => {
-  if (!req.context.permissions.canManageTeam()) {
+  if (!req.context.permissions.canManageGlobalTeams()) {
     req.context.permissions.throwPermissionError();
   }
 

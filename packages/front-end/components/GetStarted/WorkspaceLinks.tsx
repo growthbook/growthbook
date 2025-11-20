@@ -37,7 +37,7 @@ export default function WorkspaceLinks() {
         Icon={PiUsersThree}
         url="/settings/team"
         text="Teams & Permissions"
-        disabled={!permissionsUtils.canManageTeam()}
+        disabled={!permissionsUtils.canManageGlobalTeams()}
       />
       {browser === "firefox" ? (
         <StyledLink

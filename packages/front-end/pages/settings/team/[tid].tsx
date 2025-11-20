@@ -27,7 +27,7 @@ const TeamPage: FC = () => {
   const [memberModalOpen, setMemberModalOpen] = useState<boolean>(false);
 
   const permissionsUtil = usePermissionsUtil();
-  const canManageTeam = permissionsUtil.canManageTeam();
+  const canManageGlobalTeams = permissionsUtil.canManageGlobalTeams();
 
   const { teams, refreshOrganization } = useUser();
 
@@ -209,7 +209,7 @@ const TeamPage: FC = () => {
                       {member.dateCreated && datetime(member.dateCreated)}
                     </td>
                     <td>
-                      {canManageTeam && isEditable && (
+                      {canManageGlobalTeams && isEditable && (
                         <>
                           <DeleteButton
                             link={true}

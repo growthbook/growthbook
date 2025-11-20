@@ -6,6 +6,7 @@ import {
   getRoles,
   areProjectRolesValid,
   isRoleValid,
+  isGlobalRoleValid,
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
@@ -341,7 +342,7 @@ export async function putMemberRole(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
@@ -356,7 +357,7 @@ export async function putMemberRole(
     });
   }
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isGlobalRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
@@ -516,7 +517,7 @@ export async function postMemberApproval(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
 
@@ -571,7 +572,7 @@ export async function postAutoApproveMembers(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
   const { org } = context;
@@ -599,7 +600,7 @@ export async function putInviteRole(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
 
@@ -609,7 +610,7 @@ export async function putInviteRole(
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isGlobalRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
@@ -719,7 +720,7 @@ export async function getOrganization(
   // Use a stripped down list of invites if the user doesn't have permission to manage the team
   // The full invite object contains a key which can be used to accept the invite
   // Without this filtering, a user could accept an invite of a higher-priveleged user and assume their role
-  const filteredInvites = context.permissions.canManageTeam()
+  const filteredInvites = context.permissions.canManageGlobalTeams()
     ? invites
     : invites.map((i) => ({ email: i.email }));
 
@@ -1130,7 +1131,7 @@ export async function postInvite(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
 
@@ -1139,7 +1140,7 @@ export async function postInvite(
     req.body;
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isGlobalRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
@@ -1179,7 +1180,7 @@ export async function deleteMember(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
 
@@ -1206,7 +1207,7 @@ export async function postInviteResend(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
 
@@ -1236,7 +1237,7 @@ export async function deleteInvite(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
 
@@ -1909,7 +1910,7 @@ export async function addOrphanedUser(
   }
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  if (!isGlobalRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
@@ -2102,7 +2103,7 @@ export async function putDefaultRole(
     );
   }
 
-  if (!context.permissions.canManageTeam()) {
+  if (!context.permissions.canManageGlobalTeams()) {
     context.permissions.throwPermissionError();
   }
 

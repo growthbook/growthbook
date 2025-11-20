@@ -75,6 +75,17 @@ export function isRoleValid(role: string, org: Partial<OrganizationInterface>) {
   return !!getRoleById(role, org);
 }
 
+export function isGlobalRoleValid(
+  role: string,
+  org: Partial<OrganizationInterface>
+) {
+  // projectAdmin can only be assigned as a project role
+  if (role === "projectAdmin") {
+    return false;
+  }
+  return isRoleValid(role, org);
+}
+
 export function areProjectRolesValid(
   projectRoles: ProjectMemberRole[] | undefined,
   org: Partial<OrganizationInterface>,

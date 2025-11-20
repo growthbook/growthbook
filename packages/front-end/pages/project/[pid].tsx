@@ -60,7 +60,7 @@ const ProjectPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
   // todo: should this also be project scoped?
-  const canManageTeam = permissionsUtil.canManageTeam();
+  const canManageTeam = permissionsUtil.canManageGlobalTeams();
 
   const form = useForm<ProjectSettings>();
 

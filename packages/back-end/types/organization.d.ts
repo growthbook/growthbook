@@ -81,6 +81,7 @@ export type DefaultMemberRole =
   | "analyst"
   | "engineer"
   | "experimenter"
+  | "projectAdmin"
   | "admin";
 
 export type Role = {

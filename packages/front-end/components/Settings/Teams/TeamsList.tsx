@@ -22,7 +22,7 @@ const TeamsList: FC = () => {
   const environments = useEnvironments();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const canManageTeam = permissionsUtil.canManageTeam();
+  const canManageGlobalTeams = permissionsUtil.canManageGlobalTeams();
 
   return (
     <div className="mb-4">
@@ -117,7 +117,7 @@ const TeamsList: FC = () => {
                     })}
                     <td>{t.members ? t.members.length : 0}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      {(canManageTeam && !teamIsExternallyManaged && (
+                      {(canManageGlobalTeams && !teamIsExternallyManaged && (
                         <>
                           <DeleteButton
                             link={true}

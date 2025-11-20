@@ -1,4 +1,4 @@
-import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
+import { isRoleValid, isGlobalRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -17,10 +17,18 @@ export function validateRoleAndEnvs(
   role: string,
   limitAccessByEnvironment: boolean,
   environments?: string[],
+  isGlobal = false
 ): { memberIsValid: boolean; reason: string } {
   try {
-    if (!isRoleValid(role, org)) {
-      throw new Error(`${role}) is not a valid role`);
+    // Use appropriate validation based on whether this is a global or project role
+    const isValid = isGlobal
+      ? isGlobalRoleValid(role, org)
+      : isRoleValid(role, org);
+
+    if (!isValid) {
+      throw new Error(
+        `${role} is not a valid ${isGlobal ? "global" : "project"} role`
+      );
     }
 
     if (role === "noaccess" && !orgHasPremiumFeature(org, "no-access-role")) {
@@ -70,7 +78,7 @@ export function validateRoleAndEnvs(
 export const updateMemberRole = createApiRequestHandler(
   updateMemberRoleValidator,
 )(async (req): Promise<UpdateMemberRoleResponse> => {
-  if (!req.context.permissions.canManageTeam()) {
+  if (!req.context.permissions.canManageGlobalTeams()) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -103,6 +111,7 @@ export const updateMemberRole = createApiRequestHandler(
     updatedMember.role,
     updatedMember.limitAccessByEnvironment,
     updatedMember.environments,
+    true // This is a global role
   );
 
   if (!memberIsValid) {

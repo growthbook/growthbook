@@ -16,7 +16,7 @@ export default function scimMiddleware(
   }
 
   try {
-    if (!req.context.permissions.canManageTeam()) {
+    if (!req.context.permissions.canManageGlobalTeams()) {
       req.context.permissions.throwPermissionError();
     }
   } catch (e) {

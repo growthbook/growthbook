@@ -19,7 +19,7 @@ const TeamPage: FC = () => {
   const hasTeamsFeature = hasCommercialFeature("teams");
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
-  if (!permissionsUtil.canManageTeam()) {
+  if (!permissionsUtil.canManageGlobalTeams()) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">

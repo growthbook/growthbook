@@ -89,7 +89,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
-    expect(p.canManageTeam()).toBe(false);
+    expect(p.canManageGlobalTeams()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
@@ -203,7 +203,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
-    expect(p.canManageTeam()).toBe(false);
+    expect(p.canManageGlobalTeams()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
@@ -318,7 +318,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
-    expect(p.canManageTeam()).toBe(false);
+    expect(p.canManageGlobalTeams()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
@@ -433,7 +433,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
-    expect(p.canManageTeam()).toBe(false);
+    expect(p.canManageGlobalTeams()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
@@ -548,7 +548,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
-    expect(p.canManageTeam()).toBe(false);
+    expect(p.canManageGlobalTeams()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
@@ -663,7 +663,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
-    expect(p.canManageTeam()).toBe(false);
+    expect(p.canManageGlobalTeams()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
@@ -778,7 +778,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
-    expect(p.canManageTeam()).toBe(false);
+    expect(p.canManageGlobalTeams()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
@@ -893,7 +893,7 @@ describe("Role permissions", () => {
     expect(p.canManageIntegrations()).toBe(true);
     expect(p.canManageNorthStarMetric()).toBe(true);
     expect(p.canManageOrgSettings()).toBe(true);
-    expect(p.canManageTeam()).toBe(true);
+    expect(p.canManageGlobalTeams()).toBe(true);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
     expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);

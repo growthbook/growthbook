@@ -120,8 +120,15 @@ export class Permissions {
     return this.checkGlobalPermission("manageApiKeys");
   };
 
-  public canManageTeam = (): boolean => {
-    return this.checkGlobalPermission("manageTeam");
+  public canManageGlobalTeams = (): boolean => {
+    return this.checkGlobalPermission("manageGlobalTeams");
+  };
+
+  public canManageProjectTeam = (project: string): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [project] },
+      "manageProjectTeam"
+    );
   };
 
   public canCreateMetricGroup = (): boolean => {

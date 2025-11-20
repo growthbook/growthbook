@@ -5,7 +5,7 @@ import { removeUserFromOrg } from "back-end/src/scim/users/patchUser";
 
 export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
   async (req): Promise<DeleteMemberResponse> => {
-    if (!req.context.permissions.canManageTeam()) {
+    if (!req.context.permissions.canManageGlobalTeams()) {
       req.context.permissions.throwPermissionError();
     }
 
