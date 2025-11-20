@@ -7,7 +7,6 @@ import {
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -16,7 +15,6 @@ import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import { AppFeatures } from "@/types/app-features";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
@@ -47,8 +45,6 @@ export default function StatsEngineSettings() {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     statsEngine || DEFAULT_STATS_ENGINE,
   );
-
-  const growthbook = useGrowthBook<AppFeatures>();
 
   const { hasCommercialFeature } = useUser();
 
@@ -242,29 +238,27 @@ export default function StatsEngineSettings() {
               )}
             </Box>
           </Flex>
-          {growthbook.isOn("post-stratification") ? (
-            <Flex align="start" gap="3">
-              <Checkbox
-                id="toggle-postStratification"
-                value={!form.watch("postStratificationDisabled")}
-                setValue={(v) => {
-                  form.setValue("postStratificationDisabled", !v);
-                }}
-                disabled={hasFileConfig()}
-              />
-              <Flex direction="column">
-                <Text size="2" className="font-weight-semibold">
-                  <label htmlFor="toggle-postStratification">
-                    Enable post-stratification
-                  </label>
-                </Text>
-                <Text size="1">
-                  When checked, post-stratification will be used whenever
-                  CUPEDps is enabled and pre-computed dimensions are available.
-                </Text>
-              </Flex>
+          <Flex align="start" gap="3">
+            <Checkbox
+              id="toggle-postStratification"
+              value={!form.watch("postStratificationDisabled")}
+              setValue={(v) => {
+                form.setValue("postStratificationDisabled", !v);
+              }}
+              disabled={hasFileConfig()}
+            />
+            <Flex direction="column">
+              <Text size="2" className="font-weight-semibold">
+                <label htmlFor="toggle-postStratification">
+                  Enable post-stratification
+                </label>
+              </Text>
+              <Text size="1">
+                When checked, post-stratification will be used whenever CUPEDps
+                is enabled and pre-computed dimensions are available.
+              </Text>
             </Flex>
-          ) : null}
+          </Flex>
         </Flex>
       </Box>
     </Box>
