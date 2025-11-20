@@ -57,8 +57,7 @@ interface CreateSdkConnectionRequestBody
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
-  includeTags?: boolean;
-  includeCustomFields?: boolean;
+  includeProjectName?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -163,8 +162,7 @@ export async function validatePostPayload(
     includeExperimentNames = false,
     includeRedirectExperiments = false,
     includeRuleIds = false,
-    includeTags = false,
-    includeCustomFields = false,
+    includeProjectName = false,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
@@ -198,8 +196,7 @@ export async function validatePostPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
-    includeTags,
-    includeCustomFields,
+    includeProjectName,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -226,8 +223,7 @@ export async function validatePutPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
-    includeTags,
-    includeCustomFields,
+    includeProjectName,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -262,8 +258,7 @@ export async function validatePutPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
-    includeTags,
-    includeCustomFields,
+    includeProjectName,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,

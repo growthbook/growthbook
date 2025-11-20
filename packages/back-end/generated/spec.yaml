@@ -1609,9 +1609,7 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
-                includeTags:
-                  type: boolean
-                includeCustomFields:
+                includeProjectName:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -1702,9 +1700,7 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
-                includeTags:
-                  type: boolean
-                includeCustomFields:
+                includeProjectName:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -6976,9 +6972,7 @@ components:
           type: boolean
         includeRuleIds:
           type: boolean
-        includeTags:
-          type: boolean
-        includeCustomFields:
+        includeProjectName:
           type: boolean
         key:
           type: string

@@ -578,6 +578,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectName?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -597,6 +598,7 @@ export async function getFeatureDefinitionsResponse({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectName,
   attributes,
   secureAttributeSalt,
   projects,
@@ -646,14 +648,43 @@ export async function getFeatureDefinitionsResponse({
     );
   }
 
-  // Remove `project` from all features/experiments
+  // Add metadata fields, strip temporary top-level project
   features = Object.fromEntries(
-    Object.entries(features).map(([key, feature]) => [
-      key,
-      omit(feature, ["project"]),
-    ]),
+    Object.entries(features).map(([key, feature]) => {
+      const projectId = feature.project;
+      const featureWithoutProject = omit(feature, ["project"]);
+
+      if (includeProjectName) {
+        const featureWithMetadata: FeatureDefinition = {
+          ...featureWithoutProject,
+          metadata: {
+            projects: projectId ? [projectId] : [],
+          },
+        };
+        return [key, featureWithMetadata];
+      }
+
+      return [key, featureWithoutProject];
+    }),
   );
-  experiments = experiments.map((exp) => omit(exp, ["project"]));
+
+  // Add metadata fields, strip temporary top-level project
+  experiments = experiments.map((exp) => {
+    const projectId = exp.project;
+    const expWithoutProject = omit(exp, ["project"]);
+
+    if (includeProjectName) {
+      const expWithMetadata: AutoExperiment = {
+        ...expWithoutProject,
+        metadata: {
+          projects: projectId ? [projectId] : [],
+        },
+      };
+      return expWithMetadata;
+    }
+
+    return expWithoutProject;
+  });
 
   const { holdouts: scrubbedHoldouts, features: scrubbedFeatures } =
     scrubHoldouts({
@@ -780,6 +811,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectName?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -805,6 +837,7 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectName,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -851,6 +884,7 @@ export async function getFeatureDefinitions({
         includeExperimentNames,
         includeRedirectExperiments,
         includeRuleIds,
+        includeProjectName,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -959,6 +993,7 @@ export async function getFeatureDefinitions({
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectName,
     attributes,
     secureAttributeSalt,
     projects: projects || [],

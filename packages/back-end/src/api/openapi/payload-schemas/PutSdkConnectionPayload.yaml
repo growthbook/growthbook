@@ -24,9 +24,7 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
-  includeTags:
-    type: boolean
-  includeCustomFields:
+  includeProjectName:
     type: boolean
   proxyEnabled:
     type: boolean

@@ -148,8 +148,7 @@ export default function SDKConnectionForm({
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
       includeRuleIds: initialValue.includeRuleIds ?? false,
-      includeTags: initialValue.includeTags ?? false,
-      includeCustomFields: initialValue.includeCustomFields ?? false,
+      includeProjectName: initialValue.includeProjectName ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -1193,29 +1192,21 @@ export default function SDKConnectionForm({
           <div className="mt-2">
             <div className="mb-2 d-flex align-items-center">
               <Checkbox
-                label={"Include tags"}
-                value={!!form.watch("includeTags")}
-                setValue={(val) => form.setValue("includeTags", val)}
+                label="Include project name"
+                value={!!form.watch("includeProjectName")}
+                setValue={(val) => form.setValue("includeProjectName", val)}
               />
             </div>
             <div className="mb-2 d-flex align-items-center">
               <Checkbox
-                label={"Include custom fields"}
-                value={!!form.watch("includeCustomFields")}
-                setValue={(val) => form.setValue("includeCustomFields", val)}
-              />
-            </div>
-
-            <div className="mb-2 d-flex align-items-center">
-              <Checkbox
-                label={"Include rule IDs"}
+                label="Include rule IDs"
                 value={!!form.watch("includeRuleIds")}
                 setValue={(val) => form.setValue("includeRuleIds", val)}
               />
             </div>
             <div className="mb-2 d-flex align-items-center">
               <Checkbox
-                label={"Include experiment & variation names"}
+                label="Include experiment & variation names"
                 value={!!form.watch("includeExperimentNames")}
                 setValue={(val) => form.setValue("includeExperimentNames", val)}
               />
