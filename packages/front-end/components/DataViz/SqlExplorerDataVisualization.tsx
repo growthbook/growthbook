@@ -645,6 +645,168 @@ export function DataVisualizationDisplay({
     ];
   }, [aggregatedRows]);
 
+  /**
+   * Calculates "pretty" tick mark locations for a numeric vector x,
+   * mirroring the logic used by ggplot2's scales::pretty_breaks().
+   */
+  function calculateGGPlotBreaks(
+    xMin: number,
+    xMax: number,
+    targetIntervals?: number,
+  ): number[] {
+    const n = targetIntervals === undefined ? 5 : targetIntervals;
+    if (xMin === xMax) {
+      const step = Math.max(1, Math.abs(xMin) * 0.1);
+      return [xMin - step, xMin, xMin + step];
+    }
+
+    const range = xMax - xMin;
+    const targetNPlus1 = n + 1;
+    const log10Range = Math.log10(range);
+    const log10Step = Math.floor(log10Range - Math.log10(targetNPlus1));
+    let step = Math.pow(10, log10Step);
+    const multipliers = [10, 5, 2, 1];
+    let optimalMultiplier = multipliers[0];
+    for (const mult of multipliers) {
+      const currentStep = mult * step;
+      if (Math.ceil(range / currentStep) <= targetNPlus1) {
+        optimalMultiplier = mult;
+      }
+    }
+    step = optimalMultiplier * step;
+    const startBreak = Math.floor(xMin / step) * step;
+    const breaks: number[] = [];
+    let current = startBreak;
+
+    while (current <= xMax + step / 1000) {
+      breaks.push(current);
+      current += step;
+    }
+
+    if (breaks.length > 2) {
+      breaks[0] = breaks[1] - step;
+      breaks[breaks.length - 1] = breaks[breaks.length - 2] + step;
+    }
+
+    return breaks;
+  }
+
+  // Helper function to round to nice numbers (similar to ECharts nice algorithm)
+  const niceRound = useCallback((value: number, roundUp: boolean): number => {
+    if (value === 0) return 0;
+    const absValue = Math.abs(value);
+    const magnitude = Math.pow(10, Math.floor(Math.log10(absValue)));
+    const normalized = absValue / magnitude;
+
+    // Nice intervals: 1, 2, 5, 10
+    let niceNormalized: number;
+    if (normalized <= 1) {
+      niceNormalized = 1;
+    } else if (normalized <= 2) {
+      niceNormalized = 2;
+    } else if (normalized <= 5) {
+      niceNormalized = 5;
+    } else {
+      niceNormalized = 10;
+    }
+
+    const niceStep = niceNormalized * magnitude;
+    const absRounded = roundUp
+      ? Math.ceil(absValue / niceStep) * niceStep
+      : Math.floor(absValue / niceStep) * niceStep;
+
+    return value < 0 ? -absRounded : absRounded;
+  }, []);
+
+  // Helper function to find axis limits from numeric values
+  const findAxisLimits = useCallback(
+    (
+      values: number[],
+      expandFactor: number = 0.05,
+      applyNiceRounding: boolean = true,
+    ): { min: number | undefined; max: number | undefined } => {
+      if (values.length === 0) {
+        return { min: undefined, max: undefined };
+      }
+
+      const dataMin = Math.min(...values);
+      const dataMax = Math.max(...values);
+      const range = dataMax - dataMin;
+      const padding = range * expandFactor;
+      const paddedMin = dataMin - padding;
+      const paddedMax = dataMax + padding;
+
+      if (applyNiceRounding) {
+        return {
+          min: niceRound(paddedMin, false),
+          max: niceRound(paddedMax, true),
+        };
+      }
+
+      return {
+        min: paddedMin,
+        max: paddedMax,
+      };
+    },
+    [niceRound],
+  );
+
+  const xAxisLimitsInit = useMemo(() => {
+    if (aggregatedRows.length === 0 || xConfig?.type !== "number") {
+      return { min: undefined, max: undefined };
+    }
+
+    const xValues = aggregatedRows.map((row) => row.x).filter((x) => x != null);
+    if (xValues.length === 0) {
+      return { min: undefined, max: undefined };
+    }
+
+    const numbers = xValues.map((x) => Number(x));
+    return findAxisLimits(numbers, 0.01, false);
+  }, [aggregatedRows, xConfig?.type, findAxisLimits]);
+
+  const yAxisLimitsInit = useMemo(() => {
+    if (aggregatedRows.length === 0 || yConfig?.type !== "number") {
+      return { min: undefined, max: undefined };
+    }
+    const yValues = aggregatedRows.map((row) => row.y).filter((y) => y != null);
+    if (yValues.length === 0) {
+      return { min: undefined, max: undefined };
+    }
+    const numbers = yValues.map((y) => Number(y));
+    return findAxisLimits(numbers, 0.01, false);
+  }, [aggregatedRows, yConfig?.type, findAxisLimits]);
+
+  // Helper function to find axis tick values from limits
+  const findAxisTickValues = useCallback(
+    (limits: {
+      min: number | undefined;
+      max: number | undefined;
+    }): number[] | undefined => {
+      if (limits.min === undefined || limits.max === undefined) {
+        return undefined;
+      }
+
+      const breaks = calculateGGPlotBreaks(limits.min, limits.max);
+      return breaks.length >= 2 ? breaks : undefined;
+    },
+    [],
+  );
+
+  const xAxisTickValues = useMemo(() => {
+    if (xConfig?.type !== "number") {
+      return undefined;
+    }
+    return findAxisTickValues(xAxisLimitsInit);
+  }, [xAxisLimitsInit, xConfig?.type, findAxisTickValues]);
+
+  const yAxisTickValues = useMemo(() => {
+    if (yConfig?.type !== "number") {
+      return undefined;
+    }
+    return findAxisTickValues(yAxisLimitsInit);
+  }, [yAxisLimitsInit, yConfig?.type, findAxisTickValues]);
+
   const series = useMemo(() => {
     if (dimensionFields.length === 0) {
       return [
@@ -695,6 +857,104 @@ export function DataVisualizationDisplay({
   ]);
 
   const option = useMemo(() => {
+    const xAxisMinMaxOverrides =
+      xConfig?.type === "number"
+        ? (() => {
+            if (
+              (xAxisLimitsInit.min == undefined ||
+                xAxisLimitsInit.max == undefined) &&
+              xAxisTickValues &&
+              xAxisTickValues.length >= 2
+            ) {
+              const tickStep = xAxisTickValues[1] - xAxisTickValues[0];
+              return {
+                min: xAxisTickValues[0],
+                max: xAxisTickValues[xAxisTickValues.length - 1],
+                ...(tickStep > 0 && { interval: tickStep }),
+              };
+            }
+            if (
+              !xAxisTickValues ||
+              xAxisTickValues.length < 2 ||
+              xAxisLimitsInit.min === undefined ||
+              xAxisLimitsInit.max === undefined
+            ) {
+              return {
+                ...(xAxisLimitsInit.min !== undefined && {
+                  min: xAxisLimitsInit.min,
+                }),
+                ...(xAxisLimitsInit.max !== undefined && {
+                  max: xAxisLimitsInit.max,
+                }),
+              };
+            }
+            const stepSize = xAxisTickValues[1] - xAxisTickValues[0];
+            const minTickValue = xAxisTickValues[0];
+            const maxTickValue = xAxisTickValues[xAxisTickValues.length - 1];
+            const xMinFinal =
+              minTickValue <= xAxisLimitsInit.min
+                ? minTickValue
+                : minTickValue - stepSize;
+            const xMaxFinal =
+              maxTickValue >= xAxisLimitsInit.max
+                ? maxTickValue
+                : maxTickValue + stepSize;
+            return {
+              min: xMinFinal,
+              max: xMaxFinal,
+            };
+          })()
+        : {};
+
+    const yAxisMinMaxOverrides =
+      yConfig?.type === "number"
+        ? (() => {
+            if (
+              (yAxisLimitsInit.min == undefined ||
+                yAxisLimitsInit.max == undefined) &&
+              yAxisTickValues &&
+              yAxisTickValues.length >= 2
+            ) {
+              const tickStep = yAxisTickValues[1] - yAxisTickValues[0];
+              return {
+                min: yAxisTickValues[0],
+                max: yAxisTickValues[yAxisTickValues.length - 1],
+                ...(tickStep > 0 && { interval: tickStep }),
+              };
+            }
+            if (
+              !yAxisTickValues ||
+              yAxisTickValues.length < 2 ||
+              yAxisLimitsInit.min === undefined ||
+              yAxisLimitsInit.max === undefined
+            ) {
+              return {
+                ...(yAxisLimitsInit.min !== undefined && {
+                  min: yAxisLimitsInit.min,
+                }),
+                ...(yAxisLimitsInit.max !== undefined && {
+                  max: yAxisLimitsInit.max,
+                }),
+              };
+            }
+            const stepSize = yAxisTickValues[1] - yAxisTickValues[0];
+            const minTickValue = yAxisTickValues[0];
+            const maxTickValue = yAxisTickValues[yAxisTickValues.length - 1];
+            const yMinFinal =
+              minTickValue <= yAxisLimitsInit.min
+                ? minTickValue
+                : minTickValue - stepSize;
+            const yMaxFinal =
+              maxTickValue >= yAxisLimitsInit.max
+                ? maxTickValue
+                : maxTickValue + stepSize;
+            return {
+              min: yMinFinal,
+              max: yMaxFinal,
+            };
+          })()
+        : {};
+
     return {
       dataset,
       tooltip: {
@@ -734,6 +994,7 @@ export function DataVisualizationDisplay({
             ? `${xConfig?.dateAggregationUnit} (${xField})`
             : xField,
         nameLocation: "middle",
+        ...xAxisMinMaxOverrides,
         nameTextStyle: {
           fontSize: 14,
           fontWeight: "bold",
@@ -756,6 +1017,7 @@ export function DataVisualizationDisplay({
             ? `${yConfig.aggregation} (${yField})`
             : yField,
         nameLocation: "middle",
+        ...yAxisMinMaxOverrides,
         nameTextStyle: {
           fontSize: 14,
           fontWeight: "bold",
@@ -776,9 +1038,14 @@ export function DataVisualizationDisplay({
     xConfig?.type,
     xConfig?.dateAggregationUnit,
     yConfig?.aggregation,
+    yConfig?.type,
     dimensionFields,
     dataVizConfig.title,
     textColor,
+    xAxisLimitsInit,
+    xAxisTickValues,
+    yAxisLimitsInit,
+    yAxisTickValues,
   ]);
 
   if (dataVizConfig.chartType === "big-value") {
