@@ -15,7 +15,7 @@ export async function getKerberosHeader(
     logger.error(e, "Failed on client.step");
     throw e;
   }
-  const header = `Negotiate ${Buffer.from(token).toString("base64")}`;
+  const header = `Negotiate ${token}`;
   logger.info("Kerberos header value: %s", header);
   return header;
 }
