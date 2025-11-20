@@ -152,9 +152,11 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
             result = process_analysis(
                 rows=rows, metric=metric, analysis=analysis, var_id_map=var_id_map
             )
+
+            result_df = pd.concat([x.to_df() for x in result])
             cells.append(
                 code_cell_df(
-                    df=result[summary_cols].T,
+                    df=result_df[summary_cols].T,
                     source=(
                         "# Run the analysis and show a summary of results\n"
                         f"{metric_prefix}_result = process_analysis(\n"
@@ -163,7 +165,8 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
                         f"    analysis=analysis,\n"
                         f"    var_id_map=var_id_map,\n"
                         f")\n"
-                        f"display({metric_prefix}_result[summary_cols].T)"
+                        f"{metric_prefix}_result_df = pd.concat([x.to_df() for x in {metric_prefix}_result])\n"
+                        f"display({metric_prefix}_result_df[summary_cols].T)"
                     ),
                 )
             )

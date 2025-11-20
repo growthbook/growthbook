@@ -92,33 +92,39 @@ class TestCreateRows(TestCase):
 
         row_a_1 = CreateRow(
             stat_a_1,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[0],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[0],
         ).create_row()
         row_b_1 = CreateRow(
             stat_b_1,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[1],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[1],
         ).create_row()
         row_a_2 = CreateRow(
             stat_a_2,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[0],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[0],
         ).create_row()
         row_b_2 = CreateRow(
             stat_b_2,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[1],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[1],
         ).create_row()
         row_a_3 = CreateRow(
             stat_a_3,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[0],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[0],
         ).create_row()
         row_b_3 = CreateRow(
             stat_b_3,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[1],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[1],
         ).create_row()
 
         query_output_1 = [row_a_1, row_b_1]
@@ -128,7 +134,6 @@ class TestCreateRows(TestCase):
         difference_type = "absolute"
 
         config = FrequentistConfig(difference_type=difference_type)
-        print(["tristan", stat_a_1, stat_b_1])
 
         self.res_1 = TwoSidedTTest([(stat_a_1, stat_b_1)], config).compute_result()
         self.res_2 = TwoSidedTTest([(stat_a_2, stat_b_2)], config).compute_result()

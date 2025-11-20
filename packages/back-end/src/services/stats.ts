@@ -72,6 +72,7 @@ export interface AnalysisSettingsForStatsEngine {
   traffic_percentage: number;
   num_goal_metrics: number;
   one_sided_intervals?: boolean;
+  post_stratification_enabled?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -175,6 +176,7 @@ export function getAnalysisSettingsForStatsEngine(
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    post_stratification_enabled: !!settings.postStratificationEnabled,
   };
 
   return analysisData;

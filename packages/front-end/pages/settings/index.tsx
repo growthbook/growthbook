@@ -178,6 +178,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
       savedGroupSizeLimit: undefined,
+      postStratificationDisabled: settings.postStratificationDisabled ?? false,
     },
   });
   const { apiCall } = useAuth();
