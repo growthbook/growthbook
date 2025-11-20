@@ -703,11 +703,23 @@ export async function postFeatureRebase(
     throw new Error("Please resolve conflicts before saving");
   }
 
-  // Revisions use legacy format (rules per environment, without uid/environments/allEnvironments)
-  const newRules: Record<string, LegacyFeatureRule[]> = {};
-  environmentIds.forEach((env) => {
-    newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
-  });
+  // Convert merge result rules to modern format (FeatureRule[])
+  // mergeResult.result.rules may be in legacy format (Record) or modern format (array)
+  let mergedRules: FeatureRule[] = [];
+  if (mergeResult.result.rules) {
+    if (Array.isArray(mergeResult.result.rules)) {
+      // Already modern format
+      mergedRules = mergeResult.result.rules;
+    } else {
+      // Legacy format - convert to modern
+      const { upgradeRevisionRules } = require("back-end/src/util/migrations");
+      mergedRules = upgradeRevisionRules(mergeResult.result.rules as Record<string, LegacyFeatureRule[]>);
+    }
+  } else {
+    // No rules in merge result - use live revision rules
+    mergedRules = live.rules || [];
+  }
+  
   await updateRevision(
     context,
     feature,
@@ -715,7 +727,7 @@ export async function postFeatureRebase(
     {
       baseVersion: live.version,
       defaultValue: mergeResult.result.defaultValue ?? live.defaultValue,
-      rules: newRules,
+      rules: mergedRules,
     },
     {
       user: res.locals.eventAudit,
@@ -1097,6 +1109,8 @@ export async function postFeatureRevert(
   }
 
   const changedEnvs: string[] = [];
+  const revisionRules: FeatureRule[] = [];
+  
   environmentIds.forEach((env) => {
     // Get rules for this environment from top-level rules array (convert to legacy format for comparison)
     const envRules = feature.rules
@@ -1107,18 +1121,32 @@ export async function postFeatureRevert(
         const { uid, environments, allEnvironments, ...legacyRule } = rule;
         return legacyRule;
       });
-    if (
-      revision.rules[env] &&
-      !isEqual(
-        revision.rules[env],
-        envRules,
-      )
-    ) {
+    
+    // Get revision rules for this environment (modern format: filter array)
+    const revEnvRules = (revision.rules || []).filter(
+      (rule) => rule.allEnvironments || rule.environments?.includes(env)
+    );
+    
+    // Convert revision rules to legacy format for comparison
+    const revEnvRulesLegacy = revEnvRules.map((rule) => {
+      const { uid, environments, allEnvironments, ...legacyRule } = rule;
+      return legacyRule;
+    });
+    
+    if (revEnvRules.length > 0 && !isEqual(revEnvRulesLegacy, envRules)) {
       changedEnvs.push(env);
-      changes.rules = changes.rules || {};
-      changes.rules[env] = revision.rules[env];
+      // Add revision rules for this environment to the changes
+      revEnvRules.forEach((rule) => {
+        if (!revisionRules.find((r) => r.uid === rule.uid)) {
+          revisionRules.push(rule);
+        }
+      });
     }
   });
+  
+  if (revisionRules.length > 0) {
+    changes.rules = revisionRules;
+  }
   if (changedEnvs.length > 0) {
     if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
@@ -1486,18 +1514,20 @@ export async function postFeatureSync(
     tags: data.tags ?? feature.tags,
   };
   const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
-    rules: {},
+    rules: [], // Modern format: FeatureRule[]
     defaultValue: data.defaultValue ?? feature.defaultValue,
   };
 
   let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+  const revisionRules: FeatureRule[] = [];
+  const { v4: uuidv4 } = require("uuid");
 
   environments.forEach((env) => {
     // Revision Changes
     // Get rules from data (if provided in legacy format) or from feature's top-level rules array
     // API might send legacy format with environmentSettings[env].rules
-    const dataEnvSettings = data.environmentSettings?.[env] as any;
-    const dataRules = dataEnvSettings?.rules as LegacyFeatureRule[] | undefined;
+    const dataEnvSettings = data.environmentSettings?.[env] as unknown;
+    const dataRules = (dataEnvSettings as { rules?: LegacyFeatureRule[] })?.rules;
     const featureRules = feature.rules
       .filter(
         (rule) => rule.allEnvironments || rule.environments?.includes(env)
@@ -1506,7 +1536,19 @@ export async function postFeatureSync(
         const { uid, environments, allEnvironments, ...legacyRule } = rule;
         return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
       });
-    changes.rules[env] = (dataRules ?? featureRules ?? []) as LegacyFeatureRule[];
+    
+    // Use dataRules if provided, otherwise use featureRules
+    const rulesToUse = (dataRules ?? featureRules ?? []) as LegacyFeatureRule[];
+    
+    // Convert legacy rules to modern format for revision
+    rulesToUse.forEach((legacyRule) => {
+      revisionRules.push({
+        ...legacyRule,
+        uid: uuidv4(),
+        environments: [env],
+        allEnvironments: false,
+      } as FeatureRule);
+    });
 
     // Feature updates (modern format - top-level rules array)
     updates.environmentSettings = updates.environmentSettings || {};
@@ -1621,14 +1663,12 @@ export async function postFeatureExperimentRefRule(
   const updates: Partial<FeatureInterface> = {
     environmentSettings: feature.environmentSettings,
   };
-  const changes: Pick<FeatureRevisionInterface, "rules"> = {
-    rules: {},
-  };
   const { v4: uuidv4 } = require("uuid");
   
   // Collect all updated environments
   const updatedEnvs = new Set<string>();
   const newRules: FeatureRule[] = [];
+  const revisionRules: FeatureRule[] = [];
   
   environments.forEach((env) => {
     updatedEnvs.add(env);
@@ -1640,21 +1680,27 @@ export async function postFeatureExperimentRefRule(
       allEnvironments: false,
     } as FeatureRule;
 
-    // Revision changes (legacy format - rules per environment)
-    const currentEnvRules = feature.rules
-      .filter(
-        (rule) => rule.allEnvironments || rule.environments?.includes(env)
-      )
-      .map((rule): LegacyFeatureRule => {
-        const { uid, environments, allEnvironments, ...legacyRule } = rule;
-        return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
-      });
-    changes.rules[env] = [...currentEnvRules] as LegacyFeatureRule[];
-    changes.rules[env].push(envRule);
+    // Revision changes (modern format - top-level array)
+    // Get existing rules for this environment and add the new rule
+    const currentEnvRules = feature.rules.filter(
+      (rule) => rule.allEnvironments || rule.environments?.includes(env)
+    );
+    // Add existing rules for this environment to revision
+    currentEnvRules.forEach((r) => {
+      if (!revisionRules.find((existing) => existing.uid === r.uid)) {
+        revisionRules.push(r);
+      }
+    });
+    // Add the new rule
+    revisionRules.push(envRule);
 
     // Collect new rules for feature update
     newRules.push(envRule);
   });
+
+  const changes: Pick<FeatureRevisionInterface, "rules"> = {
+    rules: revisionRules, // Modern format: FeatureRule[]
+  };
   
   // Feature updates (modern format - top-level rules array)
   // Remove existing rules for updated environments, add new ones
@@ -2215,13 +2261,28 @@ export async function postFeatureMoveRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
-  const rules = changes.rules[environment];
-  if (!rules || !rules[from] || !rules[to]) {
+  // Get rules for this environment (modern format: filter array)
+  const envRules = (revision.rules || []).filter(
+    (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+  );
+  
+  if (from >= envRules.length || to >= envRules.length || from < 0 || to < 0) {
     throw new Error("Invalid rule index");
   }
-  const rule = rules[from];
-  changes.rules[environment] = arrayMove(rules, from, to);
+  
+  const rule = envRules[from];
+  
+  // Reorder rules for this environment
+  const reorderedEnvRules = arrayMove(envRules, from, to);
+  
+  // Build updated rules array: keep rules for other environments, replace rules for this environment
+  const otherRules = (revision.rules || []).filter(
+    (rule) => !(rule.allEnvironments || rule.environments?.includes(environment))
+  );
+  
+  const changes = { 
+    rules: [...otherRules, ...reorderedEnvRules] 
+  };
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -2293,16 +2354,28 @@ export async function deleteFeatureRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
-  const rules = changes.rules[environment];
-  if (!rules || !rules[i]) {
+  // Get rules for this environment (modern format: filter array)
+  const envRules = (revision.rules || []).filter(
+    (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+  );
+  
+  if (i >= envRules.length || i < 0) {
     throw new Error("Invalid rule index");
   }
 
-  const rule = rules[i];
+  const rule = envRules[i];
 
-  changes.rules[environment] = rules.slice();
-  changes.rules[environment].splice(i, 1);
+  // Remove the rule at index i
+  const updatedEnvRules = envRules.filter((_, idx) => idx !== i);
+  
+  // Build updated rules array: keep rules for other environments, replace rules for this environment
+  const otherRules = (revision.rules || []).filter(
+    (rule) => !(rule.allEnvironments || rule.environments?.includes(environment))
+  );
+  
+  const changes = { 
+    rules: [...otherRules, ...updatedEnvRules] 
+  };
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -2894,21 +2967,19 @@ export async function getFeatureById(
   const trackingKeys = new Set<string>();
   let hasSafeRollout = false;
   fullRevisions.forEach((revision) => {
-    environments.forEach((env) => {
-      const rules = revision.rules[env];
-      if (!rules) return;
-      rules.forEach((rule) => {
-        // New rules store the experiment id directly
-        if (rule.type === "experiment-ref") {
-          experimentIds.add(rule.experimentId);
-        }
-        // Old rules store the trackingKey
-        else if (rule.type === "experiment") {
-          trackingKeys.add(rule.trackingKey || feature.id);
-        } else if (rule.type === "safe-rollout") {
-          hasSafeRollout = true;
-        }
-      });
+    // Get rules for all environments (modern format: filter array)
+    const allRules = revision.rules || [];
+    allRules.forEach((rule) => {
+      // New rules store the experiment id directly
+      if (rule.type === "experiment-ref") {
+        experimentIds.add(rule.experimentId);
+      }
+      // Old rules store the trackingKey
+      else if (rule.type === "experiment") {
+        trackingKeys.add(rule.trackingKey || feature.id);
+      } else if (rule.type === "safe-rollout") {
+        hasSafeRollout = true;
+      }
     });
   });
   const experimentsMap: Map<string, ExperimentInterface> = new Map();
@@ -2956,7 +3027,16 @@ export async function getFeatureById(
             const { uid, environments, allEnvironments, ...legacyRule } = rule;
             return legacyRule;
           });
-        if (!isEqual(envRules, live.rules[env] || [])) {
+        // Get live revision rules for this environment (modern format: filter array)
+        const liveEnvRules = (live.rules || []).filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(env)
+        );
+        // Convert to legacy format for comparison
+        const liveEnvRulesLegacy = liveEnvRules.map((rule) => {
+          const { uid, environments, allEnvironments, ...legacyRule } = rule;
+          return legacyRule;
+        });
+        if (!isEqual(envRules, liveEnvRulesLegacy)) {
           throw new Error(
             `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`,
           );

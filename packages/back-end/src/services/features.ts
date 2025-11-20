@@ -1377,8 +1377,13 @@ export function getApiFeatureObj({
     environments.forEach((env) => {
       // Convert legacy rules from revision to modern format (add uid/environments/allEnvironments)
       const { v4: uuidv4 } = require("uuid");
+      // Get revision rules for this environment (modern format: filter array)
+      const revEnvRules = (rev?.rules || []).filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      );
+      
       // First convert to FeatureRule format for getFeatureDefinition
-      const featureRules = (rev?.rules?.[env] || []).map((legacyRule: LegacyFeatureRule) => {
+      const featureRules = revEnvRules.map((legacyRule: LegacyFeatureRule) => {
         const baseRule = {
           ...legacyRule,
           uid: (legacyRule as any).uid || uuidv4(),

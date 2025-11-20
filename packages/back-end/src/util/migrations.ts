@@ -397,7 +397,7 @@ export function upgradeFeatureInterface(
   feature: LegacyFeatureInterface & {
     environments?: string[];
     rules?: LegacyFeatureRule[];
-    revision?: { version: number; comment: string; date: Date; publishedBy: any };
+    revision?: unknown; // Deprecated field from very old documents
     draft?: FeatureDraftChanges;
   },
 ): FeatureInterface {
@@ -482,8 +482,8 @@ export function upgradeFeatureInterface(
         publishedBy: null,
         status: "draft",
         version: (newFeature.version || 1) + 1,
-        rules: revisionRules as Record<string, LegacyFeatureRule[]>,
-      };
+        rules: revisionRules, // Legacy format: Record<string, LegacyFeatureRule[]>
+      } as LegacyFeatureRevisionInterface;
     }
   }
 

@@ -284,14 +284,30 @@ export function getMatchingRules(
         if (omitDisabledEnvironments && !settings.enabled) return;
 
         // Get rules for this environment
-        // Revisions still use legacy format (rules per environment)
+        // Revisions now use modern format (top-level array), but may still have legacy format in old data
         // Modern features use top-level rules array
-        const rules = revision
-          ? revision.rules[environmentId]
-          : feature.rules.filter(
-              (rule) =>
-                rule.allEnvironments || rule.environments?.includes(environmentId)
-            );
+        let rules: LegacyFeatureRule[];
+        if (revision) {
+          if (Array.isArray(revision.rules)) {
+            // Modern format: filter array by environment
+            rules = revision.rules
+              .filter((rule) => rule.allEnvironments || rule.environments?.includes(environmentId))
+              .map((rule) => {
+                const { uid, environments, allEnvironments, ...legacyRule } = rule;
+                return legacyRule;
+              });
+          } else {
+            // Legacy format: Record<string, LegacyFeatureRule[]>
+            rules = (revision.rules as Record<string, LegacyFeatureRule[]>)[environmentId] || [];
+          }
+        } else {
+          rules = feature.rules
+            .filter((rule) => rule.allEnvironments || rule.environments?.includes(environmentId))
+            .map((rule) => {
+              const { uid, environments, allEnvironments, ...legacyRule } = rule;
+              return legacyRule;
+            });
+        }
 
         if (rules) {
           rules.forEach((rule: FeatureRule, i: number) => {

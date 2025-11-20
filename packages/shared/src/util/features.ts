@@ -89,26 +89,44 @@ export function mergeRevision(
     envSettings[env].enabled = envSettings[env].enabled || false;
   });
 
-  // Convert revision rules (legacy format) to modern format and merge with feature rules
-  // Revisions use legacy format (rules per environment), so we need to convert
+  // Convert revision rules to modern format and merge with feature rules
+  // Revisions now use modern format (top-level array), but may still have legacy format in old data
   const revisionRules: FeatureRule[] = [];
   const updatedEnvs = new Set<string>();
   
-  environments.forEach((env) => {
-    const revRules = revision.rules?.[env];
-    if (revRules) {
-      updatedEnvs.add(env);
-      // Convert legacy rules to modern format
-      revRules.forEach((legacyRule: any) => {
-        revisionRules.push({
-          ...legacyRule,
-          uid: legacyRule.uid || `rev_${env}_${Date.now()}_${Math.random()}`,
-          environments: legacyRule.environments || [env],
-          allEnvironments: legacyRule.allEnvironments ?? false,
-        } as FeatureRule);
-  });
-    }
-  });
+  if (Array.isArray(revision.rules)) {
+    // Modern format: already an array
+    revision.rules.forEach((rule) => {
+      if (rule.allEnvironments) {
+        environments.forEach((env) => updatedEnvs.add(env));
+      } else {
+        rule.environments?.forEach((env) => {
+          if (environments.includes(env)) {
+            updatedEnvs.add(env);
+          }
+        });
+      }
+      revisionRules.push(rule);
+    });
+  } else if (revision.rules && typeof revision.rules === "object") {
+    // Legacy format: Record<string, LegacyFeatureRule[]>
+    environments.forEach((env) => {
+      const revRules = (revision.rules as Record<string, LegacyFeatureRule[]>)[env];
+      if (revRules) {
+        updatedEnvs.add(env);
+        // Convert legacy rules to modern format
+        revRules.forEach((legacyRule: unknown) => {
+          const rule = legacyRule as LegacyFeatureRule;
+          revisionRules.push({
+            ...rule,
+            uid: (rule as unknown as { uid?: string }).uid || `rev_${env}_${Date.now()}_${Math.random()}`,
+            environments: (rule as unknown as { environments?: string[] }).environments || [env],
+            allEnvironments: (rule as unknown as { allEnvironments?: boolean }).allEnvironments ?? false,
+          } as FeatureRule);
+        });
+      }
+    });
+  }
 
   // Remove existing rules for updated environments, add revision rules
   const existingRules = newFeature.rules.filter(
@@ -500,15 +518,39 @@ export function autoMerge(
       result.defaultValue = revision.defaultValue;
     }
 
-    environments.forEach((env) => {
-      const rules = revision.rules?.[env];
-      if (!rules) return;
-      if (isEqual(rules, base.rules[env] || [])) {
-        return;
-      }
-      result.rules = result.rules || {};
-      result.rules[env] = rules;
-    });
+    // Handle both legacy and modern revision formats
+    if (Array.isArray(revision.rules)) {
+      // Modern format: filter by environment
+      environments.forEach((env) => {
+        const rules = revision.rules.filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(env)
+        );
+        if (rules.length === 0) return;
+        
+        // Convert to legacy format for comparison with base
+        const rulesLegacy = rules.map((rule) => {
+          const { uid, environments, allEnvironments, ...legacyRule } = rule;
+          return legacyRule;
+        });
+        
+        if (isEqual(rulesLegacy, base.rules[env] || [])) {
+          return;
+        }
+        result.rules = result.rules || {};
+        result.rules[env] = rulesLegacy;
+      });
+    } else if (revision.rules && typeof revision.rules === "object") {
+      // Legacy format: Record<string, LegacyFeatureRule[]>
+      environments.forEach((env) => {
+        const rules = (revision.rules as Record<string, LegacyFeatureRule[]>)[env];
+        if (!rules) return;
+        if (isEqual(rules, base.rules[env] || [])) {
+          return;
+        }
+        result.rules = result.rules || {};
+        result.rules[env] = rules;
+      });
+    }
 
     return {
       success: true,
@@ -560,9 +602,26 @@ export function autoMerge(
   }
 
   // Check for conflicts in rules
+  // Handle both legacy and modern revision formats
+  const getRevisionRulesForEnv = (revisionRules: unknown, env: string): LegacyFeatureRule[] => {
+    if (Array.isArray(revisionRules)) {
+      // Modern format: filter array by environment
+      return revisionRules
+        .filter((rule) => rule.allEnvironments || rule.environments?.includes(env))
+        .map((rule) => {
+          const { uid, environments, allEnvironments, ...legacyRule } = rule;
+          return legacyRule;
+        });
+    } else if (revisionRules && typeof revisionRules === "object") {
+      // Legacy format: Record<string, LegacyFeatureRule[]>
+      return (revisionRules as Record<string, LegacyFeatureRule[]>)[env] || [];
+    }
+    return [];
+  };
+
   environments.forEach((env) => {
-    const rules = revision.rules?.[env];
-    if (!rules) return;
+    const rules = getRevisionRulesForEnv(revision.rules, env);
+    if (rules.length === 0) return;
 
     // If the revision doesn't have changes in this environment, skip
     if (
@@ -699,25 +758,42 @@ export function isFeatureCyclic(
 
   const newFeature = cloneDeep(feature);
   if (revision) {
-    // Convert revision rules (legacy format) to modern format
+    // Convert revision rules to modern format
     const revisionRules: FeatureRule[] = [];
-    for (const env of Object.keys(newFeature.environmentSettings || {})) {
-      const revRules = revision?.rules?.[env] || [];
-      revRules.forEach((legacyRule: any) => {
-        revisionRules.push({
-          ...legacyRule,
-          uid: legacyRule.uid || `rev_${env}_${Date.now()}_${Math.random()}`,
-          environments: legacyRule.environments || [env],
-          allEnvironments: legacyRule.allEnvironments ?? false,
-        } as FeatureRule);
+    const updatedEnvs = new Set<string>();
+    
+    if (Array.isArray(revision.rules)) {
+      // Modern format: already an array
+      revision.rules.forEach((rule) => {
+        if (rule.allEnvironments) {
+          Object.keys(newFeature.environmentSettings || {}).forEach((env) => updatedEnvs.add(env));
+        } else {
+          rule.environments?.forEach((env) => {
+            if (newFeature.environmentSettings?.[env]) {
+              updatedEnvs.add(env);
+            }
+          });
+        }
+        revisionRules.push(rule);
       });
+    } else if (revision.rules && typeof revision.rules === "object") {
+      // Legacy format: Record<string, LegacyFeatureRule[]>
+      for (const env of Object.keys(newFeature.environmentSettings || {})) {
+        const revRules = (revision.rules as Record<string, LegacyFeatureRule[]>)[env] || [];
+        if (revRules.length > 0) {
+          updatedEnvs.add(env);
+        }
+        revRules.forEach((legacyRule: unknown) => {
+          const rule = legacyRule as LegacyFeatureRule;
+          revisionRules.push({
+            ...rule,
+            uid: (rule as unknown as { uid?: string }).uid || `rev_${env}_${Date.now()}_${Math.random()}`,
+            environments: (rule as unknown as { environments?: string[] }).environments || [env],
+            allEnvironments: (rule as unknown as { allEnvironments?: boolean }).allEnvironments ?? false,
+          } as FeatureRule);
+        });
+      }
     }
-    // Replace rules for environments that have revision rules
-    const updatedEnvs = new Set(
-      Object.keys(revision?.rules || {}).filter(
-        (env) => (revision?.rules?.[env] || []).length > 0
-      )
-    );
     const existingRules = newFeature.rules.filter(
       (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
     );

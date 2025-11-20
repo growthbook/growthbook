@@ -27,6 +27,8 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { LegacyRevisionRules } from "back-end/src/validators/features";
+import { upgradeRevisionRules } from "back-end/src/util/migrations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
@@ -196,7 +198,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const changedEnvironments: string[] = [];
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
-      const revisedRules: RevisionRules = {};
+      const revisedRules: LegacyRevisionRules = {};
 
       // Copy over current rules to revision as this endpoint support partial updates
       // Convert from modern format (top-level rules) to legacy format (per environment)
@@ -251,7 +253,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         );
       }
 
-      revisionChanges.rules = revisedRules;
+      // Convert legacy format to modern format for revision
+      revisionChanges.rules = upgradeRevisionRules(revisedRules);
 
       if (hasChanges) {
         const reviewRequired = featureRequiresReview(

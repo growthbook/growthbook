@@ -358,17 +358,25 @@ export function getFeatureDefinition({
     : feature.defaultValue;
 
   // Get rules for this environment
-  // Revisions still use legacy format (rules per environment), so handle both
+  // Revisions now use modern format (top-level array), but may still have legacy format in old data
   let rules: FeatureRule[];
-  if (revision && revision.rules?.[environment]) {
-    // Convert legacy rules from revision to modern format
-    const { v4: uuidv4 } = require("uuid");
-    rules = revision.rules[environment].map((legacyRule) => ({
-      ...legacyRule,
-      uid: legacyRule.uid || uuidv4(),
-      environments: [environment],
-      allEnvironments: false,
-    } as FeatureRule));
+  if (revision && revision.rules) {
+    if (Array.isArray(revision.rules)) {
+      // Modern format: filter array by environment
+      rules = revision.rules.filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+      );
+    } else {
+      // Legacy format: access by environment key (for backward compatibility)
+      const { v4: uuidv4 } = require("uuid");
+      const legacyRules = (revision.rules as Record<string, LegacyFeatureRule[]>)[environment] || [];
+      rules = legacyRules.map((legacyRule) => ({
+        ...legacyRule,
+        uid: (legacyRule as unknown as { uid?: string }).uid || uuidv4(),
+        environments: [environment],
+        allEnvironments: false,
+      } as FeatureRule));
+    }
   } else {
     // Use modern format from feature
     rules = feature.rules.filter(

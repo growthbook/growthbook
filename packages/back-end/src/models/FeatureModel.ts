@@ -123,8 +123,9 @@ type FeatureDocument = mongoose.Document &
   LegacyFeatureInterface & {
     environments?: string[];
     rules?: LegacyFeatureRule[];
-    revision?: any;
-    draft?: any;
+    // Deprecated fields from very old documents (before legacyDraft)
+    revision?: unknown;
+    draft?: unknown;
   };
 
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
@@ -143,14 +144,14 @@ const toInterface = (
 ): LegacyFeatureInterface & {
   environments?: string[];
   rules?: LegacyFeatureRule[];
-  revision?: any;
-  draft?: any;
+  revision?: unknown;
+  draft?: unknown;
 } => {
   const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]) as LegacyFeatureInterface & {
     environments?: string[];
     rules?: LegacyFeatureRule[];
-    revision?: any;
-    draft?: any;
+    revision?: unknown;
+    draft?: unknown;
   };
   featureInterface.environmentSettings = applyEnvironmentInheritance(
     context.org.settings?.environments || [],
@@ -802,19 +803,26 @@ export async function addFeatureRule(
     rule.id = generateRuleId();
   }
 
-  const changes = {
-    rules: revision.rules || {},
-    status: revision.status,
-  };
-  envs.forEach((env) => {
-    changes.rules[env] = changes.rules[env] || [];
-    changes.rules[env].push(rule);
-  });
+  // Start with existing revision rules (modern format: FeatureRule[])
+  const existingRules = revision.rules || [];
+  
+  // Create new rule instances for each environment
+  const newRules: FeatureRule[] = envs.map((env) => ({
+    ...rule,
+    uid: rule.uid || uuidv4(),
+    environments: [env],
+    allEnvironments: false,
+  }));
+
+  const updatedRules: FeatureRule[] = [...existingRules, ...newRules];
+
   await updateRevision(
     context,
     feature,
     revision,
-    changes,
+    {
+      rules: updatedRules,
+    },
     {
       user,
       action: "add rule",
@@ -835,22 +843,41 @@ export async function editFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
-  const changes = { rules: revision.rules || {}, status: revision.status };
+  // Get existing rules and filter by environment
+  const existingRules = revision.rules || [];
+  const envRules = existingRules.filter(
+    (rule) =>
+      rule.allEnvironments || rule.environments?.includes(environment)
+  );
 
-  changes.rules[environment] = changes.rules[environment] || [];
-  if (!changes.rules[environment][i]) {
+  if (i >= envRules.length || i < 0) {
     throw new Error("Unknown rule");
   }
 
-  changes.rules[environment][i] = {
-    ...changes.rules[environment][i],
+  // Find the rule to update by its position in the filtered list
+  const ruleToUpdate = envRules[i];
+  const ruleIndex = existingRules.findIndex(
+    (r) => r.uid === ruleToUpdate.uid
+  );
+
+  if (ruleIndex === -1) {
+    throw new Error("Rule not found");
+  }
+
+  // Update the rule
+  const updatedRules = [...existingRules];
+  updatedRules[ruleIndex] = {
+    ...updatedRules[ruleIndex],
     ...updates,
   } as FeatureRule;
+
   await updateRevision(
     context,
     feature,
     revision,
-    changes,
+    {
+      rules: updatedRules,
+    },
     {
       user,
       action: "edit rule",
@@ -870,21 +897,37 @@ export async function copyFeatureEnvironmentRules(
   user: EventUser,
   resetReview: boolean,
 ) {
-  const changes = {
-    rules: revision.rules || {},
-    status: revision.status,
-  };
-  changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
+  // Get existing rules and filter by source environment
+  const existingRules = revision.rules || [];
+  const sourceRules = existingRules.filter(
+    (rule) =>
+      rule.allEnvironments || rule.environments?.includes(sourceEnv)
+  );
+
+  // Create new rule instances for target environment
+  const newRules: FeatureRule[] = sourceRules.map((rule) => ({
+    ...rule,
+    uid: uuidv4(), // New UID for the copied rule
+    environments: rule.allEnvironments
+      ? rule.environments
+      : [targetEnv],
+    allEnvironments: false, // Copied rules are environment-specific
+  }));
+
+  const updatedRules: FeatureRule[] = [...existingRules, ...newRules];
+
   await updateRevision(
     context,
     feature,
     revision,
-    changes,
+    {
+      rules: updatedRules,
+    },
     {
       user,
       action: "copy rules",
       subject: `from ${sourceEnv} to ${targetEnv}`,
-      value: JSON.stringify(changes.rules[sourceEnv]),
+      value: JSON.stringify(sourceRules),
     },
     resetReview,
   );

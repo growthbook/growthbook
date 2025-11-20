@@ -62,7 +62,9 @@ function toInterface(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
 ): FeatureRevisionInterface {
-  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
+  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]) as
+    | LegacyFeatureRevisionInterface
+    | FeatureRevisionInterface;
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
@@ -85,7 +87,8 @@ function toInterface(
   }
 
   // Migrate legacy revision to modern format
-  if (!revision?.rules?.length) {
+  // Check if rules is an array (modern format) vs Record (legacy format)
+  if (!Array.isArray(revision.rules)) {
     // Legacy format - convert to modern
     const legacyRevision = revision as LegacyFeatureRevisionInterface;
     return {
@@ -337,6 +340,9 @@ export async function createRevision({
     }
 
   if (!baseVersion) baseVersion = lastRevision?.version;
+  if (!baseVersion) {
+    throw new Error("baseVersion is required");
+  }
   const baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision

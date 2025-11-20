@@ -81,16 +81,28 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
           const { uid, environments, allEnvironments, ...legacyRule } = rule;
           return legacyRule;
         });
-      if (
-        revision.rules[env] &&
-        !isEqual(
-          revision.rules[env],
-          envRules,
-        )
-      ) {
+      // Get revision rules for this environment (modern format: filter array)
+      const revEnvRules = (revision.rules || []).filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      );
+      
+      // Convert revision rules to legacy format for comparison
+      const revEnvRulesLegacy = revEnvRules.map((rule) => {
+        const { uid, environments, allEnvironments, ...legacyRule } = rule;
+        return legacyRule;
+      });
+      
+      if (revEnvRules.length > 0 && !isEqual(revEnvRulesLegacy, envRules)) {
         changedEnvs.push(env);
-        changes.rules = changes.rules || {};
-        changes.rules[env] = revision.rules[env];
+        if (!changes.rules) {
+          changes.rules = [];
+        }
+        // Add revision rules for this environment to changes
+        revEnvRules.forEach((rule) => {
+          if (!changes.rules!.find((r) => r.uid === rule.uid)) {
+            changes.rules!.push(rule);
+          }
+        });
       }
     });
     if (changedEnvs.length > 0) {
