@@ -1202,13 +1202,14 @@ export default function SDKConnectionForm({
                         experiments.
                       </p>
                       <p>
-                        We recommend only enabling this for non-production environments 
-                        to test experiments before launching them.
+                        We recommend only enabling this for non-production
+                        environments to test experiments before launching them.
                       </p>
                       <p className="mb-0">
-                        <strong>Note:</strong> For visual editor and URL redirect experiments, 
-                        you can force into a specific variation using a URL query string 
-                        such as <code>?my-experiment-id=2</code>
+                        <strong>Note:</strong> For visual editor and URL
+                        redirect experiments, you can force into a specific
+                        variation using a URL query string such as{" "}
+                        <code>?my-experiment-id=2</code>
                       </p>
                     </>
                   }
