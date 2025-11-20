@@ -508,6 +508,7 @@ export interface components {
     Project: {
       id: string;
       name: string;
+      uid: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -7974,6 +7975,7 @@ export interface operations {
             projects: ({
                 id: string;
                 name: string;
+                uid: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -8017,6 +8019,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
+              uid: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -8046,6 +8049,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
+              uid: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -8090,6 +8094,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
+              uid: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */

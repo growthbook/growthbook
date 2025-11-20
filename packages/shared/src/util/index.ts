@@ -149,6 +149,33 @@ export function generateVariationId() {
   return uniqid("var_");
 }
 
+/**
+ * Generates a slug-like identifier from a name, following the same pattern as experiment tracking keys.
+ * Used for generating project UIDs and other similar identifiers.
+ * @param name - The name to generate the identifier from
+ * @param n - Optional number suffix (for uniqueness attempts)
+ * @returns A sanitized identifier
+ */
+export function generateSlugFromName(name: string, n?: number): string {
+  let slug = ("-" + name)
+    .toLowerCase()
+    // Replace whitespace with hyphen
+    .replace(/\s+/g, "-")
+    // Get rid of all non alpha-numeric characters (keep hyphens and underscores)
+    .replace(/[^a-z0-9\-_]*/g, "")
+    // Collapse duplicate hyphens
+    .replace(/-{2,}/g, "-")
+    // Remove leading and trailing hyphens
+    .replace(/(^-|-$)/g, "");
+
+  // Add number suffix if this is not the first attempt
+  if (n && n > 1) {
+    slug += "-" + n;
+  }
+
+  return slug;
+}
+
 export function experimentHasLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {

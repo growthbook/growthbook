@@ -122,6 +122,7 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
       [key in keyof z.infer<T>]: 1 | -1;
     }>;
     unique?: boolean;
+    sparse?: boolean;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -827,13 +828,14 @@ export abstract class BaseModel<
       this._dangerousGetCollection()
         .createIndex(index.fields as { [key: string]: number }, {
           unique: !!index.unique,
+          sparse: !!index.sparse,
         })
         .catch((err) => {
           logger.error(
             err,
             `Error creating ${Object.keys(index.fields).join("/")} ${
               index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
+            }${index.sparse ? "sparse " : ""}index for ${this.config.collectionName}`,
           );
         });
     });

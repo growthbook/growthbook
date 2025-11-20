@@ -68,11 +68,7 @@ function getSecurityTabState(
   value: Partial<SDKConnectionInterface>,
 ): "none" | "ciphered" | "remote" {
   if (value.remoteEvalEnabled) return "remote";
-  if (
-    value.encryptPayload ||
-    value.hashSecureAttributes
-  )
-    return "ciphered";
+  if (value.encryptPayload || value.hashSecureAttributes) return "ciphered";
   return "none";
 }
 
@@ -307,10 +303,7 @@ export default function SDKConnectionForm({
       const enableSecureAttributes = hasSecureAttributesFeature;
       form.setValue("remoteEvalEnabled", false);
       if (
-        !(
-          form.watch("encryptPayload") ||
-          form.watch("hashSecureAttributes")
-        )
+        !(form.watch("encryptPayload") || form.watch("hashSecureAttributes"))
       ) {
         form.setValue("encryptPayload", enableEncryption);
         form.setValue("hashSecureAttributes", enableSecureAttributes);
@@ -811,7 +804,6 @@ export default function SDKConnectionForm({
                           }
                         />
                       </div>
-
                     </div>
 
                     {form.watch("encryptPayload") &&
@@ -1206,7 +1198,29 @@ export default function SDKConnectionForm({
             </div>
             <div className="mb-2 d-flex align-items-center">
               <Checkbox
-                label="Include experiment & variation names"
+                label={
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          Experiment and variation names can help add context
+                          when debugging or tracking events.
+                        </p>
+                        <p>
+                          However, this could expose potentially sensitive
+                          information to your users if enabled for a client-side
+                          or mobile application.
+                        </p>
+                        <p className="mb-0">
+                          For maximum privacy and security, we recommend hiding
+                          these fields.
+                        </p>
+                      </>
+                    }
+                  >
+                    Include experiment & variation names <FaInfoCircle />
+                  </Tooltip>
+                }
                 value={!!form.watch("includeExperimentNames")}
                 setValue={(val) => form.setValue("includeExperimentNames", val)}
               />

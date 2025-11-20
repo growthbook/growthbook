@@ -249,6 +249,7 @@ export async function getFeatureDefinitionsFilteredByEnvironment({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectName,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
   environment,

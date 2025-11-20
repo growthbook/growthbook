@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
+import { generateSlugFromName } from "shared/util";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -494,8 +495,10 @@ export async function provisionResource(req: Request, res: Response) {
     resourceId,
   } as const;
 
+  const baseUid = generateSlugFromName(payload.name) || "project";
   const project = await context.models.projects.create({
     name: payload.name,
+    uid: baseUid,
     managedBy,
   });
 

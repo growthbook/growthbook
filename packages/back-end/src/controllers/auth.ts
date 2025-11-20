@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { generateSlugFromName } from "shared/util";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -304,8 +305,11 @@ export async function postFirstTimeRegister(
 
   const context = getContextForAgendaJobByOrgObject(org);
 
+  const projectName = "My First Project";
+  const baseUid = generateSlugFromName(projectName) || "my-first-project";
   const project = await context.models.projects.create({
-    name: "My First Project",
+    name: projectName,
+    uid: baseUid,
   });
 
   sendLocalSuccessResponse(req, res, user, project.id);

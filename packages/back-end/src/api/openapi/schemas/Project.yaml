@@ -2,12 +2,15 @@ type: object
 required:
   - id
   - name
+  - uid
   - dateCreated
   - dateUpdated
 properties:
   id:
     type: string
   name:
+    type: string
+  uid:
     type: string
   dateCreated:
     type: string
