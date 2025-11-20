@@ -28,32 +28,6 @@ const PrestoForm: FC<{
           ]}
         />
       </div>
-      <div className="form-group col-md-12">
-        <SelectField
-          label="Authentication Method"
-          options={[
-            {
-              value: "basicAuth",
-              label: "Basic Auth (Username/Password)",
-            },
-            {
-              value: "customAuth",
-              label: "Custom Auth (HTTP Authorization header)",
-            },
-            {
-              value: "none",
-              label: "None (Authentication handled outside of GrowthBook)",
-            },
-          ]}
-          helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. 'None' only is used for custom authentication methods."
-          value={params.authType || "basicAuth"}
-          onChange={(v) => {
-            setParams({
-              authType: v,
-            });
-          }}
-        />
-      </div>
       <div className=" col-md-12">
         <HostWarning
           host={params.host ?? ""}
@@ -84,6 +58,36 @@ const PrestoForm: FC<{
           required
           value={params.port || 0}
           onChange={onParamChange}
+        />
+      </div>
+      <div className="col-md-12">
+        <SelectField
+          label="Authentication Method"
+          options={[
+            {
+              value: "basicAuth",
+              label: "Basic Auth (Username/Password)",
+            },
+            {
+              value: "customAuth",
+              label: "Custom Auth (HTTP Authorization header)",
+            },
+            {
+              value: "kerberos",
+              label: "Kerberos",
+            },
+            {
+              value: "none",
+              label: "None (Authentication handled outside of GrowthBook)",
+            },
+          ]}
+          helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. Kerberos auth uses KRB5 authentication with client principal. 'None' only is used for custom authentication methods."
+          value={params.authType || "basicAuth"}
+          onChange={(v) => {
+            setParams({
+              authType: v,
+            });
+          }}
         />
       </div>
       {(params.authType ?? "basicAuth") === "basicAuth" && (
@@ -124,6 +128,62 @@ const PrestoForm: FC<{
             onChange={onParamChange}
           />
         </div>
+      )}
+      {params.authType === "kerberos" && (
+        <>
+          <div className="form-group col-md-12">
+            <label>Service Principal</label>
+            <input
+              type="text"
+              className="form-control"
+              name="kerberosServicePrincipal"
+              required
+              value={params.kerberosServicePrincipal || ""}
+              onChange={onParamChange}
+              placeholder="presto@db.example.com"
+            />
+            <small className="form-text text-muted">
+              The service principal that you want to connect to. Accepts both
+              full principal (<code>PRESTO/db.example.com@REALM</code>) and
+              library format (<code>presto@db.example.com</code>).
+            </small>
+          </div>
+          <div className="form-group col-md-12">
+            <label>GrowthBook Client Principal</label>
+            <input
+              type="text"
+              className="form-control"
+              name="kerberosClientPrincipal"
+              required
+              value={params.kerberosClientPrincipal || ""}
+              onChange={onParamChange}
+              placeholder="HTTP/growthbook.example.com@REALM"
+              pattern="[^/]+\/[^@]+@.+"
+              title="Must be in the format service/hostname@REALM"
+            />
+            <small className="form-text text-muted">
+              The client (GrowthBook) principal. It should contain the full
+              principal (<code>http/growthbook.example.com@REALM</code>). Ensure
+              the GrowthBook server has valid Kerberos credentials configured
+              via <code>kinit</code> or keytab.
+            </small>
+          </div>
+          <div className="form-group col-md-12">
+            <label>Kerberos User</label>
+            <input
+              type="text"
+              className="form-control"
+              name="kerberosUser"
+              value={params.kerberosUser || ""}
+              onChange={onParamChange}
+              placeholder="growthbook"
+            />
+            <small className="form-text text-muted">
+              This is the value used in the <code>X-Trino-User</code> header.
+              Defaults to <code>growthbook</code> if not specified.
+            </small>
+          </div>
+        </>
       )}
       <div className="form-group col-md-12">
         <label>Default Catalog</label>
