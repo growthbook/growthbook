@@ -665,7 +665,6 @@ export function DataVisualizationDisplay({
     const log10Range = Math.log10(range);
     const log10Step = Math.floor(log10Range - Math.log10(targetNPlus1));
     let step = Math.pow(10, log10Step);
-    console.log("step init", step);
     const multipliers = [10, 5, 2, 1];
     let optimalMultiplier = multipliers[0];
     for (const mult of multipliers) {
@@ -719,13 +718,11 @@ export function DataVisualizationDisplay({
     return value < 0 ? -absRounded : absRounded;
   }, []);
 
-  const _isFiniteNumber = (value: number | null): value is number =>
-    value !== null && Number.isFinite(value);
-
   // Helper function to find axis limits from numeric values
   const findAxisLimits = useCallback(
     (
       values: number[],
+      expandFactor: number = 0.05,
       applyNiceRounding: boolean = true,
     ): { min: number | undefined; max: number | undefined } => {
       if (values.length === 0) {
@@ -735,7 +732,7 @@ export function DataVisualizationDisplay({
       const dataMin = Math.min(...values);
       const dataMax = Math.max(...values);
       const range = dataMax - dataMin;
-      const padding = range * 0.05;
+      const padding = range * expandFactor;
       const paddedMin = dataMin - padding;
       const paddedMax = dataMax + padding;
 
@@ -754,7 +751,7 @@ export function DataVisualizationDisplay({
     [niceRound],
   );
 
-  const xAxisLimits = useMemo(() => {
+  const xAxisLimitsInit = useMemo(() => {
     if (aggregatedRows.length === 0 || xConfig?.type !== "number") {
       return { min: undefined, max: undefined };
     }
@@ -765,44 +762,20 @@ export function DataVisualizationDisplay({
     }
 
     const numbers = xValues.map((x) => Number(x));
-    return findAxisLimits(numbers, false);
+    return findAxisLimits(numbers, 0.01, false);
   }, [aggregatedRows, xConfig?.type, findAxisLimits]);
 
-  const yAxisLimits = useMemo(() => {
+  const yAxisLimitsInit = useMemo(() => {
     if (aggregatedRows.length === 0 || yConfig?.type !== "number") {
       return { min: undefined, max: undefined };
     }
-
-    // Collect all y values from aggregatedRows (including dimension-specific values)
-    const yValues: number[] = [];
-    const dimensionCombinations =
-      dimensionFields.length > 0
-        ? generateAllDimensionCombinations(dimensionValuesByField)
-        : [];
-
-    aggregatedRows.forEach((row) => {
-      if (typeof row.y === "number" && Number.isFinite(row.y)) {
-        yValues.push(row.y);
-      }
-      // Also collect dimension-specific y values
-      dimensionCombinations.forEach((combination) => {
-        const dimensionKey = combination.join(", ");
-        const dimY = row[dimensionKey];
-        if (typeof dimY === "number" && Number.isFinite(dimY)) {
-          yValues.push(dimY);
-        }
-      });
-    });
-
-    return findAxisLimits(yValues, true);
-  }, [
-    aggregatedRows,
-    yConfig?.type,
-    dimensionFields,
-    dimensionValuesByField,
-    generateAllDimensionCombinations,
-    findAxisLimits,
-  ]);
+    const yValues = aggregatedRows.map((row) => row.y).filter((y) => y != null);
+    if (yValues.length === 0) {
+      return { min: undefined, max: undefined };
+    }
+    const numbers = yValues.map((y) => Number(y));
+    return findAxisLimits(numbers, 0.01, false);
+  }, [aggregatedRows, yConfig?.type, findAxisLimits]);
 
   // Helper function to find axis tick values from limits
   const findAxisTickValues = useCallback(
@@ -824,19 +797,15 @@ export function DataVisualizationDisplay({
     if (xConfig?.type !== "number") {
       return undefined;
     }
-
-    return findAxisTickValues(xAxisLimits);
-  }, [xAxisLimits, xConfig?.type, findAxisTickValues]);
-  console.log("yAxisLimits yValues", yAxisLimits);
+    return findAxisTickValues(xAxisLimitsInit);
+  }, [xAxisLimitsInit, xConfig?.type, findAxisTickValues]);
 
   const yAxisTickValues = useMemo(() => {
     if (yConfig?.type !== "number") {
       return undefined;
     }
-
-    return findAxisTickValues(yAxisLimits);
-  }, [yAxisLimits, yConfig?.type, findAxisTickValues]);
-  console.log("yAxisTickValues", yAxisTickValues);
+    return findAxisTickValues(yAxisLimitsInit);
+  }, [yAxisLimitsInit, yConfig?.type, findAxisTickValues]);
 
   const series = useMemo(() => {
     if (dimensionFields.length === 0) {
@@ -892,7 +861,8 @@ export function DataVisualizationDisplay({
       xConfig?.type === "number"
         ? (() => {
             if (
-              (xAxisLimits.min == undefined || xAxisLimits.max == undefined) &&
+              (xAxisLimitsInit.min == undefined ||
+                xAxisLimitsInit.max == undefined) &&
               xAxisTickValues &&
               xAxisTickValues.length >= 2
             ) {
@@ -903,20 +873,45 @@ export function DataVisualizationDisplay({
                 ...(tickStep > 0 && { interval: tickStep }),
               };
             }
+            if (
+              !xAxisTickValues ||
+              xAxisTickValues.length < 2 ||
+              xAxisLimitsInit.min === undefined ||
+              xAxisLimitsInit.max === undefined
+            ) {
+              return {
+                ...(xAxisLimitsInit.min !== undefined && {
+                  min: xAxisLimitsInit.min,
+                }),
+                ...(xAxisLimitsInit.max !== undefined && {
+                  max: xAxisLimitsInit.max,
+                }),
+              };
+            }
+            const stepSize = xAxisTickValues[1] - xAxisTickValues[0];
+            const minTickValue = xAxisTickValues[0];
+            const maxTickValue = xAxisTickValues[xAxisTickValues.length - 1];
+            const xMinFinal =
+              minTickValue <= xAxisLimitsInit.min
+                ? minTickValue
+                : minTickValue - stepSize;
+            const xMaxFinal =
+              maxTickValue >= xAxisLimitsInit.max
+                ? maxTickValue
+                : maxTickValue + stepSize;
             return {
-              ...(xAxisLimits.min !== undefined && { min: xAxisLimits.min }),
-              ...(xAxisLimits.max !== undefined && { max: xAxisLimits.max }),
+              min: xMinFinal,
+              max: xMaxFinal,
             };
           })()
         : {};
-    console.log("xAxisLimits", xAxisLimits);
-    console.log("xAxisMinMaxOverrides", xAxisMinMaxOverrides);
 
     const yAxisMinMaxOverrides =
       yConfig?.type === "number"
         ? (() => {
             if (
-              (yAxisLimits.min == undefined || yAxisLimits.max == undefined) &&
+              (yAxisLimitsInit.min == undefined ||
+                yAxisLimitsInit.max == undefined) &&
               yAxisTickValues &&
               yAxisTickValues.length >= 2
             ) {
@@ -927,9 +922,35 @@ export function DataVisualizationDisplay({
                 ...(tickStep > 0 && { interval: tickStep }),
               };
             }
+            if (
+              !yAxisTickValues ||
+              yAxisTickValues.length < 2 ||
+              yAxisLimitsInit.min === undefined ||
+              yAxisLimitsInit.max === undefined
+            ) {
+              return {
+                ...(yAxisLimitsInit.min !== undefined && {
+                  min: yAxisLimitsInit.min,
+                }),
+                ...(yAxisLimitsInit.max !== undefined && {
+                  max: yAxisLimitsInit.max,
+                }),
+              };
+            }
+            const stepSize = yAxisTickValues[1] - yAxisTickValues[0];
+            const minTickValue = yAxisTickValues[0];
+            const maxTickValue = yAxisTickValues[yAxisTickValues.length - 1];
+            const yMinFinal =
+              minTickValue <= yAxisLimitsInit.min
+                ? minTickValue
+                : minTickValue - stepSize;
+            const yMaxFinal =
+              maxTickValue >= yAxisLimitsInit.max
+                ? maxTickValue
+                : maxTickValue + stepSize;
             return {
-              ...(yAxisLimits.min !== undefined && { min: yAxisLimits.min }),
-              ...(yAxisLimits.max !== undefined && { max: yAxisLimits.max }),
+              min: yMinFinal,
+              max: yMaxFinal,
             };
           })()
         : {};
@@ -1021,9 +1042,9 @@ export function DataVisualizationDisplay({
     dimensionFields,
     dataVizConfig.title,
     textColor,
-    xAxisLimits,
+    xAxisLimitsInit,
     xAxisTickValues,
-    yAxisLimits,
+    yAxisLimitsInit,
     yAxisTickValues,
   ]);
 
