@@ -280,7 +280,6 @@ export default function SDKConnectionForm({
   useEffect(() => {
     if (!edit) {
       form.setValue("includeVisualExperiments", showVisualEditorSettings);
-      form.setValue("includeDraftExperiments", showVisualEditorSettings);
       form.setValue("includeRedirectExperiments", showRedirectSettings);
     } else {
       if (!showVisualEditorSettings) {
@@ -288,9 +287,6 @@ export default function SDKConnectionForm({
       }
       if (!showRedirectSettings) {
         form.setValue("includeRedirectExperiments", false);
-      }
-      if (!showVisualEditorSettings && !showRedirectSettings) {
-        form.setValue("includeDraftExperiments", false);
       }
     }
   }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
@@ -1084,47 +1080,6 @@ export default function SDKConnectionForm({
                   />
                 </div>
               )}
-
-              {(form.watch("includeVisualExperiments") ||
-                form.watch("includeRedirectExperiments")) && (
-                <>
-                  <div className="mb-2 d-flex align-items-center">
-                    <Checkbox
-                      value={form.watch("includeDraftExperiments")}
-                      setValue={(val) =>
-                        form.setValue("includeDraftExperiments", val)
-                      }
-                      label={
-                        <Tooltip
-                          body={
-                            <>
-                              <p>
-                                In-development auto experiments will be sent to
-                                the SDK. We recommend only enabling this for
-                                non-production environments.
-                              </p>
-                              <p className="mb-0">
-                                To force into a variation, use a URL query
-                                string such as{" "}
-                                <code className="d-block">
-                                  ?my-experiment-id=2
-                                </code>
-                              </p>
-                            </>
-                          }
-                        >
-                          <label
-                            className="mb-0 cursor-pointer"
-                            htmlFor="sdk-connection-include-draft-experiments-toggle"
-                          >
-                            Include draft experiments <FaInfoCircle />
-                          </label>
-                        </Tooltip>
-                      }
-                    />
-                  </div>
-                </>
-              )}
             </div>
           </div>
         )}
@@ -1229,6 +1184,43 @@ export default function SDKConnectionForm({
               label={"Include Feature Rule IDs in Payload"}
               value={!!form.watch("includeRuleIds")}
               setValue={(val) => form.setValue("includeRuleIds", val)}
+            />
+          </div>
+          <div className="mt-2">
+            <Checkbox
+              value={form.watch("includeDraftExperiments")}
+              setValue={(val) => form.setValue("includeDraftExperiments", val)}
+              label={
+                <Tooltip
+                  body={
+                    <>
+                      <p>
+                        In-development experiments (with status
+                        &quot;draft&quot;) will be included in the SDK payload.
+                        This applies to all experiment types: feature flag
+                        experiments, visual editor experiments, and URL redirect
+                        experiments.
+                      </p>
+                      <p>
+                        We recommend only enabling this for non-production environments 
+                        to test experiments before launching them.
+                      </p>
+                      <p className="mb-0">
+                        <strong>Note:</strong> For visual editor and URL redirect experiments, 
+                        you can force into a specific variation using a URL query string 
+                        such as <code>?my-experiment-id=2</code>
+                      </p>
+                    </>
+                  }
+                >
+                  <label
+                    className="mb-0 cursor-pointer"
+                    htmlFor="sdk-connection-include-draft-experiments-toggle"
+                  >
+                    Include Draft Experiments <FaInfoCircle />
+                  </label>
+                </Tooltip>
+              }
             />
           </div>
         </div>
