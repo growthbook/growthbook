@@ -16,7 +16,7 @@ const supportedServices = [
     icon: "statsig",
     path: "statsig",
     accentColor: "#000",
-    text: "Import your projects, features and environments from Statsig.",
+    text: "Import your projects, features, environments, and metrics from Statsig.",
   },
 ];
 
