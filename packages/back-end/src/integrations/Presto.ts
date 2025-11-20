@@ -57,13 +57,17 @@ export default class Presto extends SqlIntegration {
       configOptions.custom_auth = this.params.customAuth || "";
     }
     if (this.params?.authType === "kerberos") {
-      if (!this.params.kerberosServicePrincipal) {
+      if (
+        !this.params.kerberosServicePrincipal ||
+        !this.params.kerberosClientPrincipal
+      ) {
         throw new Error(
-          "Kerberos service principal is required for Kerberos authentication",
+          "Kerberos service and client principals are required for Kerberos authentication",
         );
       }
       configOptions.custom_auth = await getKerberosHeader(
         this.params.kerberosServicePrincipal,
+        this.params.kerberosClientPrincipal,
       );
     }
     if (this.params?.ssl) {

@@ -7,6 +7,7 @@ export interface PrestoConnectionParams {
   password?: string;
   customAuth?: string;
   kerberosServicePrincipal?: string;
+  kerberosClientPrincipal?: string;
   kerberosUser?: string;
   source?: string;
   catalog: string;

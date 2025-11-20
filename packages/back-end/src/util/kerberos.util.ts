@@ -1,12 +1,14 @@
-import { initializeClient, GSS_MECH_OID_KRB5 } from "kerberos";
+import { initializeClient, GSS_MECH_OID_SPNEGO } from "kerberos";
 import { logger } from "./logger";
 
 export async function getKerberosHeader(
   servicePrincipal: string,
+  clientPrincipal: string,
 ): Promise<string> {
   const formattedServicePrincipal = formatServicePrincipal(servicePrincipal);
   const client = await initializeClient(formattedServicePrincipal, {
-    mechOID: GSS_MECH_OID_KRB5,
+    mechOID: GSS_MECH_OID_SPNEGO,
+    principal: clientPrincipal,
   });
   let token = "";
   try {
@@ -21,8 +23,8 @@ export async function getKerberosHeader(
 }
 
 /**
- * Convert from Kerberos principal format (HTTP/host@REALM) (eg. HTTP/trino.example.com@EXAMPLE.COM)
- * to kerberos library format (HTTP@host) (eg. HTTP@trino.example.com)
+ * Convert from Kerberos principal format (HTTP/host@REALM)
+ * to kerberos library format (HTTP@host)
  * or return the original principal if it is already in the correct format
  */
 function formatServicePrincipal(servicePrincipal: string): string {
