@@ -27,20 +27,6 @@ import { PopulationDataQuerySettings } from "back-end/src/queryRunners/Populatio
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
-export class MissingDatasourceParamsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MissingDatasourceParamsError";
-  }
-}
-
-export class DataSourceNotSupportedError extends Error {
-  constructor() {
-    super("This data source is not supported yet.");
-    this.name = "DataSourceNotSupportedError";
-  }
-}
-
 export type DataType =
   | "string"
   | "integer"

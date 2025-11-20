@@ -2,8 +2,8 @@ import { Response } from "express";
 import { Stripe } from "stripe";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { StripeAddress, TaxIdType } from "shared/src/types";
+import { LicenseServerError } from "shared/util";
 import {
-  LicenseServerError,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
