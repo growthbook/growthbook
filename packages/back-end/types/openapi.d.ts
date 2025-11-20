@@ -13392,6 +13392,10 @@ export interface operations {
           populationType?: "factTable" | "segment";
           /** @description The ID of the population (e.g., segment ID) when populationType is not 'factTable'. Defaults to null. */
           populationId?: string | null;
+          /** @description We support passing in adhoc filters for an analysis that don't live on the metric itself. These are in addition to the metric's filters. To use this, you can pass in an array of Fact Table Filter Ids. */
+          additionalNumeratorFilters?: (string)[];
+          /** @description We support passing in adhoc filters for an analysis that don't live on the metric itself. These are in addition to the metric's filters. To use this, you can pass in an array of Fact Table Filter Ids. */
+          additionalDenominatorFilters?: (string)[];
           /** @description Whether to use a cached query if one exists. Defaults to true. */
           useCache?: boolean;
         };
