@@ -69,6 +69,11 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
+            styles={{
+              contentText: {
+                wordBreak: "break-all",
+              },
+            }}
           />
         </div>
       )}

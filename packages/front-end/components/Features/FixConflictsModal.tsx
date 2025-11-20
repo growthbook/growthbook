@@ -101,6 +101,11 @@ export function ExpandableConflict({
                 oldValue={conflict.base}
                 newValue={conflict.live}
                 compareMethod={DiffMethod.LINES}
+                styles={{
+                  contentText: {
+                    wordBreak: "break-all",
+                  },
+                }}
               />
             </div>
             <div className="col pt-2 pb-3">
@@ -112,6 +117,11 @@ export function ExpandableConflict({
                 oldValue={conflict.base}
                 newValue={conflict.revision}
                 compareMethod={DiffMethod.LINES}
+                styles={{
+                  contentText: {
+                    wordBreak: "break-all",
+                  },
+                }}
               />
             </div>
           </div>

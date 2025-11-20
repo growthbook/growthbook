@@ -532,19 +532,6 @@ export async function postFeatures(
     );
   }
 
-  if (holdout && holdout.id) {
-    const holdoutObj = await context.models.holdout.getById(holdout.id);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-    await context.models.holdout.updateById(holdout.id, {
-      linkedFeatures: {
-        ...holdoutObj.linkedFeatures,
-        [id]: { id, dateAdded: new Date() },
-      },
-    });
-  }
-
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
@@ -612,6 +599,19 @@ export async function postFeatures(
     },
     details: auditDetailsCreate(feature),
   });
+
+  if (holdout && holdout.id) {
+    const holdoutObj = await context.models.holdout.getById(holdout.id);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(holdout.id, {
+      linkedFeatures: {
+        ...holdoutObj.linkedFeatures,
+        [id]: { id, dateAdded: new Date() },
+      },
+    });
+  }
 
   res.status(200).json({
     status: 200,
@@ -710,6 +710,7 @@ export async function postFeatureRebase(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     {
       baseVersion: live.version,
@@ -1133,6 +1134,7 @@ export async function postFeatureRevert(
 
   await markRevisionAsPublished(
     context,
+    feature,
     revision,
     res.locals.eventAudit,
     comment,
@@ -1403,6 +1405,7 @@ export async function postFeatureRule(
   });
   await addFeatureRule(
     context,
+    feature,
     revision,
     selectedEnvironments,
     rule,
@@ -1793,6 +1796,7 @@ export async function putRevisionComment(
 
   await updateRevision(
     context,
+    feature,
     revision,
     {},
     {
@@ -1839,6 +1843,7 @@ export async function postFeatureDefaultValue(
   });
   await setDefaultValue(
     context,
+    feature,
     revision,
     defaultValue,
     res.locals.eventAudit,
@@ -1920,6 +1925,7 @@ export async function putSafeRolloutStatus(
 
   await editFeatureRule(
     context,
+    feature,
     revision,
     environment,
     i,
@@ -2109,6 +2115,7 @@ export async function putFeatureRule(
 
   await editFeatureRule(
     context,
+    feature,
     revision,
     environment,
     i,
@@ -2223,6 +2230,7 @@ export async function postFeatureMoveRule(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -2303,6 +2311,7 @@ export async function deleteFeatureRule(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -3343,6 +3352,7 @@ export async function postCopyEnvironmentRules(
 
   await copyFeatureEnvironmentRules(
     context,
+    feature,
     revision,
     sourceEnv,
     targetEnv,

@@ -13,6 +13,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import { logger } from "back-end/src/util/logger";
+import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { upgradeRevisionRules } from "back-end/src/util/migrations";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
@@ -53,16 +54,15 @@ featureRevisionSchema.index({ organization: 1, status: 1 });
 // DB document may be in legacy format (before migration)
 type FeatureRevisionDocument = mongoose.Document & (LegacyFeatureRevisionInterface | FeatureRevisionInterface);
 
-const FeatureRevisionModel = mongoose.model<LegacyFeatureRevisionInterface | FeatureRevisionInterface>(
-  "FeatureRevision",
-  featureRevisionSchema,
-);
+const FeatureRevisionModel = mongoose.model<
+  LegacyFeatureRevisionInterface | FeatureRevisionInterface
+>("FeatureRevision", featureRevisionSchema);
 
 function toInterface(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
 ): FeatureRevisionInterface {
-  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]) as LegacyFeatureRevisionInterface | FeatureRevisionInterface;
+  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
@@ -84,8 +84,8 @@ function toInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  // JIT migration: upgrade legacy revision to modern format
-  if (!Array.isArray(revision.rules)) {
+  // Migrate legacy revision to modern format
+  if (!revision?.rules?.length) {
     // Legacy format - convert to modern
     const legacyRevision = revision as LegacyFeatureRevisionInterface;
     return {
@@ -93,7 +93,7 @@ function toInterface(
       rules: upgradeRevisionRules(legacyRevision.rules),
     } as FeatureRevisionInterface;
   }
-  
+
   // Already modern format
   return revision as FeatureRevisionInterface;
 }
@@ -240,8 +240,8 @@ export async function createInitialRevision(
   // Store rules in modern format (top-level array with uid/environments/allEnvironments)
   // Filter rules that apply to any of the specified environments
   const rules: FeatureRule[] = feature.rules.filter(
-    (rule) => 
-      rule.allEnvironments || 
+    (rule) =>
+      rule.allEnvironments ||
       rule.environments?.some((env) => environments.includes(env))
   );
 
@@ -317,7 +317,7 @@ export async function createRevision({
 
   // Revisions now use modern format (top-level array with uid/environments/allEnvironments)
   let rules: FeatureRule[] = [];
-  
+
     if (changes && changes.rules) {
     // Changes may be in legacy format (Record<string, LegacyFeatureRule[]>) or modern format (FeatureRule[])
     if (Array.isArray(changes.rules)) {
@@ -330,8 +330,8 @@ export async function createRevision({
   } else {
     // No changes - use feature's current rules, filtered by environments
     rules = feature.rules.filter(
-      (rule) => 
-        rule.allEnvironments || 
+      (rule) =>
+        rule.allEnvironments ||
         rule.environments?.some((env) => environments.includes(env))
     );
     }
@@ -381,6 +381,8 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
+  await runValidateFeatureRevisionHooks(context, feature, revision);
+
   const doc = await FeatureRevisionModel.create(revision);
 
   // Fire and forget - no route that creates the revision expects the log to be there immediately
@@ -407,6 +409,7 @@ export async function createRevision({
 
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   changes: Partial<
     Pick<
@@ -440,6 +443,12 @@ export async function updateRevision(
     status = "pending-review";
   }
 
+  await runValidateFeatureRevisionHooks(context, feature, {
+    ...revision,
+    ...changes,
+    status,
+  });
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -465,6 +474,7 @@ export async function updateRevision(
 
 export async function markRevisionAsPublished(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
@@ -472,6 +482,20 @@ export async function markRevisionAsPublished(
   const action = revision.status === "draft" ? "publish" : "re-publish";
 
   const revisionComment = revision.comment ? revision.comment : comment;
+
+  const changes: Partial<FeatureRevisionInterface> = {
+    status: "published",
+    publishedBy: user,
+    datePublished: new Date(),
+    dateUpdated: new Date(),
+    comment: revisionComment,
+  };
+
+  await runValidateFeatureRevisionHooks(context, feature, {
+    ...revision,
+    ...changes,
+  });
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -479,13 +503,7 @@ export async function markRevisionAsPublished(
       version: revision.version,
     },
     {
-      $set: {
-        status: "published",
-        publishedBy: user,
-        datePublished: new Date(),
-        dateUpdated: new Date(),
-        comment: revisionComment,
-      },
+      $set: changes,
     },
   );
 

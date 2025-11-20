@@ -9,6 +9,7 @@ import {
   getBlockSnapshotSettings,
   snapshotSatisfiesBlock,
 } from "shared/enterprise";
+import { getValidDate } from "shared/dates";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -38,6 +39,7 @@ import {
   determineNextDate,
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 
 // To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
 export async function updateExperimentDashboards({
@@ -195,43 +197,68 @@ export async function updateDashboardMetricAnalyses(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
 ): Promise<boolean> {
-  const metricAnalyses = await context.models.metricAnalysis.getByIds([
-    ...new Set(
-      blocks
-        .filter(
-          (block) =>
-            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-            block.metricAnalysisId.length > 0,
-        )
-        .map((block: MetricExplorerBlockInterface) => block.metricAnalysisId),
-    ),
-  ]);
+  // Filter to only blocks with metric analysis IDs
+  const blocksWithMetricAnalysis = blocks.filter(
+    (block): block is MetricExplorerBlockInterface =>
+      blockHasFieldOfType(block, "metricAnalysisId", isString) &&
+      block.metricAnalysisId.length > 0,
+  );
 
-  let blockModified = false;
-  for (const metricAnalysis of metricAnalyses) {
-    const metric = await context.models.factMetrics.getById(
-      metricAnalysis.metric,
-    );
-    if (metric) {
+  // Process each block individually to use its specific analysisSettings
+  const results = await Promise.all(
+    blocksWithMetricAnalysis.map(async (block) => {
+      const metricAnalysis = await context.models.metricAnalysis.getById(
+        block.metricAnalysisId,
+      );
+
+      if (!metricAnalysis) {
+        return false;
+      }
+
+      const metric = await context.models.factMetrics.getById(
+        metricAnalysis.metric,
+      );
+
+      if (!metric) {
+        return false;
+      }
+
+      // Use the block's analysisSettings instead of the metricAnalysis.settings
+      // This ensures filters and other block-specific settings are preserved
+      const blockSettings = block.analysisSettings;
+      const settings: MetricAnalysisSettings = {
+        userIdType: blockSettings.userIdType,
+        lookbackDays: blockSettings.lookbackDays,
+        startDate:
+          blockSettings.startDate instanceof Date
+            ? blockSettings.startDate
+            : getValidDate(blockSettings.startDate),
+        endDate:
+          blockSettings.endDate instanceof Date
+            ? blockSettings.endDate
+            : getValidDate(blockSettings.endDate),
+        populationType: blockSettings.populationType,
+        populationId: blockSettings.populationId ?? null,
+        additionalNumeratorFilters: blockSettings.additionalNumeratorFilters,
+        additionalDenominatorFilters:
+          blockSettings.additionalDenominatorFilters,
+      };
+
       const queryRunner = await createMetricAnalysis(
         context,
         metric,
-        metricAnalysis.settings,
-        metricAnalysis.source ?? "metric",
+        settings,
+        "metric",
         false,
       );
-      blocks.forEach((block) => {
-        if (
-          blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-          block.metricAnalysisId === metricAnalysis.id
-        ) {
-          blockModified = true;
-          block.metricAnalysisId = queryRunner.model.id;
-        }
-      });
-    }
-  }
-  return blockModified;
+
+      // Mutate the block in place (same object reference as in original blocks array)
+      block.metricAnalysisId = queryRunner.model.id;
+      return true;
+    }),
+  );
+
+  return results.some((updated) => updated);
 }
 
 export async function updateDashboardSavedQueries(

@@ -53,6 +53,7 @@ import {
   DiffResult,
   getObjectDiff,
 } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateFeatureHooks } from "../enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -306,10 +307,16 @@ export async function createFeature(
     data,
     getEnvironmentIdsFromOrg(org),
   );
-  const feature = await FeatureModel.create({
+
+  const featureToCreate = {
     ...data,
     linkedExperiments,
-  });
+  };
+
+  // Run any custom hooks for this feature
+  await runValidateFeatureHooks(context, featureToCreate);
+
+  const feature = await FeatureModel.create(featureToCreate);
 
   // Historically, we haven't properly removed revisions when deleting a feature
   // So, clean up any conflicting revisions first before creating a new one
@@ -650,6 +657,8 @@ export async function updateFeature(
     });
   }
 
+  await runValidateFeatureHooks(context, updatedFeature);
+
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
     {
@@ -782,6 +791,7 @@ export async function toggleFeatureEnvironment(
 
 export async function addFeatureRule(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   envs: string[],
   rule: FeatureRule,
@@ -802,6 +812,7 @@ export async function addFeatureRule(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -816,6 +827,7 @@ export async function addFeatureRule(
 
 export async function editFeatureRule(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   environment: string,
   i: number,
@@ -836,6 +848,7 @@ export async function editFeatureRule(
   } as FeatureRule;
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -850,6 +863,7 @@ export async function editFeatureRule(
 
 export async function copyFeatureEnvironmentRules(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   sourceEnv: string,
   targetEnv: string,
@@ -863,6 +877,7 @@ export async function copyFeatureEnvironmentRules(
   changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -940,6 +955,7 @@ export async function removeProjectFromFeatures(
 
 export async function setDefaultValue(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
@@ -947,6 +963,7 @@ export async function setDefaultValue(
 ) {
   await updateRevision(
     context,
+    feature,
     revision,
     { defaultValue },
     {
@@ -1127,7 +1144,13 @@ export async function publishRevision(
     result,
   );
 
-  await markRevisionAsPublished(context, revision, context.auditUser, comment);
+  await markRevisionAsPublished(
+    context,
+    feature,
+    revision,
+    context.auditUser,
+    comment,
+  );
 
   return updatedFeature;
 }

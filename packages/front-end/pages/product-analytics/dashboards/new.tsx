@@ -12,6 +12,31 @@ import {
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDashboards } from "@/hooks/useDashboards";
 
+export function createTemporaryDashboard(
+  userId: string | undefined,
+  project: string | undefined,
+  experimentId?: string,
+): DashboardInterface {
+  const now = new Date();
+  return {
+    id: "new",
+    uid: "new",
+    organization: "", // Will be set by backend
+    experimentId: experimentId,
+    isDefault: false,
+    isDeleted: false,
+    userId: userId || "",
+    editLevel: "private",
+    shareLevel: experimentId ? "published" : "private",
+    enableAutoUpdates: false,
+    title: "Untitled Dashboard",
+    blocks: [],
+    projects: project ? [project] : [],
+    dateCreated: now,
+    dateUpdated: now,
+  };
+}
+
 export default function NewDashboardPage() {
   const { project } = useDefinitions();
   const { userId, hasCommercialFeature } = useUser();
@@ -19,30 +44,8 @@ export default function NewDashboardPage() {
   const router = useRouter();
   const { mutateDashboards } = useDashboards(false);
 
-  // Create a temporary dashboard object for the new dashboard
-  const createTemporaryDashboard = useCallback((): DashboardInterface => {
-    const now = new Date();
-    return {
-      id: "new",
-      uid: "new",
-      organization: "", // Will be set by backend
-      experimentId: "",
-      isDefault: false,
-      isDeleted: false,
-      userId: userId || "",
-      editLevel: "private",
-      shareLevel: "private",
-      enableAutoUpdates: false,
-      title: "Untitled Dashboard",
-      blocks: [],
-      projects: project ? [project] : [],
-      dateCreated: now,
-      dateUpdated: now,
-    };
-  }, [project, userId]);
-
-  const [dashboard, setDashboard] = useState<DashboardInterface>(
-    createTemporaryDashboard,
+  const [dashboard, setDashboard] = useState<DashboardInterface>(() =>
+    createTemporaryDashboard(userId, project),
   );
 
   const handleSubmitDashboard: SubmitDashboard<UpdateDashboardArgs> =
@@ -63,6 +66,9 @@ export default function NewDashboardPage() {
               experimentId: "",
               projects: dashboard.projects || [],
               blocks: args.data.blocks || dashboard.blocks,
+              updateSchedule:
+                args.data.updateSchedule || dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);
@@ -76,9 +82,13 @@ export default function NewDashboardPage() {
             body: JSON.stringify({
               blocks: args.data.blocks,
               title: args.data.title ?? dashboard.title,
+              shareLevel: args.data.shareLevel ?? dashboard.shareLevel,
               editLevel: args.data.editLevel ?? dashboard.editLevel,
               enableAutoUpdates:
                 args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
+              updateSchedule:
+                args.data.updateSchedule ?? dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);

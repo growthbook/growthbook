@@ -5,20 +5,26 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
 
-const STORAGE_KEY_THEME = "gb_ui_theme";
+const KEY_PREFERRED_THEME = "gb_ui_theme";
 
 export type AppearanceUITheme = "dark" | "light";
 export type PreferredAppearanceUITheme = "dark" | "light" | "system";
 
 type AppearanceUIThemeContextType = {
   /**
-   * This is the one that should be currently active
+   * This is the currently active theme
    */
   theme: AppearanceUITheme;
+
+  /**
+   * This is the theme that the system is currently using
+   */
+  systemTheme: AppearanceUITheme;
 
   /**
    * This is the theme that the user has explicitly configured.
@@ -33,52 +39,54 @@ type AppearanceUIThemeContextType = {
   setTheme: (preferredTheme: PreferredAppearanceUITheme) => void;
 };
 
+// Avoid flash of incorrect theme while loading
+export const AppearanceUISnippet = `
+  (function() {
+    try {
+      const themeFromStorage = localStorage.getItem("${KEY_PREFERRED_THEME}");
+      if (themeFromStorage === "dark" || themeFromStorage === "light") {
+        document.documentElement.classList.add(\`\${themeFromStorage}-theme\`);
+      } else {
+        const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.add(isDark ? "dark-theme" : "light-theme");
+      }
+    } catch (e) { }
+  })();
+`;
+
 const AppearanceUIThemeContext = createContext<AppearanceUIThemeContextType>({
   theme: "light",
+  systemTheme: "light",
   preferredTheme: "system",
   setTheme: () => undefined,
 });
 
-/**
- * Get the currently inferred theme and the user's explicitly-selected theme. Set the theme.
- */
 export const useAppearanceUITheme = (): AppearanceUIThemeContextType =>
   useContext(AppearanceUIThemeContext);
 
-/**
- * Provides the UI appearance mode preference, e.g. Dark, Light, System
- */
 export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   children,
 }) => {
+  const initialSystemTheme =
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : "light";
+  const [systemTheme, setSystemTheme] =
+    useState<AppearanceUITheme>(initialSystemTheme);
+
+  const initialPreferredTheme =
+    typeof localStorage !== "undefined"
+      ? ((localStorage.getItem(
+          KEY_PREFERRED_THEME,
+        ) as PreferredAppearanceUITheme) ?? "system")
+      : "system";
   const [preferredTheme, setPreferredTheme] =
-    useState<PreferredAppearanceUITheme>("system");
-
-  const [systemTheme, setSystemTheme] = useState<AppearanceUITheme>("light");
-
-  useEffect(() => {
-    let actualTheme: AppearanceUITheme = "light";
-    try {
-      const fromStorage = localStorage.getItem(STORAGE_KEY_THEME);
-      if (
-        !fromStorage &&
-        window.matchMedia("(prefers-color-scheme: dark)")?.matches
-      ) {
-        actualTheme = "dark";
-      }
-
-      if (fromStorage === "dark") {
-        actualTheme = "dark";
-      }
-
-      setSystemTheme(actualTheme);
-    } catch (e) {
-      setSystemTheme(actualTheme);
-    }
-  }, [preferredTheme]);
+    useState<PreferredAppearanceUITheme>(initialPreferredTheme);
 
   useEffect(function attachSystemListener() {
-    const listener = (e) => {
+    const listener = (e: MediaQueryListEvent) => {
       const colourScheme = e.matches ? "dark" : "light";
       setSystemTheme(colourScheme);
     };
@@ -94,37 +102,31 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     };
   }, []);
 
-  useEffect(() => {
-    try {
-      const themeFromStorage = localStorage.getItem(STORAGE_KEY_THEME);
+  useLayoutEffect(() => {
+    const targetTheme =
+      preferredTheme !== "system" ? preferredTheme : systemTheme;
+    const targetClass = `${targetTheme}-theme`;
+    const otherThemeClass =
+      targetTheme === "dark" ? "light-theme" : "dark-theme";
 
-      if (themeFromStorage === "dark" || themeFromStorage === "light") {
-        document.documentElement.className = `theme--${themeFromStorage} ${themeFromStorage}-theme`;
-        setPreferredTheme(themeFromStorage);
-      }
-    } catch (e) {
-      // We are unable to retrieve the theme changes due to the browser's privacy settings
+    const classList = document.documentElement.classList;
+    if (!classList.contains(targetClass)) {
+      classList.add(targetClass);
     }
-  }, []);
+    if (classList.contains(otherThemeClass)) {
+      classList.remove(otherThemeClass);
+    }
+  }, [preferredTheme, systemTheme]);
 
   const handleThemeChange = useCallback(
     (updated: PreferredAppearanceUITheme) => {
-      ["theme--dark", "theme--light", "light-theme", "dark-theme"].forEach(
-        (c) => {
-          document.documentElement.classList.remove(c);
-        },
-      );
-
       setPreferredTheme(updated);
+
       try {
         if (updated === "system") {
-          localStorage.removeItem(STORAGE_KEY_THEME);
+          localStorage.removeItem(KEY_PREFERRED_THEME);
         } else {
-          document.documentElement.classList.add(
-            `theme--${updated}`,
-            `${updated}-theme`, // This is for the Radix UI theme
-          );
-          localStorage.setItem(STORAGE_KEY_THEME, updated);
+          localStorage.setItem(KEY_PREFERRED_THEME, updated);
         }
       } catch (e) {
         // We are unable to persist the theme changes due to the browser's privacy settings
@@ -132,6 +134,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     },
     [],
   );
+
   const theme: AppearanceUITheme = useMemo(
     () => (preferredTheme === "system" ? systemTheme : preferredTheme),
     [systemTheme, preferredTheme],
@@ -141,6 +144,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     <AppearanceUIThemeContext.Provider
       value={{
         theme,
+        systemTheme,
         preferredTheme,
         setTheme: handleThemeChange,
       }}
