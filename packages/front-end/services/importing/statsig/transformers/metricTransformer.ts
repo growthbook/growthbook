@@ -1,5 +1,6 @@
 import {
   ColumnRef,
+  CreateFactFilterProps,
   CreateFactMetricProps,
   FactMetricType,
   MetricCappingSettings,
@@ -337,4 +338,54 @@ export function transformStatsigCriteriaToSavedFilter(
     case "after_exposure":
       return null;
   }
+}
+
+export function getNewFiltersForMetricSource(
+  metrics: StatsigMetric[],
+  metricSourceName: string,
+  existingFilters?: Set<string>,
+): CreateFactFilterProps[] {
+  existingFilters = existingFilters || new Set<string>();
+
+  const filters: CreateFactFilterProps[] = [];
+
+  metrics.forEach((m) => {
+    // Numerator
+    if (
+      m.warehouseNative?.metricSourceName === metricSourceName &&
+      m.warehouseNative?.criteria
+    ) {
+      m.warehouseNative.criteria.forEach((criteria) => {
+        const filterValue = transformStatsigCriteriaToSavedFilter(criteria);
+        if (filterValue && !existingFilters.has(filterValue)) {
+          existingFilters.add(filterValue);
+          filters.push({
+            name: filterValue,
+            value: filterValue,
+            description: "",
+          });
+        }
+      });
+    }
+
+    // Denominator
+    if (
+      m.warehouseNative?.denominatorMetricSourceName === metricSourceName &&
+      m.warehouseNative?.denominatorCriteria
+    ) {
+      m.warehouseNative.denominatorCriteria.forEach((criteria) => {
+        const filterValue = transformStatsigCriteriaToSavedFilter(criteria);
+        if (filterValue && !existingFilters.has(filterValue)) {
+          existingFilters.add(filterValue);
+          filters.push({
+            name: filterValue,
+            value: filterValue,
+            description: "",
+          });
+        }
+      });
+    }
+  });
+
+  return filters;
 }

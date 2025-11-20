@@ -10,12 +10,12 @@ import {
   FactTableInterface,
   CreateFactMetricProps,
   CreateFactTableProps,
-  CreateFactFilterProps,
+  FactFilterInterface,
 } from "back-end/types/fact-table";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import {
-  transformStatsigCriteriaToSavedFilter,
+  getNewFiltersForMetricSource,
   transformStatsigMetricToMetric,
 } from "@/services/importing/statsig/transformers/metricTransformer";
 import {
@@ -60,6 +60,7 @@ export interface BuildImportedDataOptions {
   skipAttributeMapping?: boolean;
   useBackendProxy?: boolean;
   project?: string;
+  datasource?: string;
   projects?: ProjectInterface[];
   existingAttributeSchema?: Array<{
     property: string;
@@ -567,6 +568,7 @@ export async function buildImportedData(
     useBackendProxy = false,
     apiCall,
     project,
+    datasource,
     projects = [],
     skipAttributeMapping = false,
     existingAttributeSchema = [],
@@ -1224,117 +1226,33 @@ export async function buildImportedData(
           }
         }
 
-        // TODO: Transform and compare metrics
         if (data.metrics) {
-          // Build a mapping from existing fact table names to their ids (used for placeholder numerator/denominator references)
+          // Build a mapping from existing fact table names to their ids
           const metricSourceIdMap = new Map<string, string>();
-          data.metricSources?.forEach((ms) => {
-            if (ms.existingMetricSource && ms.metricSource) {
-              metricSourceIdMap.set(
-                ms.metricSource.name,
-                ms.existingMetricSource.id,
-              );
-            }
+          existingFactTables.forEach((ft) => {
+            metricSourceIdMap.set(ft.name, ft.id);
+          });
+
+          // Build a mapping from saved filter value to id, keyed by fact table id
+          const savedFilterIdMap = new Map<string, string>();
+          existingFactTables.forEach((ft) => {
+            ft.filters?.forEach((sf) => {
+              savedFilterIdMap.set(`${ft.id}::${sf.value}`, sf.id);
+            });
           });
 
           for (const metricImport of data.metrics) {
             if (!metricImport.metric) continue;
             try {
-              // Light-weight preview transformation (does not call API). We intentionally do NOT use
-              // transformStatsigMetricToMetric here since datasource is not available in preview mode.
-              const m = metricImport.metric;
-              const native = (m.warehouseNative || {}) as NonNullable<
-                StatsigMetric["warehouseNative"]
-              >;
-              const aggregation = native.aggregation || "sum";
-              // Derive metricType & numerator/denominator similar to transformer logic
-              let metricType = "mean";
-              let numeratorColumn = native.valueColumn || "";
-              let numeratorAggregation = "sum";
-              let denominator: Record<string, unknown> | null = null;
-              if (aggregation === "mean") {
-                metricType = "ratio";
-                numeratorColumn = "$$count"; // placeholder count pseudo column
-              } else if (aggregation === "count") {
-                numeratorColumn = "$$count";
-              } else if (aggregation === "count_distinct") {
-                numeratorAggregation = "count distinct";
-              } else if (aggregation === "ratio") {
-                metricType = "ratio";
-                const denominatorFactTableId =
-                  metricSourceIdMap.get(
-                    native.denominatorMetricSourceName ||
-                      native.metricSourceName ||
-                      "",
-                  ) ||
-                  native.denominatorMetricSourceName ||
-                  native.metricSourceName ||
-                  "";
-                denominator = {
-                  column: native.denominatorValueColumn || "",
-                  factTableId: denominatorFactTableId,
-                  aggregation: "sum",
-                  filters: [],
-                  inlineFilters: {},
-                };
-              } else if (aggregation === "percentile") {
-                metricType = "quantile";
-              }
-
-              const factTableId =
-                metricSourceIdMap.get(native.metricSourceName || "") ||
-                native.metricSourceName ||
-                "";
-
-              const transformed = {
-                name: m.name,
-                description: m.description || "",
-                tags: m.tags || [],
-                owner: m.owner?.name || m.owner?.ownerName || "",
-                projects: project ? [project] : [],
-                datasource: "", // unknown in preview mode
-                managedBy:
-                  m.isVerified || m.isReadOnly || m.isPermanent ? "admin" : "",
-                archived: false,
-                metricType,
-                inverse: m.directionality === "decrease",
-                numerator: {
-                  column: numeratorColumn,
-                  factTableId,
-                  aggregation: numeratorAggregation,
-                  filters: [],
-                  inlineFilters: {},
-                },
-                denominator,
-                priorSettings: {
-                  override: false,
-                  proper: false,
-                  mean: 0,
-                  stddev: 0,
-                },
-                cappingSettings: { type: "", value: 0, ignoreZeros: false },
-                quantileSettings: null,
-                windowSettings: {
-                  type: "",
-                  delayValue: 0,
-                  delayUnit: "days",
-                  windowValue: 0,
-                  windowUnit: "days",
-                },
-                regressionAdjustmentEnabled: false,
-                regressionAdjustmentOverride: false,
-                regressionAdjustmentDays: 14,
-                targetMDE: 0,
-                maxPercentChange: 0,
-                minPercentChange: 0,
-                minSampleSize: 0,
-                winRisk: 0,
-                loseRisk: 0,
-                displayAsPercentage: false,
-                metricAutoSlices: native.metricDimensionColumns || [],
-              };
+              const transformed = await transformStatsigMetricToMetric(
+                metricImport.metric,
+                metricSourceIdMap,
+                savedFilterIdMap,
+                project || "",
+                datasource || "",
+              );
               metricImport.transformedMetric =
-                transformed as unknown as CreateFactMetricProps;
+                transformed as CreateFactMetricProps;
 
               if (metricImport.existingMetric) {
                 const existingForDiff = transformPayloadForDiffDisplay(
@@ -1384,27 +1302,40 @@ export async function buildImportedData(
           }
         }
 
-        // TODO: Transform and compare metric sources
         if (data.metricSources) {
+          const statsigMetrics = (data.metrics || [])
+            .map((m) => m?.metric)
+            .filter(Boolean) as StatsigMetric[];
+
           for (const msImport of data.metricSources) {
             if (!msImport.metricSource) continue;
             try {
-              const ms = msImport.metricSource as StatsigMetricSource;
-              const transformed = {
-                name: ms.name,
-                description: ms.description || "",
-                datasource: "", // unknown in preview
-                sql: ms.sql || "",
-                columns: [],
-                tags: ms.tags || [],
-                owner: ms.owner?.ownerName || "",
-                eventName: "",
-                projects: project ? [project] : [],
-                userIdTypes: ms.idTypeMapping?.map((m) => m.column) || [],
-                managedBy: ms.isVerified || ms.isReadOnly ? "admin" : "",
-              };
+              const transformed =
+                (await transformStatsigMetricSourceToFactTable(
+                  msImport.metricSource,
+                  project || "",
+                  datasource || "",
+                )) as FactTableInterface;
+
+              // First add, fitlers from existing metric source (if exists)
+              transformed.filters = transformed.filters || [];
+              const existingFilters = new Set<string>();
+              msImport.existingMetricSource?.filters?.map((f) => {
+                transformed.filters.push(f);
+                existingFilters.add(f.value);
+              });
+
+              // Then, add any filters we are going to insert
+              getNewFiltersForMetricSource(
+                statsigMetrics,
+                msImport.metricSource.name,
+                existingFilters,
+              ).forEach((f) => {
+                transformed.filters.push(f as FactFilterInterface);
+              });
+
               msImport.transformedMetricSource =
-                transformed as unknown as CreateFactTableProps;
+                transformed as CreateFactTableProps;
               if (msImport.existingMetricSource) {
                 const existingForDiff = transformPayloadForDiffDisplay(
                   msImport.existingMetricSource as unknown as Record<
@@ -2118,71 +2049,29 @@ export async function runImport(options: RunImportOptions) {
           metricSourceIdMap.set(metricSource.name, id);
 
           // Add any saved filters
-          for (let i = 0; i < (data.metrics || []).length; i++) {
-            const metricImport = data.metrics?.[i];
-            if (!metricImport) continue;
-            if (
-              canProcessItem(metricImport.status) &&
-              shouldImportItem("metrics", i, metricImport)
-            ) {
-              const metric = metricImport.metric?.warehouseNative;
-              if (metric) {
-                // Numerator
-                if (metric.metricSourceName === metricSource.name) {
-                  const filtersToSave = (metric.criteria || []).map((c) =>
-                    transformStatsigCriteriaToSavedFilter(c),
-                  );
-                  for (const filter of filtersToSave) {
-                    if (!filter) continue;
-                    const key = `${id}::${filter}`;
-                    // If filter already exists, skip
-                    if (savedFilterIdMap.has(key)) continue;
-
-                    const body: CreateFactFilterProps = {
-                      value: filter,
-                      name: filter,
-                      description: "",
-                    };
-
-                    const savedFilterRes = await apiCall(
-                      `/fact-tables/${id}/filter`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify(body),
-                      },
-                    );
-                    savedFilterIdMap.set(key, savedFilterRes.filterId);
-                  }
-                }
-                // Denominator
-                if (metric.denominatorMetricSourceName === metricSource.name) {
-                  const filtersToSave = (metric.denominatorCriteria || []).map(
-                    (c) => transformStatsigCriteriaToSavedFilter(c),
-                  );
-                  for (const filter of filtersToSave) {
-                    if (!filter) continue;
-                    const key = `${id}::${filter}`;
-                    // If filter already exists, skip
-                    if (savedFilterIdMap.has(key)) continue;
-
-                    const body: CreateFactFilterProps = {
-                      value: filter,
-                      name: filter,
-                      description: "",
-                    };
-
-                    const savedFilterRes = await apiCall(
-                      `/fact-tables/${id}/filter`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify(body),
-                      },
-                    );
-                    savedFilterIdMap.set(key, savedFilterRes.filterId);
-                  }
-                }
-              }
-            }
+          const metrics = (data.metrics || [])
+            .filter((metricImport, i) => {
+              return (
+                canProcessItem(metricImport.status) &&
+                shouldImportItem("metrics", i, metricImport)
+              );
+            })
+            .map((mi) => mi.metric)
+            .filter(Boolean) as StatsigMetric[];
+          const filtersToAdd = getNewFiltersForMetricSource(
+            metrics,
+            metricSource.name,
+          );
+          for (const filter of filtersToAdd) {
+            if (!filter) continue;
+            const key = `${id}::${filter.value}`;
+            // If filter already exists, skip
+            if (savedFilterIdMap.has(key)) continue;
+            const savedFilterRes = await apiCall(`/fact-tables/${id}/filter`, {
+              method: "POST",
+              body: JSON.stringify(filter),
+            });
+            savedFilterIdMap.set(key, savedFilterRes.filterId);
           }
 
           metricSourceImport.status = "completed";

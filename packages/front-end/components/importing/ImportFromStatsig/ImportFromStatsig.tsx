@@ -849,6 +849,7 @@ export default function ImportFromStatsig() {
                     useBackendProxy: isCloud() ? false : useBackendProxy,
                     apiCall,
                     project: projectName || undefined,
+                    datasource: dataSource || undefined,
                     projects,
                     existingAttributeSchema: attributeSchema,
                     existingFactTables: existingFactTablesMap,

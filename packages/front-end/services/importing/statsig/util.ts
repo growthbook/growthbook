@@ -204,6 +204,7 @@ export function transformPayloadForDiffDisplay(
         "columnsError",
         "archived",
         "datasource",
+        "columns",
       ]) as Record<string, unknown>;
       break;
   }
@@ -277,6 +278,31 @@ export function transformPayloadForDiffDisplay(
     }
   }
 
+  // Sort nested objects (if they are present)
+  const subObjectKeysToSort = [
+    "numerator",
+    "denominator",
+    "cappingSettings",
+    "windowSettings",
+    "priorSettings",
+    "quantileSettings",
+  ];
+  for (const subKey of subObjectKeysToSort) {
+    if (
+      subKey in transformed &&
+      transformed[subKey] &&
+      typeof transformed[subKey] === "object"
+    ) {
+      const subObj = transformed[subKey] as Record<string, unknown>;
+      const sortedSubObj: Record<string, unknown> = {};
+      const sortedSubKeys = Object.keys(subObj).sort();
+      for (const key of sortedSubKeys) {
+        sortedSubObj[key] = subObj[key];
+      }
+      transformed[subKey] = sortedSubObj;
+    }
+  }
+
   return transformed;
 }
 
@@ -284,7 +310,13 @@ export const DUMMY_STATSIG_METRIC_SOURCES: StatsigMetricSource[] = [
   {
     name: "DummyMetricSource",
     description: "A dummy Statsig metric source for testing",
-    sql: "SELECT * FROM dummy_table",
+    sql: `SELECT 
+        CAST('2025-01-01 00:00:00' AS TIMESTAMP) as event_timestamp,
+        '123' as user_id,
+        'abc' as anonymous_id,
+        'dummy_event' as event_name,
+        'a' as category,
+        1 as event_value`,
     idTypeMapping: [
       {
         statsigUnitID: "UserID",
@@ -328,7 +360,7 @@ export const DUMMY_STATSIG_METRICS: StatsigMetric[] = [
           type: "metadata",
           condition: "not_in",
           column: "category",
-          values: ["a", "b", "c"],
+          values: ["a", "b"],
         },
       ],
       metricSourceName: "DummyMetricSource",
