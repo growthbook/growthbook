@@ -132,7 +132,7 @@ const PrestoForm: FC<{
       {params.authType === "kerberos" && (
         <>
           <div className="form-group col-md-12">
-            <label>Kerberos Service Principal</label>
+            <label>Kerberos GrowthBook Service Principal</label>
             <input
               type="text"
               className="form-control"
@@ -140,14 +140,15 @@ const PrestoForm: FC<{
               required
               value={params.kerberosServicePrincipal || ""}
               onChange={onParamChange}
-              placeholder="HTTP@trino.example.com"
+              placeholder="HTTP@growthbook.example.com"
             />
             <small className="form-text text-muted">
               The service principal for Kerberos authentication. Accepts both
-              full principal (<code>HTTP/trino.example.com@EXAMPLE.COM</code>)
-              and library format (<code>HTTP@trino.example.com</code>). Ensure
-              the GrowthBook server has valid Kerberos credentials configured
-              via <code>kinit</code> or keytab.
+              full principal (
+              <code>HTTP/growthbook.example.com@EXAMPLE.COM</code>) and library
+              format (<code>HTTP@growthbook.example.com</code>). Ensure the
+              GrowthBook server has valid Kerberos credentials configured via{" "}
+              <code>kinit</code> or keytab.
             </small>
           </div>
           <div className="form-group col-md-12">
