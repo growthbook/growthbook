@@ -52,7 +52,6 @@ import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -101,8 +100,14 @@ export type ResultsTableProps = {
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
   sequentialTestingEnabled?: boolean;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   metricTags?: string[];
   isTabActive: boolean;
   noStickyHeader?: boolean;
@@ -167,8 +172,14 @@ export default function ResultsTable({
   pValueCorrection,
   differenceType,
   sequentialTestingEnabled = false,
-  metricFilter,
-  setMetricFilter,
+  metricTagFilter,
+  setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
   metricTags = [],
   isTabActive,
   noStickyHeader,
@@ -551,11 +562,19 @@ export default function ResultsTable({
                     }}
                   >
                     <div className="row px-0">
-                      {setMetricFilter ? (
+                      {setMetricTagFilter ? (
                         <ResultsMetricFilter
                           metricTags={metricTags}
-                          metricFilter={metricFilter}
-                          setMetricFilter={setMetricFilter}
+                          metricTagFilter={metricTagFilter}
+                          setMetricTagFilter={setMetricTagFilter}
+                          availableMetricGroups={availableMetricGroups}
+                          metricGroupsFilter={metricGroupsFilter}
+                          setMetricGroupsFilter={setMetricGroupsFilter}
+                          availableSliceTags={availableSliceTags}
+                          sliceTagsFilter={sliceTagsFilter}
+                          setSliceTagsFilter={setSliceTagsFilter}
+                          sortBy={sortBy}
+                          setSortBy={setSortBy}
                           showMetricFilter={showMetricFilter}
                           setShowMetricFilter={setShowMetricFilter}
                         />

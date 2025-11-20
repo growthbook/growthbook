@@ -1,170 +1,202 @@
 import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
-import React, { useEffect, useState } from "react";
-import { BsXCircle } from "react-icons/bs";
-import { FaX } from "react-icons/fa6";
-import { Flex } from "@radix-ui/themes";
+import React from "react";
+import { Flex, Box, Heading } from "@radix-ui/themes";
+import { PiX } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Checkbox from "@/ui/Checkbox";
+import { Popover } from "@/ui/Popover";
+import Button from "@/ui/Button";
 
 export default function ResultsMetricFilter({
   metricTags = [],
-  metricFilter = {},
-  setMetricFilter,
+  metricTagFilter = [],
+  setMetricTagFilter,
+  availableMetricGroups = [],
+  metricGroupsFilter = [],
+  setMetricGroupsFilter,
+  availableSliceTags = [],
+  sliceTagsFilter = [],
+  setSliceTagsFilter,
+  sortBy,
+  setSortBy,
   showMetricFilter,
   setShowMetricFilter,
 }: {
   metricTags?: string[];
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter: (filter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  setSortBy?: (
+    s: "metric-tags" | "significance" | "change" | "custom" | null,
+  ) => void;
   showMetricFilter: boolean;
   setShowMetricFilter: (show: boolean) => void;
 }) {
-  const [_metricFilter, _setMetricFilter] = useState(metricFilter);
-  const _filteringApplied =
-    _metricFilter?.tagOrder?.length || _metricFilter?.filterByTag;
   const filteringApplied =
-    metricFilter?.tagOrder?.length || metricFilter?.filterByTag;
-
-  useEffect(() => {
-    // reset inputs on close
-    if (!showMetricFilter) {
-      _setMetricFilter(metricFilter);
-    }
-  }, [showMetricFilter, metricFilter, _setMetricFilter]);
+    metricTagFilter?.length > 0 ||
+    metricGroupsFilter?.length > 0 ||
+    sliceTagsFilter?.length > 0 ||
+    sortBy === "metric-tags";
 
   return (
     <div
       className="col position-relative d-flex align-items-end px-0 font-weight-normal"
       style={{ maxWidth: 20 }}
     >
-      <Tooltip
-        body={
-          filteringApplied
-            ? "Metric filters applied"
-            : "No metric filters applied"
-        }
-        usePortal={true}
-        shouldDisplay={!showMetricFilter}
-      >
-        <a
-          role="button"
-          onClick={() => setShowMetricFilter(!showMetricFilter)}
-          className={`d-inline-block px-1 ${
-            filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
-          }`}
-          style={{ transform: "scale(1.1)", marginRight: -4 }}
-        >
-          {filteringApplied ? (
-            <MdFilterAlt className="position-relative" style={{ bottom: 1 }} />
-          ) : (
-            <MdOutlineFilterAltOff
-              className="position-relative"
-              style={{ bottom: 1 }}
-            />
-          )}
-        </a>
-      </Tooltip>
-      <Tooltip
-        tipPosition="bottom"
-        usePortal={true}
-        style={{ position: "absolute" }}
-        popperStyle={{ marginLeft: 17, marginTop: -2 }}
-        state={showMetricFilter}
-        flipTheme={false}
-        body={
-          <div style={{ width: 280 }}>
+      <Popover
+        side="top"
+        align="start"
+        showCloseButton
+        open={showMetricFilter}
+        onOpenChange={setShowMetricFilter}
+        triggerAsChild={false}
+        contentStyle={{ padding: "12px 16px 8px 16px" }}
+        trigger={
+          <Tooltip
+            body={
+              filteringApplied
+                ? "Metric filters applied"
+                : "No metric filters applied"
+            }
+            usePortal={true}
+            shouldDisplay={!showMetricFilter}
+          >
             <a
               role="button"
+              onClick={() => setShowMetricFilter(!showMetricFilter)}
+              className="d-inline-block px-1"
               style={{
-                top: 3,
-                right: 5,
-              }}
-              className="position-absolute cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowMetricFilter(false);
+                color: filteringApplied ? "var(--blue-10)" : "var(--gray-a8)",
+                userSelect: "none",
               }}
             >
-              <BsXCircle size={16} />
+              {filteringApplied ? (
+                <MdFilterAlt
+                  className="position-relative"
+                  style={{ bottom: 1 }}
+                />
+              ) : (
+                <MdOutlineFilterAltOff
+                  className="position-relative"
+                  style={{ bottom: 1 }}
+                />
+              )}
             </a>
-
-            <div>
-              <label className="my-2">
-                <h5 className="mb-0">Order metrics by tag</h5>
-              </label>
-              <MultiSelectField
-                customClassName="multiselect-unfixed"
-                value={_metricFilter?.tagOrder || []}
-                options={metricTags.map((tag) => ({ label: tag, value: tag }))}
-                onChange={(v) => {
-                  _setMetricFilter({
-                    ..._metricFilter,
-                    tagOrder: v,
-                    filterByTag:
-                      v.length > 0 ? _metricFilter?.filterByTag : false,
-                  });
-                  return;
-                }}
-              />
-              <small>Drag &amp; drop tags to change display order</small>
-            </div>
-
-            <Flex mt="3" align="center" gap="3">
+          </Tooltip>
+        }
+        content={
+          <Flex
+            direction="column"
+            justify="between"
+            style={{ width: 350, minHeight: 180 }}
+          >
+            <Box>
+              <Heading size="3" weight="medium" mb="3">
+                <MdFilterAlt
+                  className="position-relative mr-1"
+                  style={{ bottom: 2 }}
+                />
+                Filter Results
+              </Heading>
+              {availableMetricGroups.length > 0 && (
+                <Box mb="4">
+                  <Heading size="2" weight="medium">
+                    By metric groups
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    value={metricGroupsFilter || []}
+                    options={availableMetricGroups.map((group) => ({
+                      label: group.name,
+                      value: group.id,
+                    }))}
+                    onChange={(v) => {
+                      setMetricGroupsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Box>
+              )}
+              {availableSliceTags.length > 0 && (
+                <Box mb="4">
+                  <Heading size="2" weight="medium">
+                    By slice tags
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    value={sliceTagsFilter || []}
+                    options={availableSliceTags.map((tag) => ({
+                      label: tag,
+                      value: tag,
+                    }))}
+                    onChange={(v) => {
+                      setSliceTagsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Box>
+              )}
+              <Box>
+                <Heading size="2" weight="medium">
+                  By metric tags
+                </Heading>
+                <MultiSelectField
+                  customClassName="multiselect-unfixed"
+                  value={metricTagFilter || []}
+                  options={metricTags.map((tag) => ({
+                    label: tag,
+                    value: tag,
+                  }))}
+                  onChange={(v) => {
+                    setMetricTagFilter?.(v);
+                    if (v.length === 0 && sortBy === "metric-tags") {
+                      setSortBy?.(null);
+                    }
+                    return;
+                  }}
+                />
+              </Box>
               <Checkbox
-                label="Filter metrics"
-                mb="0"
-                value={
-                  _metricFilter?.tagOrder?.length
-                    ? !!_metricFilter.filterByTag
-                    : false
-                }
+                label="Also sort by tag order"
+                labelSize="1"
+                mt="3"
+                value={sortBy === "metric-tags"}
+                disabled={!metricTagFilter || metricTagFilter.length === 0}
                 setValue={(value) => {
-                  _setMetricFilter({
-                    ..._metricFilter,
-                    filterByTag: value,
-                  });
+                  setSortBy?.(value ? "metric-tags" : null);
                 }}
-                disabled={!_metricFilter?.tagOrder?.length}
               />
-              {!_metricFilter?.tagOrder?.length ? (
-                <small className="text-muted ml-2">No tags selected</small>
-              ) : null}
-            </Flex>
-            <div className="d-flex mt-3">
-              {_filteringApplied ? (
-                <button
-                  className="btn btn-sm btn-link px-0"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    _setMetricFilter({});
+            </Box>
+            {filteringApplied ? (
+              <Flex mt="4" justify="end">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  color="red"
+                  icon={<PiX />}
+                  onClick={async () => {
+                    setMetricTagFilter?.([]);
+                    setMetricGroupsFilter?.([]);
+                    setSliceTagsFilter?.([]);
+                    setSortBy?.(null);
                   }}
                 >
-                  <FaX className="mr-1" />
                   Clear filters
-                </button>
-              ) : null}
-              <div className="flex-1" />
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMetricFilter(_metricFilter);
-                  setShowMetricFilter(false);
-                }}
-                disabled={
-                  JSON.stringify(_metricFilter) === JSON.stringify(metricFilter)
-                }
-              >
-                Apply
-              </button>
-            </div>
-          </div>
+                </Button>
+              </Flex>
+            ) : null}
+          </Flex>
         }
-      >
-        <></>
-      </Tooltip>
+      />
     </div>
   );
 }
