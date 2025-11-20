@@ -89,7 +89,6 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   }): Promise<MetricAnalysisInterface> {
     const updates: Partial<MetricAnalysisInterface> = {
       queries,
-      runStarted,
       error,
       result,
       status:
@@ -99,6 +98,9 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
             ? "error"
             : "success",
     };
+    if (runStarted) {
+      updates.runStarted = runStarted;
+    }
 
     const latest = await this.getLatestModel();
     const updated = await this.context.models.metricAnalysis.update(
