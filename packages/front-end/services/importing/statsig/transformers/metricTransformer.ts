@@ -23,13 +23,10 @@ import {
  */
 export async function transformStatsigMetricToMetric(
   metric: StatsigMetric,
-  apiCall: (
-    path: string,
-    options?: { method: string; body: string },
-  ) => Promise<unknown>,
   metricSourceIdMap: Map<string, string>,
-  project?: string,
-  datasource?: string,
+  savedFiltersMap: Map<string, string>,
+  project: string,
+  datasource: string,
 ): Promise<CreateFactMetricProps> {
   if (!datasource) {
     throw new Error("Datasource is required to create metrics");
@@ -51,17 +48,40 @@ export async function transformStatsigMetricToMetric(
 
   // TODO: ensure userIdTypes exists in the data source
 
-  const inlineFilters = transformStatsigCriteriaToInlineFilter(
-    data.criteria || [],
-  );
+  function getFiltersFromCriteria(criterias: StatsigMetricCriteria[]): {
+    filters: string[];
+    inlineFilters: Record<string, string[]>;
+  } {
+    const filters: string[] = [];
+
+    const remainingCriteria: StatsigMetricCriteria[] = [];
+    for (const criteria of criterias) {
+      const f = transformStatsigCriteriaToSavedFilter(criteria);
+      if (f) {
+        const key = `${factTableId}::${f}`;
+        const savedFilterId = savedFiltersMap?.get(key);
+        if (savedFilterId) {
+          filters.push(savedFilterId);
+        } else {
+          remainingCriteria.push(criteria);
+        }
+      } else {
+        remainingCriteria.push(criteria);
+      }
+    }
+
+    const inlineFilters =
+      transformStatsigCriteriaToInlineFilter(remainingCriteria);
+
+    return { filters, inlineFilters };
+  }
 
   let metricType: FactMetricType;
   const numerator: ColumnRef = {
     column: data.valueColumn || "",
     factTableId,
-    filters: [],
     aggregation: "sum",
-    inlineFilters,
+    ...getFiltersFromCriteria(data.criteria || []),
   };
   let denominator: ColumnRef | null = null;
   let quantileSettings: MetricQuantileSettings | null = null;
@@ -89,9 +109,8 @@ export async function transformStatsigMetricToMetric(
     denominator = {
       column: "$$count",
       factTableId,
-      filters: [],
       aggregation: "sum",
-      inlineFilters,
+      ...getFiltersFromCriteria(data.criteria || []),
     };
   } else if (data.aggregation === "count") {
     metricType = "mean";
@@ -131,11 +150,8 @@ export async function transformStatsigMetricToMetric(
     denominator = {
       column: data.denominatorValueColumn || "",
       factTableId: denominatorFactTableId,
-      filters: [],
       aggregation: "sum",
-      inlineFilters: transformStatsigCriteriaToInlineFilter(
-        data.denominatorCriteria || [],
-      ),
+      ...getFiltersFromCriteria(data.denominatorCriteria || []),
     };
     if (data.denominatorAggregation === "count") {
       denominator.column = "$$count";
@@ -214,9 +230,9 @@ export async function transformStatsigMetricToMetric(
     minPercentChange: DEFAULT_MIN_PERCENT_CHANGE,
     minSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
     winRisk: DEFAULT_WIN_RISK_THRESHOLD,
-    regressionAdjustmentEnabled: false,
-    regressionAdjustmentOverride: false,
-    regressionAdjustmentDays: 14,
+    regressionAdjustmentEnabled: !!data.cupedAttributionWindow,
+    regressionAdjustmentOverride: !!data.cupedAttributionWindow,
+    regressionAdjustmentDays: data.cupedAttributionWindow || 0,
     targetMDE: 0,
     displayAsPercentage: false,
     windowSettings,
@@ -238,9 +254,9 @@ function transformStatsigCriteriaToInlineFilter(
     }
 
     if (criteria.condition === "in") {
-      filter[criteria.column] = criteria.value || [];
+      filter[criteria.column] = criteria.values || [];
     } else if (criteria.condition === "=") {
-      filter[criteria.column] = criteria.value || [];
+      filter[criteria.column] = criteria.values || [];
     } else if (criteria.condition === "is_true") {
       filter[criteria.column] = ["true"];
     } else if (criteria.condition === "is_false") {
@@ -254,4 +270,71 @@ function transformStatsigCriteriaToInlineFilter(
   }
 
   return filter;
+}
+
+export function transformStatsigCriteriaToSavedFilter(
+  criteria: StatsigMetricCriteria,
+): string | null {
+  // If it works as an inline filter, don't convert to saved filter
+  try {
+    transformStatsigCriteriaToInlineFilter([criteria]);
+    return null;
+  } catch {
+    // ignore
+  }
+
+  if (criteria.type !== "metadata") {
+    return null;
+  }
+
+  const values = criteria.values || [];
+
+  if (criteria.condition === "sql_filter") {
+    return values[0] ?? null;
+  }
+
+  if (!criteria.column) {
+    return null;
+  }
+
+  const escapedValues = values.map((v) => v.replace(/'/g, "''"));
+
+  const firstVal = escapedValues[0] ?? "";
+  const isNumber = /^-?\d+(\.\d+)?$/.test(firstVal);
+  const quotedFirstValue =
+    firstVal === "" ? "''" : isNumber ? firstVal : `'${firstVal}'`;
+
+  switch (criteria.condition) {
+    case "in":
+      return `${criteria.column} IN (${escapedValues.map((v) => `'${v}'`).join(", ")})`;
+    case "not_in":
+      return `${criteria.column} NOT IN (${escapedValues
+        .map((v) => `'${v}'`)
+        .join(", ")})`;
+    case "is_true":
+      return `${criteria.column} = TRUE`;
+    case "is_false":
+      return `${criteria.column} = FALSE`;
+    case "=":
+    case "<":
+    case "<=":
+    case ">":
+    case ">=":
+      return `${criteria.column} ${criteria.condition} ${quotedFirstValue}`;
+    case "contains":
+      return `${criteria.column} LIKE '%${escapedValues[0]}%'`;
+    case "not_contains":
+      return `${criteria.column} NOT LIKE '%${escapedValues[0]}%'`;
+    case "is_null":
+      return `${criteria.column} IS NULL`;
+    case "non_null":
+      return `${criteria.column} IS NOT NULL`;
+    case "ends_with":
+      return `${criteria.column} LIKE '%${escapedValues[0]}'`;
+    case "starts_with":
+      return `${criteria.column} LIKE '${escapedValues[0]}%'`;
+    case "before_exposure":
+    case "after_exposure":
+      return null;
+  }
 }

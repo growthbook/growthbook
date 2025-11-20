@@ -296,7 +296,7 @@ export type StatsigMetricSource = {
   sourceType?: "table" | "query";
   tableName?: string;
   datePartitionColumn?: string;
-  columnFieldMapping?: {
+  customFieldMapping?: {
     key: string;
     formula: string;
   }[];
@@ -334,7 +334,7 @@ export type StatsigMetricCriteria = {
     | "is_true"
     | "is_false";
   column?: string;
-  value?: string[];
+  values?: string[];
   nullVacuousOverride?: boolean;
 };
 

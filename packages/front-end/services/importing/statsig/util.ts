@@ -9,7 +9,14 @@ import {
 //Transform payload for diff display
 export function transformPayloadForDiffDisplay(
   payload: Record<string, unknown>,
-  type: "feature" | "experiment" | "segment" | "tag" | "environment",
+  type:
+    | "feature"
+    | "experiment"
+    | "segment"
+    | "tag"
+    | "environment"
+    | "metric"
+    | "metricSource",
   projectNameToIdMap?: Map<string, string>,
 ): Record<string, unknown> {
   let scrubbed = { ...payload };
@@ -171,6 +178,31 @@ export function transformPayloadForDiffDisplay(
         "dateUpdated",
       ]) as Record<string, unknown>;
       break;
+
+    case "metric":
+      // Omit metadata/server-managed fields for metrics
+      scrubbed = omit(scrubbed, [
+        "id",
+        "organization",
+        "dateCreated",
+        "dateUpdated",
+        "analysis", // safety in case any analysis fields sneak in
+      ]) as Record<string, unknown>;
+      // Provide default values if missing
+      if (!("archived" in scrubbed)) scrubbed.archived = false;
+      break;
+
+    case "metricSource":
+      // Omit metadata/server-managed fields for fact tables (metric sources)
+      scrubbed = omit(scrubbed, [
+        "id",
+        "organization",
+        "dateCreated",
+        "dateUpdated",
+        "columnsError",
+        "archived",
+      ]) as Record<string, unknown>;
+      break;
   }
 
   // Map project/projects fields from Statsig project name to GrowthBook project ID if mapping is provided
@@ -287,7 +319,13 @@ export const DUMMY_STATSIG_METRICS: StatsigMetric[] = [
           type: "metadata",
           condition: "in",
           column: "event_name",
-          value: ["dummy_event"],
+          values: ["dummy_event"],
+        },
+        {
+          type: "metadata",
+          condition: "not_in",
+          column: "category",
+          values: ["a", "b", "c"],
         },
       ],
       metricSourceName: "DummyMetricSource",

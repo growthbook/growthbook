@@ -30,6 +30,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
+import SelectField from "@/components/Forms/SelectField";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
 function HasChangesIcon({
@@ -248,6 +249,15 @@ export default function ImportFromStatsig() {
     false,
   );
 
+  const { datasources } = useDefinitions();
+  const dataSourceOptions = datasources.map((ds) => ({
+    label: ds.name,
+    value: ds.id,
+  }));
+  const [dataSource, setDataSource] = useState<string | undefined>(
+    datasources[0]?.id,
+  );
+
   // Force useBackendProxy to false for cloud users
   useEffect(() => {
     if (isCloud() && useBackendProxy) {
@@ -306,8 +316,14 @@ export default function ImportFromStatsig() {
         return `exp-${expItem.experiment?.name || expItem.experiment?.id || index}`;
       }
       case "metrics": {
-        const metricItem = item as { metric?: { name?: string; id?: string } };
-        return `metric-${metricItem.metric?.name || metricItem.metric?.id || index}`;
+        const metricItem = item as { metric?: { name?: string } };
+        return `metric-${metricItem.metric?.name || index}`;
+      }
+      case "metricSources": {
+        const sourceItem = item as {
+          metricSource?: { name: string };
+        };
+        return `metricSource-${sourceItem.metricSource?.name || index}`;
       }
       default:
         return `${category}-${index}`;
@@ -415,6 +431,8 @@ export default function ImportFromStatsig() {
       allItems.push({ category: "experiments", items: data.experiments });
     if (data.metrics)
       allItems.push({ category: "metrics", items: data.metrics });
+    if (data.metricSources)
+      allItems.push({ category: "metricSources", items: data.metricSources });
 
     if (allItems.length === 0) return false;
 
@@ -456,6 +474,8 @@ export default function ImportFromStatsig() {
       allItems.push({ category: "experiments", items: data.experiments });
     if (data.metrics)
       allItems.push({ category: "metrics", items: data.metrics });
+    if (data.metricSources)
+      allItems.push({ category: "metricSources", items: data.metricSources });
 
     allItems.forEach(({ category, items }) => {
       items.forEach((item, index) => {
@@ -528,6 +548,14 @@ export default function ImportFromStatsig() {
       data.metrics.forEach((item, index) => {
         const key = getItemKey("metrics", index, item);
         updates.metrics[key] = enabled;
+      });
+    }
+
+    if (data.metricSources) {
+      updates.metricSources = {};
+      data.metricSources.forEach((item, index) => {
+        const key = getItemKey("metricSources", index, item);
+        updates.metricSources[key] = enabled;
       });
     }
 
@@ -608,6 +636,15 @@ export default function ImportFromStatsig() {
           });
         }
 
+        if (data.metricSources) {
+          newItemEnabled.metricSources = {};
+          data.metricSources.forEach((item, index) => {
+            const key = getItemKey("metricSources", index, item);
+            newItemEnabled.metricSources[key] =
+              itemEnabled.metricSources?.[key] ?? true;
+          });
+        }
+
         setItemEnabled(newItemEnabled);
       }
     },
@@ -651,7 +688,7 @@ export default function ImportFromStatsig() {
     [factTables],
   );
   const existingMetricsMap = useMemo(
-    () => new Map(factMetrics.map((m) => [m.id, m])),
+    () => new Map(factMetrics.map((m) => [m.name, m])),
     [factMetrics],
   );
 
@@ -763,13 +800,23 @@ export default function ImportFromStatsig() {
                   </div>
                 </div>
               )}
-              <div className="col" style={{ maxWidth: 350 }}>
+              <div className="col-auto" style={{ maxWidth: 350 }}>
                 <Field
                   label="GrowthBook Project"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="All projects"
                   helpText="Import into a specific project. Leave blank for no project"
+                />
+              </div>
+              <div className="col-auto">
+                <SelectField
+                  label="Data Source"
+                  initialOption="Select..."
+                  options={dataSourceOptions}
+                  value={dataSource || ""}
+                  onChange={(e) => setDataSource(e)}
+                  helpText="Used when importing experiments and metrics"
                 />
               </div>
             </div>
@@ -849,6 +896,7 @@ export default function ImportFromStatsig() {
                   existingSavedGroups: savedGroups,
                   existingExperiments: experiments || [],
                   existingFactTables: factTables,
+                  datasource: dataSource,
                 };
                 await runImport(runOptions);
                 mutateDefinitions();
@@ -1498,7 +1546,7 @@ export default function ImportFromStatsig() {
             {data.metricSources ? (
               <div className="appbox mb-4">
                 <ImportHeader
-                  name="Metric Sources"
+                  name="Metric Sources → Fact Tables"
                   beta={true}
                   items={data.metricSources}
                   checkboxState={getCategoryCheckboxState(
