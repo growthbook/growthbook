@@ -48,6 +48,8 @@ interface EntityAccordionContentProps {
     existingExperiment?: unknown;
     existingTag?: unknown;
     existingEnvironment?: unknown;
+    existingMetric?: unknown;
+    existingMetricSource?: unknown;
   };
 }
 
@@ -69,7 +71,9 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
     !!importItem?.existingSavedGroup ||
     !!importItem?.existingExperiment ||
     !!importItem?.existingTag ||
-    !!importItem?.existingEnvironment;
+    !!importItem?.existingEnvironment ||
+    !!importItem?.existingMetric ||
+    !!importItem?.existingMetricSource;
 
   // If existingData wasn't pre-prepared but we have an existing item, generate it from existing object
   if (!existingJson && hasExistingItem) {
@@ -78,7 +82,9 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
       importItem?.existingSavedGroup ||
       importItem?.existingExperiment ||
       importItem?.existingTag ||
-      importItem?.existingEnvironment;
+      importItem?.existingEnvironment ||
+      importItem?.existingMetric ||
+      importItem?.existingMetricSource;
 
     if (existingData && typeof existingData === "object") {
       // Determine entity type
@@ -87,11 +93,15 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
         | "experiment"
         | "segment"
         | "tag"
-        | "environment" = "feature";
+        | "environment"
+        | "metric"
+        | "metricSource" = "feature";
       if (importItem?.existingExperiment) entityType = "experiment";
       else if (importItem?.existingSavedGroup) entityType = "segment";
       else if (importItem?.existingTag) entityType = "tag";
       else if (importItem?.existingEnvironment) entityType = "environment";
+      else if (importItem?.existingMetric) entityType = "metric";
+      else if (importItem?.existingMetricSource) entityType = "metricSource";
 
       // Remove metadata fields
       const existingRecord = existingData as Record<string, unknown>;

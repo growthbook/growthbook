@@ -187,6 +187,8 @@ export function transformPayloadForDiffDisplay(
         "dateCreated",
         "dateUpdated",
         "analysis", // safety in case any analysis fields sneak in
+        "datasource",
+        "owner",
       ]) as Record<string, unknown>;
       // Provide default values if missing
       if (!("archived" in scrubbed)) scrubbed.archived = false;
@@ -201,6 +203,7 @@ export function transformPayloadForDiffDisplay(
         "dateUpdated",
         "columnsError",
         "archived",
+        "datasource",
       ]) as Record<string, unknown>;
       break;
   }
