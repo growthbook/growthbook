@@ -3,6 +3,9 @@ import { PostProjectResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postProjectValidator } from "back-end/src/validators/openapi";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
+import { logger } from "back-end/src/util/logger";
 
 async function generateUniqueProjectUid(
   name: string,
@@ -69,6 +72,13 @@ export const postProject = createApiRequestHandler(postProjectValidator)(async (
       id: project.id,
     },
     details: auditDetailsCreate(project),
+  });
+
+  // Refresh SDK payload cache for all environments that might use this project
+  // (only if includeProjectUID is enabled for any connections)
+  const payloadKeys = getPayloadKeysForAllEnvs(req.context, [project.id]);
+  refreshSDKPayloadCache(req.context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache after project create");
   });
 
   return {

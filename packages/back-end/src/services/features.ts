@@ -43,6 +43,7 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "back-end/types/api";
+import { ProjectInterface } from "back-end/types/project";
 import {
   ExperimentRefRule,
   ExperimentRule,
@@ -586,6 +587,7 @@ export type FeatureDefinitionsResponseArgs = {
   savedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
+  context?: ReqContext | ApiReqContext;
 };
 export async function getFeatureDefinitionsResponse({
   features,
@@ -606,6 +608,7 @@ export async function getFeatureDefinitionsResponse({
   savedGroups,
   savedGroupReferencesEnabled = false,
   organization,
+  context,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -648,6 +651,15 @@ export async function getFeatureDefinitionsResponse({
     );
   }
 
+  // Keep projects map for metadata generation
+  const projectsMap = new Map<string, ProjectInterface>();
+  if (includeProjectUID && context) {
+    const allProjects = await context.models.projects.getAll();
+    for (const project of allProjects) {
+      projectsMap.set(project.id, project);
+    }
+  }
+
   // Add metadata fields, strip temporary top-level project
   features = Object.fromEntries(
     Object.entries(features).map(([key, feature]) => {
@@ -655,10 +667,11 @@ export async function getFeatureDefinitionsResponse({
       const featureWithoutProject = omit(feature, ["project"]);
 
       if (includeProjectUID) {
+        const project = projectId ? projectsMap.get(projectId) : undefined;
         const featureWithMetadata: FeatureDefinition = {
           ...featureWithoutProject,
           metadata: {
-            projects: projectId ? [projectId] : [],
+            projects: project?.uid ? [project.uid] : [],
           },
         };
         return [key, featureWithMetadata];
@@ -674,10 +687,11 @@ export async function getFeatureDefinitionsResponse({
     const expWithoutProject = omit(exp, ["project"]);
 
     if (includeProjectUID) {
+      const project = projectId ? projectsMap.get(projectId) : undefined;
       const expWithMetadata: AutoExperiment = {
         ...expWithoutProject,
         metadata: {
-          projects: projectId ? [projectId] : [],
+          projects: project?.uid ? [project.uid] : [],
         },
       };
       return expWithMetadata;
@@ -892,6 +906,7 @@ export async function getFeatureDefinitions({
         savedGroups: usedSavedGroups || [],
         savedGroupReferencesEnabled,
         organization: context.org,
+        context,
       });
     }
   } catch (e) {
@@ -1001,6 +1016,7 @@ export async function getFeatureDefinitions({
     savedGroups,
     savedGroupReferencesEnabled,
     organization: context.org,
+    context,
   });
 }
 
