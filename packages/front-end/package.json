@@ -54,6 +54,7 @@
     "bootstrap": "^4.5.0",
     "classnames": "2.3.1",
     "clsx": "^1.1.1",
+    "cmdk": "^1.1.1",
     "country-codes-flags-phone-codes": "^1.1.1",
     "cronstrue": "^1.122.0",
     "crypto-js": "^4.2.0",
