@@ -138,7 +138,6 @@ export const startPopulationDataQueries = async (
             query,
             setExternalId,
           ),
-        process: (rows) => rows,
         queryType: "populationMetric",
       }),
     );
@@ -173,7 +172,6 @@ export const startPopulationDataQueries = async (
             query,
             setExternalId,
           ),
-        process: (rows) => rows,
         queryType: "populationMultiMetric",
       }),
     );
