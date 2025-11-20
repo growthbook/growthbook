@@ -17,79 +17,138 @@ on:
       - ".prettierignore"
 
 jobs:
-  # Linting, type-checking, and tests
-  ci:
+  lint_and_typecheck:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "yarn"
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: 3.11
           cache: "pip"
-
-      - name: Cache eslint
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.eslintcache
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
-
       - name: Install dependencies
         run: |
-          # Main app
           yarn install
-
-          # Stats engine
           pip install pipx
           pipx install poetry
         env:
           CI: true
-
       - name: Build dependencies
-        run: |
-          # Build required dependencies (sdks/shared package)
-          # This is required for linting/type checks to work
-          yarn setup
+        run: yarn setup
         env:
           CI: true
-
       - name: Lint
         run: |
           yarn lint:ci
           yarn workspace stats lint:ci
-        env:
-          CI: true
-
       - name: Check api types
         run: |
           yarn generate-api-types
           [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
+      - name: Type-check
+        run: yarn type-check
 
+  test_backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+      - name: Install dependencies
+        run: |
+          yarn install
+        env:
+          CI: true
+      - name: Build dependencies
+        run: yarn build:deps
+        env:
+          CI: true
+      - name: Test Backend
+        run: yarn workspace back-end test
+        env:
+          CI: true
+
+  test_frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+      - name: Install dependencies
+        run: |
+          yarn install
+        env:
+          CI: true
+      - name: Build dependencies
+        run: yarn build:deps
+        env:
+          CI: true
+      - name: Test Frontend
+        run: yarn workspace front-end test
+        env:
+          CI: true
+
+  test_other:
+    name: Test Other
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          yarn install
+          pip install pipx
+          pipx install poetry
+        env:
+          CI: true
+      - name: Build dependencies
+        run: yarn setup
+        env:
+          CI: true
+      - name: Test Other
+        run: |
+          yarn workspace shared test
+          yarn workspace @growthbook/growthbook test
+          yarn workspace @growthbook/growthbook-react test
+          yarn workspace stats test
+        env:
+          CI: true
+
+  check_docs:
+    name: Check Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
       - name: Check doc
         run: |
           cd docs
           yarn
           yarn gen
           [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
-
-      - name: Type-check
-        run: |
-          yarn type-check
-        env:
-          CI: true
-
-      - name: Test
-        run: |
-          yarn test
-        env:
-          CI: true

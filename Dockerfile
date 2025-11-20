@@ -12,22 +12,20 @@ RUN \
   && poetry export -f requirements.txt --output requirements.txt
 
 # Build the nodejs app
-FROM python:${PYTHON_MAJOR}-slim AS nodebuild
-ARG NODE_MAJOR
+# Use Node image to avoid installing Node manually
+FROM node:${NODE_MAJOR}-bookworm-slim AS nodebuild
 WORKDIR /usr/local/src/app
 # Set node max memory
 ENV NODE_OPTIONS="--max-old-space-size=8192"
+
+# Install build dependencies for native modules
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential ca-certificates && \
-  mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
-  apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
-  apt-get clean && \
+  apt-get install -y python3 make g++ && \
   rm -rf /var/lib/apt/lists/*
+
+# Enable yarn
+RUN corepack enable
+
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
@@ -60,17 +58,20 @@ RUN yarn postinstall
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+
+# Install Node.js
+# We remove build-essential to save time/space
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential ca-certificates && \
+  apt-get install -y wget gnupg2 ca-certificates && \
   mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
   apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get install -y nodejs && \
+  npm install -g yarn && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
