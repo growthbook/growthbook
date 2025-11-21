@@ -84,21 +84,20 @@ export class ProjectModel extends BaseClass {
     const doc = await super.getById(id);
     if (!doc) return null;
 
-    // JIT migration: generate and save uid if missing (non-blocking)
+    // JIT migration: generate and save uid if missing
     if (!doc.uid) {
       const uid = await this.generateUniqueUid(
         doc.name,
         doc.organization,
         doc.id,
       );
-      // Persist non-blocking - don't await
+      // Persist (non-blocking)
       this._dangerousGetCollection()
         .updateOne(
           { id: doc.id, organization: doc.organization },
           { $set: { uid } },
         )
         .catch((err) => {
-          // Log error but don't throw - this is non-blocking
           logger.error(err, "Failed to persist project uid during getById");
         });
       doc.uid = uid;
@@ -110,7 +109,7 @@ export class ProjectModel extends BaseClass {
   public async getAll() {
     const docs = await super.getAll();
 
-    // JIT migration: generate and save uid for any documents missing it (non-blocking)
+    // JIT migration: generate and save uid for any documents missing it
     const updates: Promise<void>[] = [];
     for (const doc of docs) {
       if (!doc.uid) {
@@ -119,7 +118,7 @@ export class ProjectModel extends BaseClass {
           doc.organization,
           doc.id,
         );
-        // Persist non-blocking - don't await
+        // Persist (non-blocking)
         updates.push(
           this._dangerousGetCollection()
             .updateOne(
@@ -127,7 +126,6 @@ export class ProjectModel extends BaseClass {
               { $set: { uid } },
             )
             .catch((err) => {
-              // Log error but don't throw - this is non-blocking
               logger.error(
                 err,
                 `Failed to persist project uid during getAll for project ${doc.id}`,
@@ -139,7 +137,7 @@ export class ProjectModel extends BaseClass {
       }
     }
 
-    // Fire off all updates but don't await them
+    // Fire off all updates (non-blocking)
     Promise.all(updates).catch(() => {
       // Errors already logged above
     });
