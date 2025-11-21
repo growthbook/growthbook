@@ -102,15 +102,19 @@ export async function findAuditByEntity(
   type: EntityType,
   id: string,
   options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-      "entity.id": id,
-    },
-    options,
-  );
+  let query = AuditModel.find({
+    organization,
+    "entity.object": type,
+    "entity.id": id,
+    ...customFilter,
+  });
+
+  if (options?.limit) query = query.limit(options.limit);
+  if (options?.sort) query = query.sort(options.sort);
+
+  const auditDocs = await query;
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -121,17 +125,19 @@ export async function findAuditByEntityList(
   customFilter?: FilterQuery<AuditDocument>,
   options?: QueryOptions,
 ): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-      "entity.id": {
-        $in: ids,
-      },
-      ...customFilter,
+  let query = AuditModel.find({
+    organization,
+    "entity.object": type,
+    "entity.id": {
+      $in: ids,
     },
-    options,
-  );
+    ...customFilter,
+  });
+
+  if (options?.limit) query = query.limit(options.limit);
+  if (options?.sort) query = query.sort(options.sort);
+
+  const auditDocs = await query;
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -140,15 +146,19 @@ export async function findAuditByEntityParent(
   type: EntityType,
   id: string,
   options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-      "parent.id": id,
-    },
-    options,
-  );
+  let query = AuditModel.find({
+    organization,
+    "parent.object": type,
+    "parent.id": id,
+    ...customFilter,
+  });
+
+  if (options?.limit) query = query.limit(options.limit);
+  if (options?.sort) query = query.sort(options.sort);
+
+  const auditDocs = await query;
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -156,14 +166,18 @@ export async function findAllAuditsByEntityType(
   organization: string,
   type: EntityType,
   options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-    },
-    options,
-  );
+  let query = AuditModel.find({
+    organization,
+    "entity.object": type,
+    ...customFilter,
+  });
+
+  if (options?.limit) query = query.limit(options.limit);
+  if (options?.sort) query = query.sort(options.sort);
+
+  const auditDocs = await query;
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -171,13 +185,61 @@ export async function findAllAuditsByEntityTypeParent(
   organization: string,
   type: EntityType,
   options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-    },
-    options,
-  );
+  let query = AuditModel.find({
+    organization,
+    "parent.object": type,
+    ...customFilter,
+  });
+
+  if (options?.limit) query = query.limit(options.limit);
+  if (options?.sort) query = query.sort(options.sort);
+
+  const auditDocs = await query;
   return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function countAuditByEntity(
+  organization: string,
+  type: EntityType,
+  id: string,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "entity.object": type,
+    "entity.id": id,
+  });
+}
+
+export async function countAuditByEntityParent(
+  organization: string,
+  type: EntityType,
+  id: string,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "parent.object": type,
+    "parent.id": id,
+  });
+}
+
+export async function countAllAuditsByEntityType(
+  organization: string,
+  type: EntityType,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "entity.object": type,
+  });
+}
+
+export async function countAllAuditsByEntityTypeParent(
+  organization: string,
+  type: EntityType,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "parent.object": type,
+  });
 }

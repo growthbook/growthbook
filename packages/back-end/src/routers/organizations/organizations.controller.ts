@@ -123,6 +123,10 @@ import {
   findAllAuditsByEntityTypeParent,
   findAuditByEntity,
   findAuditByEntityParent,
+  countAuditByEntity,
+  countAuditByEntityParent,
+  countAllAuditsByEntityType,
+  countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
 import { EntityType } from "back-end/src/types/Audit";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
@@ -255,12 +259,97 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
   }
 }
 
+async function fetchPaginatedHistory(params: {
+  orgId: string;
+  type: EntityType;
+  id?: string;
+  limit: number;
+  cursor: Date | null;
+}): Promise<{
+  events: AuditInterface[];
+  total: number;
+  nextCursor: Date | null;
+}> {
+  const { orgId, type, id, limit, cursor } = params;
+
+  // Get total count
+  const [entityCount, parentCount] = await Promise.all([
+    id
+      ? countAuditByEntity(orgId, type, id)
+      : countAllAuditsByEntityType(orgId, type),
+    id
+      ? countAuditByEntityParent(orgId, type, id)
+      : countAllAuditsByEntityTypeParent(orgId, type),
+  ]);
+  const total = entityCount + parentCount;
+
+  // Build cursor filter
+  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
+
+  // Fetch events from both sources
+  const events = await Promise.all([
+    id
+      ? findAuditByEntity(
+          orgId,
+          type,
+          id,
+          { limit, sort: { dateCreated: -1 } },
+          cursorFilter,
+        )
+      : findAllAuditsByEntityType(
+          orgId,
+          type,
+          { limit, sort: { dateCreated: -1 } },
+          cursorFilter,
+        ),
+    id
+      ? findAuditByEntityParent(
+          orgId,
+          type,
+          id,
+          { limit, sort: { dateCreated: -1 } },
+          cursorFilter,
+        )
+      : findAllAuditsByEntityTypeParent(
+          orgId,
+          type,
+          { limit, sort: { dateCreated: -1 } },
+          cursorFilter,
+        ),
+  ]);
+
+  // Merge and sort by dateCreated descending
+  const merged = [...events[0], ...events[1]];
+  merged.sort((a, b) => {
+    if (b.dateCreated > a.dateCreated) return 1;
+    else if (b.dateCreated < a.dateCreated) return -1;
+    return 0;
+  });
+
+  // Take only the requested limit
+  const paginatedEvents = merged.slice(0, limit);
+
+  // The next cursor is the dateCreated of the last event
+  const nextCursor =
+    paginatedEvents.length > 0
+      ? paginatedEvents[paginatedEvents.length - 1].dateCreated
+      : null;
+
+  return {
+    events: paginatedEvents,
+    total,
+    nextCursor,
+  };
+}
+
 export async function getAllHistory(
-  req: AuthRequest<null, { type: string }>,
+  req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
+  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -269,20 +358,14 @@ export async function getAllHistory(
     });
   }
 
-  const events = await Promise.all([
-    findAllAuditsByEntityType(org.id, type),
-    findAllAuditsByEntityTypeParent(org.id, type),
-  ]);
-
-  const merged = [...events[0], ...events[1]];
-
-  merged.sort((a, b) => {
-    if (b.dateCreated > a.dateCreated) return 1;
-    else if (b.dateCreated < a.dateCreated) return -1;
-    return 0;
+  const { events, total, nextCursor } = await fetchPaginatedHistory({
+    orgId: org.id,
+    type,
+    limit,
+    cursor,
   });
 
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  if (events.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history",
@@ -291,16 +374,24 @@ export async function getAllHistory(
 
   res.status(200).json({
     status: 200,
-    events: merged,
+    events,
+    total,
+    nextCursor,
   });
 }
 
 export async function getHistory(
-  req: AuthRequest<null, { type: string; id: string }>,
+  req: AuthRequest<
+    null,
+    { type: string; id: string },
+    { cursor?: string; limit?: string }
+  >,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
+  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -309,20 +400,15 @@ export async function getHistory(
     });
   }
 
-  const events = await Promise.all([
-    findAuditByEntity(org.id, type, id),
-    findAuditByEntityParent(org.id, type, id),
-  ]);
-
-  const merged = [...events[0], ...events[1]];
-
-  merged.sort((a, b) => {
-    if (b.dateCreated > a.dateCreated) return 1;
-    else if (b.dateCreated < a.dateCreated) return -1;
-    return 0;
+  const { events, total, nextCursor } = await fetchPaginatedHistory({
+    orgId: org.id,
+    type,
+    id,
+    limit,
+    cursor,
   });
 
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  if (events.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history for this",
@@ -331,7 +417,9 @@ export async function getHistory(
 
   res.status(200).json({
     status: 200,
-    events: merged,
+    events,
+    total,
+    nextCursor,
   });
 }
 
