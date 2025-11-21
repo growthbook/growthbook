@@ -15,6 +15,7 @@ export const postProject = createApiRequestHandler(postProjectValidator)(async (
     throw new Error("Unable to generate project uid");
   }
 
+  // Model requires uid to be set but API endpoint does not enforce it, so we add it here
   const payload = req.context.models.projects.createValidator.parse({
     ...body,
     uid,
