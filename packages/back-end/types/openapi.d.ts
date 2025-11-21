@@ -508,7 +508,7 @@ export interface components {
     Project: {
       id: string;
       name: string;
-      uid: string;
+      publicId?: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -7975,7 +7975,7 @@ export interface operations {
             projects: ({
                 id: string;
                 name: string;
-                uid: string;
+                publicId?: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -8003,8 +8003,8 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
-          /** @description Unique identifier for the project. If not provided, will be generated from the name. */
-          uid?: string;
+          /** @description Unique identifier for the project. If not provided, the project ID will be used in payloads. */
+          publicId?: string;
           description?: string;
           /** @description Project settings. */
           settings?: {
@@ -8021,7 +8021,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
-              uid: string;
+              publicId?: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -8051,7 +8051,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
-              uid: string;
+              publicId?: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -8096,7 +8096,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
-              uid: string;
+              publicId?: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */

@@ -15,7 +15,7 @@ router.post(
       .object({
         name: z.string(),
         description: z.string(),
-        uid: z.string(),
+        publicId: z.string().optional(),
       })
       .strict(),
   }),
@@ -34,7 +34,7 @@ router.put(
       .object({
         name: z.string(),
         description: z.string(),
-        uid: z.string().optional(),
+        publicId: z.string().optional(),
       })
       .strict(),
   }),

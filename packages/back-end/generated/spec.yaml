@@ -988,9 +988,9 @@ paths:
               properties:
                 name:
                   type: string
-                uid:
+                publicId:
                   type: string
-                  description: 'Unique identifier for the project. If not provided, will be generated from the name.'
+                  description: 'Unique identifier for the project. If not provided, the project ID will be used in payloads.'
                 description:
                   type: string
                 settings:
@@ -6220,7 +6220,6 @@ components:
       required:
         - id
         - name
-        - uid
         - dateCreated
         - dateUpdated
       properties:
@@ -6228,7 +6227,7 @@ components:
           type: string
         name:
           type: string
-        uid:
+        publicId:
           type: string
         dateCreated:
           type: string

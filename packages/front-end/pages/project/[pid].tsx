@@ -163,15 +163,7 @@ const ProjectPage: FC = () => {
             <Flex gap="6" mb="4">
               <Metadata
                 label="Public ID"
-                value={
-                  p.uid ? (
-                    <code>{p.uid}</code>
-                  ) : (
-                    <Text color="gray" style={{ fontStyle: "italic" }}>
-                      None
-                    </Text>
-                  )
-                }
+                value={<code>{p.publicId || p.id}</code>}
               />
               <Metadata
                 label="ID"

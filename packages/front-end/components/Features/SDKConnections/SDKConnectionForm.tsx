@@ -1184,7 +1184,7 @@ export default function SDKConnectionForm({
           <div className="mt-2">
             <div className="mb-2 d-flex align-items-center">
               <Checkbox
-                label="Include project UID"
+                label="Include project Public ID"
                 value={!!form.watch("includeProjectUID")}
                 setValue={(val) => form.setValue("includeProjectUID", val)}
               />

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { generateProjectUidFromName } from "shared/util";
 import { ApiProject } from "back-end/types/openapi";
 import { statsEngines } from "back-end/src/util/constants";
 import {
@@ -21,7 +20,7 @@ export const projectSettingsValidator = z.object({
 export const projectValidator = baseSchema
   .extend({
     name: z.string(),
-    uid: z.string(),
+    publicId: z.string().optional(),
     description: z.string().default("").optional(),
     settings: projectSettingsValidator.default({}).optional(),
     managedBy: managedByValidator.optional(),
@@ -31,10 +30,6 @@ export const projectValidator = baseSchema
 export type StatsEngine = z.infer<typeof statsEnginesValidator>;
 export type ProjectSettings = z.infer<typeof projectSettingsValidator>;
 export type ProjectInterface = z.infer<typeof projectValidator>;
-
-export type LegacyProjectInterface = Omit<ProjectInterface, "uid"> & {
-  uid?: string; // Optional in legacy documents
-};
 
 const BaseClass = MakeModelClass({
   schema: projectValidator,
@@ -47,17 +42,11 @@ const BaseClass = MakeModelClass({
     deleteEvent: "project.delete",
   },
   globallyUniqueIds: true,
-  additionalIndexes: [
-    {
-      fields: { uid: 1, organization: 1 },
-      sparse: true, // Only index documents where uid exists (for migration compatibility)
-    },
-  ],
 });
 
 interface CreateProjectProps {
   name: string;
-  uid: string;
+  publicId?: string;
   description?: string;
   id?: string;
   managedBy?: ManagedBy;
@@ -80,105 +69,6 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canDeleteProject(doc.id);
   }
 
-  public async getById(id: string) {
-    const doc = await super.getById(id);
-    if (!doc) return null;
-
-    // JIT migration: generate and save uid if missing
-    if (!doc.uid) {
-      const uid = await this.generateUniqueUid(
-        doc.name,
-        doc.organization,
-        doc.id,
-      );
-      // Persist (non-blocking)
-      this._dangerousGetCollection()
-        .updateOne(
-          { id: doc.id, organization: doc.organization },
-          { $set: { uid } },
-        )
-        .catch((err) => {
-          logger.error(err, "Failed to persist project uid during getById");
-        });
-      doc.uid = uid;
-    }
-
-    return doc;
-  }
-
-  public async getAll() {
-    const docs = await super.getAll();
-
-    // JIT migration: generate and save uid for any documents missing it
-    const updates: Promise<void>[] = [];
-    for (const doc of docs) {
-      if (!doc.uid) {
-        const uid = await this.generateUniqueUid(
-          doc.name,
-          doc.organization,
-          doc.id,
-        );
-        // Persist (non-blocking)
-        updates.push(
-          this._dangerousGetCollection()
-            .updateOne(
-              { id: doc.id, organization: doc.organization },
-              { $set: { uid } },
-            )
-            .catch((err) => {
-              logger.error(
-                err,
-                `Failed to persist project uid during getAll for project ${doc.id}`,
-              );
-            })
-            .then(() => undefined),
-        );
-        doc.uid = uid;
-      }
-    }
-
-    // Fire off all updates (non-blocking)
-    Promise.all(updates).catch(() => {
-      // Errors already logged above
-    });
-
-    return docs;
-  }
-
-  protected async beforeUpdate(
-    existing: z.infer<typeof projectValidator>,
-    updates: Partial<z.infer<typeof projectValidator>>,
-    newDoc: z.infer<typeof projectValidator>,
-  ): Promise<void> {
-    // JIT migration: generate uid if missing (for legacy documents)
-    if (!newDoc.uid) {
-      newDoc.uid = await this.generateUniqueUid(
-        newDoc.name,
-        newDoc.organization,
-        newDoc.id,
-      );
-    }
-  }
-
-  private async generateUniqueUid(
-    name: string,
-    organization: string,
-    id: string,
-  ): Promise<string> {
-    const baseUid = generateProjectUidFromName(name);
-    if (!baseUid) {
-      return id;
-    }
-    const existing = await this._dangerousGetCollection().findOne({
-      organization,
-      uid: baseUid,
-    });
-
-    if (baseUid && !existing) {
-      return baseUid;
-    }
-    return id;
-  }
 
   public create(project: CreateProjectProps) {
     return super.create({ ...project, settings: {} });
@@ -220,7 +110,7 @@ export class ProjectModel extends BaseClass {
     return {
       id: project.id,
       name: project.name,
-      uid: project.uid,
+      publicId: project.publicId,
       description: project.description || "",
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
@@ -259,7 +149,7 @@ export class ProjectModel extends BaseClass {
     writeOptions?: never,
   ): Promise<void> {
     await super.afterUpdate(existing, updates, newDoc, writeOptions);
-    // Refresh SDK payload cache if UID changed (affects metadata in payloads)
+    // Refresh SDK payload cache if publicId changed (affects metadata in payloads)
     // Also refresh on any update to ensure consistency
     const payloadKeys = getPayloadKeysForAllEnvs(
       this.context as ReqContext | ApiReqContext,

@@ -2,7 +2,6 @@ type: object
 required:
   - id
   - name
-  - uid
   - dateCreated
   - dateUpdated
 properties:
@@ -10,7 +9,7 @@ properties:
     type: string
   name:
     type: string
-  uid:
+  publicId:
     type: string
   dateCreated:
     type: string

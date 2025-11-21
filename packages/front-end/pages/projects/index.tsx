@@ -4,7 +4,6 @@ import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
-import { Text } from "@radix-ui/themes";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
@@ -121,13 +120,7 @@ const ProjectsPage: FC = () => {
                     {p.description}
                   </td>
                   <td>
-                    {p.uid ? (
-                      <code>{p.uid}</code>
-                    ) : (
-                      <Text color="gray" style={{ fontStyle: "italic" }}>
-                        None
-                      </Text>
-                    )}
+                    <code>{p.publicId || p.id}</code>
                   </td>
                   <td>{date(p.dateCreated)}</td>
                   <td>{date(p.dateUpdated)}</td>

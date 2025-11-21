@@ -7,7 +7,7 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { generateProjectUidFromName } from "shared/util";
+import { generateProjectPublicIdFromName } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
@@ -207,11 +207,11 @@ export const postDemoDatasourceProject = async (
 
   try {
     const projectName = "Sample Data";
-    const baseUid = generateProjectUidFromName(projectName) || "sample-data";
+    const basePublicId = generateProjectPublicIdFromName(projectName) || "sample-data";
     const project = await context.models.projects.create({
       id: demoProjId,
       name: projectName,
-      uid: baseUid,
+      publicId: basePublicId,
     });
     const datasource = await createDataSource(
       context,

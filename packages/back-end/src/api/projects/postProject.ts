@@ -1,4 +1,3 @@
-import { generateProjectUidFromName } from "shared/util";
 import { PostProjectResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postProjectValidator } from "back-end/src/validators/openapi";
@@ -7,19 +6,7 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 export const postProject = createApiRequestHandler(postProjectValidator)(async (
   req,
 ): Promise<PostProjectResponse> => {
-  const body = req.body;
-
-  // Generate uid from name if not provided
-  const uid = body?.uid || generateProjectUidFromName(body.name);
-  if (!uid) {
-    throw new Error("Unable to generate project uid");
-  }
-
-  // Model requires uid to be set but API endpoint does not enforce it, so we add it here
-  const payload = req.context.models.projects.createValidator.parse({
-    ...body,
-    uid,
-  });
+  const payload = req.context.models.projects.createValidator.parse(req.body);
 
   const project = await req.context.models.projects.create(payload);
 

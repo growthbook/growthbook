@@ -671,7 +671,7 @@ export async function getFeatureDefinitionsResponse({
         const featureWithMetadata: FeatureDefinition = {
           ...featureWithoutProject,
           metadata: {
-            projects: project?.uid ? [project.uid] : [],
+            projects: project ? [project.publicId || project.id] : [],
           },
         };
         return [key, featureWithMetadata];
@@ -691,7 +691,7 @@ export async function getFeatureDefinitionsResponse({
       const expWithMetadata: AutoExperiment = {
         ...expWithoutProject,
         metadata: {
-          projects: project?.uid ? [project.uid] : [],
+          projects: project ? [project.publicId || project.id] : [],
         },
       };
       return expWithMetadata;
