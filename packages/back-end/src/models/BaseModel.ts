@@ -23,6 +23,7 @@ import {
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
 import { ApiRequest } from "../util/handler";
+import { ApiModelConfig } from "../api/ApiModel";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -127,6 +128,7 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
   baseQuery?: ScopedFilterQuery<T>;
+  apiConfig?: ApiModelConfig;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -339,6 +341,9 @@ export abstract class BaseModel<
   protected abstract getConfig(): ModelConfig<T, E>;
   protected abstract getCreateValidator(): CreateZodObject<T>;
   protected abstract getUpdateValidator(): UpdateZodObject<T>;
+  public static getModelConfig() {
+    throw new Error("Method not implemented! Use derived class");
+  }
 
   /***************
    * Built-in public methods
@@ -949,6 +954,9 @@ export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
     WriteOptions
   > {
     getConfig() {
+      return config;
+    }
+    static getModelConfig(): ModelConfig<T, E> {
       return config;
     }
     getCreateValidator() {

@@ -5828,7 +5828,7 @@ paths:
       tags:
         - dashboards
       summary: Create a single dashboard
-      operationId: postDashboard
+      operationId: createDashboard
       x-codeSamples:
         - lang: cURL
           source: |
