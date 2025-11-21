@@ -7,6 +7,10 @@ import {
   ManagedBy,
 } from "back-end/src/validators/managed-by";
 import { logger } from "back-end/src/util/logger";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { getPayloadKeysForAllEnvs } from "./ExperimentModel";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 export const statsEnginesValidator = z.enum(statsEngines);
 
@@ -226,5 +230,73 @@ export class ProjectModel extends BaseClass {
         statsEngine: project.settings?.statsEngine,
       },
     };
+  }
+
+  protected async afterCreate(
+    doc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterCreate(doc, writeOptions);
+    // Refresh SDK payload cache for all environments that might use this project
+    // (only if includeProjectUID is enabled for any connections)
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [doc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project create",
+      );
+    });
+  }
+
+  protected async afterUpdate(
+    existing: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+    newDoc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterUpdate(existing, updates, newDoc, writeOptions);
+    // Refresh SDK payload cache if UID changed (affects metadata in payloads)
+    // Also refresh on any update to ensure consistency
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [newDoc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project update",
+      );
+    });
+  }
+
+  protected async afterDelete(
+    doc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterDelete(doc, writeOptions);
+    // Refresh SDK payload cache for all environments that used this project
+    // (to remove project metadata from payloads)
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [doc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project delete",
+      );
+    });
   }
 }
