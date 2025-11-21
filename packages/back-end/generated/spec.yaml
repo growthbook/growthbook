@@ -1612,7 +1612,7 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
-                includeProjectUID:
+                includeProjectPublicId:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -1703,7 +1703,7 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
-                includeProjectUID:
+                includeProjectPublicId:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -6977,7 +6977,7 @@ components:
           type: boolean
         includeRuleIds:
           type: boolean
-        includeProjectUID:
+        includeProjectPublicId:
           type: boolean
         key:
           type: string

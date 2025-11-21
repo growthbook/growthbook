@@ -69,7 +69,6 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canDeleteProject(doc.id);
   }
 
-
   public create(project: CreateProjectProps) {
     return super.create({ ...project, settings: {} });
   }
@@ -126,7 +125,7 @@ export class ProjectModel extends BaseClass {
   ): Promise<void> {
     await super.afterCreate(doc, writeOptions);
     // Refresh SDK payload cache for all environments that might use this project
-    // (only if includeProjectUID is enabled for any connections)
+    // (only if includeProjectPublicId is enabled for any connections)
     const payloadKeys = getPayloadKeysForAllEnvs(
       this.context as ReqContext | ApiReqContext,
       [doc.id],

@@ -495,7 +495,8 @@ export async function provisionResource(req: Request, res: Response) {
     resourceId,
   } as const;
 
-  const basePublicId = generateProjectPublicIdFromName(payload.name) || "project";
+  const basePublicId =
+    generateProjectPublicIdFromName(payload.name) || "project";
   const project = await context.models.projects.create({
     name: payload.name,
     publicId: basePublicId,
@@ -512,7 +513,7 @@ export async function provisionResource(req: Request, res: Response) {
     includeRuleIds: true,
     includeRedirectExperiments: false,
     includeExperimentNames: true,
-    includeProjectUID: false,
+    includeProjectPublicId: false,
     hashSecureAttributes: false,
     projects: [project.id],
     encryptPayload: false,
