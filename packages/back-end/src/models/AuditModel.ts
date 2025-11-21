@@ -104,17 +104,15 @@ export async function findAuditByEntity(
   options?: QueryOptions,
   customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  let query = AuditModel.find({
-    organization,
-    "entity.object": type,
-    "entity.id": id,
-    ...customFilter,
-  });
-
-  if (options?.limit) query = query.limit(options.limit);
-  if (options?.sort) query = query.sort(options.sort);
-
-  const auditDocs = await query;
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "entity.object": type,
+      "entity.id": id,
+      ...customFilter,
+    },
+    options,
+  );
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -125,19 +123,17 @@ export async function findAuditByEntityList(
   customFilter?: FilterQuery<AuditDocument>,
   options?: QueryOptions,
 ): Promise<AuditInterface[]> {
-  let query = AuditModel.find({
-    organization,
-    "entity.object": type,
-    "entity.id": {
-      $in: ids,
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "entity.object": type,
+      "entity.id": {
+        $in: ids,
+      },
+      ...customFilter,
     },
-    ...customFilter,
-  });
-
-  if (options?.limit) query = query.limit(options.limit);
-  if (options?.sort) query = query.sort(options.sort);
-
-  const auditDocs = await query;
+    options,
+  );
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -148,17 +144,15 @@ export async function findAuditByEntityParent(
   options?: QueryOptions,
   customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  let query = AuditModel.find({
-    organization,
-    "parent.object": type,
-    "parent.id": id,
-    ...customFilter,
-  });
-
-  if (options?.limit) query = query.limit(options.limit);
-  if (options?.sort) query = query.sort(options.sort);
-
-  const auditDocs = await query;
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "parent.object": type,
+      "parent.id": id,
+      ...customFilter,
+    },
+    options,
+  );
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -168,16 +162,14 @@ export async function findAllAuditsByEntityType(
   options?: QueryOptions,
   customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  let query = AuditModel.find({
-    organization,
-    "entity.object": type,
-    ...customFilter,
-  });
-
-  if (options?.limit) query = query.limit(options.limit);
-  if (options?.sort) query = query.sort(options.sort);
-
-  const auditDocs = await query;
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "entity.object": type,
+      ...customFilter,
+    },
+    options,
+  );
   return auditDocs.map((doc) => toInterface(doc));
 }
 
@@ -187,16 +179,14 @@ export async function findAllAuditsByEntityTypeParent(
   options?: QueryOptions,
   customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
-  let query = AuditModel.find({
-    organization,
-    "parent.object": type,
-    ...customFilter,
-  });
-
-  if (options?.limit) query = query.limit(options.limit);
-  if (options?.sort) query = query.sort(options.sort);
-
-  const auditDocs = await query;
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "parent.object": type,
+      ...customFilter,
+    },
+    options,
+  );
   return auditDocs.map((doc) => toInterface(doc));
 }
 
