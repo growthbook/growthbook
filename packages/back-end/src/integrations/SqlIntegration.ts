@@ -5990,23 +5990,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
-  // This method is not used for incremental refresh
+  // This method is not used for incremental refresh or fact metric standalone analyses
+  // only fact metric experiment analyses and should be superseded by the getAggregationMetadata method
+  // at some point
   private getAggregateMetricColumn({
     metric,
     useDenominator,
     valueColumn = "value",
     quantileColumn = "qm.quantile",
-    // This boolean is used only for the metric analysis query
-    // and is used to indicate the data will be re-aggregated across dates
-    // much like it is done in the incremental refresh pipeline, so this
-    // method should probably be superseded by that one for all fact metrics
-    aggregatingWithinDateAndWillReaggregateAcrossDates,
   }: {
     metric: FactMetricInterface;
     useDenominator?: boolean;
     valueColumn?: string;
     quantileColumn?: string;
-    aggregatingWithinDateAndWillReaggregateAcrossDates?: boolean;
   }) {
     const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
@@ -6031,9 +6027,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     ) {
       return `COALESCE(MAX(${valueColumn}), 0)`;
     } else if (column === "$$distinctDates") {
-      if (aggregatingWithinDateAndWillReaggregateAcrossDates) {
-        return `MAX(${this.dateTrunc(valueColumn)})`;
-      }
       return `COUNT(DISTINCT ${valueColumn})`;
     } else if (column === "$$count") {
       const aggColumn = `COUNT(${valueColumn})`;
@@ -6051,9 +6044,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       !columnRef?.column.startsWith("$$") &&
       columnRef?.aggregation === "count distinct"
     ) {
-      if (aggregatingWithinDateAndWillReaggregateAcrossDates) {
-        return this.hllAggregate(valueColumn);
-      }
       const aggColumn = this.hllCardinality(this.hllAggregate(valueColumn));
       return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
     } else if (
