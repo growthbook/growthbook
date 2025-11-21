@@ -7,7 +7,7 @@ import { UserInterface } from "back-end/types/user";
 import { OrganizationInterface } from "back-end/types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
-type ApiRequest<
+export type ApiRequest<
   ResponseType = never,
   ParamsSchema extends Schema = Schema<never>,
   BodySchema extends Schema = Schema<never>,
@@ -19,6 +19,12 @@ type ApiRequest<
     z.infer<BodySchema>,
     z.infer<QuerySchema>
   >;
+
+export type ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {
+  bodySchema?: BodySchema;
+  querySchema?: QuerySchema;
+  paramsSchema?: ParamsSchema;
+};
 
 function validate<T>(
   schema: Schema<T>,
@@ -56,11 +62,7 @@ export function createApiRequestHandler<
   paramsSchema,
   bodySchema,
   querySchema,
-}: {
-  bodySchema?: BodySchema;
-  querySchema?: QuerySchema;
-  paramsSchema?: ParamsSchema;
-} = {}) {
+}: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {}) {
   return <ResponseType>(
     handler: (
       req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,

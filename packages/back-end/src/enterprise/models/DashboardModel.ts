@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
+import { getValidDate } from "shared/dates";
+import { z } from "zod";
+import { dashboardBlockHasIds } from "shared/enterprise";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -15,6 +18,17 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import {
+  ApiCreateDashboardBlock,
+  ApiDashboard,
+  ApiDashboardBlock,
+} from "back-end/types/openapi";
+import { ApiRequest } from "back-end/src/util/handler";
+import {
+  getDashboardsForExperimentValidator,
+  createDashboardValidator,
+  updateDashboardValidator,
+} from "back-end/src/validators/openapi";
 import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
@@ -49,6 +63,20 @@ const BaseClass = MakeModelClass({
   baseQuery: {
     isDefault: false,
     isDeleted: false,
+  },
+  apiConfig: {
+    modelKey: "dashboards",
+    modelSingular: "dashboard",
+    modelPlural: "dashboards",
+    crudActions: ["get", "update", "create", "list", "delete"],
+    customHandlers: [
+      {
+        pathFragment: "/by-experiment/:experimentId",
+        handlerFnName: "apiFindByExperiment",
+        verb: "get",
+        validator: getDashboardsForExperimentValidator,
+      },
+    ],
   },
 });
 
@@ -239,6 +267,22 @@ export class DashboardModel extends BaseClass {
     });
   }
 
+  protected async customValidation(toSave: DashboardDocument) {
+    if (toSave.experimentId) {
+      if (toSave.updateSchedule) {
+        throw new Error(
+          "Cannot specify an update schedule for experiment dashboards",
+        );
+      }
+    } else {
+      if (toSave.enableAutoUpdates && !toSave.updateSchedule) {
+        throw new Error(
+          "Must define an update schedule to enable auto updates",
+        );
+      }
+    }
+  }
+
   protected async afterCreate(doc: DashboardDocument) {
     const queryIdSet = getSavedQueryIds(doc);
     for (const queryId of queryIdSet) {
@@ -279,6 +323,85 @@ export class DashboardModel extends BaseClass {
     if (!existing) return;
     await this._deleteOne(existing);
     return existing;
+  }
+
+  public toApiInterface(
+    dashboard: DashboardInterface | DashboardDocument,
+  ): ApiDashboard {
+    return {
+      ...removeMongooseFields(dashboard),
+      blocks: dashboard.blocks.map(toBlockApiInterface),
+      dateCreated: dashboard.dateCreated.toISOString(),
+      dateUpdated: dashboard.dateUpdated.toISOString(),
+      nextUpdate: dashboard.nextUpdate?.toISOString(),
+      lastUpdated: dashboard.lastUpdated?.toISOString(),
+    };
+  }
+
+  protected async processApiCreateBody(rawBody: unknown) {
+    const {
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId,
+      title,
+      projects,
+      blocks,
+    } = createDashboardValidator.bodySchema.parse(rawBody);
+    const createdBlocks = await Promise.all(
+      blocks.map((blockData) =>
+        generateDashboardBlockIds(
+          this.context.org.id,
+          fromBlockApiInterface(blockData),
+        ),
+      ),
+    );
+    return {
+      uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
+      isDefault: false,
+      isDeleted: false,
+      userId: this.context.userId,
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId: experimentId || undefined,
+      title,
+      projects,
+      blocks: createdBlocks,
+    };
+  }
+  protected async processApiUpdateBody(rawBody: unknown) {
+    const { blocks: blockUpdates, ...otherUpdates } =
+      updateDashboardValidator.bodySchema.parse(rawBody);
+    const updates: UpdateProps<DashboardInterface> = otherUpdates;
+    if (blockUpdates) {
+      const migratedBlocks = blockUpdates
+        .map(fromBlockApiInterface)
+        .map(migrateBlock);
+      const createdBlocks = await Promise.all(
+        migratedBlocks.map((blockData) =>
+          dashboardBlockHasIds(blockData)
+            ? blockData
+            : generateDashboardBlockIds(this.context.org.id, blockData),
+        ),
+      );
+      updates.blocks = createdBlocks;
+    }
+    return updates;
+  }
+
+  protected async apiFindByExperiment(
+    req: ApiRequest<unknown, z.Schema<{ experimentId: string }>>,
+  ) {
+    const dashboards = await req.context.models.dashboards.findByExperiment(
+      req.params.experimentId,
+    );
+
+    return {
+      dashboards: dashboards.map(req.context.models.dashboards.toApiInterface),
+    };
   }
 }
 
@@ -378,5 +501,43 @@ export function migrateBlock(
       };
     default:
       return doc;
+  }
+}
+
+function toBlockApiInterface(
+  block: DashboardBlockInterface,
+): ApiDashboardBlock {
+  switch (block.type) {
+    case "metric-explorer":
+      return {
+        ...block,
+        analysisSettings: {
+          ...block.analysisSettings,
+          startDate: getValidDate(
+            block.analysisSettings.startDate,
+          ).toISOString(),
+          endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
+        },
+      };
+    default:
+      return block;
+  }
+}
+
+export function fromBlockApiInterface(
+  apiBlock: ApiDashboardBlock | ApiCreateDashboardBlock,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  switch (apiBlock.type) {
+    case "metric-explorer":
+      return {
+        ...apiBlock,
+        analysisSettings: {
+          ...apiBlock.analysisSettings,
+          startDate: getValidDate(apiBlock.analysisSettings.startDate),
+          endDate: getValidDate(apiBlock.analysisSettings.endDate),
+        },
+      };
+    default:
+      return apiBlock;
   }
 }

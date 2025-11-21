@@ -123,6 +123,9 @@ tags:
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: dashboards
+    x-displayName: Dashboards
+    description: 'Curated views of experiment results, metric performance, custom queries, and more'
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -135,6 +138,9 @@ tags:
   - name: CustomField_model
     x-displayName: CustomField
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
+  - name: Dashboard_model
+    x-displayName: Dashboard
+    description: <SchemaDefinition schemaRef="#/components/schemas/Dashboard" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -5793,6 +5799,271 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CustomField'
+  /dashboards:
+    get:
+      parameters:
+        - name: includeExperimentDashboards
+          in: query
+          description: 'Whether to include Experiment Dashboards in the result, default false'
+          schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
+            default: 'false'
+      tags:
+        - dashboards
+      summary: List the dashboards for an organization
+      operationId: listDashboards
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/dashboards?includeExperimentDashboards=true \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dashboards
+                properties:
+                  dashboards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dashboard'
+    post:
+      parameters: []
+      tags:
+        - dashboards
+      summary: Create a single dashboard
+      operationId: createDashboard
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dashboards \
+              -d '{ "title": "My dashboard", "editLevel": "private", "shareLevel": "private", "enableAutoUpdates": false, "blocks": []}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - editLevel
+                - shareLevel
+                - enableAutoUpdates
+                - blocks
+              properties:
+                title:
+                  type: string
+                  description: The display name of the Dashboard
+                editLevel:
+                  type: string
+                  description: Dashboards that are "published" are editable by organization members with appropriate permissions
+                  enum:
+                    - published
+                    - private
+                shareLevel:
+                  type: string
+                  description: General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
+                  enum:
+                    - published
+                    - private
+                enableAutoUpdates:
+                  description: 'If enabled for a General Dashboard, also requires an updateSchedule'
+                  type: boolean
+                updateSchedule:
+                  description: General Dashboards only. Experiment Dashboards update based on the parent experiment instead
+                  anyOf:
+                    - type: object
+                      required:
+                        - type
+                        - hours
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - stale
+                        hours:
+                          type: number
+                    - type: object
+                      required:
+                        - type
+                        - cron
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - cron
+                        cron:
+                          type: string
+                experimentId:
+                  description: 'The parent experiment for an Experiment Dashboard, or undefined for a general dashboard'
+                  type: string
+                projects:
+                  description: 'General Dashboards only, Experiment Dashboards use the experiment''s projects'
+                  type: array
+                  items:
+                    type: string
+                blocks:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CreateDashboardBlock'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dashboard
+                properties:
+                  dashboard:
+                    $ref: '#/components/schemas/Dashboard'
+  '/dashboards/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dashboards
+      summary: Get a single dashboard
+      operationId: getDashboard
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/dashboards/dash_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dashboard
+                properties:
+                  dashboard:
+                    $ref: '#/components/schemas/Dashboard'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dashboards
+      summary: Partially update a single dashboard
+      operationId: updateDashboard
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dashboards/dash_123abc \
+              -d '{ "title": "Renamed", "shareLevel": "published" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties:
+                title:
+                  type: string
+                  description: The display name of the Dashboard
+                editLevel:
+                  type: string
+                  description: Dashboards that are "published" are editable by organization members with appropriate permissions
+                  enum:
+                    - published
+                    - private
+                shareLevel:
+                  type: string
+                  description: General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
+                  enum:
+                    - published
+                    - private
+                enableAutoUpdates:
+                  description: 'If enabled for a General Dashboard, also requires an updateSchedule'
+                  type: boolean
+                updateSchedule:
+                  description: General Dashboards only. Experiment Dashboards update based on the parent experiment instead
+                  $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/updateSchedule'
+                projects:
+                  description: 'General Dashboards only, Experiment Dashboards use the experiment''s projects'
+                  type: array
+                  items:
+                    type: string
+                blocks:
+                  type: array
+                  items:
+                    anyOf:
+                      - $ref: '#/components/schemas/DashboardBlock'
+                      - $ref: '#/components/schemas/CreateDashboardBlock'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dashboard
+                properties:
+                  dashboard:
+                    $ref: '#/components/schemas/Dashboard'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dashboards
+      summary: Delete a single dashboard
+      operationId: deleteDashboard
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/dashboards/dash_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dashboard:
+                    $ref: '#/components/schemas/Dashboard'
+  '/dashboards/by-experiment/{experimentId}':
+    get:
+      parameters:
+        - name: experimentId
+          in: path
+          description: The experiment whose dashboards are being fetched
+          schema:
+            type: string
+          required: true
+      tags:
+        - dashboards
+      summary: List the dashboards for a single experiment
+      operationId: getDashboardsForExperiment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/dashboards/by-experiment/exp_123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dashboards
+                properties:
+                  dashboards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dashboard'
 components:
   parameters:
     id:
@@ -8622,6 +8893,425 @@ components:
             type: string
         values:
           type: string
+    Dashboard:
+      type: object
+      required:
+        - id
+        - uid
+        - organization
+        - userId
+        - editLevel
+        - shareLevel
+        - enableAutoUpdates
+        - title
+        - blocks
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        uid:
+          type: string
+        organization:
+          type: string
+        experimentId:
+          type: string
+          description: For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment
+        userId:
+          type: string
+          description: The owner of the Dashboard
+        editLevel:
+          type: string
+          description: Dashboards that are "published" are editable by organization members with appropriate permissions
+          enum:
+            - published
+            - private
+        shareLevel:
+          type: string
+          description: Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions
+          enum:
+            - published
+            - private
+        enableAutoUpdates:
+          type: boolean
+        updateSchedule:
+          description: Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead
+          $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/updateSchedule'
+        title:
+          type: string
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBlock'
+        projects:
+          type: array
+          description: 'General dashboards only, experiment dashboards use the experiment''s projects'
+          items:
+            type: string
+        nextUpdate:
+          type: string
+          format: date-time
+        lastUpdated:
+          type: string
+          format: date-time
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    DashboardBlock:
+      anyOf:
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/0'
+            - type: object
+              required:
+                - organization
+                - id
+                - uid
+              properties:
+                organization:
+                  type: string
+                id:
+                  type: string
+                uid:
+                  type: string
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/1'
+            - $ref: '#/paths/~1dashboards/get/responses/200/content/application~1json/schema/properties/dashboards/items/properties/blocks/items/anyOf/0/allOf/1'
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/2'
+            - $ref: '#/paths/~1dashboards/get/responses/200/content/application~1json/schema/properties/dashboards/items/properties/blocks/items/anyOf/0/allOf/1'
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/3'
+            - $ref: '#/paths/~1dashboards/get/responses/200/content/application~1json/schema/properties/dashboards/items/properties/blocks/items/anyOf/0/allOf/1'
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/4'
+            - $ref: '#/paths/~1dashboards/get/responses/200/content/application~1json/schema/properties/dashboards/items/properties/blocks/items/anyOf/0/allOf/1'
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/5'
+            - $ref: '#/paths/~1dashboards/get/responses/200/content/application~1json/schema/properties/dashboards/items/properties/blocks/items/anyOf/0/allOf/1'
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/6'
+            - $ref: '#/paths/~1dashboards/get/responses/200/content/application~1json/schema/properties/dashboards/items/properties/blocks/items/anyOf/0/allOf/1'
+        - allOf:
+            - $ref: '#/components/schemas/CreateDashboardBlock/anyOf/7'
+            - $ref: '#/paths/~1dashboards/get/responses/200/content/application~1json/schema/properties/dashboards/items/properties/blocks/items/anyOf/0/allOf/1'
+    CreateDashboardBlock:
+      anyOf:
+        - allOf:
+            - type: object
+              required:
+                - title
+                - description
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                snapshotId:
+                  type: string
+            - type: object
+              required:
+                - type
+                - content
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - markdown
+                content:
+                  type: string
+        - allOf:
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/0/allOf/0'
+            - type: object
+              required:
+                - type
+                - experimentId
+                - showDescription
+                - showHypothesis
+                - showVariationImages
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - experiment-metadata
+                experimentId:
+                  type: string
+                showDescription:
+                  type: boolean
+                showHypothesis:
+                  type: boolean
+                showVariationImages:
+                  type: boolean
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+        - allOf:
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/0/allOf/0'
+            - type: object
+              required:
+                - pinSource
+                - pinnedMetricSlices
+              properties:
+                pinSource:
+                  type: string
+                  enum:
+                    - experiment
+                    - custom
+                    - none
+                pinnedMetricSlices:
+                  type: array
+                  items:
+                    type: string
+            - type: object
+              required:
+                - type
+                - experimentId
+                - metricSelector
+                - variationIds
+                - baselineRow
+                - differenceType
+                - columnsFilter
+                - snapshotId
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - experiment-metric
+                experimentId:
+                  type: string
+                metricSelector:
+                  type: string
+                  enum:
+                    - experiment-goal
+                    - experiment-secondary
+                    - experiment-guardrail
+                    - custom
+                metricIds:
+                  type: array
+                  items:
+                    type: string
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+                baselineRow:
+                  type: number
+                differenceType:
+                  type: string
+                  enum:
+                    - absolute
+                    - relative
+                    - scaled
+                columnsFilter:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - Metric & Variation Names
+                      - Baseline Average
+                      - Variation Averages
+                      - Chance to Win
+                      - CI Graph
+                      - Lift
+                snapshotId:
+                  type: string
+        - allOf:
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/0/allOf/0'
+            - type: object
+              required:
+                - type
+                - experimentId
+                - dimensionId
+                - dimensionValues
+                - metricSelector
+                - variationIds
+                - baselineRow
+                - differenceType
+                - columnsFilter
+                - snapshotId
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - experiment-dimension
+                experimentId:
+                  type: string
+                dimensionId:
+                  type: string
+                dimensionValues:
+                  type: array
+                  items:
+                    type: string
+                metricSelector:
+                  type: string
+                  enum:
+                    - experiment-goal
+                    - experiment-secondary
+                    - experiment-guardrail
+                    - custom
+                metricIds:
+                  type: array
+                  items:
+                    type: string
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+                baselineRow:
+                  type: number
+                differenceType:
+                  type: string
+                  enum:
+                    - absolute
+                    - relative
+                    - scaled
+                columnsFilter:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - Metric & Variation Names
+                      - Baseline Average
+                      - Variation Averages
+                      - Chance to Win
+                      - CI Graph
+                      - Lift
+                snapshotId:
+                  type: string
+        - allOf:
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/0/allOf/0'
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/2/allOf/1'
+            - type: object
+              required:
+                - type
+                - experimentId
+                - metricSelector
+                - variationIds
+                - snapshotId
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - experiment-time-series
+                experimentId:
+                  type: string
+                metricSelector:
+                  type: string
+                  enum:
+                    - experiment-goal
+                    - experiment-secondary
+                    - experiment-guardrail
+                    - custom
+                metricIds:
+                  type: array
+                  items:
+                    type: string
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+                snapshotId:
+                  type: string
+        - allOf:
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/0/allOf/0'
+            - type: object
+              required:
+                - type
+                - experimentId
+                - showTable
+                - showTimeseries
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - experiment-traffic
+                experimentId:
+                  type: string
+                showTable:
+                  type: boolean
+                showTimeseries:
+                  type: boolean
+        - allOf:
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/0/allOf/0'
+            - type: object
+              required:
+                - type
+                - savedQueryId
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - sql-explorer
+                savedQueryId:
+                  type: string
+                blockConfig:
+                  type: array
+                  items:
+                    type: string
+        - allOf:
+            - $ref: '#/paths/~1dashboards/post/requestBody/content/application~1json/schema/properties/blocks/items/anyOf/0/allOf/0'
+            - type: object
+              required:
+                - type
+                - factMetricId
+                - analysisSettings
+                - visualizationType
+                - valueType
+                - metricAnalysisId
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - metric-explorer
+                factMetricId:
+                  type: string
+                analysisSettings:
+                  type: object
+                  required:
+                    - userIdType
+                    - startDate
+                    - endDate
+                    - lookbackDays
+                    - populationType
+                    - populationId
+                  properties:
+                    userIdType:
+                      type: string
+                    startDate:
+                      type: string
+                      format: date-time
+                    endDate:
+                      type: string
+                      format: date-time
+                    lookbackDays:
+                      type: number
+                    populationType:
+                      type: string
+                      enum:
+                        - metric
+                        - factTable
+                        - exposureQuery
+                        - population
+                        - segment
+                    populationId:
+                      type: string
+                      nullable: true
+                visualizationType:
+                  type: string
+                  enum:
+                    - histogram
+                    - bigNumber
+                    - timeseries
+                valueType:
+                  type: string
+                  enum:
+                    - avg
+                    - sum
+                metricAnalysisId:
+                  type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -8680,12 +9370,14 @@ x-tagGroups:
       - settings
       - custom-fields
       - attributes
+      - dashboards
   - name: Models
     tags:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
       - CustomField_model
+      - Dashboard_model
       - DataSource_model
       - Dimension_model
       - Environment_model

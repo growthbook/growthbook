@@ -371,6 +371,24 @@ export interface paths {
     /** Get list of custom fields */
     get: operations["getCustomFields"];
   };
+  "/dashboards": {
+    /** List the dashboards for an organization */
+    get: operations["listDashboards"];
+    /** Create a single dashboard */
+    post: operations["createDashboard"];
+  };
+  "/dashboards/{id}": {
+    /** Get a single dashboard */
+    get: operations["getDashboard"];
+    /** Partially update a single dashboard */
+    post: operations["updateDashboard"];
+    /** Delete a single dashboard */
+    delete: operations["deleteDashboard"];
+  };
+  "/dashboards/by-experiment/{experimentId}": {
+    /** List the dashboards for a single experiment */
+    get: operations["getDashboardsForExperiment"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -3779,6 +3797,474 @@ export interface components {
       projects?: (string)[];
       values?: string;
     };
+    Dashboard: {
+      id: string;
+      uid: string;
+      organization: string;
+      /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+      experimentId?: string;
+      /** @description The owner of the Dashboard */
+      userId: string;
+      /**
+       * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+       * @enum {string}
+       */
+      editLevel: "published" | "private";
+      /**
+       * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+       * @enum {string}
+       */
+      shareLevel: "published" | "private";
+      enableAutoUpdates: boolean;
+      /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+      updateSchedule?: {
+        /** @enum {string} */
+        type: "stale";
+        hours: number;
+      } | {
+        /** @enum {string} */
+        type: "cron";
+        cron: string;
+      };
+      title: string;
+      blocks: ((({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & {
+          /** @enum {string} */
+          type: "markdown";
+          content: string;
+        }) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }) | (({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & {
+          /** @enum {string} */
+          type: "experiment-metadata";
+          experimentId: string;
+          showDescription: boolean;
+          showHypothesis: boolean;
+          showVariationImages: boolean;
+          variationIds?: (string)[];
+        }) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }) | (({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & ({
+          /** @enum {string} */
+          pinSource: "experiment" | "custom" | "none";
+          pinnedMetricSlices: (string)[];
+        }) & ({
+          /** @enum {string} */
+          type: "experiment-metric";
+          experimentId: string;
+          /** @enum {string} */
+          metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+          metricIds?: (string)[];
+          variationIds: (string)[];
+          baselineRow: number;
+          /** @enum {string} */
+          differenceType: "absolute" | "relative" | "scaled";
+          columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+          snapshotId: string;
+        })) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }) | (({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & ({
+          /** @enum {string} */
+          type: "experiment-dimension";
+          experimentId: string;
+          dimensionId: string;
+          dimensionValues: (string)[];
+          /** @enum {string} */
+          metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+          metricIds?: (string)[];
+          variationIds: (string)[];
+          baselineRow: number;
+          /** @enum {string} */
+          differenceType: "absolute" | "relative" | "scaled";
+          columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+          snapshotId: string;
+        })) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }) | (({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & ({
+          /** @enum {string} */
+          pinSource: "experiment" | "custom" | "none";
+          pinnedMetricSlices: (string)[];
+        }) & ({
+          /** @enum {string} */
+          type: "experiment-time-series";
+          experimentId: string;
+          /** @enum {string} */
+          metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+          metricIds?: (string)[];
+          variationIds: (string)[];
+          snapshotId: string;
+        })) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }) | (({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & {
+          /** @enum {string} */
+          type: "experiment-traffic";
+          experimentId: string;
+          showTable: boolean;
+          showTimeseries: boolean;
+        }) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }) | (({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & {
+          /** @enum {string} */
+          type: "sql-explorer";
+          savedQueryId: string;
+          blockConfig?: (string)[];
+        }) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }) | (({
+          title: string;
+          description: string;
+          snapshotId?: string;
+        } & ({
+          /** @enum {string} */
+          type: "metric-explorer";
+          factMetricId: string;
+          analysisSettings: {
+            userIdType: string;
+            /** Format: date-time */
+            startDate: string;
+            /** Format: date-time */
+            endDate: string;
+            lookbackDays: number;
+            /** @enum {string} */
+            populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+            populationId: string | null;
+          };
+          /** @enum {string} */
+          visualizationType: "histogram" | "bigNumber" | "timeseries";
+          /** @enum {string} */
+          valueType: "avg" | "sum";
+          metricAnalysisId: string;
+        })) & {
+          organization: string;
+          id: string;
+          uid: string;
+        }))[];
+      /** @description General dashboards only, experiment dashboards use the experiment's projects */
+      projects?: (string)[];
+      /** Format: date-time */
+      nextUpdate?: string;
+      /** Format: date-time */
+      lastUpdated?: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
+    DashboardBlock: (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "markdown";
+      content: string;
+    }) & {
+      organization: string;
+      id: string;
+      uid: string;
+    }) | (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "experiment-metadata";
+      experimentId: string;
+      showDescription: boolean;
+      showHypothesis: boolean;
+      showVariationImages: boolean;
+      variationIds?: (string)[];
+    }) & {
+      organization: string;
+      id: string;
+      uid: string;
+    }) | (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      pinSource: "experiment" | "custom" | "none";
+      pinnedMetricSlices: (string)[];
+    }) & ({
+      /** @enum {string} */
+      type: "experiment-metric";
+      experimentId: string;
+      /** @enum {string} */
+      metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+      metricIds?: (string)[];
+      variationIds: (string)[];
+      baselineRow: number;
+      /** @enum {string} */
+      differenceType: "absolute" | "relative" | "scaled";
+      columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+      snapshotId: string;
+    })) & {
+      organization: string;
+      id: string;
+      uid: string;
+    }) | (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      type: "experiment-dimension";
+      experimentId: string;
+      dimensionId: string;
+      dimensionValues: (string)[];
+      /** @enum {string} */
+      metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+      metricIds?: (string)[];
+      variationIds: (string)[];
+      baselineRow: number;
+      /** @enum {string} */
+      differenceType: "absolute" | "relative" | "scaled";
+      columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+      snapshotId: string;
+    })) & {
+      organization: string;
+      id: string;
+      uid: string;
+    }) | (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      pinSource: "experiment" | "custom" | "none";
+      pinnedMetricSlices: (string)[];
+    }) & ({
+      /** @enum {string} */
+      type: "experiment-time-series";
+      experimentId: string;
+      /** @enum {string} */
+      metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+      metricIds?: (string)[];
+      variationIds: (string)[];
+      snapshotId: string;
+    })) & {
+      organization: string;
+      id: string;
+      uid: string;
+    }) | (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "experiment-traffic";
+      experimentId: string;
+      showTable: boolean;
+      showTimeseries: boolean;
+    }) & {
+      organization: string;
+      id: string;
+      uid: string;
+    }) | (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "sql-explorer";
+      savedQueryId: string;
+      blockConfig?: (string)[];
+    }) & {
+      organization: string;
+      id: string;
+      uid: string;
+    }) | (({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      type: "metric-explorer";
+      factMetricId: string;
+      analysisSettings: {
+        userIdType: string;
+        /** Format: date-time */
+        startDate: string;
+        /** Format: date-time */
+        endDate: string;
+        lookbackDays: number;
+        /** @enum {string} */
+        populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+        populationId: string | null;
+      };
+      /** @enum {string} */
+      visualizationType: "histogram" | "bigNumber" | "timeseries";
+      /** @enum {string} */
+      valueType: "avg" | "sum";
+      metricAnalysisId: string;
+    })) & {
+      organization: string;
+      id: string;
+      uid: string;
+    });
+    CreateDashboardBlock: ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "markdown";
+      content: string;
+    }) | ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "experiment-metadata";
+      experimentId: string;
+      showDescription: boolean;
+      showHypothesis: boolean;
+      showVariationImages: boolean;
+      variationIds?: (string)[];
+    }) | ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      pinSource: "experiment" | "custom" | "none";
+      pinnedMetricSlices: (string)[];
+    }) & ({
+      /** @enum {string} */
+      type: "experiment-metric";
+      experimentId: string;
+      /** @enum {string} */
+      metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+      metricIds?: (string)[];
+      variationIds: (string)[];
+      baselineRow: number;
+      /** @enum {string} */
+      differenceType: "absolute" | "relative" | "scaled";
+      columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+      snapshotId: string;
+    })) | ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      type: "experiment-dimension";
+      experimentId: string;
+      dimensionId: string;
+      dimensionValues: (string)[];
+      /** @enum {string} */
+      metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+      metricIds?: (string)[];
+      variationIds: (string)[];
+      baselineRow: number;
+      /** @enum {string} */
+      differenceType: "absolute" | "relative" | "scaled";
+      columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+      snapshotId: string;
+    })) | ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      pinSource: "experiment" | "custom" | "none";
+      pinnedMetricSlices: (string)[];
+    }) & ({
+      /** @enum {string} */
+      type: "experiment-time-series";
+      experimentId: string;
+      /** @enum {string} */
+      metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+      metricIds?: (string)[];
+      variationIds: (string)[];
+      snapshotId: string;
+    })) | ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "experiment-traffic";
+      experimentId: string;
+      showTable: boolean;
+      showTimeseries: boolean;
+    }) | ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & {
+      /** @enum {string} */
+      type: "sql-explorer";
+      savedQueryId: string;
+      blockConfig?: (string)[];
+    }) | ({
+      title: string;
+      description: string;
+      snapshotId?: string;
+    } & ({
+      /** @enum {string} */
+      type: "metric-explorer";
+      factMetricId: string;
+      analysisSettings: {
+        userIdType: string;
+        /** Format: date-time */
+        startDate: string;
+        /** Format: date-time */
+        endDate: string;
+        lookbackDays: number;
+        /** @enum {string} */
+        populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+        populationId: string | null;
+      };
+      /** @enum {string} */
+      visualizationType: "histogram" | "bigNumber" | "timeseries";
+      /** @enum {string} */
+      valueType: "avg" | "sum";
+      metricAnalysisId: string;
+    }));
   };
   responses: {
     Error: never;
@@ -13900,6 +14386,1726 @@ export interface operations {
       };
     };
   };
+  listDashboards: {
+    /** List the dashboards for an organization */
+    parameters: {
+        /** @description Whether to include Experiment Dashboards in the result, default false */
+      query: {
+        includeExperimentDashboards?: "true" | "false";
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboards: ({
+                id: string;
+                uid: string;
+                organization: string;
+                /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+                experimentId?: string;
+                /** @description The owner of the Dashboard */
+                userId: string;
+                /**
+                 * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+                 * @enum {string}
+                 */
+                editLevel: "published" | "private";
+                /**
+                 * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+                 * @enum {string}
+                 */
+                shareLevel: "published" | "private";
+                enableAutoUpdates: boolean;
+                /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+                updateSchedule?: {
+                  /** @enum {string} */
+                  type: "stale";
+                  hours: number;
+                } | {
+                  /** @enum {string} */
+                  type: "cron";
+                  cron: string;
+                };
+                title: string;
+                blocks: ((({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "markdown";
+                    content: string;
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "experiment-metadata";
+                    experimentId: string;
+                    showDescription: boolean;
+                    showHypothesis: boolean;
+                    showVariationImages: boolean;
+                    variationIds?: (string)[];
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    pinSource: "experiment" | "custom" | "none";
+                    pinnedMetricSlices: (string)[];
+                  }) & ({
+                    /** @enum {string} */
+                    type: "experiment-metric";
+                    experimentId: string;
+                    /** @enum {string} */
+                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                    metricIds?: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    snapshotId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    type: "experiment-dimension";
+                    experimentId: string;
+                    dimensionId: string;
+                    dimensionValues: (string)[];
+                    /** @enum {string} */
+                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                    metricIds?: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    snapshotId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    pinSource: "experiment" | "custom" | "none";
+                    pinnedMetricSlices: (string)[];
+                  }) & ({
+                    /** @enum {string} */
+                    type: "experiment-time-series";
+                    experimentId: string;
+                    /** @enum {string} */
+                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                    metricIds?: (string)[];
+                    variationIds: (string)[];
+                    snapshotId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "experiment-traffic";
+                    experimentId: string;
+                    showTable: boolean;
+                    showTimeseries: boolean;
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "sql-explorer";
+                    savedQueryId: string;
+                    blockConfig?: (string)[];
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    type: "metric-explorer";
+                    factMetricId: string;
+                    analysisSettings: {
+                      userIdType: string;
+                      /** Format: date-time */
+                      startDate: string;
+                      /** Format: date-time */
+                      endDate: string;
+                      lookbackDays: number;
+                      /** @enum {string} */
+                      populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                      populationId: string | null;
+                    };
+                    /** @enum {string} */
+                    visualizationType: "histogram" | "bigNumber" | "timeseries";
+                    /** @enum {string} */
+                    valueType: "avg" | "sum";
+                    metricAnalysisId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }))[];
+                /** @description General dashboards only, experiment dashboards use the experiment's projects */
+                projects?: (string)[];
+                /** Format: date-time */
+                nextUpdate?: string;
+                /** Format: date-time */
+                lastUpdated?: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createDashboard: {
+    /** Create a single dashboard */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the Dashboard */
+          title: string;
+          /**
+           * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          editLevel: "published" | "private";
+          /**
+           * @description General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          shareLevel: "published" | "private";
+          /** @description If enabled for a General Dashboard, also requires an updateSchedule */
+          enableAutoUpdates: boolean;
+          /** @description General Dashboards only. Experiment Dashboards update based on the parent experiment instead */
+          updateSchedule?: {
+            /** @enum {string} */
+            type: "stale";
+            hours: number;
+          } | {
+            /** @enum {string} */
+            type: "cron";
+            cron: string;
+          };
+          /** @description The parent experiment for an Experiment Dashboard, or undefined for a general dashboard */
+          experimentId?: string;
+          /** @description General Dashboards only, Experiment Dashboards use the experiment's projects */
+          projects?: (string)[];
+          blocks: (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "markdown";
+              content: string;
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "experiment-metadata";
+              experimentId: string;
+              showDescription: boolean;
+              showHypothesis: boolean;
+              showVariationImages: boolean;
+              variationIds?: (string)[];
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              pinSource: "experiment" | "custom" | "none";
+              pinnedMetricSlices: (string)[];
+            }) & ({
+              /** @enum {string} */
+              type: "experiment-metric";
+              experimentId: string;
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              snapshotId: string;
+            })) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              type: "experiment-dimension";
+              experimentId: string;
+              dimensionId: string;
+              dimensionValues: (string)[];
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              snapshotId: string;
+            })) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              pinSource: "experiment" | "custom" | "none";
+              pinnedMetricSlices: (string)[];
+            }) & ({
+              /** @enum {string} */
+              type: "experiment-time-series";
+              experimentId: string;
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              snapshotId: string;
+            })) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "experiment-traffic";
+              experimentId: string;
+              showTable: boolean;
+              showTimeseries: boolean;
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "sql-explorer";
+              savedQueryId: string;
+              blockConfig?: (string)[];
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              type: "metric-explorer";
+              factMetricId: string;
+              analysisSettings: {
+                userIdType: string;
+                /** Format: date-time */
+                startDate: string;
+                /** Format: date-time */
+                endDate: string;
+                lookbackDays: number;
+                /** @enum {string} */
+                populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                populationId: string | null;
+              };
+              /** @enum {string} */
+              visualizationType: "histogram" | "bigNumber" | "timeseries";
+              /** @enum {string} */
+              valueType: "avg" | "sum";
+              metricAnalysisId: string;
+            })))[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboard: {
+              id: string;
+              uid: string;
+              organization: string;
+              /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+              experimentId?: string;
+              /** @description The owner of the Dashboard */
+              userId: string;
+              /**
+               * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              editLevel: "published" | "private";
+              /**
+               * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+              updateSchedule?: {
+                /** @enum {string} */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @enum {string} */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              blocks: ((({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "markdown";
+                  content: string;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-metadata";
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-metric";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "experiment-dimension";
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-time-series";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-traffic";
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "sql-explorer";
+                  savedQueryId: string;
+                  blockConfig?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "metric-explorer";
+                  factMetricId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    /** Format: date-time */
+                    startDate: string;
+                    /** Format: date-time */
+                    endDate: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                  };
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }))[];
+              /** @description General dashboards only, experiment dashboards use the experiment's projects */
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getDashboard: {
+    /** Get a single dashboard */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboard: {
+              id: string;
+              uid: string;
+              organization: string;
+              /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+              experimentId?: string;
+              /** @description The owner of the Dashboard */
+              userId: string;
+              /**
+               * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              editLevel: "published" | "private";
+              /**
+               * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+              updateSchedule?: {
+                /** @enum {string} */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @enum {string} */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              blocks: ((({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "markdown";
+                  content: string;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-metadata";
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-metric";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "experiment-dimension";
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-time-series";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-traffic";
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "sql-explorer";
+                  savedQueryId: string;
+                  blockConfig?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "metric-explorer";
+                  factMetricId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    /** Format: date-time */
+                    startDate: string;
+                    /** Format: date-time */
+                    endDate: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                  };
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }))[];
+              /** @description General dashboards only, experiment dashboards use the experiment's projects */
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateDashboard: {
+    /** Partially update a single dashboard */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the Dashboard */
+          title?: string;
+          /**
+           * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          editLevel?: "published" | "private";
+          /**
+           * @description General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          shareLevel?: "published" | "private";
+          /** @description If enabled for a General Dashboard, also requires an updateSchedule */
+          enableAutoUpdates?: boolean;
+          /** @description General Dashboards only. Experiment Dashboards update based on the parent experiment instead */
+          updateSchedule?: {
+            /** @enum {string} */
+            type: "stale";
+            hours: number;
+          } | {
+            /** @enum {string} */
+            type: "cron";
+            cron: string;
+          };
+          /** @description General Dashboards only, Experiment Dashboards use the experiment's projects */
+          projects?: (string)[];
+          blocks?: (((({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "markdown";
+              content: string;
+            }) & {
+              organization: string;
+              id: string;
+              uid: string;
+            }) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "experiment-metadata";
+              experimentId: string;
+              showDescription: boolean;
+              showHypothesis: boolean;
+              showVariationImages: boolean;
+              variationIds?: (string)[];
+            }) & {
+              organization: string;
+              id: string;
+              uid: string;
+            }) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              pinSource: "experiment" | "custom" | "none";
+              pinnedMetricSlices: (string)[];
+            }) & ({
+              /** @enum {string} */
+              type: "experiment-metric";
+              experimentId: string;
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              snapshotId: string;
+            })) & {
+              organization: string;
+              id: string;
+              uid: string;
+            }) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              type: "experiment-dimension";
+              experimentId: string;
+              dimensionId: string;
+              dimensionValues: (string)[];
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              snapshotId: string;
+            })) & {
+              organization: string;
+              id: string;
+              uid: string;
+            }) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              pinSource: "experiment" | "custom" | "none";
+              pinnedMetricSlices: (string)[];
+            }) & ({
+              /** @enum {string} */
+              type: "experiment-time-series";
+              experimentId: string;
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              snapshotId: string;
+            })) & {
+              organization: string;
+              id: string;
+              uid: string;
+            }) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "experiment-traffic";
+              experimentId: string;
+              showTable: boolean;
+              showTimeseries: boolean;
+            }) & {
+              organization: string;
+              id: string;
+              uid: string;
+            }) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "sql-explorer";
+              savedQueryId: string;
+              blockConfig?: (string)[];
+            }) & {
+              organization: string;
+              id: string;
+              uid: string;
+            }) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              type: "metric-explorer";
+              factMetricId: string;
+              analysisSettings: {
+                userIdType: string;
+                /** Format: date-time */
+                startDate: string;
+                /** Format: date-time */
+                endDate: string;
+                lookbackDays: number;
+                /** @enum {string} */
+                populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                populationId: string | null;
+              };
+              /** @enum {string} */
+              visualizationType: "histogram" | "bigNumber" | "timeseries";
+              /** @enum {string} */
+              valueType: "avg" | "sum";
+              metricAnalysisId: string;
+            })) & {
+              organization: string;
+              id: string;
+              uid: string;
+            })) | (({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "markdown";
+              content: string;
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "experiment-metadata";
+              experimentId: string;
+              showDescription: boolean;
+              showHypothesis: boolean;
+              showVariationImages: boolean;
+              variationIds?: (string)[];
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              pinSource: "experiment" | "custom" | "none";
+              pinnedMetricSlices: (string)[];
+            }) & ({
+              /** @enum {string} */
+              type: "experiment-metric";
+              experimentId: string;
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              snapshotId: string;
+            })) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              type: "experiment-dimension";
+              experimentId: string;
+              dimensionId: string;
+              dimensionValues: (string)[];
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              snapshotId: string;
+            })) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              pinSource: "experiment" | "custom" | "none";
+              pinnedMetricSlices: (string)[];
+            }) & ({
+              /** @enum {string} */
+              type: "experiment-time-series";
+              experimentId: string;
+              /** @enum {string} */
+              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+              metricIds?: (string)[];
+              variationIds: (string)[];
+              snapshotId: string;
+            })) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "experiment-traffic";
+              experimentId: string;
+              showTable: boolean;
+              showTimeseries: boolean;
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & {
+              /** @enum {string} */
+              type: "sql-explorer";
+              savedQueryId: string;
+              blockConfig?: (string)[];
+            }) | ({
+              title: string;
+              description: string;
+              snapshotId?: string;
+            } & ({
+              /** @enum {string} */
+              type: "metric-explorer";
+              factMetricId: string;
+              analysisSettings: {
+                userIdType: string;
+                /** Format: date-time */
+                startDate: string;
+                /** Format: date-time */
+                endDate: string;
+                lookbackDays: number;
+                /** @enum {string} */
+                populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                populationId: string | null;
+              };
+              /** @enum {string} */
+              visualizationType: "histogram" | "bigNumber" | "timeseries";
+              /** @enum {string} */
+              valueType: "avg" | "sum";
+              metricAnalysisId: string;
+            }))))[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboard: {
+              id: string;
+              uid: string;
+              organization: string;
+              /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+              experimentId?: string;
+              /** @description The owner of the Dashboard */
+              userId: string;
+              /**
+               * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              editLevel: "published" | "private";
+              /**
+               * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+              updateSchedule?: {
+                /** @enum {string} */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @enum {string} */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              blocks: ((({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "markdown";
+                  content: string;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-metadata";
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-metric";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "experiment-dimension";
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-time-series";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-traffic";
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "sql-explorer";
+                  savedQueryId: string;
+                  blockConfig?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "metric-explorer";
+                  factMetricId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    /** Format: date-time */
+                    startDate: string;
+                    /** Format: date-time */
+                    endDate: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                  };
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }))[];
+              /** @description General dashboards only, experiment dashboards use the experiment's projects */
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteDashboard: {
+    /** Delete a single dashboard */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboard?: {
+              id: string;
+              uid: string;
+              organization: string;
+              /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+              experimentId?: string;
+              /** @description The owner of the Dashboard */
+              userId: string;
+              /**
+               * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              editLevel: "published" | "private";
+              /**
+               * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+               * @enum {string}
+               */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+              updateSchedule?: {
+                /** @enum {string} */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @enum {string} */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              blocks: ((({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "markdown";
+                  content: string;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-metadata";
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-metric";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "experiment-dimension";
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  pinSource: "experiment" | "custom" | "none";
+                  pinnedMetricSlices: (string)[];
+                }) & ({
+                  /** @enum {string} */
+                  type: "experiment-time-series";
+                  experimentId: string;
+                  /** @enum {string} */
+                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                  metricIds?: (string)[];
+                  variationIds: (string)[];
+                  snapshotId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "experiment-traffic";
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & {
+                  /** @enum {string} */
+                  type: "sql-explorer";
+                  savedQueryId: string;
+                  blockConfig?: (string)[];
+                }) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }) | (({
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                } & ({
+                  /** @enum {string} */
+                  type: "metric-explorer";
+                  factMetricId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    /** Format: date-time */
+                    startDate: string;
+                    /** Format: date-time */
+                    endDate: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                  };
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                })) & {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                }))[];
+              /** @description General dashboards only, experiment dashboards use the experiment's projects */
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getDashboardsForExperiment: {
+    /** List the dashboards for a single experiment */
+    parameters: {
+        /** @description The experiment whose dashboards are being fetched */
+      path: {
+        experimentId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboards: ({
+                id: string;
+                uid: string;
+                organization: string;
+                /** @description For Experiment Dashboards only. Product Analytics Dashboards are not tied to a single experiment */
+                experimentId?: string;
+                /** @description The owner of the Dashboard */
+                userId: string;
+                /**
+                 * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+                 * @enum {string}
+                 */
+                editLevel: "published" | "private";
+                /**
+                 * @description Only applicable for Product Analytics Dashboards. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+                 * @enum {string}
+                 */
+                shareLevel: "published" | "private";
+                enableAutoUpdates: boolean;
+                /** @description Only applicable for Product Analytics Dashboards. Experiment Dashboards update based on the parent experiment instead */
+                updateSchedule?: {
+                  /** @enum {string} */
+                  type: "stale";
+                  hours: number;
+                } | {
+                  /** @enum {string} */
+                  type: "cron";
+                  cron: string;
+                };
+                title: string;
+                blocks: ((({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "markdown";
+                    content: string;
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "experiment-metadata";
+                    experimentId: string;
+                    showDescription: boolean;
+                    showHypothesis: boolean;
+                    showVariationImages: boolean;
+                    variationIds?: (string)[];
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    pinSource: "experiment" | "custom" | "none";
+                    pinnedMetricSlices: (string)[];
+                  }) & ({
+                    /** @enum {string} */
+                    type: "experiment-metric";
+                    experimentId: string;
+                    /** @enum {string} */
+                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                    metricIds?: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    snapshotId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    type: "experiment-dimension";
+                    experimentId: string;
+                    dimensionId: string;
+                    dimensionValues: (string)[];
+                    /** @enum {string} */
+                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                    metricIds?: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    snapshotId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    pinSource: "experiment" | "custom" | "none";
+                    pinnedMetricSlices: (string)[];
+                  }) & ({
+                    /** @enum {string} */
+                    type: "experiment-time-series";
+                    experimentId: string;
+                    /** @enum {string} */
+                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
+                    metricIds?: (string)[];
+                    variationIds: (string)[];
+                    snapshotId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "experiment-traffic";
+                    experimentId: string;
+                    showTable: boolean;
+                    showTimeseries: boolean;
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & {
+                    /** @enum {string} */
+                    type: "sql-explorer";
+                    savedQueryId: string;
+                    blockConfig?: (string)[];
+                  }) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }) | (({
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                  } & ({
+                    /** @enum {string} */
+                    type: "metric-explorer";
+                    factMetricId: string;
+                    analysisSettings: {
+                      userIdType: string;
+                      /** Format: date-time */
+                      startDate: string;
+                      /** Format: date-time */
+                      endDate: string;
+                      lookbackDays: number;
+                      /** @enum {string} */
+                      populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                      populationId: string | null;
+                    };
+                    /** @enum {string} */
+                    visualizationType: "histogram" | "bigNumber" | "timeseries";
+                    /** @enum {string} */
+                    valueType: "avg" | "sum";
+                    metricAnalysisId: string;
+                  })) & {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                  }))[];
+                /** @description General dashboards only, experiment dashboards use the experiment's projects */
+                projects?: (string)[];
+                /** Format: date-time */
+                nextUpdate?: string;
+                /** Format: date-time */
+                lastUpdated?: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -13947,6 +16153,9 @@ export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
 export type ApiCustomField = z.infer<typeof openApiValidators.apiCustomFieldValidator>;
+export type ApiDashboard = z.infer<typeof openApiValidators.apiDashboardValidator>;
+export type ApiDashboardBlock = z.infer<typeof openApiValidators.apiDashboardBlockValidator>;
+export type ApiCreateDashboardBlock = z.infer<typeof openApiValidators.apiCreateDashboardBlockValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -14046,3 +16255,9 @@ export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"][
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
 export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];
+export type ListDashboardsResponse = operations["listDashboards"]["responses"]["200"]["content"]["application/json"];
+export type CreateDashboardResponse = operations["createDashboard"]["responses"]["200"]["content"]["application/json"];
+export type GetDashboardResponse = operations["getDashboard"]["responses"]["200"]["content"]["application/json"];
+export type UpdateDashboardResponse = operations["updateDashboard"]["responses"]["200"]["content"]["application/json"];
+export type DeleteDashboardResponse = operations["deleteDashboard"]["responses"]["200"]["content"]["application/json"];
+export type GetDashboardsForExperimentResponse = operations["getDashboardsForExperiment"]["responses"]["200"]["content"]["application/json"];

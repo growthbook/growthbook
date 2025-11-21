@@ -4,7 +4,7 @@ import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
-import { z } from "zod";
+import { Schema, z } from "zod";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { ApiReqContext } from "back-end/types/api";
@@ -22,6 +22,8 @@ import {
   ForeignRefs,
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
+import { ApiRequest } from "../util/handler";
+import { ApiModelConfig } from "../api/ApiModel";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -126,6 +128,7 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
   baseQuery?: ScopedFilterQuery<T>;
+  apiConfig?: ApiModelConfig;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -272,12 +275,75 @@ export abstract class BaseModel<
     return keys;
   }
 
+  protected async handleApiget(
+    req: ApiRequest<
+      unknown,
+      Schema<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<z.infer<T> | null> {
+    const id = req.params.id;
+    const doc = await this.getById(id);
+    if (!doc) throw new Error("Not found");
+    return doc;
+  }
+  protected async handleApicreate(
+    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ): Promise<z.infer<T> | null> {
+    const rawBody = req.body;
+    const toCreate = await this.processApiCreateBody(rawBody);
+    return await this.create(toCreate);
+  }
+  protected async processApiCreateBody(
+    rawBody: unknown,
+  ): Promise<CreateProps<z.infer<T>>> {
+    return rawBody as CreateProps<z.infer<T>>;
+  }
+  protected async handleApilist(
+    _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ): Promise<z.infer<T>[]> {
+    return await this.getAll();
+  }
+  protected async handleApidelete(
+    req: ApiRequest<
+      unknown,
+      Schema<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<z.infer<T> | undefined> {
+    const id = req.params.id;
+    return await this.deleteById(id);
+  }
+  protected async handleApiupdate(
+    req: ApiRequest<
+      unknown,
+      Schema<{ id: string }>,
+      Schema<UpdateProps<z.infer<T>>>,
+      z.ZodTypeAny
+    >,
+  ): Promise<z.infer<T> | null> {
+    const id = req.params.id;
+    const rawBody = req.body;
+    const toUpdate = await this.processApiUpdateBody(rawBody);
+    return await this.updateById(id, toUpdate);
+  }
+  protected async processApiUpdateBody(
+    rawBody: unknown,
+  ): Promise<UpdateProps<z.infer<T>>> {
+    return rawBody as UpdateProps<z.infer<T>>;
+  }
+
   /***************
    * These methods are implemented by the MakeModelClass helper function
    ***************/
   protected abstract getConfig(): ModelConfig<T, E>;
   protected abstract getCreateValidator(): CreateZodObject<T>;
   protected abstract getUpdateValidator(): UpdateZodObject<T>;
+  public static getModelConfig() {
+    throw new Error("Method not implemented! Use derived class");
+  }
 
   /***************
    * Built-in public methods
@@ -888,6 +954,9 @@ export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
     WriteOptions
   > {
     getConfig() {
+      return config;
+    }
+    static getModelConfig(): ModelConfig<T, E> {
       return config;
     }
     getCreateValidator() {

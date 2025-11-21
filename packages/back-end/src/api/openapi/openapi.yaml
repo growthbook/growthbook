@@ -126,6 +126,9 @@ tags:
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: dashboards
+    x-displayName: Dashboards
+    description: Curated views of experiment results, metric performance, custom queries, and more
 paths:
   /features:
     get:
@@ -365,6 +368,21 @@ paths:
   /custom-fields:
     get:
       $ref: "./paths/getCustomFields.yaml"
+  /dashboards:
+    get:
+      $ref: "./paths/listDashboards.yaml"
+    post:
+      $ref: "./paths/createDashboard.yaml"
+  /dashboards/{id}:
+    get:
+      $ref: "./paths/getDashboard.yaml"
+    post:
+      $ref: "./paths/updateDashboard.yaml"
+    delete:
+      $ref: "./paths/deleteDashboard.yaml"
+  /dashboards/by-experiment/{experimentId}:
+    get:
+      $ref: "./paths/getDashboardsForExperiment.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
