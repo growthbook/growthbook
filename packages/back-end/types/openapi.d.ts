@@ -8003,6 +8003,8 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
+          /** @description Unique identifier for the project. If not provided, will be generated from the name. */
+          uid?: string;
           description?: string;
           /** @description Project settings. */
           settings?: {

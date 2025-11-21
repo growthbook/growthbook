@@ -4,6 +4,9 @@ required:
 properties:
   name:
     type: string
+  uid:
+    type: string
+    description: Unique identifier for the project. If not provided, will be generated from the name.
   description:
     type: string
   settings:

@@ -4,61 +4,21 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postProjectValidator } from "back-end/src/validators/openapi";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 
-async function generateUniqueProjectUid(
-  name: string,
-  organization: string,
-  checkUnique: (uid: string) => Promise<boolean>,
-): Promise<string> {
-  // Generate base uid using the same pattern as experiment tracking keys
-  let baseUid = generateSlugFromName(name);
-
-  // If empty after stripping, use a default
-  if (!baseUid) {
-    baseUid = "project";
-  }
-
-  // Limit length
-  baseUid = baseUid.substring(0, 100);
-
-  // Check if base uid is unique
-  let uid = baseUid;
-  let counter = 1;
-  const maxRetries = 1000;
-
-  while (counter <= maxRetries) {
-    const isUnique = await checkUnique(uid);
-
-    if (isUnique) {
-      return uid;
-    }
-
-    uid = generateSlugFromName(name, counter + 1);
-    // Limit length again after adding suffix
-    uid = uid.substring(0, 100);
-    counter++;
-  }
-
-  // Fallback: use timestamp if we've exhausted retries
-  return `${baseUid}-${Date.now()}`;
-}
-
 export const postProject = createApiRequestHandler(postProjectValidator)(async (
   req,
 ): Promise<PostProjectResponse> => {
-  const payload = req.context.models.projects.createValidator.parse(req.body);
+  const body = req.body;
 
-  // Generate uid if not provided (for backwards compatibility with API clients)
-  if (!payload.uid) {
-    payload.uid = await generateUniqueProjectUid(
-      payload.name,
-      req.context.org.id,
-      async (uid: string) => {
-        // Check if a project with this uid already exists
-        const existingProjects = await req.context.models.projects.getAll();
-        return !existingProjects.some((p) => p.uid === uid);
-      },
-    );
+  // Generate uid from name if not provided
+  const uid = body?.uid || generateSlugFromName(body.name);
+  if (!uid) {
+    throw new Error("Unable to generate project uid");
   }
+
+  const payload = req.context.models.projects.createValidator.parse({
+    ...body,
+    uid,
+  });
 
   const project = await req.context.models.projects.create(payload);
 

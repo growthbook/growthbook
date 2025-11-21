@@ -151,7 +151,7 @@ export const listProjectsValidator = {
 };
 
 export const postProjectValidator = {
-  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
+  bodySchema: z.object({ "name": z.string(), "uid": z.string().describe("Unique identifier for the project. If not provided, will be generated from the name.").optional(), "description": z.string().optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
