@@ -50,9 +50,14 @@ export type FeatureRule<T = any> = {
   }>;
 };
 
+export interface FeatureMetadata {
+  projects?: string[];
+}
+
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
+  metadata?: FeatureMetadata;
 }
 
 export type FeatureResultSource =
@@ -121,10 +126,13 @@ export type Experiment<T> = {
 
 export type AutoExperimentChangeType = "redirect" | "visual" | "unknown";
 
+export type ExperimentMetadata = FeatureMetadata;
+
 export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  metadata?: ExperimentMetadata;
 };
 
 export type ExperimentOverride = {

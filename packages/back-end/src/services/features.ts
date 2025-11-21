@@ -43,6 +43,7 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "back-end/types/api";
+import { ProjectInterface } from "back-end/types/project";
 import {
   ExperimentRefRule,
   ExperimentRule,
@@ -578,6 +579,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectPublicId?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -585,6 +587,7 @@ export type FeatureDefinitionsResponseArgs = {
   savedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
+  context?: ReqContext | ApiReqContext;
 };
 export async function getFeatureDefinitionsResponse({
   features,
@@ -597,6 +600,7 @@ export async function getFeatureDefinitionsResponse({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectPublicId,
   attributes,
   secureAttributeSalt,
   projects,
@@ -604,6 +608,7 @@ export async function getFeatureDefinitionsResponse({
   savedGroups,
   savedGroupReferencesEnabled = false,
   organization,
+  context,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -646,14 +651,54 @@ export async function getFeatureDefinitionsResponse({
     );
   }
 
-  // Remove `project` from all features/experiments
+  // Keep projects map for metadata generation
+  const projectsMap = new Map<string, ProjectInterface>();
+  if (includeProjectPublicId && context) {
+    const allProjects = await context.models.projects.getAll();
+    for (const project of allProjects) {
+      projectsMap.set(project.id, project);
+    }
+  }
+
+  // Add metadata fields, strip temporary top-level project
   features = Object.fromEntries(
-    Object.entries(features).map(([key, feature]) => [
-      key,
-      omit(feature, ["project"]),
-    ]),
+    Object.entries(features).map(([key, feature]) => {
+      const projectId = feature.project;
+      const featureWithoutProject = omit(feature, ["project"]);
+
+      if (includeProjectPublicId) {
+        const project = projectId ? projectsMap.get(projectId) : undefined;
+        const featureWithMetadata: FeatureDefinition = {
+          ...featureWithoutProject,
+          metadata: {
+            projects: project ? [project.publicId || project.id] : [],
+          },
+        };
+        return [key, featureWithMetadata];
+      }
+
+      return [key, featureWithoutProject];
+    }),
   );
-  experiments = experiments.map((exp) => omit(exp, ["project"]));
+
+  // Add metadata fields, strip temporary top-level project
+  experiments = experiments.map((exp) => {
+    const projectId = exp.project;
+    const expWithoutProject = omit(exp, ["project"]);
+
+    if (includeProjectPublicId) {
+      const project = projectId ? projectsMap.get(projectId) : undefined;
+      const expWithMetadata: AutoExperiment = {
+        ...expWithoutProject,
+        metadata: {
+          projects: project ? [project.publicId || project.id] : [],
+        },
+      };
+      return expWithMetadata;
+    }
+
+    return expWithoutProject;
+  });
 
   const { holdouts: scrubbedHoldouts, features: scrubbedFeatures } =
     scrubHoldouts({
@@ -780,6 +825,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectPublicId?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -805,6 +851,7 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectPublicId,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -851,6 +898,7 @@ export async function getFeatureDefinitions({
         includeExperimentNames,
         includeRedirectExperiments,
         includeRuleIds,
+        includeProjectPublicId,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -858,6 +906,7 @@ export async function getFeatureDefinitions({
         savedGroups: usedSavedGroups || [],
         savedGroupReferencesEnabled,
         organization: context.org,
+        context,
       });
     }
   } catch (e) {
@@ -959,6 +1008,7 @@ export async function getFeatureDefinitions({
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectPublicId,
     attributes,
     secureAttributeSalt,
     projects: projects || [],
@@ -966,6 +1016,7 @@ export async function getFeatureDefinitions({
     savedGroups,
     savedGroupReferencesEnabled,
     organization: context.org,
+    context,
   });
 }
 

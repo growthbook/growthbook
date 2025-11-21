@@ -24,6 +24,8 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
+  includeProjectPublicId:
+    type: boolean
   proxyEnabled:
     type: boolean
   proxyHost:

@@ -56,6 +56,8 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
+  includeProjectPublicId:
+    type: boolean
   key:
     type: string
   proxyEnabled:

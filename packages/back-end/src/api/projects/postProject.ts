@@ -7,6 +7,7 @@ export const postProject = createApiRequestHandler(postProjectValidator)(async (
   req,
 ): Promise<PostProjectResponse> => {
   const payload = req.context.models.projects.createValidator.parse(req.body);
+
   const project = await req.context.models.projects.create(payload);
 
   await req.audit({
