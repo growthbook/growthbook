@@ -217,6 +217,28 @@ export class FactMetricModel extends BaseClass {
       }
     }
 
+    // validate column
+    const metricSupportsDistinctDates =
+      data.metricType === "mean" ||
+      data.metricType === "ratio" ||
+      (data.metricType === "quantile" &&
+        data.quantileSettings?.type === "unit");
+    if (data.numerator.column === "$$distinctDates") {
+      if (!metricSupportsDistinctDates) {
+        throw new Error(
+          "$$distinctDates is only supported for mean, ratio, and quantile metrics",
+        );
+      }
+    }
+    if (data.denominator?.column === "$$distinctDates") {
+      if (!metricSupportsDistinctDates) {
+        throw new Error(
+          "$$distinctDates is only supported for mean, ratio, and quantile metrics",
+        );
+      }
+    }
+    // TODO: add validation for $$distinctUsers and $$count
+
     // validate user filter
     if (
       data.numerator.aggregateFilterColumn ||

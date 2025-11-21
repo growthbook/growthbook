@@ -714,6 +714,7 @@ describe("full fact metric experiment query - bigquery", () => {
       aggregateFilterColumn: "qty",
     },
   ];
+  // TODO test
   const columns: ColumnRef["column"][] = [
     "amount",
     "$$count",

@@ -286,7 +286,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.numerator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.numerator.column,
+                  : factMetric.numerator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.numerator.column,
           },
         ]
       : []),
@@ -366,7 +368,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.denominator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.denominator.column,
+                  : factMetric.denominator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.denominator.column,
           },
           ...(!factMetric.denominator.column.startsWith("$$")
             ? [
