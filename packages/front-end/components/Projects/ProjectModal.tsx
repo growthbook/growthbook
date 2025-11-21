@@ -1,6 +1,6 @@
 import { ProjectInterface } from "back-end/types/project";
 import { useForm } from "react-hook-form";
-import { generateSlugFromName } from "shared/util";
+import { generateProjectUidFromName } from "shared/util";
 import { useState } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiLockBold, PiLockOpenBold } from "react-icons/pi";
@@ -66,7 +66,7 @@ export default function ProjectModal({
             return;
           }
           // Generate uid and check for uniqueness (simplified - just check once)
-          const baseUid = generateSlugFromName(val);
+          const baseUid = generateProjectUidFromName(val);
           if (!baseUid) {
             // If no slug can be generated, leave uid empty (will use id as fallback on backend)
             form.setValue("uid", "");

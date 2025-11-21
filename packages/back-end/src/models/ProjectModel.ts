@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { generateSlugFromName } from "shared/util";
+import { generateProjectUidFromName } from "shared/util";
 import { ApiProject } from "back-end/types/openapi";
 import { statsEngines } from "back-end/src/util/constants";
 import {
@@ -165,7 +165,7 @@ export class ProjectModel extends BaseClass {
     organization: string,
     id: string,
   ): Promise<string> {
-    const baseUid = generateSlugFromName(name);
+    const baseUid = generateProjectUidFromName(name);
     if (!baseUid) {
       return id;
     }

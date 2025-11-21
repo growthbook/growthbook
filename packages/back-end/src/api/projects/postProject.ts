@@ -1,4 +1,4 @@
-import { generateSlugFromName } from "shared/util";
+import { generateProjectUidFromName } from "shared/util";
 import { PostProjectResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postProjectValidator } from "back-end/src/validators/openapi";
@@ -10,7 +10,7 @@ export const postProject = createApiRequestHandler(postProjectValidator)(async (
   const body = req.body;
 
   // Generate uid from name if not provided
-  const uid = body?.uid || generateSlugFromName(body.name);
+  const uid = body?.uid || generateProjectUidFromName(body.name);
   if (!uid) {
     throw new Error("Unable to generate project uid");
   }
