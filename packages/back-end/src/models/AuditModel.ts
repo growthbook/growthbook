@@ -1,8 +1,11 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
 import { AuditInterface } from "back-end/types/audit";
 import { EntityType } from "back-end/src/types/Audit";
+import {
+  removeMongooseFields,
+  ToInterface,
+} from "back-end/src/util/mongo.util";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -41,15 +44,8 @@ type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
-/**
- * Convert the Mongo document to an AuditInterface, omitting Mongo default fields __v, _id
- * @param doc
- */
-const toInterface = (doc: AuditDocument): AuditInterface => {
-  return omit(doc.toJSON<AuditDocument>(), [
-    "__v",
-    "_id",
-  ]) as unknown as AuditInterface;
+const toInterface: ToInterface<AuditInterface> = (doc: AuditDocument) => {
+  return removeMongooseFields(doc);
 };
 
 export async function insertAudit(
@@ -111,6 +107,7 @@ export async function findAuditByEntity(
       "entity.id": id,
       ...customFilter,
     },
+    null,
     options,
   );
   return auditDocs.map((doc) => toInterface(doc));
@@ -132,6 +129,7 @@ export async function findAuditByEntityList(
       },
       ...customFilter,
     },
+    null,
     options,
   );
   return auditDocs.map((doc) => toInterface(doc));
@@ -151,6 +149,7 @@ export async function findAuditByEntityParent(
       "parent.id": id,
       ...customFilter,
     },
+    null,
     options,
   );
   return auditDocs.map((doc) => toInterface(doc));
@@ -168,6 +167,7 @@ export async function findAllAuditsByEntityType(
       "entity.object": type,
       ...customFilter,
     },
+    null,
     options,
   );
   return auditDocs.map((doc) => toInterface(doc));
@@ -185,6 +185,7 @@ export async function findAllAuditsByEntityTypeParent(
       "parent.object": type,
       ...customFilter,
     },
+    null,
     options,
   );
   return auditDocs.map((doc) => toInterface(doc));
