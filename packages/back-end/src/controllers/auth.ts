@@ -306,7 +306,8 @@ export async function postFirstTimeRegister(
   const context = getContextForAgendaJobByOrgObject(org);
 
   const projectName = "My First Project";
-  const basePublicId = generateProjectPublicIdFromName(projectName) || "my-first-project";
+  const basePublicId =
+    generateProjectPublicIdFromName(projectName) || "my-first-project";
   const project = await context.models.projects.create({
     name: projectName,
     publicId: basePublicId,

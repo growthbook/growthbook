@@ -224,7 +224,8 @@ export const postDemoDatasourceProject = async (
 
   try {
     const projectName = "Sample Data";
-    const basePublicId = generateProjectPublicIdFromName(projectName) || "sample-data";
+    const basePublicId =
+      generateProjectPublicIdFromName(projectName) || "sample-data";
     const project = await context.models.projects.create({
       id: demoProjId,
       name: projectName,

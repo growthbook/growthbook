@@ -19,8 +19,12 @@ export default function ProjectModal({
   onSuccess: () => Promise<void>;
 }) {
   const { projects } = useDefinitions();
-  const [linkNameWithPublicId, setLinkNameWithPublicId] = useState(!existing.id);
-  const [publicIdValueDisabled, setPublicIdValueDisabled] = useState(!!existing.id);
+  const [linkNameWithPublicId, setLinkNameWithPublicId] = useState(
+    !existing.id,
+  );
+  const [publicIdValueDisabled, setPublicIdValueDisabled] = useState(
+    !!existing.id,
+  );
   const form = useForm<Partial<ProjectInterface>>({
     defaultValues: {
       name: existing.name || "",
@@ -33,7 +37,7 @@ export default function ProjectModal({
   const nameFieldHandlers = form.register("name", {
     setValueAs: (s) => s?.trim(),
   });
-  
+
   // Display value: use publicId if set, otherwise show id as fallback
   const publicIdDisplayValue = form.watch("publicId") || existing.id || "";
 

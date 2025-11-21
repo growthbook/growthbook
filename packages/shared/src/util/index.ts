@@ -149,7 +149,10 @@ export function generateVariationId() {
   return uniqid("var_");
 }
 
-export function generateProjectPublicIdFromName(name: string, n?: number): string {
+export function generateProjectPublicIdFromName(
+  name: string,
+  n?: number,
+): string {
   let slug = ("-" + name)
     .toLowerCase()
     // Replace whitespace with hyphen
