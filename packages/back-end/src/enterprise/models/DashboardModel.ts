@@ -26,7 +26,8 @@ import {
 } from "back-end/types/openapi";
 import { ApiRequest } from "back-end/src/util/handler";
 import {
-  postDashboardValidator,
+  getDashboardsForExperimentValidator,
+  createDashboardValidator,
   updateDashboardValidator,
 } from "back-end/src/validators/openapi";
 import {
@@ -63,6 +64,20 @@ const BaseClass = MakeModelClass({
   baseQuery: {
     isDefault: false,
     isDeleted: false,
+  },
+  apiConfig: {
+    modelKey: "dashboards",
+    modelSingular: "dashboard",
+    modelPlural: "dashboards",
+    crudActions: ["get", "update", "create", "list", "delete"],
+    customHandlers: [
+      {
+        pathFragment: "/by-experiment/:experimentId",
+        handlerFnName: "apiFindByExperiment",
+        verb: "get",
+        validator: getDashboardsForExperimentValidator,
+      },
+    ],
   },
 });
 
@@ -369,7 +384,7 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       blocks,
-    } = postDashboardValidator.bodySchema.parse(rawBody);
+    } = createDashboardValidator.bodySchema.parse(rawBody);
     const createdBlocks = await Promise.all(
       blocks.map((blockData) =>
         generateDashboardBlockIds(

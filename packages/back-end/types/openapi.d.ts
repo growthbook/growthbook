@@ -375,7 +375,7 @@ export interface paths {
     /** List the dashboards for an organization */
     get: operations["listDashboards"];
     /** Create a single dashboard */
-    post: operations["postDashboard"];
+    post: operations["createDashboard"];
   };
   "/dashboards/{id}": {
     /** Get a single dashboard */
@@ -14597,7 +14597,7 @@ export interface operations {
       };
     };
   };
-  postDashboard: {
+  createDashboard: {
     /** Create a single dashboard */
     requestBody: {
       content: {
@@ -16256,7 +16256,7 @@ export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["conte
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
 export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];
 export type ListDashboardsResponse = operations["listDashboards"]["responses"]["200"]["content"]["application/json"];
-export type PostDashboardResponse = operations["postDashboard"]["responses"]["200"]["content"]["application/json"];
+export type CreateDashboardResponse = operations["createDashboard"]["responses"]["200"]["content"]["application/json"];
 export type GetDashboardResponse = operations["getDashboard"]["responses"]["200"]["content"]["application/json"];
 export type UpdateDashboardResponse = operations["updateDashboard"]["responses"]["200"]["content"]["application/json"];
 export type DeleteDashboardResponse = operations["deleteDashboard"]["responses"]["200"]["content"]["application/json"];

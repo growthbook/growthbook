@@ -372,7 +372,7 @@ paths:
     get:
       $ref: "./paths/listDashboards.yaml"
     post:
-      $ref: "./paths/postDashboard.yaml"
+      $ref: "./paths/createDashboard.yaml"
   /dashboards/{id}:
     get:
       $ref: "./paths/getDashboard.yaml"

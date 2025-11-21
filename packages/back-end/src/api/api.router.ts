@@ -135,7 +135,10 @@ router.use("/settings", settingsRouter);
 router.post("/transform-copy", postCopyTransform);
 router.use("/custom-fields", customFieldsRouter);
 apiModels.forEach((modelConfig) => {
-  router.use(modelConfig.pathBase, defineRouterForApiModel(modelConfig));
+  const r = defineRouterForApiModel(modelConfig);
+  if (r) {
+    router.use(modelConfig.pathBase, r);
+  }
 });
 
 // 404 route
