@@ -135,6 +135,20 @@ WHERE
   }
 }}/>
 
+#### Active Days per User
+
+1. Select `Mean` as the metric type
+2. Choose `Distinct Dates` as the column
+
+<AddMetricButton data={{
+  name: "Active Days per User",
+  description: "Average number of active days per user",
+  metricType: "mean",
+  numerator: {
+    column: "$$distinctDates"
+  }
+}}/>
+
 #### Checkout completion rate
 
 1. Select `Ratio` as the metric type
