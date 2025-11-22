@@ -256,7 +256,7 @@ export function getAggregateFilters({
   if (!columnRef?.aggregateFilter) return [];
   if (!columnRef.aggregateFilterColumn) return [];
 
-  // Only support distinctUsers for now TODO distinctDates
+  // Only support distinctUsers for now
   if (columnRef.column !== "$$distinctUsers") return [];
 
   const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");

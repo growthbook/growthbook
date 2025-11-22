@@ -1059,7 +1059,6 @@ function getPreviewSQL({
                 denominator?.column
               })`;
 
-  // TODO any concern with just using DATE? can we let them define a date range to start the 24 hours in in a special setting?
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
     columnRef: numerator,
@@ -1076,7 +1075,6 @@ function getPreviewSQL({
     type,
   });
 
-  // TODO: allow aggregate filters for a distinct date to count
   const havingParts = getAggregateFilters({
     columnRef: {
       // Column is often set incorrectly for proportion metrics and changed later during submit

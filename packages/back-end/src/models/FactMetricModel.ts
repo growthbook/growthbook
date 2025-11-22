@@ -237,7 +237,6 @@ export class FactMetricModel extends BaseClass {
         );
       }
     }
-    // TODO: add validation for $$distinctUsers and $$count
 
     // validate user filter
     if (

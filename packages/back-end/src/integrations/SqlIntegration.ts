@@ -5990,6 +5990,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
+  // TODO(sql): remove this and replace usage with getAggregationMetadata
   // This method is not used for incremental refresh or fact metric standalone analyses
   // only fact metric experiment analyses and should be superseded by the getAggregationMetadata method
   // at some point
@@ -6115,6 +6116,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   }
 
   // TODO(sql): refactor to change metric type to legacy only
+  // currently this is used for activation metrics even if they are
+  // fact metrics
   private getMetricColumns(
     metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,
@@ -6144,14 +6147,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ? columnRef?.aggregateFilterColumn
         : columnRef?.column;
 
-      // TODO deal with distinct dates, which should never get here
-      // bc this method is only for fact metrics if the fact metric is an activation metric
-      // which must be a binomial metric
       const value =
         (!hasAggregateFilter && isBinomialMetric(metric)) ||
+        // TODO(sql): remove when switching this method to only be used by legacy metrics
         !columnRef ||
         column === "$$distinctUsers" ||
-        column === "$$count"
+        column === "$$count" ||
+        column === "$$distinctDates"
           ? "1"
           : factTable && column
             ? getColumnExpression(

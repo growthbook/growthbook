@@ -113,15 +113,19 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      bqIntegration["getAggregateMetricColumn"]({
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
         metric: customNumberAggMetric,
       }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: customCountAgg }),
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+        metric: customCountAgg,
+      }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: normalSqlMetric }),
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+        metric: normalSqlMetric,
+      }),
     ).toEqual("SUM(COALESCE(value, 0))");
   });
   it("correctly picks date windows", () => {
@@ -714,11 +718,11 @@ describe("full fact metric experiment query - bigquery", () => {
       aggregateFilterColumn: "qty",
     },
   ];
-  // TODO test
   const columns: ColumnRef["column"][] = [
     "amount",
     "$$count",
     "$$distinctUsers",
+    // "$$distinctDates",
   ];
   const binomialColumns: ColumnRef["column"][] = ["$$distinctUsers"];
   const quantileSettings: FactMetricInterface["quantileSettings"][] = [
