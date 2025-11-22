@@ -5,15 +5,16 @@ import { z } from "zod";
 import {
   simpleSchemaFieldValidator,
   simpleSchemaValidator,
-  FeatureRule,
-  FeatureInterface,
+  LegacyFeatureRule,
 } from "back-end/src/validators/features";
-import { UserRef } from "./user";
 
 export {
   FeatureRule,
+  LegacyFeatureRule,
   FeatureInterface,
+  LegacyFeatureInterface,
   FeatureEnvironment,
+  LegacyFeatureEnvironment,
   FeatureValueType,
   ForceRule,
   ExperimentValue,
@@ -42,27 +43,12 @@ export interface JSONSchemaDef {
   enabled: boolean;
 }
 
-export type LegacyFeatureInterface = FeatureInterface & {
-  environments?: string[];
-  rules?: FeatureRule[];
-  revision?: {
-    version: number;
-    comment: string;
-    date: Date;
-    publishedBy: UserRef;
-  };
-  draft?: FeatureDraftChanges;
-  // schemaType and simple may not exist in old feature documents
-  jsonSchema?: Omit<JSONSchemaDef, "schemaType" | "simple"> &
-    Partial<Pick<JSONSchemaDef, "schemaType" | "simple">>;
-};
-
 export interface FeatureDraftChanges {
   active: boolean;
   dateCreated?: Date;
   dateUpdated?: Date;
   defaultValue?: string;
-  rules?: Record<string, FeatureRule[]>;
+  rules?: Record<string, LegacyFeatureRule[]>; // Drafts use legacy format (rules per environment)
   comment?: string;
 }
 

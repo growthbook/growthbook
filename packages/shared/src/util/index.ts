@@ -11,7 +11,11 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureRule,
+} from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -283,10 +287,55 @@ export function getMatchingRules(
 
         if (omitDisabledEnvironments && !settings.enabled) return;
 
-        const rules = revision ? revision.rules[environmentId] : settings.rules;
+        // Get rules for this environment
+        // Revisions now use modern format (top-level array), but may still have legacy format in old data
+        // Modern features use top-level rules array
+        let rules: LegacyFeatureRule[];
+        if (revision) {
+          if (Array.isArray(revision.rules)) {
+            // Modern format: filter array by environment
+            rules = revision.rules
+              .filter(
+                (rule) =>
+                  rule.allEnvironments ||
+                  rule.environments?.includes(environmentId),
+              )
+              .map((rule) => {
+                const {
+                  uid: _uid,
+                  environments: _environments,
+                  allEnvironments: _allEnvironments,
+                  ...legacyRule
+                } = rule;
+                return legacyRule;
+              });
+          } else {
+            // Legacy format: Record<string, LegacyFeatureRule[]>
+            rules =
+              (revision.rules as Record<string, LegacyFeatureRule[]>)[
+                environmentId
+              ] || [];
+          }
+        } else {
+          rules = feature.rules
+            .filter(
+              (rule) =>
+                rule.allEnvironments ||
+                rule.environments?.includes(environmentId),
+            )
+            .map((rule) => {
+              const {
+                uid: _uid,
+                environments: _environments,
+                allEnvironments: _allEnvironments,
+                ...legacyRule
+              } = rule;
+              return legacyRule;
+            });
+        }
 
         if (rules) {
-          rules.forEach((rule, i) => {
+          rules.forEach((rule: FeatureRule, i: number) => {
             if (filter(rule)) {
               matches.push({
                 rule,

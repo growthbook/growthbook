@@ -72,16 +72,43 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
 
     const changedEnvs: string[] = [];
     environmentIds.forEach((env) => {
-      if (
-        revision.rules[env] &&
-        !isEqual(
-          revision.rules[env],
-          feature.environmentSettings?.[env]?.rules || [],
+      // Get rules for this environment from top-level rules array (convert to legacy format for comparison)
+      const envRules = feature.rules
+        .filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(env),
         )
-      ) {
+        .map((rule) => {
+          const {
+            uid: _uid,
+            environments: _environments,
+            allEnvironments: _allEnvironments,
+            ...legacyRule
+          } = rule;
+          return legacyRule;
+        });
+      // Get revision rules for this environment (modern format: filter array)
+      const revEnvRules = (revision.rules || []).filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env),
+      );
+
+      // Convert revision rules to legacy format for comparison
+      const revEnvRulesLegacy = revEnvRules.map((rule) => {
+        const {
+          uid: _uid,
+          environments: _environments,
+          allEnvironments: _allEnvironments,
+          ...legacyRule
+        } = rule;
+        return legacyRule;
+      });
+
+      if (revEnvRules.length > 0 && !isEqual(revEnvRulesLegacy, envRules)) {
         changedEnvs.push(env);
-        changes.rules = changes.rules || {};
-        changes.rules[env] = revision.rules[env];
+        if (!changes.rules) {
+          changes.rules = {};
+        }
+        // Convert to legacy format for MergeResultChanges (Record<string, LegacyFeatureRule[]>)
+        changes.rules[env] = revEnvRulesLegacy;
       }
     });
     if (changedEnvs.length > 0) {

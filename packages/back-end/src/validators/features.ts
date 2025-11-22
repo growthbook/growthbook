@@ -161,7 +161,9 @@ export const safeRolloutRule = baseRule
   .strict();
 
 export type SafeRolloutRule = z.infer<typeof safeRolloutRule>;
-export const featureRule = z.union([
+
+// Base rule union (the actual rule types)
+const baseFeatureRule = z.union([
   forceRule,
   rolloutRule,
   experimentRule,
@@ -169,13 +171,47 @@ export const featureRule = z.union([
   safeRolloutRule,
 ]);
 
+// Multi-env fields schema
+const multiEnvFields = z.object({
+  uid: z.string(),
+  environments: z.array(z.string()),
+  allEnvironments: z.boolean(),
+});
+
+const optionalMultiEnvFields = z.object({
+  uid: z.string().optional(),
+  environments: z.array(z.string()).optional(),
+  allEnvironments: z.boolean().optional(),
+});
+
+// Legacy rule: base rule with optional multi-env fields (for DB documents that may have them)
+export const legacyFeatureRule = z.intersection(
+  baseFeatureRule,
+  optionalMultiEnvFields,
+);
+
+export type LegacyFeatureRule = z.infer<typeof legacyFeatureRule>;
+
+// Modern rule: base rule with required multi-env fields
+export const featureRule = z.intersection(baseFeatureRule, multiEnvFields);
+
 export type FeatureRule = z.infer<typeof featureRule>;
 
-export const featureEnvironment = z
+// Legacy environment with rules array
+export const legacyFeatureEnvironment = z
   .object({
     enabled: z.boolean(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    rules: z.array(featureRule),
+    rules: z.array(legacyFeatureRule),
+  })
+  .strict();
+
+export type LegacyFeatureEnvironment = z.infer<typeof legacyFeatureEnvironment>;
+
+// Modern environment with just enabled flag
+export const featureEnvironment = z
+  .object({
+    enabled: z.boolean(),
   })
   .strict();
 
@@ -203,7 +239,15 @@ const revisionLog = z
 
 export type RevisionLog = z.infer<typeof revisionLog>;
 
-const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
+// Legacy revision rules format (rules per environment, without uid/environments/allEnvironments)
+const legacyRevisionRulesSchema = z.record(
+  z.string(),
+  z.array(legacyFeatureRule),
+);
+export type LegacyRevisionRules = z.infer<typeof legacyRevisionRulesSchema>;
+
+// Modern revision rules format (top-level array with uid/environments/allEnvironments)
+const revisionRulesSchema = z.array(featureRule);
 export type RevisionRules = z.infer<typeof revisionRulesSchema>;
 
 const minimalFeatureRevisionInterface = z
@@ -227,6 +271,26 @@ export type MinimalFeatureRevisionInterface = z.infer<
   typeof minimalFeatureRevisionInterface
 >;
 
+// Legacy revision interface (what's stored in DB before migration)
+const legacyFeatureRevisionInterface = minimalFeatureRevisionInterface
+  .extend({
+    featureId: z.string(),
+    organization: z.string(),
+    baseVersion: z.number(),
+    dateCreated: z.date(),
+    publishedBy: z.union([z.null(), eventUser]),
+    comment: z.string(),
+    defaultValue: z.string(),
+    rules: legacyRevisionRulesSchema, // Legacy: Record<string, LegacyFeatureRule[]>
+    log: z.array(revisionLog).optional(),
+  })
+  .strict();
+
+export type LegacyFeatureRevisionInterface = z.infer<
+  typeof legacyFeatureRevisionInterface
+>;
+
+// Modern revision interface (after JIT migration)
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
     featureId: z.string(),
@@ -236,13 +300,53 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     publishedBy: z.union([z.null(), eventUser]),
     comment: z.string(),
     defaultValue: z.string(),
-    rules: revisionRulesSchema,
+    rules: revisionRulesSchema, // Modern: FeatureRule[]
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();
 
 export type FeatureRevisionInterface = z.infer<typeof featureRevisionInterface>;
 
+// Legacy feature interface (used for DB documents before migration)
+export const legacyFeatureInterface = z
+  .object({
+    id: z.string(),
+    archived: z.boolean().optional(),
+    description: z.string().optional(),
+    organization: z.string(),
+    nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
+    owner: z.string(),
+    project: z.string().optional(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+    valueType: z.enum(featureValueType),
+    defaultValue: z.string(),
+    version: z.number(),
+    hasDrafts: z.boolean().optional(),
+    tags: z.array(z.string()).optional(),
+    environmentSettings: z.record(z.string(), legacyFeatureEnvironment),
+    linkedExperiments: z.array(z.string()).optional(),
+    jsonSchema: JSONSchemaDef.optional(),
+    customFields: z.record(z.any()).optional(),
+
+    /** @deprecated */
+    legacyDraft: z.union([featureRevisionInterface, z.null()]).optional(),
+    /** @deprecated */
+    legacyDraftMigrated: z.boolean().optional(),
+    neverStale: z.boolean().optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    holdout: z
+      .object({
+        id: z.string(),
+        value: z.string(),
+      })
+      .optional(),
+  })
+  .strict();
+
+export type LegacyFeatureInterface = z.infer<typeof legacyFeatureInterface>;
+
+// Modern feature interface with top-level rules array
 export const featureInterface = z
   .object({
     id: z.string(),
@@ -260,6 +364,7 @@ export const featureInterface = z
     hasDrafts: z.boolean().optional(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
+    rules: z.array(featureRule), // Top-level rules array
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
     customFields: z.record(z.any()).optional(),

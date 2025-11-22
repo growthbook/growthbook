@@ -26,11 +26,14 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
+  LegacyFeatureEnvironment,
+  LegacyFeatureRule,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
 } from "back-end/types/feature";
 import { OrganizationInterface } from "back-end/types/organization";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import {
   ExperimentInterface,
@@ -269,13 +272,20 @@ export function upgradeDatasourceObject(
 }
 
 function updateEnvironmentSettings(
-  rules: FeatureRule[],
+  rules: LegacyFeatureRule[],
   environments: string[],
   environment: string,
-  feature: FeatureInterface,
+  feature: {
+    environmentSettings?: Record<
+      string,
+      Partial<LegacyFeatureEnvironment> | LegacyFeatureEnvironment
+    >;
+  }, // Using flexible type for very old legacy formats
 ) {
-  const settings: Partial<FeatureEnvironment> =
-    feature.environmentSettings?.[environment] || {};
+  const existingSettings = feature.environmentSettings?.[environment];
+  const settings: Partial<LegacyFeatureEnvironment> = existingSettings
+    ? { ...existingSettings }
+    : {};
 
   if (!("rules" in settings)) {
     settings.rules = rules;
@@ -289,12 +299,20 @@ function updateEnvironmentSettings(
     settings.rules = Object.values(settings.rules);
   }
 
-  feature.environmentSettings = feature.environmentSettings || {};
-  feature.environmentSettings[environment] = settings as FeatureEnvironment;
+  if (!feature.environmentSettings) {
+    feature.environmentSettings = {};
+  }
+  feature.environmentSettings[environment] =
+    settings as LegacyFeatureEnvironment;
 }
 
 function draftHasChanges(
-  feature: FeatureInterface,
+  feature:
+    | FeatureInterface
+    | (Partial<FeatureInterface> & {
+        environmentSettings?: Record<string, LegacyFeatureEnvironment>;
+        defaultValue?: string;
+      }),
   draft: FeatureDraftChanges,
 ) {
   if (!draft?.active) return false;
@@ -304,9 +322,15 @@ function draftHasChanges(
   }
 
   if (draft.rules) {
-    const comp: Record<string, FeatureRule[]> = {};
+    const comp: Record<string, LegacyFeatureRule[]> = {};
+    const envSettings = feature.environmentSettings as
+      | Record<string, LegacyFeatureEnvironment>
+      | undefined;
     Object.keys(draft.rules).forEach((key) => {
-      comp[key] = feature.environmentSettings?.[key]?.rules || [];
+      const legacyEnv = envSettings?.[key] as
+        | LegacyFeatureEnvironment
+        | undefined;
+      comp[key] = legacyEnv?.rules || [];
     });
 
     if (!isEqual(comp, draft.rules)) {
@@ -317,14 +341,33 @@ function draftHasChanges(
   return false;
 }
 
-export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
+// Helper function to convert FeatureRule to LegacyFeatureRule (removes uid/environments/allEnvironments)
+function toLegacyRule(rule: FeatureRule): LegacyFeatureRule {
+  const {
+    uid: _uid,
+    environments: _environments,
+    allEnvironments: _allEnvironments,
+    ...legacyRule
+  } = rule;
+  // Explicitly type as LegacyFeatureRule by omitting the new fields
+  return legacyRule as Omit<
+    FeatureRule,
+    "uid" | "environments" | "allEnvironments"
+  > as LegacyFeatureRule;
+}
+
+export function upgradeFeatureRule(rule: LegacyFeatureRule): LegacyFeatureRule {
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
+    const experimentRule = rule as Extract<
+      LegacyFeatureRule,
+      { type: "experiment" }
+    >;
     rule.coverage = 1;
-    const weights = rule.values
-      .map((v) => v.weight)
-      .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
-      .map((w) => roundVariationWeight(w));
+    const weights = experimentRule.values
+      .map((v: { value: string; weight: number }) => v.weight)
+      .map((w: number) => (w < 0 ? 0 : w > 1 ? 1 : w))
+      .map((w: number) => roundVariationWeight(w));
     const totalWeight = getTotalVariationWeight(weights);
     if (totalWeight <= 0) {
       rule.coverage = 0;
@@ -334,81 +377,157 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 
     const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
     const adjustedWeights = adjustWeights(
-      weights.map((w) => roundVariationWeight(w * multiplier)),
+      weights.map((w: number) => roundVariationWeight(w * multiplier)),
     );
 
-    rule.values = rule.values.map((v, j) => {
-      return { ...v, weight: adjustedWeights[j] };
-    });
+    experimentRule.values = experimentRule.values.map(
+      (v: { value: string; weight: number }, j: number) => {
+        return { ...v, weight: adjustedWeights[j] };
+      },
+    );
   }
 
   return rule;
 }
 
+// Accepts database documents which may have very old format (top-level rules/environments)
+// or legacy format (environmentSettings with rules), and upgrades to modern format
+/**
+ * Upgrades revision rules from legacy format (Record<string, LegacyFeatureRule[]>)
+ * to modern format (FeatureRule[] with uid/environments/allEnvironments)
+ */
+export function upgradeRevisionRules(
+  legacyRules: Record<string, LegacyFeatureRule[]> | FeatureRule[],
+): FeatureRule[] {
+  // If already in modern format (array), return as-is
+  if (Array.isArray(legacyRules)) {
+    return legacyRules;
+  }
+
+  // Convert legacy format (rules per environment) to modern format
+  const modernRules: FeatureRule[] = [];
+
+  for (const [envId, envRules] of Object.entries(legacyRules)) {
+    envRules.forEach((legacyRule: LegacyFeatureRule) => {
+      modernRules.push({
+        ...legacyRule,
+        uid:
+          (legacyRule as LegacyFeatureRule & { uid?: string }).uid || uuidv4(),
+        environments: (
+          legacyRule as LegacyFeatureRule & { environments?: string[] }
+        ).environments || [envId],
+        allEnvironments:
+          (legacyRule as LegacyFeatureRule & { allEnvironments?: boolean })
+            .allEnvironments ?? false,
+      } as FeatureRule);
+    });
+  }
+
+  return modernRules;
+}
+
 export function upgradeFeatureInterface(
-  feature: LegacyFeatureInterface,
+  feature: LegacyFeatureInterface & {
+    environments?: string[];
+    rules?: LegacyFeatureRule[];
+    revision?: unknown; // Deprecated field from very old documents
+    draft?: FeatureDraftChanges;
+  },
 ): FeatureInterface {
-  const { environments, rules, revision, draft, ...newFeature } = feature;
+  const { environments, rules, revision, draft, ...rest } = feature;
+
+  // Build up the feature object with explicit typing
+  const newFeature: Partial<FeatureInterface> & {
+    environmentSettings?: Record<
+      string,
+      Partial<LegacyFeatureEnvironment> | LegacyFeatureEnvironment
+    >;
+  } = {
+    ...rest,
+    version:
+      feature.version ||
+      (revision && typeof revision === "object" && "version" in revision
+        ? (revision as { version?: number }).version
+        : undefined) ||
+      1,
+  };
 
   // Copy over old way of storing rules/toggles to new environment-scoped settings
-  updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
   updateEnvironmentSettings(
-    rules || [],
+    (rules as LegacyFeatureRule[]) || [],
+    environments || [],
+    "dev",
+    newFeature,
+  );
+  updateEnvironmentSettings(
+    (rules as LegacyFeatureRule[]) || [],
     environments || [],
     "production",
     newFeature,
   );
 
-  newFeature.version = feature.version || revision?.version || 1;
-
   // Upgrade all published rules
   for (const env in newFeature.environmentSettings) {
     const settings = newFeature.environmentSettings[env];
     if (settings?.rules) {
-      settings.rules = settings.rules.map((r) => upgradeFeatureRule(r));
+      settings.rules = settings.rules.map((r: LegacyFeatureRule) =>
+        upgradeFeatureRule(r),
+      );
     }
   }
 
   if (draft) {
-    // Upgrade all draft rules
+    // Upgrade all draft rules (drafts use legacy format, so we just upgrade the rule structure, not to modern format)
     if (draft?.rules) {
       for (const env in draft.rules) {
-        const rules = draft.rules;
-        rules[env] = rules[env].map((r) => upgradeFeatureRule(r));
+        const draftRules = draft.rules;
+        draftRules[env] = draftRules[env].map((r: LegacyFeatureRule) =>
+          upgradeFeatureRule(r),
+        ) as LegacyFeatureRule[];
       }
     }
     // Ignore drafts if nothing has changed
-    if (draft?.active && !draftHasChanges(newFeature, draft)) {
+    if (
+      draft?.active &&
+      !draftHasChanges(newFeature as FeatureInterface, draft)
+    ) {
       draft.active = false;
     }
 
     if (draft.active) {
-      const revisionRules: Record<string, FeatureRule[]> = {};
-      Object.entries(newFeature.environmentSettings).forEach(
-        ([env, { rules }]) => {
-          revisionRules[env] = rules;
+      const revisionRules: Record<string, LegacyFeatureRule[]> = {};
+      // Get rules from top-level rules array and convert to legacy format (per environment)
+      // for the draft revision
+      const envIds = Object.keys(newFeature.environmentSettings || {});
+      envIds.forEach((env) => {
+        // Get rules for this environment from top-level rules array
+        const envRules = (newFeature.rules || []).filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(env),
+        );
+        // Convert to legacy format (remove uid/environments/allEnvironments)
+        revisionRules[env] = envRules.map(toLegacyRule) as LegacyFeatureRule[];
 
-          if (draft.rules && draft.rules[env]) {
-            revisionRules[env] = draft.rules[env];
-          }
-        },
-      );
+        // Override with draft rules if they exist
+        if (draft.rules && draft.rules[env]) {
+          revisionRules[env] = draft.rules[env];
+        }
+      });
 
       newFeature.legacyDraft = {
-        baseVersion: newFeature.version,
+        baseVersion: newFeature.version || 1,
         comment: draft.comment || "",
         createdBy: null,
         dateCreated: draft.dateCreated || feature.dateCreated,
         datePublished: null,
         dateUpdated: draft.dateUpdated || feature.dateUpdated,
-        defaultValue: draft.defaultValue ?? newFeature.defaultValue,
-        featureId: newFeature.id,
-        organization: newFeature.organization,
+        defaultValue: draft.defaultValue ?? newFeature.defaultValue ?? "",
+        featureId: newFeature.id || feature.id,
+        organization: newFeature.organization || feature.organization,
         publishedBy: null,
         status: "draft",
-        version: newFeature.version + 1,
-        rules: revisionRules,
-      };
+        version: (newFeature.version || 1) + 1,
+        rules: revisionRules, // Legacy format: Record<string, LegacyFeatureRule[]>
+      } as unknown as FeatureRevisionInterface;
     }
   }
 
@@ -425,7 +544,59 @@ export function upgradeFeatureInterface(
     };
   }
 
-  return newFeature;
+  // Migrate to multi-env rules format
+  // If feature already has top-level rules array, it's already migrated
+  let finalRules: FeatureRule[] = [];
+  const finalEnvironmentSettings: Record<string, FeatureEnvironment> = {};
+
+  if (newFeature.rules && newFeature.rules.length > 0) {
+    // Already migrated - use existing rules
+    finalRules = newFeature.rules as FeatureRule[];
+    // Convert environmentSettings to modern format
+    for (const [envId, envSettings] of Object.entries(
+      newFeature.environmentSettings || {},
+    )) {
+      const legacyEnv = envSettings as LegacyFeatureEnvironment;
+      finalEnvironmentSettings[envId] = {
+        enabled: legacyEnv.enabled ?? false,
+      };
+    }
+  } else {
+    // Need to migrate - build rules array from environmentSettings
+    const multiEnvRules: FeatureRule[] = [];
+
+    // Process each environment's rules
+    for (const [envId, envSettings] of Object.entries(
+      newFeature.environmentSettings || {},
+    )) {
+      const legacyEnv = envSettings as LegacyFeatureEnvironment;
+      if (legacyEnv?.rules) {
+        legacyEnv.rules.forEach((rule: LegacyFeatureRule) => {
+          multiEnvRules.push({
+            ...rule,
+            uid: rule.uid || uuidv4(), // Use existing uid if present, otherwise generate
+            environments: rule.environments || [envId],
+            allEnvironments: rule.allEnvironments ?? false,
+          } as FeatureRule);
+        });
+      }
+      // Build modern environmentSettings (just enabled flag)
+      finalEnvironmentSettings[envId] = {
+        enabled: legacyEnv.enabled ?? false,
+      };
+    }
+
+    finalRules = multiEnvRules;
+  }
+
+  // Construct final FeatureInterface
+  const result: FeatureInterface = {
+    ...newFeature,
+    rules: finalRules,
+    environmentSettings: finalEnvironmentSettings,
+  } as FeatureInterface;
+
+  return result;
 }
 
 export function upgradeOrganizationDoc(

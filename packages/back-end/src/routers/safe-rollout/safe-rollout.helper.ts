@@ -13,12 +13,16 @@ export function getSafeRolloutRuleFromFeature(
     if (omitDisabledEnvironments && !environment.enabled) {
       continue;
     }
-    for (const rule of environment.rules) {
+    // Get rules for this environment from top-level rules array
+    const envRules = feature.rules.filter(
+      (rule) => rule.allEnvironments || rule.environments?.includes(env),
+    );
+    for (const rule of envRules) {
       if (
         rule.type === "safe-rollout" &&
         rule.safeRolloutId === safeRolloutId
       ) {
-        return rule;
+        return rule as SafeRolloutRule;
       }
     }
   }

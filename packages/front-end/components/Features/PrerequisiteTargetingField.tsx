@@ -135,11 +135,16 @@ export default function PrerequisiteTargetingField({
 
       // check if selecting this would be cyclic:
       let wouldBeCyclic = false;
-      if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
+      const envId = environments?.[0];
+      if (envId && feature?.rules) {
         const newFeature = cloneDeep(feature);
         const revision = revisions?.find((r) => r.version === version);
         const newRevision = cloneDeep(revision);
-        const fakeRule: ForceRule = {
+        const fakeRule: ForceRule & {
+          uid: string;
+          environments: string[];
+          allEnvironments: boolean;
+        } = {
           type: "force",
           description: "fake rule",
           id: "fake-rule",
@@ -151,13 +156,21 @@ export default function PrerequisiteTargetingField({
             },
           ],
           enabled: true,
+          uid: `fake-${Date.now()}`,
+          environments: [envId],
+          allEnvironments: false,
+        } as ForceRule & {
+          uid: string;
+          environments: string[];
+          allEnvironments: boolean;
         };
         if (newRevision) {
-          newRevision.rules[environments[0]] =
-            newRevision.rules[environments[0]] || [];
-          newRevision.rules[environments[0]].push(fakeRule);
+          // Revisions now use modern format: top-level rules array
+          newRevision.rules = newRevision.rules || [];
+          newRevision.rules.push(fakeRule);
         } else {
-          newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
+          // Add fake rule to top-level rules array
+          newFeature.rules = [...(newFeature.rules || []), fakeRule];
         }
 
         wouldBeCyclic = isFeatureCyclic(

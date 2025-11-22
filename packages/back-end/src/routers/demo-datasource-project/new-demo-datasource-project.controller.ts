@@ -8,6 +8,7 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { v4 as uuidv4 } from "uuid";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
@@ -21,7 +22,11 @@ import { createSnapshot } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { DataSourceSettings } from "back-end/types/datasource";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
+import {
+  ExperimentRefRule,
+  FeatureInterface,
+  FeatureRule,
+} from "back-end/types/feature";
 import { ProjectInterface } from "back-end/types/project";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -432,6 +437,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
     });
 
     // Create feature
+    const featureRules: FeatureRule[] = [];
     const featureToCreate: FeatureInterface = {
       id: getDemoDataSourceFeatureId(),
       version: 1,
@@ -446,46 +452,61 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       defaultValue: "false",
       tags: DEMO_TAGS,
       environmentSettings: {},
+      rules: [],
     };
 
     environments.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,
-        rules: [
-          {
-            type: "force",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
-            value: "true",
-            condition: `{"is_employee":true}`,
-            enabled: true,
-          },
-          {
-            type: "experiment-ref",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
-            enabled: true,
-            experimentId: DEMO_DATA_EXPERIMENT_ID, // This value is replaced below after the experiment is created.
-            variations: [
-              {
-                variationId: "v0",
-                value: "false",
-              },
-              {
-                variationId: "v1",
-                value: "true",
-              },
-            ],
-          },
-        ],
       };
 
-      featureToCreate.environmentSettings[env].rules.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          (rule as ExperimentRefRule).experimentId = createdExperiment.id;
-        }
-      });
+      const envRules: FeatureRule[] = [
+        {
+          type: "force",
+          description: "",
+          id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
+          value: "true",
+          condition: `{"is_employee":true}`,
+          enabled: true,
+        },
+        {
+          type: "experiment-ref",
+          description: "",
+          id: `${getDemoDataSourceFeatureId()}-exp-rule`,
+          enabled: true,
+          experimentId: DEMO_DATA_EXPERIMENT_ID, // This value is replaced below after the experiment is created.
+          variations: [
+            {
+              variationId: "v0",
+              value: "false",
+            },
+            {
+              variationId: "v1",
+              value: "true",
+            },
+          ],
+        },
+      ].map(
+        (rule) =>
+          ({
+            ...rule,
+            uid: uuidv4(),
+            environments: [env],
+            allEnvironments: false,
+          }) as FeatureRule,
+      );
+
+      featureRules.push(...envRules);
     });
+
+    // Update experiment-ref rules with the created experiment ID
+    featureRules.forEach((rule) => {
+      if (rule.type === "experiment-ref") {
+        (rule as ExperimentRefRule).experimentId = createdExperiment.id;
+      }
+    });
+
+    featureToCreate.rules = featureRules;
 
     await createFeature(context, featureToCreate);
 

@@ -11,7 +11,7 @@ import {
   filterEnvironmentsByFeature,
 } from "shared/util";
 import clsx from "clsx";
-import { useEnvironments } from "@/services/features";
+import { getRules, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -182,7 +182,7 @@ export default function FixConflictsModal({
     }
     if (result.rules) {
       environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
+        const liveRules = getRules(feature, env.id);
         if (result.rules && result.rules[env.id]) {
           diffs.push({
             title: `Rules - ${env.id}`,

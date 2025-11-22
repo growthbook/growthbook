@@ -291,22 +291,17 @@ export const SimulateFeatureValues: FC<{
                   feature.prerequisites?.map((p) => {
                     return p.id;
                   }) ?? [];
-                if (feature.environmentSettings) {
-                  Object.values(feature.environmentSettings).forEach(
-                    (envSetting) => {
-                      if (envSetting.rules) {
-                        envSetting.rules.forEach((rule) => {
-                          if (rule.prerequisites) {
-                            rule.prerequisites.forEach((p) => {
-                              if (!prerequisites.includes(p.id)) {
-                                prerequisites.push(p.id);
-                              }
-                            });
-                          }
-                        });
-                      }
-                    },
-                  );
+                // Iterate over top-level rules array
+                if (feature.rules) {
+                  feature.rules.forEach((rule) => {
+                    if (rule.prerequisites) {
+                      rule.prerequisites.forEach((p) => {
+                        if (!prerequisites.includes(p.id)) {
+                          prerequisites.push(p.id);
+                        }
+                      });
+                    }
+                  });
                 }
                 return (
                   <Fragment key={feature.id + "results"}>

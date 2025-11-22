@@ -11,6 +11,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
+import { v4 as uuidv4 } from "uuid";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -57,8 +58,7 @@ const genEnvironmentSettings = ({
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;
@@ -98,6 +98,7 @@ const genFormDefaultValues = ({
     project,
     tags: experiment.tags || [],
     environmentSettings,
+    rules: [], // Top-level rules array
     variations: experiment.variations.map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
@@ -241,7 +242,11 @@ export default function FeatureFromExperimentModal({
         }
 
         let hasChanges = false;
-        const rule: ExperimentRefRule = {
+        const rule: ExperimentRefRule & {
+          uid: string;
+          environments: string[];
+          allEnvironments: boolean;
+        } = {
           type: "experiment-ref",
           description: "",
           id: "",
@@ -250,6 +255,9 @@ export default function FeatureFromExperimentModal({
           scheduleRules: [],
           experimentId: experiment.id,
           variations,
+          uid: uuidv4(),
+          environments: [],
+          allEnvironments: false,
         };
 
         const newRule = validateFeatureRule(rule, featureToCreate);
@@ -297,12 +305,16 @@ export default function FeatureFromExperimentModal({
             },
           );
         } else {
-          // Add experiment rule to all environments
-          Object.values(featureToCreate.environmentSettings).forEach(
-            (settings) => {
-              settings.rules.push(rule);
+          // Add experiment rule to top-level rules array, tagged for all environments
+          const allEnvIds = Object.keys(featureToCreate.environmentSettings);
+          featureToCreate.rules = [
+            {
+              ...rule,
+              uid: uuidv4(),
+              environments: allEnvIds,
+              allEnvironments: false,
             },
-          );
+          ];
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {
             method: "POST",

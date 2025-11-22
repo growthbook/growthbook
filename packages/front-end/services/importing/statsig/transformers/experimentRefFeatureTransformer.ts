@@ -1,4 +1,5 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { v4 as uuidv4 } from "uuid";
 import { StatsigExperiment } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 
@@ -65,16 +66,17 @@ export function transformStatsigExperimentToFeature(
   const valueType: "boolean" | "string" | "number" | "json" =
     hasNonEmptyParameterValues ? "json" : "number";
 
-  // Create environment settings
+  // Initialize environment settings (only enabled flags, no rules)
   const environmentSettings: FeatureInterface["environmentSettings"] = {};
 
   // Initialize all available environments
   availableEnvironments.forEach((envKey) => {
     environmentSettings[envKey] = {
       enabled: true,
-      rules: [],
     };
   });
+
+  const featureRules: FeatureRule[] = [];
 
   // Process targeting rules
   targetingRules.forEach((rule, ruleIndex) => {
@@ -97,8 +99,8 @@ export function transformStatsigExperimentToFeature(
       const targetEnvironments =
         rule.enabledEnvironments || availableEnvironments;
 
-      // Create the rule
-      const gbRule: FeatureRule = {
+      // Create the rule with all required fields
+      featureRules.push({
         type: "force",
         id: rule.id || `rule_${ruleIndex}`,
         description: rule.groupName,
@@ -108,21 +110,17 @@ export function transformStatsigExperimentToFeature(
         savedGroups: transformedCondition.savedGroups,
         prerequisites: transformedCondition.prerequisites,
         scheduleRules: transformedCondition.scheduleRules || [],
-      };
-
-      // Add the rule to all target environments
-      targetEnvironments.forEach((envKey) => {
-        if (environmentSettings[envKey]) {
-          environmentSettings[envKey].rules.push(gbRule);
-        }
-      });
+        uid: uuidv4(),
+        environments: targetEnvironments,
+        allEnvironments: false,
+      } as FeatureRule);
     } catch (error) {
       console.error(`Error transforming targeting rule ${rule.id}:`, error);
     }
   });
 
-  // Add experiment-ref rule to all environments
-  const experimentRefRule: FeatureRule = {
+  // Add experiment-ref rule tagged for all environments
+  featureRules.push({
     type: "experiment-ref",
     id: `fr_${gbExperiment.id}`, // Use GrowthBook experiment ID
     description: "",
@@ -139,14 +137,10 @@ export function transformStatsigExperimentToFeature(
         value: JSON.stringify(group.parameterValues),
       };
     }),
-  };
-
-  // Add experiment-ref rule to all environments
-  availableEnvironments.forEach((envKey) => {
-    if (environmentSettings[envKey]) {
-      environmentSettings[envKey].rules.push(experimentRefRule);
-    }
-  });
+    uid: uuidv4(),
+    environments: availableEnvironments,
+    allEnvironments: false,
+  } as FeatureRule);
 
   // Format owner information
   const ownerString = owner ? `${owner.ownerName} (${owner.ownerEmail})` : "";
@@ -157,6 +151,7 @@ export function transformStatsigExperimentToFeature(
     valueType,
     defaultValue: valueType === "json" ? "{}" : "0",
     environmentSettings,
+    rules: featureRules,
     owner: ownerString,
     tags: tags || [],
     project: project || "",

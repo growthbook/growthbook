@@ -7,6 +7,7 @@ import {
 } from "back-end/types/feature";
 import { ConditionInterface } from "@growthbook/growthbook-react";
 import { uniqBy } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import { ApiCallType } from "@/services/auth";
 
 // Various utilities to help migrate from another service to GrowthBook
@@ -380,10 +381,11 @@ export const transformLDFeatureFlag = (
   const defaultValue = variationValues[defaultValueIndex];
 
   const gbEnvironments: FeatureInterface["environmentSettings"] = {};
+  const featureRules: FeatureRule[] = [];
+
+  // Process each environment and create rules directly in modern format
   envKeys.forEach((envKey) => {
     const envData = environments[envKey];
-
-    const rules: FeatureRule[] = [];
 
     // If there are prerequisites, add force rules to the top
     if (envData.prerequisites?.length) {
@@ -413,7 +415,7 @@ export const transformLDFeatureFlag = (
             ? { $eq: !parentJSONValue }
             : { $ne: parentJSONValue };
 
-        rules.push({
+        featureRules.push({
           type: "force",
           id: `rule_prereqs_${i}`,
           description: `Prerequisite feature ${i + 1}`,
@@ -427,7 +429,10 @@ export const transformLDFeatureFlag = (
           enabled: true,
           value: offVariation,
           savedGroups: [],
-        });
+          uid: uuidv4(),
+          environments: [envKey],
+          allEnvironments: false,
+        } as FeatureRule);
       });
     }
 
@@ -441,7 +446,7 @@ export const transformLDFeatureFlag = (
         }
       });
     targets.forEach((target, i) => {
-      rules.push({
+      featureRules.push({
         type: "force",
         id: `rule_targets_${i}`,
         description: "Targets",
@@ -453,7 +458,10 @@ export const transformLDFeatureFlag = (
         enabled: true,
         value: variationValues[target.variation],
         savedGroups: [],
-      });
+        uid: uuidv4(),
+        environments: [envKey],
+        allEnvironments: false,
+      } as FeatureRule);
     });
 
     // Then add other rules
@@ -481,7 +489,7 @@ export const transformLDFeatureFlag = (
           );
           const coverage = Math.min(1, Math.max(totalWeight / 100000, 0));
 
-          rules.push({
+          featureRules.push({
             type: "experiment",
             id: rule._id || `rule_${i}`,
             description: rule.description || "",
@@ -495,7 +503,10 @@ export const transformLDFeatureFlag = (
             })),
             coverage: coverage,
             savedGroups: [],
-          });
+            uid: uuidv4(),
+            environments: [envKey],
+            allEnvironments: false,
+          } as FeatureRule);
           return;
         }
 
@@ -503,7 +514,7 @@ export const transformLDFeatureFlag = (
           throw new Error("Rule found without a variation");
         }
 
-        rules.push({
+        featureRules.push({
           type: "force",
           id: rule._id || `rule_${i}`,
           description: rule.description || "",
@@ -511,7 +522,10 @@ export const transformLDFeatureFlag = (
           enabled: true,
           value: variationValues[rule.variation],
           savedGroups: [],
-        });
+          uid: uuidv4(),
+          environments: [envKey],
+          allEnvironments: false,
+        } as FeatureRule);
       } catch (e) {
         console.error("Error transforming rule", e, {
           envKey,
@@ -525,7 +539,7 @@ export const transformLDFeatureFlag = (
     // add a force rule without a condition to the end
     const fallthrough = getFallthroughForEnvironments(envKey);
     if (fallthrough !== null && fallthrough !== defaultValueIndex) {
-      rules.push({
+      featureRules.push({
         type: "force",
         id: `rule_fallthrough`,
         description: "Fallthrough",
@@ -533,12 +547,14 @@ export const transformLDFeatureFlag = (
         value: variationValues[fallthrough],
         condition: "{}",
         savedGroups: [],
-      });
+        uid: uuidv4(),
+        environments: [envKey],
+        allEnvironments: false,
+      } as FeatureRule);
     }
 
     gbEnvironments[envKey] = {
       enabled: environments[envKey].on,
-      rules: rules,
     };
   });
 
@@ -548,6 +564,7 @@ export const transformLDFeatureFlag = (
 
   return {
     environmentSettings: gbEnvironments,
+    rules: featureRules,
     defaultValue: defaultValue,
     project,
     id: key,

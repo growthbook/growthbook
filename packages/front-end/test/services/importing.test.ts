@@ -335,24 +335,26 @@ describe("importing utils", () => {
           defaultValue: "true",
           environmentSettings: {
             development: {
-              rules: [],
               enabled: false,
             },
             production: {
-              rules: [
-                {
-                  id: "rule_fallthrough",
-                  description: "Fallthrough",
-                  enabled: true,
-                  type: "force",
-                  value: "false",
-                  condition: "{}",
-                  savedGroups: [],
-                },
-              ],
               enabled: false,
             },
           },
+          rules: [
+            {
+              id: "rule_fallthrough",
+              description: "Fallthrough",
+              enabled: true,
+              type: "force",
+              value: "false",
+              condition: "{}",
+              savedGroups: [],
+              uid: "test-uid-1",
+              environments: ["production"],
+              allEnvironments: false,
+            },
+          ],
           valueType: "boolean",
         },
       ];
@@ -760,12 +762,17 @@ describe("importing utils", () => {
         "prj_xyz987",
       );
 
-      const ruleIds0 = result?.[0]?.environmentSettings?.[
-        "production"
-      ]?.rules?.map((r) => r.id);
-      const ruleIds1 = result?.[1]?.environmentSettings?.[
-        "production"
-      ]?.rules?.map((r) => r.id);
+      // Rules are now in top-level rules array, not in environmentSettings
+      const ruleIds0 = result?.[0]?.rules
+        ?.filter(
+          (r) => r.allEnvironments || r.environments?.includes("production"),
+        )
+        ?.map((r) => r.id);
+      const ruleIds1 = result?.[1]?.rules
+        ?.filter(
+          (r) => r.allEnvironments || r.environments?.includes("production"),
+        )
+        ?.map((r) => r.id);
 
       const expected: Omit<
         FeatureInterface,
@@ -781,62 +788,70 @@ describe("importing utils", () => {
           environmentSettings: {
             production: {
               enabled: true,
-              rules: [
-                {
-                  id: ruleIds0[0],
-                  description: "Prerequisite feature 1",
-                  enabled: true,
-                  type: "force",
-                  prerequisites: [
-                    {
-                      condition: JSON.stringify({ value: { $ne: "b" } }),
-                      id: "ff-test-multiple-rules",
-                    },
-                  ],
-                  value: "2",
-                  condition: "",
-                  savedGroups: [],
-                },
-                {
-                  id: ruleIds0[1] || "",
-                  description: "Rule 1",
-                  enabled: true,
-                  type: "force",
-                  value: "3",
-                  condition: JSON.stringify({
-                    firstName: {
-                      $in: ["a", "b", "c"],
-                    },
-                  }),
-                  savedGroups: [],
-                },
-                {
-                  id: ruleIds0[2] || "",
-                  description: "Rule 2",
-                  enabled: true,
-                  type: "force",
-                  value: "3",
-                  condition: JSON.stringify({
-                    $and: [
-                      {
-                        key: { $eq: "new test" },
-                      },
-                      {
-                        email: {
-                          $in: ["abc@growthbook.io", "def@growthbook.io"],
-                        },
-                      },
-                    ],
-                  }),
-                  savedGroups: [],
-                },
-              ],
             },
             test: {
               enabled: false,
-              rules: [],
             },
           },
+          rules: [
+            {
+              id: ruleIds0[0],
+              description: "Prerequisite feature 1",
+              enabled: true,
+              type: "force",
+              prerequisites: [
+                {
+                  condition: JSON.stringify({ value: { $ne: "b" } }),
+                  id: "ff-test-multiple-rules",
+                },
+              ],
+              value: "2",
+              condition: "",
+              savedGroups: [],
+              uid: "test-uid-prereq-1",
+              environments: ["production"],
+              allEnvironments: false,
+            },
+            {
+              id: ruleIds0[1] || "",
+              description: "Rule 1",
+              enabled: true,
+              type: "force",
+              value: "3",
+              condition: JSON.stringify({
+                firstName: {
+                  $in: ["a", "b", "c"],
+                },
+              }),
+              savedGroups: [],
+              uid: "test-uid-rule-1",
+              environments: ["production"],
+              allEnvironments: false,
+            },
+            {
+              id: ruleIds0[2] || "",
+              description: "Rule 2",
+              enabled: true,
+              type: "force",
+              value: "3",
+              condition: JSON.stringify({
+                $and: [
+                  {
+                    key: { $eq: "new test" },
+                  },
+                  {
+                    email: {
+                      $in: ["abc@growthbook.io", "def@growthbook.io"],
+                    },
+                  },
+                ],
+              }),
+              savedGroups: [],
+              uid: "test-uid-rule-2",
+              environments: ["production"],
+              allEnvironments: false,
+            },
+          ],
           valueType: "number",
         },
         {
@@ -849,54 +864,60 @@ describe("importing utils", () => {
           environmentSettings: {
             production: {
               enabled: true,
-              rules: [
-                {
-                  id: ruleIds1[0] || "",
-                  description: "",
-                  enabled: true,
-                  type: "experiment",
-                  condition: JSON.stringify({
-                    id: {
-                      $inGroup: "seg-1",
-                    },
-                  }),
-                  hashAttribute: "id",
-                  trackingKey: "abcdef-1234-abcd-1234-abcdef123456",
-                  values: [
-                    {
-                      value: "a",
-                      weight: 0.8,
-                    },
-                    {
-                      value: "b",
-                      weight: 0.2,
-                    },
-                    {
-                      value: "c",
-                      weight: 0,
-                    },
-                  ],
-                  coverage: 1,
-                  savedGroups: [],
-                },
-                {
-                  id: ruleIds1[1] || "",
-                  description: "Rule 2",
-                  enabled: true,
-                  type: "force",
-                  value: "b",
-                  condition: JSON.stringify({
-                    $not: {
-                      id: {
-                        $inGroup: "seg-2",
-                      },
-                    },
-                  }),
-                  savedGroups: [],
-                },
-              ],
             },
           },
+          rules: [
+            {
+              id: ruleIds1[0] || "",
+              description: "",
+              enabled: true,
+              type: "experiment",
+              condition: JSON.stringify({
+                id: {
+                  $inGroup: "seg-1",
+                },
+              }),
+              hashAttribute: "id",
+              trackingKey: "abcdef-1234-abcd-1234-abcdef123456",
+              values: [
+                {
+                  value: "a",
+                  weight: 0.8,
+                },
+                {
+                  value: "b",
+                  weight: 0.2,
+                },
+                {
+                  value: "c",
+                  weight: 0,
+                },
+              ],
+              coverage: 1,
+              savedGroups: [],
+              uid: "test-uid-exp-1",
+              environments: ["production"],
+              allEnvironments: false,
+            },
+            {
+              id: ruleIds1[1] || "",
+              description: "Rule 2",
+              enabled: true,
+              type: "force",
+              value: "b",
+              condition: JSON.stringify({
+                $not: {
+                  id: {
+                    $inGroup: "seg-2",
+                  },
+                },
+              }),
+              savedGroups: [],
+              uid: "test-uid-rule-2-2",
+              environments: ["production"],
+              allEnvironments: false,
+            },
+          ],
           valueType: "string",
         },
       ];
@@ -1088,27 +1109,28 @@ describe("importing utils", () => {
           environmentSettings: {
             development: {
               enabled: false,
-              rules: [],
             },
             staging: {
               enabled: false,
-              rules: [],
             },
             production: {
               enabled: false,
-              rules: [
-                {
-                  id: "rule_fallthrough",
-                  description: "Fallthrough",
-                  enabled: true,
-                  type: "force",
-                  value: "",
-                  condition: "{}",
-                  savedGroups: [],
-                },
-              ],
             },
           },
+          rules: [
+            {
+              id: "rule_fallthrough",
+              description: "Fallthrough",
+              enabled: true,
+              type: "force",
+              value: "",
+              condition: "{}",
+              savedGroups: [],
+              uid: "test-uid-fallthrough",
+              environments: ["production"],
+              allEnvironments: false,
+            },
+          ],
           valueType: "string",
         },
       ];

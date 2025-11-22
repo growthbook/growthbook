@@ -233,7 +233,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 />
               </Box>
               <Box flexGrow="1" pr="2">
-                <Flex align="center" justify="between" mb="3" flexGrow="1">
+                <Flex align="center" justify="between" mb="2" flexGrow="1">
                   <Flex
                     flexGrow="1"
                     gap="3"
@@ -393,6 +393,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </MoreMenu>
                     </Flex>
                   )}
+                </Flex>
+                <Flex gap="2" wrap="wrap" mb="4">
+                  {environments.map((env) => {
+                    const isEnabled =
+                      rule.allEnvironments ||
+                      rule.environments?.includes(env.id);
+                    return (
+                      <Badge
+                        key={env.id}
+                        label={env.id}
+                        color={isEnabled ? "gray" : "gray"}
+                        style={{ opacity: isEnabled ? 1 : 0.5 }}
+                        variant="outline"
+                        radius="full"
+                        size="2"
+                      />
+                    );
+                  })}
                 </Flex>
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
