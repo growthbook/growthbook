@@ -722,7 +722,7 @@ describe("full fact metric experiment query - bigquery", () => {
     "amount",
     "$$count",
     "$$distinctUsers",
-    // "$$distinctDates",
+    "$$distinctDates",
   ];
   const binomialColumns: ColumnRef["column"][] = ["$$distinctUsers"];
   const quantileSettings: FactMetricInterface["quantileSettings"][] = [
