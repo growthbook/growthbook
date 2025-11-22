@@ -317,6 +317,23 @@ interface FeatureInterface {
 
 **Files:** `packages/front-end/components/Features/RuleModal/index.tsx`
 
+#### 6.3 Add Experiment to Feature Flag - VERIFICATION REQUIRED
+
+- [ ] Verify `FeatureFromExperimentModal` correctly sets rule environments when adding experiment to feature
+- [ ] Verify rule is created with `environments` array populated from selected environment settings
+- [ ] Verify rule is created with `uid` and `allEnvironments: false`
+- [ ] Test adding experiment to new feature flag
+- [ ] Test adding experiment to existing feature flag
+- [ ] Verify rule appears in correct environment tabs after creation
+
+**Details:**
+
+- `FeatureFromExperimentModal` creates `ExperimentRefRule` with `uid`, `environments`, `allEnvironments`
+- Rule should be tagged to environments where `environmentSettings[env].enabled === true`
+- Rule should NOT have `environments: []` - must be populated from form selections
+
+**Files:** `packages/front-end/components/Features/FeatureModal/FeatureFromExperimentModal.tsx`
+
 ---
 
 ### ⚠️ Phase 7: Reordering Modal - OPTIONAL
