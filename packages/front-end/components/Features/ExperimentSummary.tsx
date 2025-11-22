@@ -30,8 +30,23 @@ export default function ExperimentSummary({
   const { namespaces: allNamespaces } = useOrgSettings();
 
   const hasNamespace = namespace && namespace.enabled;
+  // Calculate total namespace allocation - support both old (single range) and new (multiple ranges) formats
   const namespaceRange = hasNamespace
-    ? namespace.range[1] - namespace.range[0]
+    ? (() => {
+        if (
+          "ranges" in namespace &&
+          namespace.ranges &&
+          namespace.ranges.length > 0
+        ) {
+          return namespace.ranges.reduce(
+            (sum, [start, end]) => sum + (end - start),
+            0,
+          );
+        } else if ("range" in namespace && namespace.range) {
+          return namespace.range[1] - namespace.range[0];
+        }
+        return 1;
+      })()
     : 1;
   const effectiveCoverage = namespaceRange * (coverage ?? 1);
 

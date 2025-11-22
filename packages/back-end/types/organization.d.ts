@@ -159,6 +159,8 @@ export interface Namespaces {
   label: string;
   description: string;
   status: "active" | "inactive";
+  // Hash attribute for namespace allocation (uses v2 hashing algorithm)
+  hashAttribute: string;
 }
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
