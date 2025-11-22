@@ -71,9 +71,7 @@ const genEnvironmentSettings = ({
         defaultEnabled)
       : false;
     // Get rules for this environment from top-level rules array
-    const rules = featureToDuplicate
-      ? getRules(featureToDuplicate, e.id)
-      : [];
+    const _rules = featureToDuplicate ? getRules(featureToDuplicate, e.id) : [];
 
     envSettings[e.id] = { enabled };
   });

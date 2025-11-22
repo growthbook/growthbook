@@ -11,6 +11,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
+import { v4 as uuidv4 } from "uuid";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -241,7 +242,11 @@ export default function FeatureFromExperimentModal({
         }
 
         let hasChanges = false;
-        const rule: ExperimentRefRule = {
+        const rule: ExperimentRefRule & {
+          uid: string;
+          environments: string[];
+          allEnvironments: boolean;
+        } = {
           type: "experiment-ref",
           description: "",
           id: "",
@@ -250,6 +255,9 @@ export default function FeatureFromExperimentModal({
           scheduleRules: [],
           experimentId: experiment.id,
           variations,
+          uid: uuidv4(),
+          environments: [],
+          allEnvironments: false,
         };
 
         const newRule = validateFeatureRule(rule, featureToCreate);
@@ -298,7 +306,6 @@ export default function FeatureFromExperimentModal({
           );
         } else {
           // Add experiment rule to top-level rules array, tagged for all environments
-          const { v4: uuidv4 } = require("uuid");
           const allEnvIds = Object.keys(featureToCreate.environmentSettings);
           featureToCreate.rules = [
             {

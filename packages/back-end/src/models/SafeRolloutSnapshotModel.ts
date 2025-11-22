@@ -142,7 +142,9 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       }
       // Get rules for this environment from top-level rules array
       const envRules = feature.rules.filter(
-        (rule) => rule.allEnvironments || rule.environments?.includes(safeRollout.environment)
+        (rule) =>
+          rule.allEnvironments ||
+          rule.environments?.includes(safeRollout.environment),
       );
       const ruleIndex = envRules.findIndex(
         (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,

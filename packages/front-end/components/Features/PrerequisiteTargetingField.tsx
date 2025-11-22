@@ -140,7 +140,11 @@ export default function PrerequisiteTargetingField({
         const newFeature = cloneDeep(feature);
         const revision = revisions?.find((r) => r.version === version);
         const newRevision = cloneDeep(revision);
-        const fakeRule: ForceRule = {
+        const fakeRule: ForceRule & {
+          uid: string;
+          environments: string[];
+          allEnvironments: boolean;
+        } = {
           type: "force",
           description: "fake rule",
           id: "fake-rule",
@@ -155,11 +159,15 @@ export default function PrerequisiteTargetingField({
           uid: `fake-${Date.now()}`,
           environments: [envId],
           allEnvironments: false,
+        } as ForceRule & {
+          uid: string;
+          environments: string[];
+          allEnvironments: boolean;
         };
         if (newRevision) {
-          newRevision.rules[envId] =
-            newRevision.rules[envId] || [];
-          newRevision.rules[envId].push(fakeRule);
+          // Revisions now use modern format: top-level rules array
+          newRevision.rules = newRevision.rules || [];
+          newRevision.rules.push(fakeRule);
         } else {
           // Add fake rule to top-level rules array
           newFeature.rules = [...(newFeature.rules || []), fakeRule];

@@ -95,7 +95,7 @@ import {
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
 import { ConfigFile } from "back-end/src/init/config";
-import { ExperimentRule, NamespaceValue } from "back-end/types/feature";
+import { NamespaceValue } from "back-end/types/feature";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import {
@@ -834,7 +834,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       if (!f.environmentSettings?.[env]?.enabled) return;
       // Get rules for this environment from top-level rules array
       const rules = f.rules.filter(
-        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+        (rule) => rule.allEnvironments || rule.environments?.includes(env),
       );
       rules
         .filter(

@@ -397,7 +397,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <Flex gap="2" wrap="wrap" mb="4">
                   {environments.map((env) => {
                     const isEnabled =
-                      rule.allEnvironments || rule.environments?.includes(env.id);
+                      rule.allEnvironments ||
+                      rule.environments?.includes(env.id);
                     return (
                       <Badge
                         key={env.id}

@@ -8,10 +8,12 @@ import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
+import { v4 as uuidv4 } from "uuid";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
+  LegacyFeatureRule,
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import { FeatureDefinitionWithProject } from "back-end/types/api";
@@ -184,7 +186,7 @@ export function getEnabledEnvironments(
         if (!ruleFilter) return true;
         // Get rules for this environment from top-level rules array
         const envRules = feature.rules.filter(
-          (rule) => rule.allEnvironments || rule.environments?.includes(e)
+          (rule) => rule.allEnvironments || rule.environments?.includes(e),
         );
         if (!envRules.length) return false;
         return envRules.filter(ruleFilter).some((r) => isRuleEnabled(r));
@@ -364,23 +366,29 @@ export function getFeatureDefinition({
     if (Array.isArray(revision.rules)) {
       // Modern format: filter array by environment
       rules = revision.rules.filter(
-        (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+        (rule) =>
+          rule.allEnvironments || rule.environments?.includes(environment),
       );
     } else {
       // Legacy format: access by environment key (for backward compatibility)
-      const { v4: uuidv4 } = require("uuid");
-      const legacyRules = (revision.rules as Record<string, LegacyFeatureRule[]>)[environment] || [];
-      rules = legacyRules.map((legacyRule) => ({
-        ...legacyRule,
-        uid: (legacyRule as unknown as { uid?: string }).uid || uuidv4(),
-        environments: [environment],
-        allEnvironments: false,
-      } as FeatureRule));
+      const legacyRules =
+        (revision.rules as Record<string, LegacyFeatureRule[]>)[environment] ||
+        [];
+      rules = legacyRules.map(
+        (legacyRule) =>
+          ({
+            ...legacyRule,
+            uid: (legacyRule as unknown as { uid?: string }).uid || uuidv4(),
+            environments: [environment],
+            allEnvironments: false,
+          }) as FeatureRule,
+      );
     }
   } else {
     // Use modern format from feature
     rules = feature.rules.filter(
-      (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+      (rule) =>
+        rule.allEnvironments || rule.environments?.includes(environment),
     );
   }
 

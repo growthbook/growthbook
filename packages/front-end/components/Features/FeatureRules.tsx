@@ -1,12 +1,12 @@
 import { FeatureInterface } from "back-end/types/feature";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   FeatureRevisionInterface,
   FeatureRule,
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
-import { Box, Container, Flex, Text } from "@radix-ui/themes";
+import { Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -14,16 +14,12 @@ import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validator
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
-import track from "@/services/track";
 import { useEnvironmentState } from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
-import Button from "@/ui/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import PremiumCallout from "@/ui/PremiumCallout";
 import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 import HoldoutValueModal from "./HoldoutValueModal";
@@ -60,19 +56,19 @@ export default function FeatureRules({
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
   const [selectedEnvs, setSelectedEnvs] = useEnvironmentState();
-  
+
   // Use local state for current tab value (updates immediately)
   // Initialize from selectedEnvs
   const [env, setEnvState] = useState<string>(() => {
     return selectedEnvs.length === 0 ? "" : selectedEnvs[0];
   });
-  
+
   // Sync with selectedEnvs when it changes (e.g., from other sources)
   useEffect(() => {
     const newEnv = selectedEnvs.length === 0 ? "" : selectedEnvs[0];
     setEnvState(newEnv);
   }, [selectedEnvs]);
-  
+
   const setEnv = (value: string) => {
     console.log("setEnv", value);
     // Update local state immediately for UI responsiveness
@@ -84,7 +80,7 @@ export default function FeatureRules({
       setSelectedEnvs([value]);
     }
   };
-  
+
   const [ruleModal, setRuleModal] = useState<{
     i: number;
     environment: string;
@@ -116,7 +112,9 @@ export default function FeatureRules({
 
   const tabEnvs = environments.slice(0, 4);
   const dropdownEnvs = environments.slice(4);
-  const selectedDropdownEnv = dropdownEnvs.find((e) => selectedEnvs.includes(e.id))?.id;
+  const selectedDropdownEnv = dropdownEnvs.find((e) =>
+    selectedEnvs.includes(e.id),
+  )?.id;
 
   const gb = useGrowthBook<AppFeatures>();
   const isSafeRolloutPromoEnabled = gb.isOn("safe-rollout-promo");
@@ -133,121 +131,127 @@ export default function FeatureRules({
           >
             <TabsList className="w-full" style={{ boxShadow: "none" }}>
               <Flex wrap="wrap" overflow="hidden">
-                 <TabsTrigger value={""} key="all">
-                   <Flex maxWidth="220px">
-                     <Text truncate title="All Environments">
-                       All Environments
-                     </Text>
-                   </Flex>
-                   <Badge
-                     ml="2"
-                     label={allRules.length.toString()}
-                     radius="full"
-                     variant="solid"
-                     color="violet"
-                   />
-                 </TabsTrigger>
-                 {tabEnvs.map((e) => {
-                   const envRules = allRules.filter(
-                     (rule) => rule.allEnvironments || rule.environments?.includes(e.id)
-                   );
-                   return (
-                     <TabsTrigger value={e.id} key={e.id}>
-                       <Flex maxWidth="220px">
-                         <Text truncate title={e.id}>
-                           {e.id}
-                         </Text>
-                       </Flex>
-                       <Badge
-                         ml="2"
-                         label={
-                           holdout?.environmentSettings?.[e.id]?.enabled
-                             ? (envRules.length + 1).toString()
-                             : envRules.length.toString()
-                         }
-                         radius="full"
-                         variant="solid"
-                         color="violet"
-                       />
-                     </TabsTrigger>
-                   );
-                 })}
-                 {dropdownEnvs.length === 1 && (() => {
-                   const e = dropdownEnvs[0];
-                   const envRules = allRules.filter(
-                     (rule) => rule.allEnvironments || rule.environments?.includes(e.id)
-                   );
-                   return (
-                     <TabsTrigger value={e.id}>
-                       <Flex maxWidth="220px">
-                         <Text truncate title={e.id}>
-                           {e.id}
-                         </Text>
-                       </Flex>
-                       <Badge
-                         ml="2"
-                         label={
-                           holdout?.environmentSettings[e.id].enabled
-                             ? (envRules.length + 1).toString()
-                             : envRules.length.toString()
-                         }
-                         radius="full"
-                         variant="solid"
-                         color="violet"
-                       />
-                     </TabsTrigger>
-                   );
-                 })()}
-                 {dropdownEnvs.length > 1 && (
-                   <Flex
-                     px="1"
-                     direction="column"
-                     justify="center"
-                     align="center"
-                     className={clsx("tab-trigger-container", {
-                       active: !!selectedDropdownEnv,
-                     })}
-                   >
-                     <Container
-                       flexGrow="0"
-                       minWidth={selectedDropdownEnv ? undefined : "100px"}
-                     >
-                       <EnvironmentDropdown
-                         containerClassName={"select-dropdown-no-underline"}
-                         env={selectedDropdownEnv}
-                         setEnv={setEnv}
-                         environments={dropdownEnvs}
-                         placeholder="Other..."
-                         formatOptionLabel={({ value }) => {
-                           const envRules = allRules.filter(
-                             (rule) => rule.allEnvironments || rule.environments?.includes(value)
-                           );
-                           return (
-                             <Flex align="center">
-                               <Flex maxWidth="150px">
-                                 <Text weight="medium" truncate title={value}>
-                                   {value}
-                                 </Text>
-                               </Flex>
-                               <Badge
-                                 ml="2"
-                                 mr="3"
-                                 label={
-                                   holdout?.environmentSettings[value].enabled
-                                     ? (envRules.length + 1).toString()
-                                     : envRules.length.toString()
-                                 }
-                                 radius="full"
-                                 variant="solid"
-                                 color="violet"
-                               />
-                             </Flex>
-                           );
-                         }}
-                       />
-                     </Container>
-                   </Flex>
-                 )}
+                <TabsTrigger value={""} key="all">
+                  <Flex maxWidth="220px">
+                    <Text truncate title="All Environments">
+                      All Environments
+                    </Text>
+                  </Flex>
+                  <Badge
+                    ml="2"
+                    label={allRules.length.toString()}
+                    radius="full"
+                    variant="solid"
+                    color="violet"
+                  />
+                </TabsTrigger>
+                {tabEnvs.map((e) => {
+                  const envRules = allRules.filter(
+                    (rule) =>
+                      rule.allEnvironments || rule.environments?.includes(e.id),
+                  );
+                  return (
+                    <TabsTrigger value={e.id} key={e.id}>
+                      <Flex maxWidth="220px">
+                        <Text truncate title={e.id}>
+                          {e.id}
+                        </Text>
+                      </Flex>
+                      <Badge
+                        ml="2"
+                        label={
+                          holdout?.environmentSettings?.[e.id]?.enabled
+                            ? (envRules.length + 1).toString()
+                            : envRules.length.toString()
+                        }
+                        radius="full"
+                        variant="solid"
+                        color="violet"
+                      />
+                    </TabsTrigger>
+                  );
+                })}
+                {dropdownEnvs.length === 1 &&
+                  (() => {
+                    const e = dropdownEnvs[0];
+                    const envRules = allRules.filter(
+                      (rule) =>
+                        rule.allEnvironments ||
+                        rule.environments?.includes(e.id),
+                    );
+                    return (
+                      <TabsTrigger value={e.id}>
+                        <Flex maxWidth="220px">
+                          <Text truncate title={e.id}>
+                            {e.id}
+                          </Text>
+                        </Flex>
+                        <Badge
+                          ml="2"
+                          label={
+                            holdout?.environmentSettings[e.id].enabled
+                              ? (envRules.length + 1).toString()
+                              : envRules.length.toString()
+                          }
+                          radius="full"
+                          variant="solid"
+                          color="violet"
+                        />
+                      </TabsTrigger>
+                    );
+                  })()}
+                {dropdownEnvs.length > 1 && (
+                  <Flex
+                    px="1"
+                    direction="column"
+                    justify="center"
+                    align="center"
+                    className={clsx("tab-trigger-container", {
+                      active: !!selectedDropdownEnv,
+                    })}
+                  >
+                    <Container
+                      flexGrow="0"
+                      minWidth={selectedDropdownEnv ? undefined : "100px"}
+                    >
+                      <EnvironmentDropdown
+                        containerClassName={"select-dropdown-no-underline"}
+                        env={selectedDropdownEnv}
+                        setEnv={setEnv}
+                        environments={dropdownEnvs}
+                        placeholder="Other..."
+                        formatOptionLabel={({ value }) => {
+                          const envRules = allRules.filter(
+                            (rule) =>
+                              rule.allEnvironments ||
+                              rule.environments?.includes(value),
+                          );
+                          return (
+                            <Flex align="center">
+                              <Flex maxWidth="150px">
+                                <Text weight="medium" truncate title={value}>
+                                  {value}
+                                </Text>
+                              </Flex>
+                              <Badge
+                                ml="2"
+                                mr="3"
+                                label={
+                                  holdout?.environmentSettings[value].enabled
+                                    ? (envRules.length + 1).toString()
+                                    : envRules.length.toString()
+                                }
+                                radius="full"
+                                variant="solid"
+                                color="violet"
+                              />
+                            </Flex>
+                          );
+                        }}
+                      />
+                    </Container>
+                  </Flex>
+                )}
               </Flex>
             </TabsList>
             <Link
@@ -259,29 +263,29 @@ export default function FeatureRules({
             >
               Compare environments
             </Link>
-           </Flex>
-         </Container>
-         <RuleList
-           environment={env}
-           feature={feature}
-           mutate={mutate}
-           setRuleModal={setRuleModal}
-           setCopyRuleModal={setCopyRuleModal}
-           version={currentVersion}
-           setVersion={setVersion}
-           locked={isLocked}
-           experimentsMap={experimentsMap}
-           hideInactive={hideInactive}
-           isDraft={isDraft}
-           safeRolloutsMap={safeRolloutsMap}
-           holdout={holdout}
-           openHoldoutModal={() => setHoldoutModal(true)}
-           canEditDrafts={canEditDrafts}
-           isSafeRolloutPromoEnabled={isSafeRolloutPromoEnabled}
-           hasSafeRollout={hasSafeRollout}
-           environments={environments}
-         />
-       </Tabs>
+          </Flex>
+        </Container>
+        <RuleList
+          environment={env}
+          feature={feature}
+          mutate={mutate}
+          setRuleModal={setRuleModal}
+          setCopyRuleModal={setCopyRuleModal}
+          version={currentVersion}
+          setVersion={setVersion}
+          locked={isLocked}
+          experimentsMap={experimentsMap}
+          hideInactive={hideInactive}
+          isDraft={isDraft}
+          safeRolloutsMap={safeRolloutsMap}
+          holdout={holdout}
+          openHoldoutModal={() => setHoldoutModal(true)}
+          canEditDrafts={canEditDrafts}
+          isSafeRolloutPromoEnabled={isSafeRolloutPromoEnabled}
+          hasSafeRollout={hasSafeRollout}
+          environments={environments}
+        />
+      </Tabs>
       {ruleModal !== null && (
         <RuleModal
           feature={feature}

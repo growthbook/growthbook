@@ -12,6 +12,7 @@ import {
   JSONSchemaDef,
   LegacyFeatureInterface,
   LegacyFeatureRule,
+  FeatureDraftChanges,
 } from "back-end/types/feature";
 import { ExperimentInterface } from "back-end/types/experiment";
 import {
@@ -21,7 +22,10 @@ import {
   getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
-import { upgradeFeatureInterface } from "back-end/src/util/migrations";
+import {
+  upgradeFeatureInterface,
+  upgradeRevisionRules,
+} from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
   applyEnvironmentInheritance,
@@ -145,13 +149,16 @@ const toInterface = (
   environments?: string[];
   rules?: LegacyFeatureRule[];
   revision?: unknown;
-  draft?: unknown;
+  draft?: FeatureDraftChanges;
 } => {
-  const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]) as LegacyFeatureInterface & {
+  const featureInterface = omit(doc.toJSON<FeatureDocument>(), [
+    "__v",
+    "_id",
+  ]) as LegacyFeatureInterface & {
     environments?: string[];
     rules?: LegacyFeatureRule[];
     revision?: unknown;
-    draft?: unknown;
+    draft?: FeatureDraftChanges;
   };
   featureInterface.environmentSettings = applyEnvironmentInheritance(
     context.org.settings?.environments || [],
@@ -340,7 +347,7 @@ export async function createFeature(
 
   onFeatureCreate(
     context,
-    upgradeFeatureInterface(toInterface(feature, context))
+    upgradeFeatureInterface(toInterface(feature, context)),
   ).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature create");
   });
@@ -388,7 +395,10 @@ export async function deleteAllFeaturesForAProject({
   });
 
   for (const feature of featuresToDelete) {
-    await deleteFeature(context, upgradeFeatureInterface(toInterface(feature, context)));
+    await deleteFeature(
+      context,
+      upgradeFeatureInterface(toInterface(feature, context)),
+    );
   }
 }
 
@@ -805,7 +815,7 @@ export async function addFeatureRule(
 
   // Start with existing revision rules (modern format: FeatureRule[])
   const existingRules = revision.rules || [];
-  
+
   // Create new rule instances for each environment
   const newRules: FeatureRule[] = envs.map((env) => ({
     ...rule,
@@ -846,8 +856,7 @@ export async function editFeatureRule(
   // Get existing rules and filter by environment
   const existingRules = revision.rules || [];
   const envRules = existingRules.filter(
-    (rule) =>
-      rule.allEnvironments || rule.environments?.includes(environment)
+    (rule) => rule.allEnvironments || rule.environments?.includes(environment),
   );
 
   if (i >= envRules.length || i < 0) {
@@ -856,9 +865,7 @@ export async function editFeatureRule(
 
   // Find the rule to update by its position in the filtered list
   const ruleToUpdate = envRules[i];
-  const ruleIndex = existingRules.findIndex(
-    (r) => r.uid === ruleToUpdate.uid
-  );
+  const ruleIndex = existingRules.findIndex((r) => r.uid === ruleToUpdate.uid);
 
   if (ruleIndex === -1) {
     throw new Error("Rule not found");
@@ -900,17 +907,14 @@ export async function copyFeatureEnvironmentRules(
   // Get existing rules and filter by source environment
   const existingRules = revision.rules || [];
   const sourceRules = existingRules.filter(
-    (rule) =>
-      rule.allEnvironments || rule.environments?.includes(sourceEnv)
+    (rule) => rule.allEnvironments || rule.environments?.includes(sourceEnv),
   );
 
   // Create new rule instances for target environment
   const newRules: FeatureRule[] = sourceRules.map((rule) => ({
     ...rule,
     uid: uuidv4(), // New UID for the copied rule
-    environments: rule.allEnvironments
-      ? rule.environments
-      : [targetEnv],
+    environments: rule.allEnvironments ? rule.environments : [targetEnv],
     allEnvironments: false, // Copied rules are environment-specific
   }));
 
@@ -941,7 +945,7 @@ export async function removeTagInFeature(
 
   const featureDocs = await FeatureModel.find(query);
   const features = (featureDocs || []).map((m) =>
-    upgradeFeatureInterface(toInterface(m, context))
+    upgradeFeatureInterface(toInterface(m, context)),
   );
 
   await FeatureModel.updateMany(query, {
@@ -979,7 +983,7 @@ export async function removeProjectFromFeatures(
 
   const featureDocs = await FeatureModel.find(query);
   const features = (featureDocs || []).map((m) =>
-    upgradeFeatureInterface(toInterface(m, context))
+    upgradeFeatureInterface(toInterface(m, context)),
   );
 
   await FeatureModel.updateMany(query, { $set: { project: "" } });
@@ -1107,8 +1111,9 @@ export async function applyRevisionChanges(
       revisionRules = result.rules;
     } else {
       // Legacy format - upgrade (shouldn't happen after migration, but handle for safety)
-      const { upgradeRevisionRules } = require("back-end/src/util/migrations");
-      revisionRules = upgradeRevisionRules(result.rules as Record<string, LegacyFeatureRule[]>);
+      revisionRules = upgradeRevisionRules(
+        result.rules as Record<string, LegacyFeatureRule[]>,
+      );
     }
   }
 
@@ -1126,7 +1131,7 @@ export async function applyRevisionChanges(
 
     // Start with existing rules, remove rules from updated environments, add new ones
     const existingRules = feature.rules.filter(
-      (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+      (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e)),
     );
     changes.rules = [...existingRules, ...revisionRules];
 
@@ -1135,10 +1140,11 @@ export async function applyRevisionChanges(
       changes.environmentSettings ||
       cloneDeep(feature.environmentSettings || {});
     updatedEnvs.forEach((env) => {
-      changes.environmentSettings![env] = changes.environmentSettings![env] || {};
+      changes.environmentSettings![env] =
+        changes.environmentSettings![env] || {};
       changes.environmentSettings![env].enabled =
         changes.environmentSettings![env].enabled ?? false;
-  });
+    });
   }
 
   if (!hasChanges) {
@@ -1209,7 +1215,7 @@ function getLinkedExperiments(
 
   // Add any missing one from the published rules
   feature.rules.forEach((rule) => {
-      if (rule.type === "experiment-ref") {
+    if (rule.type === "experiment-ref") {
       // Only include if rule applies to at least one of the requested environments
       if (
         rule.allEnvironments ||
@@ -1217,7 +1223,7 @@ function getLinkedExperiments(
       ) {
         expIds.add(rule.experimentId);
       }
-      }
+    }
   });
 
   return [...expIds];

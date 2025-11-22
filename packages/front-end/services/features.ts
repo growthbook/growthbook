@@ -37,6 +37,7 @@ import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLau
 import { SavedGroupInterface } from "shared/src/types";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { v4 as uuidv4 } from "uuid";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -82,7 +83,10 @@ export type NewExperimentRefRule = {
 // Single element array means single environment selected
 // Multiple elements means multi-select
 export function useEnvironmentState() {
-  const [state, setState] = useLocalStorage<string | string[]>("currentEnvironment", "dev");
+  const [state, setState] = useLocalStorage<string | string[]>(
+    "currentEnvironment",
+    "dev",
+  );
   const { settings } = useUser();
   const environments = useEnvironments();
   const hasAppliedPreferredEnv = useRef(false);
@@ -144,7 +148,7 @@ export function useEnvironmentState() {
         return;
       }
     },
-    [envIds, setState]
+    [envIds, setState],
   );
 
   return [selectedEnvs, setSelectedEnvs] as const;
@@ -344,10 +348,10 @@ export function useFeatureSearch({
 // Returns all rules if environment is null/undefined, otherwise filters by environment
 export function getRules(
   feature: FeatureInterface,
-  environment: string | null | undefined
+  environment: string | null | undefined,
 ): FeatureRule[] {
   const allRules = feature?.rules ?? [];
-  
+
   // Return all rules if no environment specified
   if (!environment) {
     return allRules;
@@ -355,7 +359,7 @@ export function getRules(
 
   // Filter rules by environment
   return allRules.filter(
-    (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+    (rule) => rule.allEnvironments || rule.environments?.includes(environment),
   );
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
@@ -774,7 +778,6 @@ export function getDefaultRuleValue({
     defaultDataSource = datasources[0].id;
   }
   const value = getDefaultVariationValue(defaultValue);
-  const { v4: uuidv4 } = require("uuid");
   if (ruleType === "rollout") {
     return {
       type: "rollout",

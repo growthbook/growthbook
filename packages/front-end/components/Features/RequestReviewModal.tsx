@@ -187,12 +187,7 @@ export default function RequestReviewModal({
     }
 
     return diffs;
-  }, [
-    environments,
-    feature.defaultValue,
-    feature.environmentSettings,
-    mergeResult,
-  ]);
+  }, [environments, feature, mergeResult]);
 
   if (!revision || !mergeResult) return null;
 

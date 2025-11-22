@@ -187,7 +187,7 @@ const optionalMultiEnvFields = z.object({
 // Legacy rule: base rule with optional multi-env fields (for DB documents that may have them)
 export const legacyFeatureRule = z.intersection(
   baseFeatureRule,
-  optionalMultiEnvFields
+  optionalMultiEnvFields,
 );
 
 export type LegacyFeatureRule = z.infer<typeof legacyFeatureRule>;
@@ -240,7 +240,10 @@ const revisionLog = z
 export type RevisionLog = z.infer<typeof revisionLog>;
 
 // Legacy revision rules format (rules per environment, without uid/environments/allEnvironments)
-const legacyRevisionRulesSchema = z.record(z.string(), z.array(legacyFeatureRule));
+const legacyRevisionRulesSchema = z.record(
+  z.string(),
+  z.array(legacyFeatureRule),
+);
 export type LegacyRevisionRules = z.infer<typeof legacyRevisionRulesSchema>;
 
 // Modern revision rules format (top-level array with uid/environments/allEnvironments)
@@ -283,7 +286,9 @@ const legacyFeatureRevisionInterface = minimalFeatureRevisionInterface
   })
   .strict();
 
-export type LegacyFeatureRevisionInterface = z.infer<typeof legacyFeatureRevisionInterface>;
+export type LegacyFeatureRevisionInterface = z.infer<
+  typeof legacyFeatureRevisionInterface
+>;
 
 // Modern revision interface (after JIT migration)
 const featureRevisionInterface = minimalFeatureRevisionInterface

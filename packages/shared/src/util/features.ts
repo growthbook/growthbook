@@ -7,9 +7,7 @@ import isEqual from "lodash/isEqual";
 import {
   FeatureInterface,
   FeatureRule,
-  ForceRule,
   LegacyFeatureRule,
-  RolloutRule,
   SchemaField,
   SimpleSchema,
   ScheduleRule,
@@ -93,7 +91,7 @@ export function mergeRevision(
   // Revisions now use modern format (top-level array), but may still have legacy format in old data
   const revisionRules: FeatureRule[] = [];
   const updatedEnvs = new Set<string>();
-  
+
   if (Array.isArray(revision.rules)) {
     // Modern format: already an array
     revision.rules.forEach((rule) => {
@@ -108,10 +106,16 @@ export function mergeRevision(
       }
       revisionRules.push(rule);
     });
-  } else if (revision.rules && typeof revision.rules === "object") {
+  } else if (
+    revision.rules &&
+    typeof revision.rules === "object" &&
+    !Array.isArray(revision.rules)
+  ) {
     // Legacy format: Record<string, LegacyFeatureRule[]>
+    // TypeScript needs explicit type guard
+    const legacyRules = revision.rules as Record<string, LegacyFeatureRule[]>;
     environments.forEach((env) => {
-      const revRules = (revision.rules as Record<string, LegacyFeatureRule[]>)[env];
+      const revRules = legacyRules[env];
       if (revRules) {
         updatedEnvs.add(env);
         // Convert legacy rules to modern format
@@ -119,9 +123,14 @@ export function mergeRevision(
           const rule = legacyRule as LegacyFeatureRule;
           revisionRules.push({
             ...rule,
-            uid: (rule as unknown as { uid?: string }).uid || `rev_${env}_${Date.now()}_${Math.random()}`,
-            environments: (rule as unknown as { environments?: string[] }).environments || [env],
-            allEnvironments: (rule as unknown as { allEnvironments?: boolean }).allEnvironments ?? false,
+            uid:
+              (rule as unknown as { uid?: string }).uid ||
+              `rev_${env}_${Date.now()}_${Math.random()}`,
+            environments: (rule as unknown as { environments?: string[] })
+              .environments || [env],
+            allEnvironments:
+              (rule as unknown as { allEnvironments?: boolean })
+                .allEnvironments ?? false,
           } as FeatureRule);
         });
       }
@@ -130,7 +139,7 @@ export function mergeRevision(
 
   // Remove existing rules for updated environments, add revision rules
   const existingRules = newFeature.rules.filter(
-    (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+    (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e)),
   );
   newFeature.rules = [...existingRules, ...revisionRules];
 
@@ -299,10 +308,12 @@ export type StaleFeatureReason = "error" | "no-rules" | "rules-one-sided";
 
 // type guards
 // Note: FeatureRule now includes uid/environments/allEnvironments, so we narrow to FeatureRule & { type: "rollout" }
-const isRolloutRule = (rule: FeatureRule): rule is FeatureRule & { type: "rollout" } =>
-  rule.type === "rollout";
-const isForceRule = (rule: FeatureRule): rule is FeatureRule & { type: "force" } =>
-  rule.type === "force";
+const isRolloutRule = (
+  rule: FeatureRule,
+): rule is FeatureRule & { type: "rollout" } => rule.type === "rollout";
+const isForceRule = (
+  rule: FeatureRule,
+): rule is FeatureRule & { type: "force" } => rule.type === "force";
 
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
@@ -312,12 +323,10 @@ const areRulesOneSided = (
 
   const rolloutRulesOnesided =
     !rolloutRules.length ||
-    rolloutRules.every(
-      (r) => {
-        if (r.type !== "rollout") return false;
-        return r.coverage === 1 && !r.condition && !r.savedGroups?.length;
-      }
-    );
+    rolloutRules.every((r) => {
+      if (r.type !== "rollout") return false;
+      return r.coverage === 1 && !r.condition && !r.savedGroups?.length;
+    });
 
   const forceRulesOnesided =
     !forceRules.length ||
@@ -411,7 +420,7 @@ export function isFeatureStale({
 
       const envSettings = feature.environmentSettings ?? {};
       const enabledEnvIds = Object.keys(envSettings).filter(
-        (envId) => envSettings[envId].enabled
+        (envId) => envSettings[envId].enabled,
       );
 
       // Get rules for enabled environments from top-level rules array
@@ -419,7 +428,7 @@ export function isFeatureStale({
         (rule) =>
           rule.enabled &&
           (rule.allEnvironments ||
-            rule.environments?.some((env) => enabledEnvIds.includes(env)))
+            rule.environments?.some((env) => enabledEnvIds.includes(env))),
       );
 
       if (enabledRules.length === 0) return { stale, reason: "no-rules" };
@@ -487,10 +496,38 @@ export function listChangedEnvironments(
   allEnviroments: string[],
 ) {
   const environmentsList: string[] = [];
+
+  // Helper to get rules for an environment (handles both legacy and modern formats)
+  const getRulesForEnv = (
+    rules: FeatureRule[] | Record<string, LegacyFeatureRule[]>,
+    env: string,
+  ): LegacyFeatureRule[] => {
+    if (Array.isArray(rules)) {
+      // Modern format: filter array by environment
+      return rules
+        .filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(env),
+        )
+        .map((rule) => {
+          const {
+            uid: _uid,
+            environments: _environments,
+            allEnvironments: _allEnvironments,
+            ...legacyRule
+          } = rule;
+          return legacyRule;
+        });
+    } else {
+      // Legacy format: Record<string, LegacyFeatureRule[]>
+      return (rules as Record<string, LegacyFeatureRule[]>)[env] || [];
+    }
+  };
+
   allEnviroments?.forEach((env) => {
-    const rules = revision.rules[env];
-    if (!rules) return;
-    if (isEqual(rules, base.rules[env] || [])) {
+    const revRules = getRulesForEnv(revision.rules, env);
+    if (revRules.length === 0) return;
+    const baseRules = getRulesForEnv(base.rules, env);
+    if (isEqual(revRules, baseRules)) {
       return;
     }
     environmentsList.push(env);
@@ -523,28 +560,86 @@ export function autoMerge(
       // Modern format: filter by environment
       environments.forEach((env) => {
         const rules = revision.rules.filter(
-          (rule) => rule.allEnvironments || rule.environments?.includes(env)
+          (rule) => rule.allEnvironments || rule.environments?.includes(env),
         );
         if (rules.length === 0) return;
-        
+
         // Convert to legacy format for comparison with base
         const rulesLegacy = rules.map((rule) => {
-          const { uid, environments, allEnvironments, ...legacyRule } = rule;
+          const {
+            uid: _uid,
+            environments: _environments,
+            allEnvironments: _allEnvironments,
+            ...legacyRule
+          } = rule;
           return legacyRule;
         });
-        
-        if (isEqual(rulesLegacy, base.rules[env] || [])) {
+
+        // Get base rules for this environment (handle both legacy and modern formats)
+        const baseRulesForEnv: LegacyFeatureRule[] = Array.isArray(base.rules)
+          ? base.rules
+              .filter(
+                (rule) =>
+                  rule.allEnvironments || rule.environments?.includes(env),
+              )
+              .map((rule) => {
+                const {
+                  uid: _uid,
+                  environments: _environments,
+                  allEnvironments: _allEnvironments,
+                  ...legacyRule
+                } = rule;
+                return legacyRule;
+              })
+          : (base.rules as Record<string, LegacyFeatureRule[]>)[env] || [];
+
+        if (isEqual(rulesLegacy, baseRulesForEnv)) {
           return;
         }
         result.rules = result.rules || {};
         result.rules[env] = rulesLegacy;
       });
-    } else if (revision.rules && typeof revision.rules === "object") {
+    } else if (
+      revision.rules &&
+      typeof revision.rules === "object" &&
+      !Array.isArray(revision.rules)
+    ) {
       // Legacy format: Record<string, LegacyFeatureRule[]>
+      const helper = (
+        rulesAndValues: RulesAndValues,
+        env: string,
+      ): LegacyFeatureRule[] => {
+        if (Array.isArray(rulesAndValues.rules)) {
+          return rulesAndValues.rules
+            .filter(
+              (rule) =>
+                rule.allEnvironments || rule.environments?.includes(env),
+            )
+            .map((rule) => {
+              const {
+                uid: _uid,
+                environments: _environments,
+                allEnvironments: _allEnvironments,
+                ...legacyRule
+              } = rule;
+              return legacyRule;
+            });
+        } else {
+          return (
+            (rulesAndValues.rules as Record<string, LegacyFeatureRule[]>)[
+              env
+            ] || []
+          );
+        }
+      };
+
+      // TypeScript needs explicit type guard for legacy format
+      const legacyRules = revision.rules as Record<string, LegacyFeatureRule[]>;
       environments.forEach((env) => {
-        const rules = (revision.rules as Record<string, LegacyFeatureRule[]>)[env];
+        const rules = legacyRules[env];
         if (!rules) return;
-        if (isEqual(rules, base.rules[env] || [])) {
+        const baseRules = helper(base, env);
+        if (isEqual(rules, baseRules)) {
           return;
         }
         result.rules = result.rules || {};
@@ -603,13 +698,23 @@ export function autoMerge(
 
   // Check for conflicts in rules
   // Handle both legacy and modern revision formats
-  const getRevisionRulesForEnv = (revisionRules: unknown, env: string): LegacyFeatureRule[] => {
+  const getRevisionRulesForEnv = (
+    revisionRules: unknown,
+    env: string,
+  ): LegacyFeatureRule[] => {
     if (Array.isArray(revisionRules)) {
       // Modern format: filter array by environment
       return revisionRules
-        .filter((rule) => rule.allEnvironments || rule.environments?.includes(env))
+        .filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(env),
+        )
         .map((rule) => {
-          const { uid, environments, allEnvironments, ...legacyRule } = rule;
+          const {
+            uid: _uid,
+            environments: _environments,
+            allEnvironments: _allEnvironments,
+            ...legacyRule
+          } = rule;
           return legacyRule;
         });
     } else if (revisionRules && typeof revisionRules === "object") {
@@ -619,15 +724,23 @@ export function autoMerge(
     return [];
   };
 
+  // Helper to get rules for an environment from base/live (handles both legacy and modern formats)
+  const getRulesForEnvFromRulesAndValues = (
+    rulesAndValues: RulesAndValues,
+    env: string,
+  ): LegacyFeatureRule[] => {
+    return getRevisionRulesForEnv(rulesAndValues.rules, env);
+  };
+
   environments.forEach((env) => {
     const rules = getRevisionRulesForEnv(revision.rules, env);
     if (rules.length === 0) return;
 
+    const baseRules = getRulesForEnvFromRulesAndValues(base, env);
+    const liveRules = getRulesForEnvFromRulesAndValues(live, env);
+
     // If the revision doesn't have changes in this environment, skip
-    if (
-      isEqual(rules, base.rules[env] || []) ||
-      isEqual(rules, live.rules[env] || [])
-    ) {
+    if (isEqual(rules, baseRules) || isEqual(rules, liveRules)) {
       return;
     }
 
@@ -636,15 +749,15 @@ export function autoMerge(
     // If there's a conflict
     // TODO: be smarter about this - it's only really a conflict if the same rule is being changed in both
     if (
-      env in live.rules &&
-      !isEqual(live.rules[env] || [], base.rules[env] || []) &&
-      !isEqual(live.rules[env] || [], rules)
+      liveRules.length > 0 &&
+      !isEqual(liveRules, baseRules) &&
+      !isEqual(liveRules, rules)
     ) {
       const conflictInfo = {
         name: `Rules - ${env}`,
         key: `rules.${env}`,
-        base: JSON.stringify(base.rules[env], null, 2),
-        live: JSON.stringify(live.rules[env], null, 2),
+        base: JSON.stringify(baseRules, null, 2),
+        live: JSON.stringify(liveRules, null, 2),
         revision: JSON.stringify(rules, null, 2),
       };
       const strategy = strategies[conflictInfo.key];
@@ -761,12 +874,14 @@ export function isFeatureCyclic(
     // Convert revision rules to modern format
     const revisionRules: FeatureRule[] = [];
     const updatedEnvs = new Set<string>();
-    
+
     if (Array.isArray(revision.rules)) {
       // Modern format: already an array
       revision.rules.forEach((rule) => {
         if (rule.allEnvironments) {
-          Object.keys(newFeature.environmentSettings || {}).forEach((env) => updatedEnvs.add(env));
+          Object.keys(newFeature.environmentSettings || {}).forEach((env) =>
+            updatedEnvs.add(env),
+          );
         } else {
           rule.environments?.forEach((env) => {
             if (newFeature.environmentSettings?.[env]) {
@@ -779,7 +894,8 @@ export function isFeatureCyclic(
     } else if (revision.rules && typeof revision.rules === "object") {
       // Legacy format: Record<string, LegacyFeatureRule[]>
       for (const env of Object.keys(newFeature.environmentSettings || {})) {
-        const revRules = (revision.rules as Record<string, LegacyFeatureRule[]>)[env] || [];
+        const revRules =
+          (revision.rules as Record<string, LegacyFeatureRule[]>)[env] || [];
         if (revRules.length > 0) {
           updatedEnvs.add(env);
         }
@@ -787,15 +903,20 @@ export function isFeatureCyclic(
           const rule = legacyRule as LegacyFeatureRule;
           revisionRules.push({
             ...rule,
-            uid: (rule as unknown as { uid?: string }).uid || `rev_${env}_${Date.now()}_${Math.random()}`,
-            environments: (rule as unknown as { environments?: string[] }).environments || [env],
-            allEnvironments: (rule as unknown as { allEnvironments?: boolean }).allEnvironments ?? false,
+            uid:
+              (rule as unknown as { uid?: string }).uid ||
+              `rev_${env}_${Date.now()}_${Math.random()}`,
+            environments: (rule as unknown as { environments?: string[] })
+              .environments || [env],
+            allEnvironments:
+              (rule as unknown as { allEnvironments?: boolean })
+                .allEnvironments ?? false,
           } as FeatureRule);
         });
       }
     }
     const existingRules = newFeature.rules.filter(
-      (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+      (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e)),
     );
     newFeature.rules = [...existingRules, ...revisionRules];
   }
@@ -815,7 +936,7 @@ export function isFeatureCyclic(
       if (!envs?.includes(eid)) continue;
       // Get rules for this environment from top-level rules array
       const envRules = feature.rules.filter(
-        (rule) => rule.allEnvironments || rule.environments?.includes(eid)
+        (rule) => rule.allEnvironments || rule.environments?.includes(eid),
       );
       if (!envRules.length) continue;
       for (const rule of envRules) {
@@ -889,7 +1010,7 @@ export function evaluatePrerequisiteState(
     if (!skipRootConditions || !isTopLevel) {
       // Get rules for this environment from top-level rules array
       const envRules = feature.rules.filter(
-        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+        (rule) => rule.allEnvironments || rule.environments?.includes(env),
       );
       if (envRules.filter((r) => !!r.enabled).length) {
         state = "conditional";

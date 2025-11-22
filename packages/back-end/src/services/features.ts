@@ -36,6 +36,7 @@ import {
   SavedGroupInterface,
 } from "shared/src/types";
 import { clone } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -1219,16 +1220,13 @@ export function generateRuleId() {
   return uniqid("fr_");
 }
 
-export function addIdsToRules(
-  rules: FeatureRule[],
-  featureId: string,
-) {
+export function addIdsToRules(rules: FeatureRule[], featureId: string) {
   rules.forEach((r) => {
-        if (r.type === "experiment" && !r?.trackingKey) {
-          r.trackingKey = featureId;
-        }
-        if (!r.id) {
-          r.id = generateRuleId();
+    if (r.type === "experiment" && !r?.trackingKey) {
+      r.trackingKey = featureId;
+    }
+    if (!r.id) {
+      r.id = generateRuleId();
     }
   });
 }
@@ -1331,7 +1329,7 @@ export function getApiFeatureObj({
     const enabled = !!envSettings?.enabled;
     // Get rules for this environment from top-level rules array
     const envRules = feature.rules.filter(
-      (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      (rule) => rule.allEnvironments || rule.environments?.includes(env),
     );
     const rules = envRules.map((rule) => ({
       ...rule,
@@ -1376,17 +1374,18 @@ export function getApiFeatureObj({
     const environmentDefinitions: Record<string, string> = {};
     environments.forEach((env) => {
       // Convert legacy rules from revision to modern format (add uid/environments/allEnvironments)
-      const { v4: uuidv4 } = require("uuid");
       // Get revision rules for this environment (modern format: filter array)
       const revEnvRules = (rev?.rules || []).filter(
-        (rule) => rule.allEnvironments || rule.environments?.includes(env)
+        (rule) => rule.allEnvironments || rule.environments?.includes(env),
       );
-      
+
       // First convert to FeatureRule format for getFeatureDefinition
       const featureRules = revEnvRules.map((legacyRule: LegacyFeatureRule) => {
         const baseRule = {
           ...legacyRule,
-          uid: (legacyRule as any).uid || uuidv4(),
+          uid:
+            (legacyRule as LegacyFeatureRule & { uid?: string }).uid ||
+            uuidv4(),
           environments: [env],
           allEnvironments: false,
         };
@@ -1486,7 +1485,7 @@ export function getNextScheduledUpdate(
   environments.forEach((env) => {
     // Get rules for this environment from top-level rules array
     const rules = feature.rules.filter(
-      (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      (rule) => rule.allEnvironments || rule.environments?.includes(env),
     );
 
     if (!rules.length) return;
@@ -1773,7 +1772,6 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
 } => {
   const environmentSettings: Record<string, FeatureEnvironment> = {};
   const rules: FeatureRule[] = [];
-  const { v4: uuidv4 } = require("uuid");
 
   baseEnvs.forEach((e) => {
     const envId = e.id;
@@ -1783,7 +1781,7 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
     // Convert rules from API format to modern format with UIDs
     if (incomingEnvs?.[envId]?.rules) {
       const legacyRules = fromApiEnvSettingsRulesToLegacyRules(
-              feature,
+        feature,
         incomingEnvs[envId].rules,
       );
       legacyRules.forEach((legacyRule) => {
@@ -1815,7 +1813,6 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
   };
   const updatedEnvs = new Set<string>();
   const newRules: FeatureRule[] = [];
-  const { v4: uuidv4 } = require("uuid");
 
   Object.keys(incomingEnvs).forEach((envId) => {
     updatedEnvs.add(envId);
@@ -1826,7 +1823,7 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
     // Convert new rules from API format
     if (incomingEnvs[envId].rules) {
       const legacyRules = fromApiEnvSettingsRulesToLegacyRules(
-              feature,
+        feature,
         incomingEnvs[envId].rules,
       );
       legacyRules.forEach((legacyRule) => {
@@ -1842,7 +1839,7 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 
   // Keep existing rules that aren't in updated environments, add new ones
   const existingRules = feature.rules.filter(
-    (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e))
+    (rule) => !rule.environments.some((e: string) => updatedEnvs.has(e)),
   );
   const rules = [...existingRules, ...newRules];
 
@@ -1922,7 +1919,8 @@ export const reduceFeaturesWithPrerequisites = (
     const feature = newFeatures[i];
     // Get rules for this environment from top-level rules array
     const envRules = feature.rules.filter(
-      (rule) => rule.allEnvironments || rule.environments?.includes(environment)
+      (rule) =>
+        rule.allEnvironments || rule.environments?.includes(environment),
     );
     if (!envRules.length) continue;
 
@@ -1944,7 +1942,8 @@ export const reduceFeaturesWithPrerequisites = (
     }
     // Update the feature's rules array - remove old rules for this environment, add new ones
     const otherRules = feature.rules.filter(
-      (rule) => !(rule.allEnvironments || rule.environments?.includes(environment))
+      (rule) =>
+        !(rule.allEnvironments || rule.environments?.includes(environment)),
     );
     newFeatures[i].rules = [...otherRules, ...newFeatureRules];
   }

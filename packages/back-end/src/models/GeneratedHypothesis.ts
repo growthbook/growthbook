@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { v4 as uuidv4 } from "uuid";
 import { ReqContext } from "back-end/types/organization";
 import { GeneratedHypothesisInterface } from "back-end/types/generated-hypothesis";
 import { ExperimentInterface } from "back-end/types/experiment";
@@ -185,28 +186,28 @@ export const findOrCreateGeneratedHypothesis = async (
           enabled: true,
         },
       },
-          rules: [
+      rules: [
+        {
+          id: uniqid("fr_"),
+          experimentId: createdExperiment.id,
+          enabled: true,
+          description: "",
+          variations: [
             {
-              id: uniqid("fr_"),
-              experimentId: createdExperiment.id,
-              enabled: true,
-              description: "",
-              variations: [
-                {
-                  variationId: createdExperiment.variations[0].id,
-                  value: "false",
-                },
-                {
-                  variationId: createdExperiment.variations[1].id,
-                  value: "true",
-                },
-              ],
-              type: "experiment-ref",
-              uid: require("uuid").v4(),
-              environments: ["production"],
-              allEnvironments: false,
+              variationId: createdExperiment.variations[0].id,
+              value: "false",
+            },
+            {
+              variationId: createdExperiment.variations[1].id,
+              value: "true",
             },
           ],
+          type: "experiment-ref",
+          uid: uuidv4(),
+          environments: ["production"],
+          allEnvironments: false,
+        },
+      ],
       linkedExperiments: [createdExperiment.id],
     });
     await upsertWatch({

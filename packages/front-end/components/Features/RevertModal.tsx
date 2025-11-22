@@ -3,7 +3,11 @@ import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { getAffectedRevisionEnvs, getRules, useEnvironments } from "@/services/features";
+import {
+  getAffectedRevisionEnvs,
+  getRules,
+  useEnvironments,
+} from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

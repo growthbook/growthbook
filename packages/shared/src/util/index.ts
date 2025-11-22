@@ -11,7 +11,11 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureRule,
+} from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -291,20 +295,41 @@ export function getMatchingRules(
           if (Array.isArray(revision.rules)) {
             // Modern format: filter array by environment
             rules = revision.rules
-              .filter((rule) => rule.allEnvironments || rule.environments?.includes(environmentId))
+              .filter(
+                (rule) =>
+                  rule.allEnvironments ||
+                  rule.environments?.includes(environmentId),
+              )
               .map((rule) => {
-                const { uid, environments, allEnvironments, ...legacyRule } = rule;
+                const {
+                  uid: _uid,
+                  environments: _environments,
+                  allEnvironments: _allEnvironments,
+                  ...legacyRule
+                } = rule;
                 return legacyRule;
               });
           } else {
             // Legacy format: Record<string, LegacyFeatureRule[]>
-            rules = (revision.rules as Record<string, LegacyFeatureRule[]>)[environmentId] || [];
+            rules =
+              (revision.rules as Record<string, LegacyFeatureRule[]>)[
+                environmentId
+              ] || [];
           }
         } else {
           rules = feature.rules
-            .filter((rule) => rule.allEnvironments || rule.environments?.includes(environmentId))
+            .filter(
+              (rule) =>
+                rule.allEnvironments ||
+                rule.environments?.includes(environmentId),
+            )
             .map((rule) => {
-              const { uid, environments, allEnvironments, ...legacyRule } = rule;
+              const {
+                uid: _uid,
+                environments: _environments,
+                allEnvironments: _allEnvironments,
+                ...legacyRule
+              } = rule;
               return legacyRule;
             });
         }

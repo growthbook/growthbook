@@ -175,10 +175,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   const { environmentSettings, rules } =
     createInterfaceEnvSettingsFromApiEnvSettings(
-    feature,
-    orgEnvs,
-    req.body.environments ?? {},
-  );
+      feature,
+      orgEnvs,
+      req.body.environments ?? {},
+    );
 
   feature.environmentSettings = environmentSettings;
   feature.rules = rules;

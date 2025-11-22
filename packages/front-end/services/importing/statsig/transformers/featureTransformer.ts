@@ -1,4 +1,5 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { v4 as uuidv4 } from "uuid";
 import { StatsigFeatureGate, StatsigDynamicConfig } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
@@ -43,7 +44,7 @@ export function transformStatsigFeatureGateToGB(
     ? JSON.stringify((featureGate as StatsigDynamicConfig).defaultValue)
     : "false";
 
-  // Transform rules to GrowthBook format per environment
+  // Initialize environment settings (only enabled flags, no rules)
   const environmentSettings: FeatureInterface["environmentSettings"] = {};
 
   // Initialize all available environments
@@ -54,7 +55,6 @@ export function transformStatsigFeatureGateToGB(
   });
 
   const featureRules: FeatureRule[] = [];
-  const { v4: uuidv4 } = require("uuid");
 
   // Process each Statsig rule and assign to appropriate environments
   rules.forEach((rule, ruleIndex) => {
@@ -72,7 +72,6 @@ export function transformStatsigFeatureGateToGB(
           : rule.environments || []; // specific environments or empty array
 
       // Create the appropriate rule type based on passPercentage
-      let gbRule: FeatureRule;
 
       // Handle different rule types based on whether it's a dynamic config with variants
       if (isDynamicConfig && rule.variants && rule.variants.length > 0) {
@@ -118,9 +117,10 @@ export function transformStatsigFeatureGateToGB(
         ? JSON.stringify(rule.returnValue) // Dynamic config uses returnValue
         : "true"; // Feature gates are boolean
 
+      // Create the rule with all required fields
       if (rule.passPercentage === 100) {
         // Create a force rule for 100% pass percentage
-        gbRule = {
+        featureRules.push({
           type: "force",
           id: rule.id || `rule_${ruleIndex}`,
           description: rule.name || `Rule ${ruleIndex + 1}`,
@@ -130,10 +130,13 @@ export function transformStatsigFeatureGateToGB(
           savedGroups: transformedCondition.savedGroups,
           prerequisites: transformedCondition.prerequisites,
           scheduleRules: transformedCondition.scheduleRules || [],
-        };
+          uid: uuidv4(),
+          environments: targetEnvironments,
+          allEnvironments: rule.environments === null,
+        } as FeatureRule);
       } else {
         // Create a rollout rule for partial pass percentage
-        gbRule = {
+        featureRules.push({
           type: "rollout",
           id: rule.id || `rule_${ruleIndex}`,
           description: rule.name || `Rule ${ruleIndex + 1}`,
@@ -148,16 +151,11 @@ export function transformStatsigFeatureGateToGB(
           savedGroups: transformedCondition.savedGroups,
           prerequisites: transformedCondition.prerequisites,
           scheduleRules: transformedCondition.scheduleRules || [],
-        };
+          uid: uuidv4(),
+          environments: targetEnvironments,
+          allEnvironments: rule.environments === null,
+        } as FeatureRule);
       }
-
-      // Add the rule to top-level rules array with environment tags
-      featureRules.push({
-        ...gbRule,
-        uid: uuidv4(),
-        environments: targetEnvironments,
-        allEnvironments: rule.environments === null,
-      });
     } catch (error) {
       console.error(`Error transforming rule ${rule.id}:`, error);
     }

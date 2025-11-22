@@ -5,11 +5,8 @@ import { z } from "zod";
 import {
   simpleSchemaFieldValidator,
   simpleSchemaValidator,
-  FeatureRule,
-  FeatureInterface,
   LegacyFeatureRule,
 } from "back-end/src/validators/features";
-import { UserRef } from "./user";
 
 export {
   FeatureRule,
@@ -45,7 +42,6 @@ export interface JSONSchemaDef {
   date: Date;
   enabled: boolean;
 }
-
 
 export interface FeatureDraftChanges {
   active: boolean;

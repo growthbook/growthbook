@@ -33,6 +33,7 @@ import {
   LegacyFeatureInterface,
 } from "back-end/types/feature";
 import { OrganizationInterface } from "back-end/types/organization";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import {
   ExperimentInterface,
@@ -274,10 +275,17 @@ function updateEnvironmentSettings(
   rules: LegacyFeatureRule[],
   environments: string[],
   environment: string,
-  feature: any, // Using any since this is for very old legacy formats
+  feature: {
+    environmentSettings?: Record<
+      string,
+      Partial<LegacyFeatureEnvironment> | LegacyFeatureEnvironment
+    >;
+  }, // Using flexible type for very old legacy formats
 ) {
-  const settings: Partial<LegacyFeatureEnvironment> =
-    feature.environmentSettings?.[environment] || {};
+  const existingSettings = feature.environmentSettings?.[environment];
+  const settings: Partial<LegacyFeatureEnvironment> = existingSettings
+    ? { ...existingSettings }
+    : {};
 
   if (!("rules" in settings)) {
     settings.rules = rules;
@@ -291,15 +299,20 @@ function updateEnvironmentSettings(
     settings.rules = Object.values(settings.rules);
   }
 
-  feature.environmentSettings = feature.environmentSettings || {};
-  feature.environmentSettings[environment] = settings as LegacyFeatureEnvironment;
+  if (!feature.environmentSettings) {
+    feature.environmentSettings = {};
+  }
+  feature.environmentSettings[environment] =
+    settings as LegacyFeatureEnvironment;
 }
 
 function draftHasChanges(
-  feature: FeatureInterface | (Partial<FeatureInterface> & {
-    environmentSettings?: Record<string, LegacyFeatureEnvironment>;
-    defaultValue?: string;
-  }),
+  feature:
+    | FeatureInterface
+    | (Partial<FeatureInterface> & {
+        environmentSettings?: Record<string, LegacyFeatureEnvironment>;
+        defaultValue?: string;
+      }),
   draft: FeatureDraftChanges,
 ) {
   if (!draft?.active) return false;
@@ -310,9 +323,13 @@ function draftHasChanges(
 
   if (draft.rules) {
     const comp: Record<string, LegacyFeatureRule[]> = {};
-    const envSettings = feature.environmentSettings as Record<string, LegacyFeatureEnvironment> | undefined;
+    const envSettings = feature.environmentSettings as
+      | Record<string, LegacyFeatureEnvironment>
+      | undefined;
     Object.keys(draft.rules).forEach((key) => {
-      const legacyEnv = envSettings?.[key] as LegacyFeatureEnvironment | undefined;
+      const legacyEnv = envSettings?.[key] as
+        | LegacyFeatureEnvironment
+        | undefined;
       comp[key] = legacyEnv?.rules || [];
     });
 
@@ -326,15 +343,26 @@ function draftHasChanges(
 
 // Helper function to convert FeatureRule to LegacyFeatureRule (removes uid/environments/allEnvironments)
 function toLegacyRule(rule: FeatureRule): LegacyFeatureRule {
-  const { uid, environments, allEnvironments, ...legacyRule } = rule;
+  const {
+    uid: _uid,
+    environments: _environments,
+    allEnvironments: _allEnvironments,
+    ...legacyRule
+  } = rule;
   // Explicitly type as LegacyFeatureRule by omitting the new fields
-  return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
+  return legacyRule as Omit<
+    FeatureRule,
+    "uid" | "environments" | "allEnvironments"
+  > as LegacyFeatureRule;
 }
 
 export function upgradeFeatureRule(rule: LegacyFeatureRule): LegacyFeatureRule {
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
-    const experimentRule = rule as Extract<LegacyFeatureRule, { type: "experiment" }>;
+    const experimentRule = rule as Extract<
+      LegacyFeatureRule,
+      { type: "experiment" }
+    >;
     rule.coverage = 1;
     const weights = experimentRule.values
       .map((v: { value: string; weight: number }) => v.weight)
@@ -354,8 +382,8 @@ export function upgradeFeatureRule(rule: LegacyFeatureRule): LegacyFeatureRule {
 
     experimentRule.values = experimentRule.values.map(
       (v: { value: string; weight: number }, j: number) => {
-      return { ...v, weight: adjustedWeights[j] };
-      }
+        return { ...v, weight: adjustedWeights[j] };
+      },
     );
   }
 
@@ -365,7 +393,7 @@ export function upgradeFeatureRule(rule: LegacyFeatureRule): LegacyFeatureRule {
 // Accepts database documents which may have very old format (top-level rules/environments)
 // or legacy format (environmentSettings with rules), and upgrades to modern format
 /**
- * Upgrades revision rules from legacy format (Record<string, LegacyFeatureRule[]>) 
+ * Upgrades revision rules from legacy format (Record<string, LegacyFeatureRule[]>)
  * to modern format (FeatureRule[] with uid/environments/allEnvironments)
  */
 export function upgradeRevisionRules(
@@ -378,14 +406,19 @@ export function upgradeRevisionRules(
 
   // Convert legacy format (rules per environment) to modern format
   const modernRules: FeatureRule[] = [];
-  
+
   for (const [envId, envRules] of Object.entries(legacyRules)) {
     envRules.forEach((legacyRule: LegacyFeatureRule) => {
       modernRules.push({
         ...legacyRule,
-        uid: (legacyRule as any).uid || uuidv4(),
-        environments: (legacyRule as any).environments || [envId],
-        allEnvironments: (legacyRule as any).allEnvironments ?? false,
+        uid:
+          (legacyRule as LegacyFeatureRule & { uid?: string }).uid || uuidv4(),
+        environments: (
+          legacyRule as LegacyFeatureRule & { environments?: string[] }
+        ).environments || [envId],
+        allEnvironments:
+          (legacyRule as LegacyFeatureRule & { allEnvironments?: boolean })
+            .allEnvironments ?? false,
       } as FeatureRule);
     });
   }
@@ -405,10 +438,18 @@ export function upgradeFeatureInterface(
 
   // Build up the feature object with explicit typing
   const newFeature: Partial<FeatureInterface> & {
-    environmentSettings?: Record<string, LegacyFeatureEnvironment>;
+    environmentSettings?: Record<
+      string,
+      Partial<LegacyFeatureEnvironment> | LegacyFeatureEnvironment
+    >;
   } = {
     ...rest,
-    version: feature.version || revision?.version || 1,
+    version:
+      feature.version ||
+      (revision && typeof revision === "object" && "version" in revision
+        ? (revision as { version?: number }).version
+        : undefined) ||
+      1,
   };
 
   // Copy over old way of storing rules/toggles to new environment-scoped settings
@@ -430,7 +471,7 @@ export function upgradeFeatureInterface(
     const settings = newFeature.environmentSettings[env];
     if (settings?.rules) {
       settings.rules = settings.rules.map((r: LegacyFeatureRule) =>
-        upgradeFeatureRule(r)
+        upgradeFeatureRule(r),
       );
     }
   }
@@ -441,12 +482,15 @@ export function upgradeFeatureInterface(
       for (const env in draft.rules) {
         const draftRules = draft.rules;
         draftRules[env] = draftRules[env].map((r: LegacyFeatureRule) =>
-          upgradeFeatureRule(r)
+          upgradeFeatureRule(r),
         ) as LegacyFeatureRule[];
       }
     }
     // Ignore drafts if nothing has changed
-    if (draft?.active && !draftHasChanges(newFeature as FeatureInterface, draft)) {
+    if (
+      draft?.active &&
+      !draftHasChanges(newFeature as FeatureInterface, draft)
+    ) {
       draft.active = false;
     }
 
@@ -458,15 +502,15 @@ export function upgradeFeatureInterface(
       envIds.forEach((env) => {
         // Get rules for this environment from top-level rules array
         const envRules = (newFeature.rules || []).filter(
-          (rule) => rule.allEnvironments || rule.environments?.includes(env)
+          (rule) => rule.allEnvironments || rule.environments?.includes(env),
         );
         // Convert to legacy format (remove uid/environments/allEnvironments)
         revisionRules[env] = envRules.map(toLegacyRule) as LegacyFeatureRule[];
 
         // Override with draft rules if they exist
-          if (draft.rules && draft.rules[env]) {
-            revisionRules[env] = draft.rules[env];
-          }
+        if (draft.rules && draft.rules[env]) {
+          revisionRules[env] = draft.rules[env];
+        }
       });
 
       newFeature.legacyDraft = {
@@ -483,7 +527,7 @@ export function upgradeFeatureInterface(
         status: "draft",
         version: (newFeature.version || 1) + 1,
         rules: revisionRules, // Legacy format: Record<string, LegacyFeatureRule[]>
-      } as LegacyFeatureRevisionInterface;
+      } as unknown as FeatureRevisionInterface;
     }
   }
 
@@ -510,7 +554,7 @@ export function upgradeFeatureInterface(
     finalRules = newFeature.rules as FeatureRule[];
     // Convert environmentSettings to modern format
     for (const [envId, envSettings] of Object.entries(
-      newFeature.environmentSettings || {}
+      newFeature.environmentSettings || {},
     )) {
       const legacyEnv = envSettings as LegacyFeatureEnvironment;
       finalEnvironmentSettings[envId] = {
@@ -523,7 +567,7 @@ export function upgradeFeatureInterface(
 
     // Process each environment's rules
     for (const [envId, envSettings] of Object.entries(
-      newFeature.environmentSettings || {}
+      newFeature.environmentSettings || {},
     )) {
       const legacyEnv = envSettings as LegacyFeatureEnvironment;
       if (legacyEnv?.rules) {

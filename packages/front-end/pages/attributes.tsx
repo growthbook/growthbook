@@ -46,11 +46,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
       for (const feature of features) {
         for (const envid in feature.environmentSettings) {
-          const env = feature.environmentSettings?.[envid];
           // Get rules for this environment from top-level rules array
-          const envRules = feature.rules?.filter(
-            (rule) => rule.allEnvironments || rule.environments?.includes(envid)
-          ) || [];
+          const envRules =
+            feature.rules?.filter(
+              (rule) =>
+                rule.allEnvironments || rule.environments?.includes(envid),
+            ) || [];
           envRules.forEach((rule) => {
             try {
               const parsedCondition = JSON.parse(rule?.condition ?? "{}");

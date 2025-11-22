@@ -15,7 +15,7 @@ export function getSafeRolloutRuleFromFeature(
     }
     // Get rules for this environment from top-level rules array
     const envRules = feature.rules.filter(
-      (rule) => rule.allEnvironments || rule.environments?.includes(env)
+      (rule) => rule.allEnvironments || rule.environments?.includes(env),
     );
     for (const rule of envRules) {
       if (

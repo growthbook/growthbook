@@ -18,7 +18,11 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { FeatureInterface, FeatureRule, LegacyFeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureRule,
+} from "back-end/types/feature";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -30,7 +34,6 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { LegacyRevisionRules } from "back-end/src/validators/features";
 import { upgradeRevisionRules } from "back-end/src/util/migrations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validation";
 
@@ -205,11 +208,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       Object.keys(feature.environmentSettings).forEach((env) => {
         const envRules = feature.rules
           .filter(
-            (rule) => rule.allEnvironments || rule.environments?.includes(env)
+            (rule) => rule.allEnvironments || rule.environments?.includes(env),
           )
           .map((rule): LegacyFeatureRule => {
-            const { uid, environments, allEnvironments, ...legacyRule } = rule;
-            return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
+            const {
+              uid: _uid,
+              environments: _environments,
+              allEnvironments: _allEnvironments,
+              ...legacyRule
+            } = rule;
+            return legacyRule as Omit<
+              FeatureRule,
+              "uid" | "environments" | "allEnvironments"
+            > as LegacyFeatureRule;
           });
         revisedRules[env] = envRules;
       });
@@ -229,21 +240,25 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             // Get current rules for this environment from top-level rules array
             const currentEnvRules = feature.rules
               .filter(
-                (rule) => rule.allEnvironments || rule.environments?.includes(env)
+                (rule) =>
+                  rule.allEnvironments || rule.environments?.includes(env),
               )
               .map((rule): LegacyFeatureRule => {
-                const { uid, environments, allEnvironments, ...legacyRule } = rule;
-                return legacyRule as Omit<FeatureRule, "uid" | "environments" | "allEnvironments"> as LegacyFeatureRule;
+                const {
+                  uid: _uid,
+                  environments: _environments,
+                  allEnvironments: _allEnvironments,
+                  ...legacyRule
+                } = rule;
+                return legacyRule as Omit<
+                  FeatureRule,
+                  "uid" | "environments" | "allEnvironments"
+                > as LegacyFeatureRule;
               });
             // API request might still be in legacy format with environmentSettings[env].rules
-            const settingsRules = (settings as any).rules as LegacyFeatureRule[] | undefined;
-            if (
-              settingsRules &&
-              !isEqual(
-                settingsRules,
-                currentEnvRules,
-              )
-            ) {
+            const settingsRules = (settings as { rules?: LegacyFeatureRule[] })
+              .rules;
+            if (settingsRules && !isEqual(settingsRules, currentEnvRules)) {
               hasChanges = true;
               changedEnvironments.push(env);
               // if the rule is different from the current feature value, update revisionChanges

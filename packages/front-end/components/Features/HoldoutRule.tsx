@@ -13,10 +13,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
+import { useEnvironments } from "@/services/features";
 import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import HoldoutSummary from "./HoldoutSummary";
 import ConditionDisplay from "./ConditionDisplay";
-import { useEnvironments } from "@/services/features";
 
 interface Props {
   feature: FeatureInterface;
@@ -39,13 +39,13 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     }>(`/holdout/${feature.holdout?.id}`);
 
     const permissionsUtil = usePermissionsUtil();
+    const allEnvironments = useEnvironments();
 
     const holdout = data?.holdout;
     const holdoutExperiment = data?.experiment;
 
     if (!holdout || !holdoutExperiment) return null;
 
-    const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
     const hasCondition =

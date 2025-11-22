@@ -294,14 +294,14 @@ export const SimulateFeatureValues: FC<{
                 // Iterate over top-level rules array
                 if (feature.rules) {
                   feature.rules.forEach((rule) => {
-                          if (rule.prerequisites) {
-                            rule.prerequisites.forEach((p) => {
-                              if (!prerequisites.includes(p.id)) {
-                                prerequisites.push(p.id);
-                              }
-                            });
-                          }
-                        });
+                    if (rule.prerequisites) {
+                      rule.prerequisites.forEach((p) => {
+                        if (!prerequisites.includes(p.id)) {
+                          prerequisites.push(p.id);
+                        }
+                      });
+                    }
+                  });
                 }
                 return (
                   <Fragment key={feature.id + "results"}>

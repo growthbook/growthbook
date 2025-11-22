@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -20,7 +20,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getRules, useEnvironments, useFeaturesList } from "@/services/features";
+import { useEnvironments, useFeaturesList } from "@/services/features";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
@@ -243,11 +243,8 @@ export default function FeaturePage() {
 
     // If we can't find the revision, create a dummy revision just so the page can render
     // This is for old features that don't have any revision history saved
-    const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
-      // Get rules for this environment from top-level rules array
-      rules[env.id] = getRules(baseFeature, env.id);
-    });
+    // Revisions now use modern format: top-level rules array
+    // Use the feature's rules directly (already in modern format)
     return {
       baseVersion: baseFeature.version,
       comment: "",
@@ -259,12 +256,12 @@ export default function FeaturePage() {
       featureId: baseFeature.id,
       organization: baseFeature.organization,
       publishedBy: null,
-      rules: rules,
+      rules: baseFeature.rules || [],
       status: "published",
       version: baseFeature.version,
       prerequisites: baseFeature.prerequisites || [],
     };
-  }, [revisions, version, environments, baseFeature, lastDisplayedVersion]);
+  }, [revisions, version, baseFeature, lastDisplayedVersion]);
 
   const feature = useMemo(() => {
     if (!revision || !baseFeature) return null;

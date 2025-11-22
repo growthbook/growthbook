@@ -67,17 +67,14 @@ export default function AssignmentTester({
     return true;
     if (feature?.prerequisites?.length) return true;
     // Check if any rules have prerequisites
-    if (
-      feature?.rules?.some((rule) => !!rule?.prerequisites?.length)
-    )
+    if (feature?.rules?.some((rule) => !!rule?.prerequisites?.length))
       return true;
     return false;
   }, [feature]);
 
   const hasScheduled = useMemo(() => {
     return feature?.rules?.some(
-        (rule) =>
-        !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length
+      (rule) => !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length,
     );
   }, [feature]);
   const { hasCommercialFeature } = useUser();
