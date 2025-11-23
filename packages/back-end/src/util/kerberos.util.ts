@@ -1,25 +1,21 @@
-import { initializeClient, GSS_MECH_OID_SPNEGO } from "kerberos";
+import { performance } from "node:perf_hooks";
+import { initializeClient, GSS_MECH_OID_KRB5 } from "kerberos";
 import { logger } from "./logger";
 
 export async function getKerberosHeader(
   servicePrincipal: string,
   clientPrincipal: string,
 ): Promise<string> {
+  const startTime = performance.now();
   const formattedServicePrincipal = formatServicePrincipal(servicePrincipal);
   const client = await initializeClient(formattedServicePrincipal, {
-    mechOID: GSS_MECH_OID_SPNEGO,
+    mechOID: GSS_MECH_OID_KRB5,
     principal: clientPrincipal,
   });
-  let token = "";
-  try {
-    token = await client.step("");
-  } catch (e) {
-    logger.error(e, "Failed on client.step");
-    throw e;
-  }
-  const header = `Negotiate ${token}`;
-  logger.info("Kerberos header value: %s", header);
-  return header;
+  const token = await client.step("");
+  const endTime = performance.now();
+  logger.debug("Got Kerberos token in %dms", endTime - startTime);
+  return `Negotiate ${token}`;
 }
 
 /**
