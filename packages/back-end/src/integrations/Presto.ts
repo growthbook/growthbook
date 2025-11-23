@@ -35,7 +35,7 @@ export default class Presto extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  async runQuery(sql: string): Promise<QueryResponse> {
+  runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: ClientOptions = {
       engine: this.params.engine,
       host: this.params.host,
