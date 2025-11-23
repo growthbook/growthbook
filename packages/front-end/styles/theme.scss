@@ -254,20 +254,16 @@
   --step-color: #baa7ff;
 }
 
-.theme--light,
 .light-theme {
   @include light-theme();
 }
 
-.theme--dark,
 .dark-theme {
   @include dark-theme();
 }
 
 // OS default
-:root:not(.theme--light):not(.theme--dark):not(.dark-theme):not(.light-theme) {
-  @include light-theme();
-
+:root:not(.dark-theme):not(.light-theme) {
   @media (prefers-color-scheme: light) {
     @include light-theme();
   }

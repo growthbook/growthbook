@@ -104,6 +104,7 @@ export async function createDashboard(
     title,
     blocks,
     projects,
+    userId,
   } = req.body;
 
   if (experimentId) {
@@ -125,7 +126,7 @@ export async function createDashboard(
     uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
     isDefault: false,
     isDeleted: false,
-    userId: context.userId,
+    userId: userId || context.userId,
     editLevel,
     shareLevel,
     enableAutoUpdates,
@@ -224,7 +225,8 @@ export async function refreshDashboardData(
     let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
-      if (!blockHasFieldOfType(block, "snapshotId", isString)) return block;
+      if (!blockHasFieldOfType(block, "snapshotId", isString))
+        return { ...block };
       if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
       mainSnapshotUsed = true;
       return { ...block, snapshotId: mainSnapshot.id };
