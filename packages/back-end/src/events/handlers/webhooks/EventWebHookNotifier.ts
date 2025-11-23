@@ -17,6 +17,10 @@ import {
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  getDiscordMessageForNotificationEvent,
+  getDiscordMessageForLegacyNotificationEvent,
+} from "back-end/src/events/handlers/discord/discord-event-handler-utils";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
 import { NotificationEventName } from "back-end/types/event";
@@ -143,12 +147,10 @@ export class EventWebHookNotifier implements Notifier {
 
         case "discord": {
           const data = await (!event.version
-            ? getSlackMessageForLegacyNotificationEvent(event.data, eventId)
-            : getSlackMessageForNotificationEvent(event.data, eventId));
+            ? getDiscordMessageForLegacyNotificationEvent(event.data, eventId)
+            : getDiscordMessageForNotificationEvent(event.data, eventId));
 
-          if (!data) return null;
-
-          return { content: data.text };
+          return data;
         }
 
         default:
