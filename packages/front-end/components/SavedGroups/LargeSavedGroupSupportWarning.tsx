@@ -49,7 +49,7 @@ export default function LargeSavedGroupPerformanceWarning({
 }: LargeSavedGroupSupportWarningProps) {
   if (!hasLargeSavedGroupFeature) {
     return (
-      <Callout status="info">
+      <Callout status="info" mb="3">
         Performance improvements for Saved Groups are available with an
         Enterprise plan.
         {openUpgradeModal && (
