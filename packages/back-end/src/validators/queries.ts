@@ -25,7 +25,6 @@ export const sqlResultChunkValidator = z
     queryId: z.string(),
     chunkNumber: z.number(),
     numRows: z.number(),
-    columns: z.array(z.string()),
     data: z.record(z.array(z.unknown())),
   })
   .strict();

@@ -64,7 +64,7 @@ function toInterface(doc: QueryDocument): QueryInterface {
 export async function getQueriesByIds(
   context: ReqContext,
   ids: string[],
-  includeResults: boolean = true,
+  includeChunkedResults: boolean = true,
 ) {
   if (!ids.length) return [];
   const docs = await QueryModel.find({
@@ -73,16 +73,8 @@ export async function getQueriesByIds(
   });
   const queries = docs.map((doc) => toInterface(doc));
 
-  if (includeResults) {
-    for (const query of queries) {
-      if (query.hasChunkedResults) {
-        const result = await context.models.sqlResultChunks.getResultsByQueryId(
-          query.id,
-        );
-        query.rawResult = result;
-        query.result = result;
-      }
-    }
+  if (includeChunkedResults) {
+    await context.models.sqlResultChunks.addResultsToQueries(queries);
   }
 
   return queries;

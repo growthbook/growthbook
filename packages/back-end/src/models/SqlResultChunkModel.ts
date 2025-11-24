@@ -1,6 +1,7 @@
 import { decodeSQLResults, encodeSQLResults } from "shared/sql";
 import { sqlResultChunkValidator } from "back-end/src/validators/queries";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { QueryInterface, SqlResultChunkInterface } from "back-end/types/query";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -48,6 +49,37 @@ export class SqlResultChunkModel extends BaseClass {
       }),
       3,
     );
+  }
+
+  public async addResultsToQueries(queries: QueryInterface[]) {
+    const idsToFetch = queries
+      .filter((q) => q.hasChunkedResults)
+      .map((q) => q.id);
+
+    if (!idsToFetch.length) return;
+
+    const allChunks = await this._find(
+      {
+        queryId: { $in: idsToFetch },
+      },
+      {
+        sort: { queryId: 1, chunkNumber: 1 },
+      },
+    );
+    const chunksByQueryId: Record<string, SqlResultChunkInterface[]> = {};
+    for (const chunk of allChunks) {
+      if (!chunksByQueryId[chunk.queryId]) {
+        chunksByQueryId[chunk.queryId] = [];
+      }
+      chunksByQueryId[chunk.queryId].push(chunk);
+    }
+    for (const query of queries) {
+      if (chunksByQueryId[query.id]) {
+        const result = decodeSQLResults(chunksByQueryId[query.id]);
+        query.rawResult = result;
+        query.result = result;
+      }
+    }
   }
 
   public async getResultsByQueryId(queryId: string) {

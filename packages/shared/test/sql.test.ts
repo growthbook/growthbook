@@ -382,7 +382,6 @@ describe("encodeSQLResults", () => {
     expect(encoded).toEqual([
       {
         numRows: 3,
-        columns: ["id", "name", "age"],
         data: {
           id: [1, 2, 3],
           name: ["Alice", "Bob", "Charlie"],
@@ -406,7 +405,6 @@ describe("encodeSQLResults", () => {
     expect(encoded).toEqual([
       {
         numRows: 2,
-        columns: ["id", "name", "age"],
         data: {
           id: [1, 2],
           name: ["Alice", "Bob"],
@@ -415,7 +413,6 @@ describe("encodeSQLResults", () => {
       },
       {
         numRows: 1,
-        columns: ["id", "name", "age"],
         data: {
           id: [3],
           name: ["Charlie"],

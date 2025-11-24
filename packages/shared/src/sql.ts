@@ -193,16 +193,13 @@ function stripCommentsAndStrings(sql: string): {
   };
 }
 
-type SqlResultChunkData = Pick<
-  SqlResultChunkInterface,
-  "columns" | "numRows" | "data"
->;
+type SqlResultChunkData = Pick<SqlResultChunkInterface, "numRows" | "data">;
 
 export function encodeSQLResults(
   // Raw SQL results
   results: Record<string, unknown>[],
   // 4MB default chunk size (document max is 16MB, but leave plenty of room for overhead)
-  chunkSize: number = 4000000,
+  chunkSizeBytes: number = 4_000_000,
 ): SqlResultChunkData[] {
   if (results.length === 0) {
     return [];
@@ -213,7 +210,6 @@ export function encodeSQLResults(
 
   function createChunk(): SqlResultChunkData {
     const chunk: SqlResultChunkData = {
-      columns,
       numRows: 0,
       data: {},
     };
@@ -244,7 +240,7 @@ export function encodeSQLResults(
       currentChunkSize += getSize(value);
     }
 
-    if (currentChunkSize >= chunkSize) {
+    if (currentChunkSize >= chunkSizeBytes) {
       encodedResults.push(currentChunk);
       // Start a new chunk
       currentChunk = createChunk();
@@ -265,9 +261,10 @@ export function decodeSQLResults(
   const results: Record<string, unknown>[] = [];
 
   for (const chunk of chunks) {
-    const { columns, data, numRows } = chunk;
+    const { data, numRows } = chunk;
     if (!numRows) continue;
 
+    const columns = Object.keys(data);
     for (let i = 0; i < numRows; i++) {
       const row: Record<string, unknown> = {};
       for (const col of columns) {
