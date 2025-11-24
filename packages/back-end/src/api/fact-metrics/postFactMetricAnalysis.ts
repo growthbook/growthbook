@@ -68,6 +68,8 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     lookbackDays: lookbackDaysValue,
     populationType: populationType ?? "factTable",
     populationId: populationId ?? null,
+    metricAutoSlices: [],
+    customMetricSlices: [],
     additionalNumeratorFilters,
     additionalDenominatorFilters,
   };

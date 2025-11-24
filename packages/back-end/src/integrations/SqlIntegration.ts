@@ -147,6 +147,10 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
+import {
+  getSliceColumnsForMetricAnalysis,
+  getSliceColumnExpression,
+} from "back-end/src/services/metric-analysis-slices";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -915,6 +919,25 @@ export default abstract class SqlIntegration
       throw new Error("Unknown fact table");
     }
 
+    const sliceColumns = getSliceColumnsForMetricAnalysis({
+      settings,
+      factTable,
+    });
+
+    // Build slice column SELECT and GROUP BY expressions
+    const sliceSelectExpressions = sliceColumns.map((sliceCol) => {
+      const expr = getSliceColumnExpression(
+        sliceCol.column,
+        factTable,
+        this.extractJSONField.bind(this),
+        "f",
+      );
+      return `${expr} AS slice_${sliceCol.column}`;
+    });
+    const sliceGroupByExpressions = sliceColumns.map((sliceCol) => {
+      return `slice_${sliceCol.column}`;
+    });
+
     const metricData = this.getMetricData(
       { metric, index: 0 },
       {
@@ -983,25 +1006,190 @@ export default abstract class SqlIntegration
 
     // TODO check if query broken if segment has template variables
     // TODO return cap numbers
+
+    // Build slice column SELECT expressions for the fact table CTE
+    const factTableSliceSelects = sliceColumns.map((sliceCol) => {
+      const expr = getSliceColumnExpression(
+        sliceCol.column,
+        factTable,
+        this.extractJSONField.bind(this),
+        "m",
+      );
+      return `${expr} AS ${sliceCol.column}`;
+    });
+
+    // Get the base fact table CTE
+    const baseFactTableCTE = this.getFactMetricCTE({
+      baseIdType,
+      idJoinMap,
+      metricsWithIndices: [{ metric: metric, index: 0 }],
+      factTable,
+      endDate: metricData.metricEnd,
+      startDate: metricData.metricStart,
+      addFiltersToWhere: settings.populationType == "metric",
+    });
+
+    // If we have slice columns, we need to add them to the fact table CTE
+    // The base CTE selects from a subquery `m` (the fact table SQL), so we can add slice columns
+    // by selecting them from `m` in the outer SELECT
+    let factTableCTE = baseFactTableCTE;
+    if (factTableSliceSelects.length > 0) {
+      // Find the position right before "FROM" in the SELECT statement
+      // The structure is: SELECT ... FROM (${sql}) m ...
+      // We want to insert slice columns before FROM
+      // Use a regex to find FROM that's not part of a word (case insensitive)
+      const fromMatch = baseFactTableCTE.match(/\bFROM\b/i);
+      if (fromMatch && fromMatch.index !== undefined) {
+        const beforeFrom = baseFactTableCTE
+          .substring(0, fromMatch.index)
+          .trim();
+        const afterFrom = baseFactTableCTE.substring(fromMatch.index);
+        // Add slice columns with proper comma handling
+        // Check if the last non-whitespace character before FROM is a comma
+        const trimmedBefore = beforeFrom.trimEnd();
+        const lastChar = trimmedBefore[trimmedBefore.length - 1];
+        const comma = lastChar === "," ? "" : ",";
+        factTableCTE = `${beforeFrom}${comma}
+        ${factTableSliceSelects.join(",\n        ")}
+      ${afterFrom}`;
+      }
+    }
+
+    // Add WHERE clauses for custom slice filters
+    // Custom slices should only include specific values, so we filter the data
+    const sliceWhereClauses: string[] = [];
+    sliceColumns.forEach((sliceCol) => {
+      if (sliceCol.filterValues && sliceCol.filterValues.length > 0) {
+        const columnExpr = getSliceColumnExpression(
+          sliceCol.column,
+          factTable,
+          this.extractJSONField.bind(this),
+          "m", // Use "m" alias since we're filtering in the inner query
+        );
+
+        if (sliceCol.datatype === "boolean") {
+          // For boolean, filter to the specific boolean value
+          const boolValue = sliceCol.filterValues[0];
+          if (boolValue === "true" || boolValue === "false") {
+            sliceWhereClauses.push(
+              `(${this.evalBoolean(columnExpr, boolValue === "true")})`,
+            );
+          }
+        } else {
+          // For string, use IN clause
+          const escapedValues = sliceCol.filterValues.map((v) =>
+            this.escapeStringLiteral(v),
+          );
+          if (escapedValues.length === 1) {
+            sliceWhereClauses.push(`(${columnExpr} = '${escapedValues[0]}')`);
+          } else {
+            sliceWhereClauses.push(
+              `(${columnExpr} IN (${escapedValues.map((v) => `'${v}'`).join(", ")}))`,
+            );
+          }
+        }
+      }
+    });
+
+    // Add WHERE clauses to the fact table CTE if we have custom slice filters
+    // The fact table CTE structure is: SELECT ... FROM (${sql}) m [WHERE ...]
+    // We need to add filters on the `m` subquery results
+    if (sliceWhereClauses.length > 0) {
+      // Find WHERE clause in the fact table CTE and append, or add new WHERE after FROM
+      const whereMatch = factTableCTE.match(/\bWHERE\b/i);
+      if (whereMatch && whereMatch.index !== undefined) {
+        // There's already a WHERE clause, append to it with AND
+        const beforeWhere = factTableCTE.substring(0, whereMatch.index);
+        const afterWhere = factTableCTE.substring(whereMatch.index);
+        // Find the end of the WHERE clause (before GROUP BY, ORDER BY, or end of query)
+        const whereEndMatch = afterWhere.match(
+          /\b(GROUP BY|ORDER BY|LIMIT|\n\s*\)|$)/i,
+        );
+        if (whereEndMatch && whereEndMatch.index !== undefined) {
+          const whereClause = afterWhere.substring(0, whereEndMatch.index);
+          const afterWhereClause = afterWhere.substring(whereEndMatch.index);
+          factTableCTE = `${beforeWhere}${whereClause}
+        AND ${sliceWhereClauses.join(" AND ")}
+      ${afterWhereClause}`;
+        } else {
+          // If we can't find the end, just append at the end of the WHERE clause
+          factTableCTE = `${factTableCTE}
+        AND ${sliceWhereClauses.join(" AND ")}`;
+        }
+      } else {
+        // No WHERE clause, add one after the FROM clause
+        // Find the FROM clause and the table alias (usually `m`)
+        const fromMatch = factTableCTE.match(/\bFROM\s+\([^)]+\)\s+(\w+)/i);
+        if (fromMatch && fromMatch.index !== undefined) {
+          const afterFrom = factTableCTE.substring(
+            fromMatch.index + fromMatch[0].length,
+          );
+          // Find where to insert (before GROUP BY, ORDER BY, or end)
+          const insertMatch = afterFrom.match(
+            /\b(GROUP BY|ORDER BY|LIMIT|\n\s*\)|$)/i,
+          );
+          if (insertMatch && insertMatch.index !== undefined) {
+            const beforeInsert = factTableCTE.substring(
+              0,
+              fromMatch.index + fromMatch[0].length,
+            );
+            const afterInsert = factTableCTE.substring(
+              fromMatch.index + fromMatch[0].length,
+            );
+            factTableCTE = `${beforeInsert}
+      WHERE ${sliceWhereClauses.join(" AND ")}
+      ${afterInsert}`;
+          } else {
+            // Fallback: just append WHERE at the end
+            factTableCTE = `${factTableCTE}
+      WHERE ${sliceWhereClauses.join(" AND ")}`;
+          }
+        } else {
+          // Fallback: try to find any FROM and add WHERE after it
+          const simpleFromMatch = factTableCTE.match(/\bFROM\b/i);
+          if (simpleFromMatch && simpleFromMatch.index !== undefined) {
+            const afterFrom = factTableCTE.substring(simpleFromMatch.index);
+            const insertMatch = afterFrom.match(
+              /\b(GROUP BY|ORDER BY|LIMIT|\n\s*\)|$)/i,
+            );
+            if (
+              insertMatch &&
+              insertMatch.index !== undefined &&
+              insertMatch.index > 50
+            ) {
+              // Only insert if there's enough space after FROM (to avoid inserting in the middle of the subquery)
+              const beforeInsert = factTableCTE.substring(
+                0,
+                simpleFromMatch.index + insertMatch.index,
+              );
+              const afterInsert = factTableCTE.substring(
+                simpleFromMatch.index + insertMatch.index,
+              );
+              factTableCTE = `${beforeInsert}
+      WHERE ${sliceWhereClauses.join(" AND ")}
+      ${afterInsert}`;
+            }
+          }
+        }
+      }
+    }
+
     return format(
       `-- ${metric.name} Metric Analysis
       WITH
         ${idJoinSQL}
         ${populationSQL}
-      __factTable AS (${this.getFactMetricCTE({
-        baseIdType,
-        idJoinMap,
-        metricsWithIndices: [{ metric: metric, index: 0 }],
-        factTable,
-        endDate: metricData.metricEnd,
-        startDate: metricData.metricStart,
-        addFiltersToWhere: settings.populationType == "metric",
-      })})
+      __factTable AS (${factTableCTE})
         , __userMetricDaily AS (
           -- Get aggregated metric per user by day
           SELECT
           ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
             , ${this.dateTrunc("timestamp")} AS date
+            ${
+              sliceSelectExpressions.length > 0
+                ? `, ${sliceSelectExpressions.join(",\n            ")}`
+                : ""
+            }
             , ${this.getAggregateMetricColumn({
               metric: metricData.metric,
               useDenominator: false,
@@ -1030,10 +1218,20 @@ export default abstract class SqlIntegration
           GROUP BY
             ${this.dateTrunc("f.timestamp")}
             , ${populationSQL ? "p" : "f"}.${baseIdType}
+            ${
+              sliceGroupByExpressions.length > 0
+                ? `, ${sliceGroupByExpressions.join(",\n            ")}`
+                : ""
+            }
         )
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
+            ${
+              sliceGroupByExpressions.length > 0
+                ? `, ${sliceGroupByExpressions.join(",\n            ")}`
+                : ""
+            }
             , ${this.getReaggregateMetricColumn(
               metric,
               false,
@@ -1052,6 +1250,11 @@ export default abstract class SqlIntegration
             __userMetricDaily
           GROUP BY
             ${baseIdType}
+            ${
+              sliceGroupByExpressions.length > 0
+                ? `, ${sliceGroupByExpressions.join(",\n            ")}`
+                : ""
+            }
         )
         ${
           metricData.isPercentileCapped
@@ -1091,6 +1294,11 @@ export default abstract class SqlIntegration
         , __statisticsDaily AS (
           SELECT
             date
+            ${
+              sliceGroupByExpressions.length > 0
+                ? `, ${sliceGroupByExpressions.join(",\n            ")}`
+                : ""
+            }
             , MAX(${this.castToString("'date'")}) AS data_type
             , ${this.castToString(
               `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
@@ -1114,10 +1322,20 @@ export default abstract class SqlIntegration
           FROM __userMetricDaily
           ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
           GROUP BY date
+            ${
+              sliceGroupByExpressions.length > 0
+                ? `, ${sliceGroupByExpressions.join(",\n            ")}`
+                : ""
+            }
         )
         , __statisticsOverall AS (
           SELECT
             ${this.castToDate("NULL")} AS date
+            ${
+              sliceGroupByExpressions.length > 0
+                ? `, ${sliceGroupByExpressions.join(",\n            ")}`
+                : ""
+            }
             , MAX(${this.castToString("'overall'")}) AS data_type
             , ${this.castToString(
               `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
@@ -1138,6 +1356,12 @@ export default abstract class SqlIntegration
             }
           FROM __userMetricOverall
         ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+        GROUP BY
+            ${
+              sliceGroupByExpressions.length > 0
+                ? sliceGroupByExpressions.join(",\n            ")
+                : "1"
+            }
         )
         ${
           createHistogram
@@ -1208,7 +1432,7 @@ export default abstract class SqlIntegration
         }
       }
 
-      return data as Partial<MetricAnalysisQueryResponseRow>;
+      return data as unknown as Partial<MetricAnalysisQueryResponseRow>;
     }
 
     return {
@@ -1226,6 +1450,18 @@ export default abstract class SqlIntegration
           value_min,
           value_max,
         } = row;
+
+        // Extract slice columns (any key starting with "slice_", case-insensitive)
+        const sliceColumns: Record<string, string | null | undefined> = {};
+        Object.keys(row).forEach((key) => {
+          // Case-insensitive check for slice columns
+          if (key.toLowerCase().startsWith("slice_")) {
+            const value = row[key];
+            // Preserve original key case for consistency
+            sliceColumns[key] =
+              value === null || value === undefined ? null : String(value);
+          }
+        });
 
         const ret: MetricAnalysisQueryResponseRow = {
           date: date ? getValidDate(date).toISOString() : "",
@@ -1245,6 +1481,8 @@ export default abstract class SqlIntegration
             bin_width: parseFloat(row.bin_width),
           }),
           ...parseUnitsBinData(row),
+          // Preserve slice columns
+          ...sliceColumns,
         };
         return ret;
       }),

@@ -522,6 +522,8 @@ export type MetricAnalysisQueryResponseRow = {
   units_bin_4?: number;
   units_bin_5?: number;
   units_bin_6?: number;
+  // Slice columns - dynamically added based on slice_* prefix
+  [key: `slice_${string}`]: string | null | undefined;
   units_bin_7?: number;
   units_bin_8?: number;
   units_bin_9?: number;
