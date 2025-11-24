@@ -122,6 +122,9 @@ export async function transformStatsigMetricToMetric(
   } else if (data.aggregation === "max") {
     metricType = "mean";
     numerator.aggregation = "max";
+  } else if (data.aggregation === "daily_participation") {
+    metricType = "mean";
+    numerator.column = "$$distinctDates";
   } else if (data.aggregation === "ratio") {
     metricType = "ratio";
 
@@ -131,6 +134,8 @@ export async function transformStatsigMetricToMetric(
       numerator.aggregation = "count distinct";
     } else if (data.numeratorAggregation === "max") {
       numerator.aggregation = "max";
+    } else if (data.numeratorAggregation === "daily_participation") {
+      numerator.column = "$$distinctDates";
     } else if (data.numeratorAggregation === "sum") {
       // already set
     } else {
@@ -162,6 +167,8 @@ export async function transformStatsigMetricToMetric(
       denominator.aggregation = "max";
     } else if (data.denominatorAggregation === "sum") {
       // already set
+    } else if (data.denominatorAggregation === "daily_participation") {
+      denominator.column = "$$distinctDates";
     } else {
       throw new Error(
         `Unsupported denominator aggregation type ${data.denominatorAggregation} for ratio metric`,
