@@ -261,13 +261,19 @@ const DataSourcePage: FC = () => {
           <Text color="gray" weight="medium">
             Fact Tables:
           </Text>{" "}
-          <Link href={"/fact-tables"}>{factTables.length}</Link>
+          <Link href={`/fact-tables?${queryString}`}>
+            {factTables.length > 0 ? factTables.length : "+Add"}
+          </Link>
         </Box>
         <Box>
           <Text color="gray" weight="medium">
             Metrics:{" "}
           </Text>
-          <Link href={`/metrics?${queryString}`}>{metrics.length}</Link>
+          {metrics.length > 0 ? (
+            <Link href={`/metrics?${queryString}`}>{metrics.length}</Link>
+          ) : (
+            <Text color="gray">None</Text>
+          )}
         </Box>
         <Text color="gray">
           <Text weight="medium">Last Updated:</Text>{" "}
