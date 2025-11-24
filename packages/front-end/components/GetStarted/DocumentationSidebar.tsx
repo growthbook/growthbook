@@ -8,7 +8,7 @@ import PaidFeatureBadge from "./PaidFeatureBadge";
 
 interface Props {
   setUpgradeModal: (open: boolean) => void;
-  type: "get-started" | "features" | "experiments" | "imports";
+  type: "get-started" | "features" | "experiments" | "imports" | "data-source";
 }
 
 const DocumentationSidebar = ({
@@ -30,7 +30,7 @@ const DocumentationSidebar = ({
       <Flex direction="column" gapY="3">
         {getLinksFor(type, organization.isVercelIntegration)}
       </Flex>
-
+      {/* 
       <Separator size="4" my="5" />
       <SidebarHeading>PREMIUM FEATURES</SidebarHeading>
       <Flex direction="column" gapY="3">
@@ -43,7 +43,7 @@ const DocumentationSidebar = ({
         <LinkItem href="https://docs.growthbook.io/account/user-permissions">
           Team Settings
         </LinkItem>
-      </Flex>
+      </Flex> */}
 
       <Separator size="4" my="5" />
       <SidebarHeading>QUESTIONS?</SidebarHeading>
@@ -55,7 +55,7 @@ const DocumentationSidebar = ({
             style={{ width: "18px", height: "18px" }}
           />
           <Text ml="1" style={{ verticalAlign: "middle" }}>
-            GrowthBook Slack
+            Community
           </Text>
         </LinkItem>
 
@@ -114,20 +114,16 @@ function getLinksFor(
 ): JSX.Element {
   switch (type) {
     case "get-started":
+    case "data-source":
       if (isVercelIntegration) {
         return (
           <>
             <LinkItem href="https://docs.growthbook.io/integrations/vercel">
               Vercel Integration Docs
             </LinkItem>
-            <LinkItem href="https://docs.growthbook.io/overview">
-              How GrowthBook Works
-            </LinkItem>
-            <LinkItem href="https://docs.growthbook.io/features/basics">
-              Feature Flag Basics
-            </LinkItem>
-            <LinkItem href="https://docs.growthbook.io/warehouses">
-              Connect to Your Data Warehouse
+            <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+            <LinkItem href="https://www.growthbook.io/pricing">
+              Premium Features
             </LinkItem>
           </>
         );
@@ -135,13 +131,10 @@ function getLinksFor(
 
       return (
         <>
-          <LinkItem href="https://docs.growthbook.io/quick-start">
-            QuickStart Guide
+          <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+          <LinkItem href="https://www.growthbook.io/pricing">
+            Premium Features
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/overview">
-            How it Works
-          </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/lib/">SDK Docs</LinkItem>
         </>
       );
 

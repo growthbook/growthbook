@@ -51,6 +51,7 @@ export const OWNER_JOB_TITLES = {
   engineer: "Engineer",
   dataScientist: "Data Scientist",
   projectManager: "Project Manager",
+  productManager: "Product Manager",
   marketer: "Marketer",
   designer: "Designer",
   other: "Other",

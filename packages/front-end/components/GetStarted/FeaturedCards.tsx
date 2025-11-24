@@ -5,8 +5,16 @@ import {
   PiArrowRight,
   PiChartScatter,
 } from "react-icons/pi";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { useRouter } from "next/router";
+import { ProjectInterface } from "back-end/types/project";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import track from "@/services/track";
+import { AppFeatures } from "@/types/app-features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "./FeaturedCards.module.scss";
 
 export function FeatureFlagFeatureCard({ title = "Create Feature Flags" }) {
@@ -50,8 +58,45 @@ export function ExperimentFeatureCard({ title = "Run an Experiment" }) {
 }
 
 export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
+  const router = useRouter();
+  const { apiCall } = useAuth();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
+  const gb = useGrowthBook<AppFeatures>();
+  const { mutateDefinitions, setProject } = useDefinitions();
+
+  const openSampleExperiment = async () => {
+    if (demoDataSourceProjectId && demoExperimentId) {
+      router.push(`/experiment/${demoExperimentId}`);
+    } else {
+      track("Create Sample Project", {
+        source: "experiments-get-started",
+      });
+      const res = await apiCall<{
+        project: ProjectInterface;
+        experimentId: string;
+      }>(
+        gb.isOn("new-sample-data")
+          ? "/demo-datasource-project/new"
+          : "/demo-datasource-project",
+        {
+          method: "POST",
+        },
+      );
+      await mutateDefinitions();
+      if (demoDataSourceProjectId) {
+        setProject(demoDataSourceProjectId);
+      }
+      if (res.experimentId) {
+        router.push(`/experiment/${res.experimentId}`);
+      } else {
+        throw new Error("Could not create sample experiment");
+      }
+    }
+  };
+
   return (
-    <CardLink href="/experiments">
+    <CardLink onClick={openSampleExperiment}>
       <Flex direction="column" height="100%">
         <Flex>
           <Heading as="h2" size="4" weight="bold">
@@ -62,6 +107,27 @@ export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
 
         <Text color="gray" mb="8">
           Explore a demo experiment with sample data
+        </Text>
+
+        <Box mt="auto" mr="-9" className={styles.experimentImage} />
+      </Flex>
+    </CardLink>
+  );
+}
+
+export function SetUpDataSourceAndMetricsFeatureCard() {
+  return (
+    <CardLink href="/getstarted/data-source-guide">
+      <Flex direction="column" height="100%">
+        <Flex>
+          <Heading as="h2" size="4" weight="bold">
+            Set up Data Source & Metrics
+          </Heading>
+          <ActionArrow />
+        </Flex>
+
+        <Text color="gray" mb="8">
+          Prepare to analyze experiment results
         </Text>
 
         <Box mt="auto" mr="-9" className={styles.experimentImage} />
@@ -160,39 +226,59 @@ function ActionArrow() {
   );
 }
 
-function CardLink({
-  children,
-  href,
-  style,
-  disabled = false,
-  compact = false,
-}: {
+type CardLinkProps = {
   children: React.ReactNode;
-  href: string;
   style?: React.CSSProperties;
   disabled?: boolean;
   compact?: boolean;
-}) {
+} & ({ href: string; onClick?: never } | { href?: never; onClick: () => void });
+
+function CardLink({
+  children,
+  href,
+  onClick,
+  style,
+  disabled = false,
+  compact = false,
+}: CardLinkProps) {
   const padding = { initial: "2", xs: "3", sm: "2", md: "5" };
+
+  const content = (
+    <Flex
+      direction="column"
+      height="100%"
+      px={padding}
+      py={compact ? "1" : padding}
+    >
+      {children}
+    </Flex>
+  );
 
   return (
     <Card asChild>
-      <Link
-        aria-disabled={disabled}
-        tabIndex={disabled ? -1 : undefined}
-        className={styles.cardLink}
-        style={style}
-        href={href}
-      >
-        <Flex
-          direction="column"
-          height="100%"
-          px={padding}
-          py={compact ? "1" : padding}
+      {href ? (
+        <Link
+          aria-disabled={disabled}
+          tabIndex={disabled ? -1 : undefined}
+          className={styles.cardLink}
+          style={style}
+          href={href}
         >
-          {children}
-        </Flex>
-      </Link>
+          {content}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          aria-disabled={disabled}
+          tabIndex={disabled ? -1 : undefined}
+          className={styles.cardLink}
+          style={style}
+          onClick={onClick}
+          disabled={disabled}
+        >
+          {content}
+        </button>
+      )}
     </Card>
   );
 }

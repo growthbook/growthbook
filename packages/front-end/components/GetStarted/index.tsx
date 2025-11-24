@@ -18,9 +18,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   AnalyzeExperimentFeatureCard,
-  ExperimentFeatureCard,
-  FeatureFlagFeatureCard,
   ImportFromOtherPlatformFeatureCard,
+  SampleDataFeatureCard,
+  SetUpDataSourceAndMetricsFeatureCard,
 } from "@/components/GetStarted/FeaturedCards";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
@@ -40,6 +40,8 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import { DocSection } from "@/components/DocLink";
+import WelcomeModal from "@/components/GetStarted/WelcomeModal";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type AdvancedFeature = {
   imgUrl: string;
@@ -110,11 +112,11 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
-  const { features } = useFeaturesList();
-  const { experiments } = useExperiments();
+  const { features, loading: featuresLoading } = useFeaturesList();
+  const { experiments, loading: experimentsLoading } = useExperiments();
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
-  const { organization } = useUser();
+  const { organization, userId, email } = useUser();
   const [openNewExperimentModal, setOpenNewExperimentModal] =
     useState<boolean>(false);
   const canUseSetupFlow =
@@ -138,6 +140,70 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   );
   const [openNewFeatureFlagModal, setOpenNewFeatureFlagModal] =
     useState<boolean>(false);
+
+  // Welcome modal logic - only show to org creator on first visit
+  const welcomeModalKey = organization?.id
+    ? `welcomeModalShown_${organization.id}`
+    : null;
+  const [hasSeenWelcomeModal, setHasSeenWelcomeModal] = useLocalStorage<
+    boolean | null
+  >(welcomeModalKey || "welcomeModalShown", false);
+
+  // Check if current user is the organization creator
+  const isOrgCreator = useMemo(() => {
+    if (!organization || !userId || !email) return false;
+
+    // Check if user's email matches ownerEmail
+    if (organization.ownerEmail === email) return true;
+
+    // Check if user is the first member (sorted by dateCreated)
+    if (organization.members && organization.members.length > 0) {
+      const sortedMembers = [...organization.members].sort((a, b) => {
+        const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
+        const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
+        return dateA - dateB;
+      });
+
+      const firstMember = sortedMembers[0];
+      if (firstMember && firstMember.id === userId) return true;
+    }
+
+    return false;
+  }, [organization, userId, email]);
+
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
+
+  // Show welcome modal if user is org creator and hasn't seen it yet
+  useEffect(() => {
+    if (
+      isOrgCreator &&
+      !hasSeenWelcomeModal &&
+      organization?.id &&
+      userId &&
+      !featuresLoading &&
+      !experimentsLoading
+    ) {
+      // Small delay to ensure page is fully loaded
+      const timer = setTimeout(() => {
+        setShowWelcomeModal(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    isOrgCreator,
+    hasSeenWelcomeModal,
+    organization?.id,
+    userId,
+    featuresLoading,
+    experimentsLoading,
+  ]);
+
+  const handleWelcomeModalClose = () => {
+    setShowWelcomeModal(false);
+    if (welcomeModalKey) {
+      setHasSeenWelcomeModal(true);
+    }
+  };
 
   useEffect(() => {
     setShowGettingStarted(!orgIsUsingFeatureOrExperiment);
@@ -177,6 +243,13 @@ const GetStartedAndHomePage = (): React.ReactElement => {
 
   return (
     <>
+      {showWelcomeModal && (
+        <WelcomeModal
+          open={showWelcomeModal}
+          onClose={handleWelcomeModalClose}
+          organizationName={organization?.name}
+        />
+      )}
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
@@ -214,37 +287,36 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
-        {orgIsUsingFeatureOrExperiment && (
-          <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
-            <Text size="7" weight="regular" mb="5" as="div">
-              Home
-            </Text>
-            <Flex justify={{ initial: "end", sm: "start" }} align="center">
-              <DropdownMenu
-                trigger={
-                  <Button icon={<PiCaretDownFill />} iconPosition="right">
-                    Create
-                  </Button>
-                }
+        <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
+          <Text size="7" weight="regular" mb="5" as="div">
+            Home
+          </Text>
+          <Flex justify={{ initial: "end", sm: "start" }} align="center">
+            <DropdownMenu
+              trigger={
+                <Button icon={<PiCaretDownFill />} iconPosition="right">
+                  Create
+                </Button>
+              }
+            >
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenNewFeatureFlagModal(true);
+                }}
               >
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOpenNewFeatureFlagModal(true);
-                  }}
-                >
-                  Feature Flag
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOpenNewExperimentModal(true);
-                  }}
-                >
-                  Experiment
-                </DropdownMenuItem>
-              </DropdownMenu>
-            </Flex>
-          </Grid>
-        )}
+                Feature Flag
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenNewExperimentModal(true);
+                }}
+              >
+                Experiment
+              </DropdownMenuItem>
+            </DropdownMenu>
+          </Flex>
+        </Grid>
+
         {!orgIsUsingFeatureOrExperiment && (
           <Text size="4" weight="medium" mb="3" as="div">
             Get Started
@@ -319,34 +391,23 @@ const GetStartedAndHomePage = (): React.ReactElement => {
               )}
               {showGettingStarted && (
                 <>
-                  {showSetUpFlow && (
-                    <Callout status="wizard" size="md" mb="6">
-                      Connect to your SDK to get started.{" "}
-                      <Link
-                        href="/setup"
-                        className="font-weight-bold"
-                        style={{ color: "inherit" }}
-                      >
-                        Launch the setup flow
-                      </Link>{" "}
-                      <PiArrowSquareOut />
-                    </Callout>
-                  )}
                   <Grid
                     gapX="4"
                     gapY="3"
                     columns={{ initial: "1fr", sm: "1fr 1fr" }}
                     rows="auto auto"
                   >
-                    <FeatureFlagFeatureCard />
-                    <ExperimentFeatureCard />
+                    {/* <FeatureFlagFeatureCard /> */}
+                    <SampleDataFeatureCard />
+                    <SetUpDataSourceAndMetricsFeatureCard />
+                    {/* <ExperimentFeatureCard /> */}
                     <ImportFromOtherPlatformFeatureCard />
                     <AnalyzeExperimentFeatureCard />
                   </Grid>
 
                   <Separator my="5" size="4" />
 
-                  <Box mb="6">
+                  {/* <Box mb="6">
                     <Box mb="3">
                       <Text size="1" weight="bold">
                         PRODUCT OVERVIEW
@@ -376,9 +437,47 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                         type="link"
                       />
                     </Flex>
+                  </Box> */}
+
+                  {showSetUpFlow && (
+                    <Callout status="wizard" size="md" mb="6">
+                      Connect to your SDK to get started.{" "}
+                      <Link
+                        href="/setup"
+                        className="font-weight-bold"
+                        style={{ color: "inherit" }}
+                      >
+                        Launch the setup flow
+                      </Link>{" "}
+                      <PiArrowSquareOut />
+                    </Callout>
+                  )}
+
+                  <Box mt="6" mb="2">
+                    <Box mb="3">
+                      <Text
+                        size="1"
+                        weight="medium"
+                        style={{ color: "var(--color-text-mid)" }}
+                      >
+                        EXPLORE FEATURES
+                      </Text>
+                    </Box>
+                    <Flex direction={{ initial: "column", sm: "row" }} gap="4">
+                      {advancedFeatures.map((feature) => (
+                        <AdvancedFeaturesCard
+                          key={feature.title}
+                          imgUrl={feature.imgUrl}
+                          docSection={feature.docSection}
+                          title={feature.title}
+                          description={feature.description}
+                          commercialFeature={feature.commercialFeature}
+                        />
+                      ))}
+                    </Flex>
                   </Box>
 
-                  <Box mb="6">
+                  {/* <Box mb="6">
                     <Box mb="3">
                       <Text size="1" weight="bold">
                         SET UP YOUR WORKSPACE
@@ -390,7 +489,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                         <WorkspaceLinks />
                       </Grid>
                     </Card>
-                  </Box>
+                  </Box> */}
                 </>
               )}
             </Box>
