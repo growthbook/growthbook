@@ -166,7 +166,7 @@ export default function MetricExplorerBlock({
         );
 
         // Build series names first (before building dataset to avoid duplicates)
-        const seriesNames: string[] = ["Overall"];
+        const seriesNames: string[] = [];
         slices.forEach((slice) => {
           const sliceLabel = formatSliceLabel(slice.slice);
           if (!seriesNames.includes(sliceLabel)) {
@@ -179,23 +179,6 @@ export default function MetricExplorerBlock({
 
         sortedDates.forEach((date) => {
           const row: Record<string, unknown> = { x: date };
-
-          // Add overall value
-          const overallRow = rows.find(
-            (r) => r.date.getTime() === date.getTime(),
-          );
-          if (overallRow) {
-            const mean = overallRow.mean ?? 0;
-            const units = overallRow.units ?? 0;
-            const value =
-              valueType === "sum" && factMetric.metricType !== "ratio"
-                ? mean * units
-                : mean;
-            // Only add if value is a valid number
-            if (typeof value === "number" && !isNaN(value) && isFinite(value)) {
-              row["Overall"] = value;
-            }
-          }
 
           // Add slice values (using pre-built seriesNames to ensure consistency)
           slices.forEach((slice) => {
