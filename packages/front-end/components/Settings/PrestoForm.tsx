@@ -154,7 +154,6 @@ const PrestoForm: FC<{
               type="text"
               className="form-control"
               name="kerberosClientPrincipal"
-              required
               value={params.kerberosClientPrincipal || ""}
               onChange={onParamChange}
               placeholder="HTTP/growthbook.example.com@REALM"
@@ -162,10 +161,10 @@ const PrestoForm: FC<{
               title="Must be in the format service/hostname@REALM"
             />
             <small className="form-text text-muted">
-              The client (GrowthBook) principal. It should contain the full
-              principal (<code>http/growthbook.example.com@REALM</code>). Ensure
-              the GrowthBook server has valid Kerberos credentials configured
-              via <code>kinit</code> or keytab.
+              The client (GrowthBook) principal. If not specified, the default
+              principal from the system will be used. Should contain the full
+              principal (<code>http/growthbook.example.com@REALM</code>) when
+              provided.
             </small>
           </div>
           <div className="form-group col-md-12">

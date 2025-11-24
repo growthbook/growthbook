@@ -59,9 +59,9 @@ export default class Presto extends SqlIntegration {
     if (this.params?.authType === "kerberos") {
       const servicePrincipal = this.params.kerberosServicePrincipal;
       const clientPrincipal = this.params.kerberosClientPrincipal;
-      if (!servicePrincipal || !clientPrincipal) {
+      if (!servicePrincipal) {
         throw new Error(
-          "Kerberos service and client principals are required for Kerberos authentication",
+          "Kerberos service principal is required for Kerberos authentication",
         );
       }
       // Use a function to generate fresh Kerberos tokens for each request
