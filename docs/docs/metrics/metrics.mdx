@@ -63,13 +63,21 @@ The default display currency is USD, but you can change it under **Settings** â†
 
 ## Metric Types
 
-There are 4 types of metrics you can create within GrowthBook - Proportion, Mean, Quantile, and Ratio.
+There are 5 types of metrics you can create within GrowthBook - Proportion, Retention, Mean, Ratio, and Quantile.
 
 ### Proportion Metrics
 
 Proportion Metrics measure the percent of users in an experiment who exist in a Fact Table (and match any filters you specify).
 
 For example, if you have an Orders Fact Table, you can create a Proportion Metric to see what percent of users purchased something. For this metric, we don't care how many times they purchased, just that they have at least 1 matching row.
+
+### Retention Metrics
+
+Retention Metrics are used to measure the retention of users over time with respect to their first experiment exposure. For example, you might want to measure the retention of users who came back to your site at least 7 days after their first experiment exposure.
+
+You can use the filters to determine if a user qualifies as retained (using a row filter to only look for certain events or using a user filter to only look for users who completed an action a certain number of times).
+
+You then set the retention window, which is the amount of time after the first experiment exposure that a user must do the qualifying actions. You can also use a conversion window to only look for a certain time period after the start of the retention window. For example, if you want to measure the retention of users who came back to your site in the second full week after the experiment exposure, you would set the retention window to 7 days and the conversion window to 7 days.
 
 ### Mean Metrics
 
@@ -78,11 +86,12 @@ Mean Metrics are useful when there are more than 2 possible states a user can be
 For the metric value, there are 4 types of aggregations you can do:
 
 - `COUNT(*)` - a count of all rows per user in your Fact Table
+- `COUNT(DISTINCT DATE(timestamp))` - the distinct number of days user completed the qualifying actions in your fact table (e.g. for a count of active days per user, akin to daily active users [DAU] metrics)
 - `SUM(column)` - the sum per user of any numeric column in your Fact Table
 - `MAX(column)` - the max of a numeric column per user in your Fact Table
 - `COUNT(DISTINCT column)` - the distinct count of a string column per user in your Fact Table.
 
-Note: for `COUNT DISTINCT`, we use the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) estimation method to approximate the distinct count while scaling to account for data with many rows and easily allow re-aggregation. However, `COUNT DISTINCT` is still more computationally costly than other aggregation types, so use it only when necessary. This aggregation is not available for SQL Server, MySQL, Postgres, or Vertica.
+Note: for `COUNT(DISTINCT column)` where you pass an arbitrary column, we use the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) estimation method to approximate the distinct count while scaling to account for data with many rows and easily allow re-aggregation. However, `COUNT DISTINCT` is still more computationally costly than other aggregation types, so use it only when necessary. This aggregation is not available for SQL Server, MySQL, Postgres, or Vertica.
 
 For example, an **Orders per User** metric would use `COUNT(*)` since you want to count the total number of rows. A **Revenue per User** metric would use `SUM` and select the column where the order total is stored.
 
@@ -344,7 +353,7 @@ All users (units) contribute to a metric slice. This provides the most accurate 
 
 After creating a metric, you can perform some basic analysis on it. Depending on the metric type, we show you the average value over time, a histogram breakdown, and more. You can customize the date range and population that's included.
 
-We have a lot more we want to do here in the future, so let us know what other kinds of analyses you are most excited about!
+For more advanced analysis, use our [Product Analytics](/app/product-analytics) feature.
 
 ## Metric Groups
 

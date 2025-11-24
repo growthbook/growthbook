@@ -174,6 +174,7 @@ function getColumnOptions({
   datasource,
   includeCount = true,
   includeCountDistinct = false,
+  includeDistinctDates = false,
   includeNumericColumns = true,
   includeStringColumns = false,
   includeJSONFields = false,
@@ -186,6 +187,7 @@ function getColumnOptions({
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
+  includeDistinctDates?: boolean;
   includeNumericColumns?: boolean;
   includeStringColumns?: boolean;
   includeBooleanColumns?: boolean;
@@ -212,6 +214,12 @@ function getColumnOptions({
     specialColumnOptions.push({
       label: "Count of Rows",
       value: "$$count",
+    });
+  }
+  if (includeDistinctDates) {
+    specialColumnOptions.push({
+      label: "Distinct Dates",
+      value: "$$distinctDates",
     });
   }
 
@@ -396,6 +404,7 @@ function ColumnRefSelector({
   setValue,
   setDatasource,
   includeCountDistinct,
+  includeDistinctDates,
   aggregationType = "unit",
   includeColumn,
   datasource,
@@ -408,6 +417,7 @@ function ColumnRefSelector({
   setDatasource: (datasource: string) => void;
   value: ColumnRef;
   includeCountDistinct?: boolean;
+  includeDistinctDates?: boolean;
   includeColumn?: boolean;
   aggregationType?: "unit" | "event";
   datasource: DataSourceInterfaceWithParams;
@@ -425,6 +435,7 @@ function ColumnRefSelector({
     factTable,
     datasource,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
+    includeDistinctDates: includeDistinctDates && aggregationType === "unit",
     includeCount: aggregationType === "unit",
     includeNumericColumns: true,
     includeStringColumns:
@@ -1027,22 +1038,26 @@ function getPreviewSQL({
       ? "COUNT(*)"
       : numerator.column === "$$distinctUsers"
         ? "1"
-        : numerator.aggregation === "count distinct"
-          ? `COUNT(DISTINCT ${numerator.column})`
-          : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
-              numerator.column
-            })`;
+        : numerator.column === "$$distinctDates"
+          ? `COUNT(DISTINCT DATE(timestamp))`
+          : numerator.aggregation === "count distinct"
+            ? `COUNT(DISTINCT ${numerator.column})`
+            : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
+                numerator.column
+              })`;
 
   const denominatorCol =
     denominator?.column === "$$count"
       ? "COUNT(*)"
       : denominator?.column === "$$distinctUsers"
         ? "1"
-        : numerator.aggregation === "count distinct"
-          ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
-          : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
-              denominator?.column
-            })`;
+        : denominator?.column === "$$distinctDates"
+          ? `COUNT(DISTINCT DATE(timestamp))`
+          : denominator?.aggregation === "count distinct"
+            ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
+            : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
+                denominator?.column
+              })`;
 
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
@@ -1796,16 +1811,20 @@ export default function FactMetricModal({
               ? "count"
               : values.numerator.column === "$$distinctUsers"
                 ? "distinct_users"
-                : values.numerator.aggregation || "sum",
+                : values.numerator.column === "$$distinctDates"
+                  ? "distinct_dates"
+                  : values.numerator.aggregation || "sum",
           numerator_filters: values.numerator.filters.length,
           denominator_agg:
             values.denominator?.column === "$$count"
               ? "count"
               : values.denominator?.column === "$$distinctUsers"
                 ? "distinct_users"
-                : values.denominator?.column
-                  ? values.denominator?.aggregation || "sum"
-                  : "none",
+                : values.denominator?.column === "$$distinctDates"
+                  ? "distinct_dates"
+                  : values.denominator?.column
+                    ? values.denominator?.aggregation || "sum"
+                    : "none",
           denominator_filters: values.denominator?.filters?.length || 0,
           ratio_same_fact_table:
             values.metricType === "ratio" &&
@@ -2134,6 +2153,7 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     setDatasource={setDatasource}
+                    includeDistinctDates={true}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     allowChangingDatasource={!datasource}
@@ -2187,6 +2207,7 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     aggregationType={quantileSettings.type}
+                    includeDistinctDates={true}
                     setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
@@ -2259,6 +2280,7 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      includeDistinctDates={true}
                       setDatasource={setDatasource}
                       datasource={selectedDataSource}
                       disableFactTableSelector={!!initialFactTable}
@@ -2284,6 +2306,7 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      includeDistinctDates={true}
                       setDatasource={setDatasource}
                       allowChangingDatasource={false}
                       datasource={selectedDataSource}
