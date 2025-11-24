@@ -86,7 +86,7 @@ Mean Metrics are useful when there are more than 2 possible states a user can be
 For the metric value, there are 4 types of aggregations you can do:
 
 - `COUNT(*)` - a count of all rows per user in your Fact Table
-- `COUNT(DISTINCT DATE(timestamp))` - the distinct number of days user completed the qualifying actions in your fact table (e.g. for a count of active days per user)
+- `COUNT(DISTINCT DATE(timestamp))` - the distinct number of days user completed the qualifying actions in your fact table (e.g. for a count of active days per user, akin to daily active users [DAU] metrics)
 - `SUM(column)` - the sum per user of any numeric column in your Fact Table
 - `MAX(column)` - the max of a numeric column per user in your Fact Table
 - `COUNT(DISTINCT column)` - the distinct count of a string column per user in your Fact Table.

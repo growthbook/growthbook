@@ -230,13 +230,6 @@ export class FactMetricModel extends BaseClass {
         );
       }
     }
-    if (data.denominator?.column === "$$distinctDates") {
-      if (!metricSupportsDistinctDates) {
-        throw new Error(
-          "$$distinctDates is only supported for mean, ratio, and quantile metrics",
-        );
-      }
-    }
 
     // validate user filter
     if (
