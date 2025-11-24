@@ -22,6 +22,7 @@ import {
   getFactTableTemplateVariables,
   parseSliceMetricId,
   generateSliceStringFromLevels,
+  generateSliceString,
   SliceLevelsData,
 } from "shared/experiments";
 import {
@@ -902,16 +903,19 @@ export default abstract class SqlIntegration
       index: number;
     }> = [];
 
-    // If we have custom metric slices, create a metric for each slice group
-    if (settings.customMetricSlices && settings.customMetricSlices.length > 0) {
-      const factTable = params.factTableMap.get(
-        metric.numerator?.factTableId || "",
-      );
-      if (!factTable) {
-        throw new Error("Unknown fact table");
-      }
+    // Get fact table once for reuse
+    const factTable = params.factTableMap.get(
+      metric.numerator?.factTableId || "",
+    );
+    if (!factTable) {
+      throw new Error("Unknown fact table");
+    }
 
-      settings.customMetricSlices.forEach((sliceGroup, groupIndex) => {
+    let currentIndex = 0;
+
+    // 1. Process custom metric slices (if any)
+    if (settings.customMetricSlices && settings.customMetricSlices.length > 0) {
+      settings.customMetricSlices.forEach((sliceGroup) => {
         // Sort slices alphabetically for consistent ID generation (matching experiment analysis)
         const sortedSlices = sliceGroup.slices.sort((a, b) =>
           a.column.localeCompare(b.column),
@@ -948,15 +952,66 @@ export default abstract class SqlIntegration
               .map((combo) => `${combo.column}: ${combo.levels[0] || ""}`)
               .join(", ")})`,
           };
-          metricsWithIndices.push({ metric: sliceMetric, index: groupIndex });
+          metricsWithIndices.push({
+            metric: sliceMetric,
+            index: currentIndex++,
+          });
         }
       });
-    } else {
-      // No slices, just use the base metric
-      metricsWithIndices.push({ metric, index: 0 });
     }
 
-    console.log("metricsWithIndices", metricsWithIndices);
+    // 2. Process auto slices from settings (if any) - separate from custom slices
+    if (settings.metricAutoSlices && settings.metricAutoSlices.length > 0) {
+      // Find auto slice columns that match the column names in settings.metricAutoSlices
+      const autoSliceColumns = factTable.columns.filter(
+        (col) =>
+          col.isAutoSliceColumn &&
+          !col.deleted &&
+          (col.autoSlices?.length || 0) > 0 &&
+          settings.metricAutoSlices?.includes(col.column),
+      );
+
+      autoSliceColumns.forEach((col) => {
+        const autoSlices = col.autoSlices || [];
+
+        // Create a metric for each auto slice value
+        autoSlices.forEach((value: string) => {
+          const sliceString = generateSliceString({
+            [col.column]: value,
+          });
+          const sliceMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: ${value})`,
+          };
+          metricsWithIndices.push({
+            metric: sliceMetric,
+            index: currentIndex++,
+          });
+        });
+
+        // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
+        if (autoSlices.length > 0 || col.datatype === "boolean") {
+          const sliceString = generateSliceString({
+            [col.column]: "",
+          });
+          const otherMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: other)`,
+          };
+          metricsWithIndices.push({
+            metric: otherMetric,
+            index: currentIndex++,
+          });
+        }
+      });
+    }
+
+    // If no slices were added, use the base metric
+    if (metricsWithIndices.length === 0) {
+      metricsWithIndices.push({ metric, index: 0 });
+    }
 
     // Get any required identity join queries; only use same id type for now,
     // so not needed
@@ -972,12 +1027,7 @@ export default abstract class SqlIntegration
       forcedBaseIdType: settings.userIdType,
     });
 
-    const factTable = params.factTableMap.get(
-      metric.numerator?.factTableId || "",
-    );
-    if (!factTable) {
-      throw new Error("Unknown fact table");
-    }
+    // factTable already declared above for slice processing
 
     const metricData = this.getMetricData(
       { metric: metricsWithIndices[0].metric, index: 0 },
@@ -5548,7 +5598,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         const sliceInfo = parseSliceMetricId(m.id, {
           [factTable.id]: factTable,
         });
-        console.log("sliceInfo in getMetricAnalysisQuery", sliceInfo);
         const filters = getColumnRefWhereClause({
           factTable,
           columnRef: m.numerator,
