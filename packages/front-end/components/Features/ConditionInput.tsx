@@ -18,6 +18,7 @@ import {
   useAttributeMap,
   useAttributeSchema,
   getDefaultOperator,
+  getFormatEquivalentOperator,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -417,6 +418,21 @@ export default function ConditionInput(props: Props) {
                           newConds[i]["operator"] =
                             getDefaultOperator(newAttribute);
                           newConds[i]["value"] = newConds[i]["value"] || "";
+                        } else if (
+                          newAttribute &&
+                          newAttribute.format !== attribute.format
+                        ) {
+                          const desiredOperator = getFormatEquivalentOperator(
+                            conds[i].operator,
+                            newAttribute?.format,
+                          );
+                          if (desiredOperator) {
+                            newConds[i]["operator"] = desiredOperator;
+                          } else {
+                            newConds[i]["operator"] =
+                              getDefaultOperator(newAttribute);
+                            newConds[i]["value"] = newConds[i]["value"] || "";
+                          }
                         }
                         setConds(newConds);
                       }}
