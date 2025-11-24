@@ -304,6 +304,7 @@ function DashboardsTab({
                 editLevel: dashboard.editLevel,
                 shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
+                updateSchedule: dashboard.updateSchedule || undefined,
                 title: dashboard.title,
                 projects: dashboard.projects || [],
                 userId: dashboard.userId,
@@ -325,6 +326,7 @@ function DashboardsTab({
                 editLevel: dashboard.editLevel,
                 shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
+                updateSchedule: dashboard.updateSchedule || undefined,
                 title: `Copy of ${dashboard.title}`,
                 projects: dashboard.projects || [],
                 userId: dashboard.userId,
@@ -463,14 +465,19 @@ function DashboardsTab({
                               {mutateExperiment && canUpdateExperiment && (
                                 <Tooltip
                                   body={
-                                    experiment.defaultDashboardId ===
-                                    dashboard.id
-                                      ? "Remove this dashboard as the default view for the experiment"
-                                      : "Set this dashboard as the default view for the experiment"
+                                    dashboard.shareLevel !== "published"
+                                      ? "Only published dashboards can be set as the default view"
+                                      : experiment.defaultDashboardId ===
+                                          dashboard.id
+                                        ? "Remove this dashboard as the default view for the experiment"
+                                        : "Set this dashboard as the default view for the experiment"
                                   }
                                 >
                                   <Button
                                     className="dropdown-item"
+                                    disabled={
+                                      dashboard.shareLevel !== "published"
+                                    }
                                     onClick={async () => {
                                       await apiCall(
                                         `/experiment/${experiment.id}`,
@@ -639,6 +646,7 @@ function DashboardsTab({
                           experiment.project ? [experiment.project] : []
                         }
                         isEditing={false}
+                        updateSchedule={dashboard.updateSchedule}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
                         isGeneralDashboard={false}

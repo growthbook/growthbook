@@ -59,6 +59,11 @@ function EventDetails({
           oldValue={JSON.stringify(json.pre || {}, null, 2)}
           newValue={JSON.stringify(json.post || {}, null, 2)}
           compareMethod={DiffMethod.LINES}
+          styles={{
+            contentText: {
+              wordBreak: "break-all",
+            },
+          }}
         />
       </div>
     );

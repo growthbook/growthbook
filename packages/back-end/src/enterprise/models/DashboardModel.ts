@@ -234,7 +234,8 @@ export class DashboardModel extends BaseClass {
       blocks: orig.blocks.map(migrateBlock),
       editLevel:
         orig.editLevel === "organization" ? "published" : orig.editLevel,
-      shareLevel: orig.shareLevel ?? "private",
+      shareLevel: orig.shareLevel || "private",
+      updateSchedule: orig.updateSchedule || undefined,
     });
   }
 

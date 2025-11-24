@@ -28,6 +28,7 @@ export const createDashboardBody = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
+    userId: z.string().optional(),
   })
   .strict();
 
