@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { queryPointerValidator } from "back-end/src/validators/queries";
+import { customMetricSlice } from "back-end/src/validators/experiments";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([
   "metric",
@@ -21,6 +22,11 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
+    // pinnedMetricSlices: z.array(z.string()).nullable(), - This is the shape of the data for exp analysis
+    //MKTODO: Add metricSliceIds: z.array(z.string()).optional(),
+    //MKTODO: Add customMetricSlices: z.array(z.string()).optional(), - this needs to be a custom type, an array of key value pairs (e.g. column: "country", value: "US", column: "product_type", value: "apparel")
     additionalNumeratorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
     additionalDenominatorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
   })
@@ -44,6 +50,8 @@ export const createMetricAnalysisPropsValidator = z
     force: z.boolean().optional(),
     additionalNumeratorFilters: z.array(z.string()).optional(),
     additionalDenominatorFilters: z.array(z.string()).optional(),
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
   })
   .strict();
 
@@ -73,10 +81,36 @@ export const metricAnalysisResultValidator = z
           stddev: z.number().optional(),
           numerator: z.number().optional(),
           denominator: z.number().optional(),
+          slice: z.record(z.string(), z.string().nullable()).optional(), // Map of column -> value for slices
         }),
       )
       .optional(),
     histogram: metricAnalysisHistogramValidator.optional(),
+    slices: z
+      .array(
+        z.object({
+          slice: z.record(z.string(), z.string().nullable()), // Map of column -> value
+          units: z.number(),
+          mean: z.number(),
+          stddev: z.number().optional(),
+          numerator: z.number().optional(),
+          denominator: z.number().optional(),
+          dates: z
+            .array(
+              z.object({
+                date: z.date(),
+                units: z.number(),
+                mean: z.number(),
+                stddev: z.number().optional(),
+                numerator: z.number().optional(),
+                denominator: z.number().optional(),
+              }),
+            )
+            .optional(),
+          histogram: metricAnalysisHistogramValidator.optional(),
+        }),
+      )
+      .optional(),
   })
   .strict();
 

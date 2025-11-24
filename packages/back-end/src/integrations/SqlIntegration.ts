@@ -21,6 +21,8 @@ import {
   isCappableMetricType,
   getFactTableTemplateVariables,
   parseSliceMetricId,
+  generateSliceStringFromLevels,
+  SliceLevelsData,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -894,6 +896,68 @@ export default abstract class SqlIntegration
   ): string {
     const { settings } = params;
 
+    // Create metrics with indices - one per slice group if slices are provided
+    const metricsWithIndices: Array<{
+      metric: FactMetricInterface;
+      index: number;
+    }> = [];
+
+    // If we have custom metric slices, create a metric for each slice group
+    if (settings.customMetricSlices && settings.customMetricSlices.length > 0) {
+      const factTable = params.factTableMap.get(
+        metric.numerator?.factTableId || "",
+      );
+      if (!factTable) {
+        throw new Error("Unknown fact table");
+      }
+
+      settings.customMetricSlices.forEach((sliceGroup, groupIndex) => {
+        // Sort slices alphabetically for consistent ID generation (matching experiment analysis)
+        const sortedSlices = sliceGroup.slices.sort((a, b) =>
+          a.column.localeCompare(b.column),
+        );
+
+        // Build slice levels
+        const sliceLevels: SliceLevelsData[] = sortedSlices.map((slice) => {
+          const column = factTable.columns.find(
+            (col) => col.column === slice.column,
+          );
+          const datatype =
+            column?.datatype === "boolean" ? "boolean" : "string";
+
+          // For boolean "null" slices, use empty array to generate ?dim:col= format
+          const levels =
+            slice.levels[0] === "null" && datatype === "boolean"
+              ? []
+              : slice.levels;
+
+          return {
+            column: slice.column,
+            datatype,
+            levels,
+          };
+        });
+
+        // Generate slice string and create slice metric
+        if (sliceLevels.length > 0) {
+          const sliceString = generateSliceStringFromLevels(sliceLevels);
+          const sliceMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${sortedSlices
+              .map((combo) => `${combo.column}: ${combo.levels[0] || ""}`)
+              .join(", ")})`,
+          };
+          metricsWithIndices.push({ metric: sliceMetric, index: groupIndex });
+        }
+      });
+    } else {
+      // No slices, just use the base metric
+      metricsWithIndices.push({ metric, index: 0 });
+    }
+
+    console.log("metricsWithIndices", metricsWithIndices);
+
     // Get any required identity join queries; only use same id type for now,
     // so not needed
     const idTypeObjects = [
@@ -916,7 +980,7 @@ export default abstract class SqlIntegration
     }
 
     const metricData = this.getMetricData(
-      { metric, index: 0 },
+      { metric: metricsWithIndices[0].metric, index: 0 },
       {
         attributionModel: "experimentDuration",
         regressionAdjustmentEnabled: false,
@@ -991,7 +1055,7 @@ export default abstract class SqlIntegration
       __factTable AS (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
-        metricsWithIndices: [{ metric: metric, index: 0 }],
+        metricsWithIndices: metricsWithIndices,
         factTable,
         endDate: metricData.metricEnd,
         startDate: metricData.metricStart,
@@ -5484,6 +5548,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         const sliceInfo = parseSliceMetricId(m.id, {
           [factTable.id]: factTable,
         });
+        console.log("sliceInfo in getMetricAnalysisQuery", sliceInfo);
         const filters = getColumnRefWhereClause({
           factTable,
           columnRef: m.numerator,

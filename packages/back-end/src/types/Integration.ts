@@ -502,6 +502,7 @@ export type MetricValueQueryResponseRow = {
 export type MetricValueQueryResponseRows = MetricValueQueryResponseRow[];
 
 export type MetricAnalysisQueryResponseRow = {
+  metric_id?: string;
   date: string;
   data_type: string;
   capped: boolean;
@@ -540,6 +541,7 @@ export type MetricAnalysisQueryResponseRow = {
   units_bin_22?: number;
   units_bin_23?: number;
   units_bin_24?: number;
+  [key: string]: string | number | boolean | object | undefined; // Allow slice columns
 };
 
 export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];

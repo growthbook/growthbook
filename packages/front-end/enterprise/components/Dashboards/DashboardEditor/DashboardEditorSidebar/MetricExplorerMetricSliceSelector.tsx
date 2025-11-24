@@ -1,0 +1,729 @@
+import React, { useState, useMemo, useCallback } from "react";
+import { FaTimes, FaPlusCircle } from "react-icons/fa";
+import { PiPencilSimpleFill, PiX, PiStackBold } from "react-icons/pi";
+import { Text, Flex, IconButton } from "@radix-ui/themes";
+import { isFactMetric, SliceLevelsData } from "shared/experiments";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import Badge from "@/ui/Badge";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import SelectField from "@/components/Forms/SelectField";
+import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
+
+interface MetricWithStringColumns extends FactMetricInterface {
+  stringColumns: Array<{
+    column: string;
+    name: string;
+    datatype?: string;
+    isAutoSliceColumn?: boolean;
+    autoSlices?: string[];
+    topValues?: string[];
+  }>;
+}
+
+export interface MetricExplorerMetricSliceSelectorProps {
+  factMetricId: string;
+  customMetricSlices: CustomMetricSlice[];
+  setCustomMetricSlices: (slices: CustomMetricSlice[]) => void;
+  disabled?: boolean;
+}
+
+export default function MetricExplorerMetricSliceSelector({
+  factMetricId,
+  customMetricSlices,
+  setCustomMetricSlices,
+  disabled = false,
+}: MetricExplorerMetricSliceSelectorProps) {
+  const [editState, setEditState] = useState<"adding" | "editing" | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingSliceLevels, setEditingSliceLevels] = useState<
+    SliceLevelsData[]
+  >([]);
+  const [addingSlice, setAddingSlice] = useState(false);
+
+  const { factMetrics, factTables } = useDefinitions();
+
+  const metric = useMemo(
+    () =>
+      factMetrics.find((m) => m.id === factMetricId) as
+        | FactMetricInterface
+        | undefined,
+    [factMetrics, factMetricId],
+  );
+
+  const factTable = useMemo(() => {
+    if (!metric || !isFactMetric(metric)) return null;
+    return (
+      factTables.find((t) => t.id === metric.numerator?.factTableId) || null
+    );
+  }, [metric, factTables]);
+
+  const metricWithStringColumns = useMemo(() => {
+    if (!metric || !isFactMetric(metric) || !factTable) return null;
+
+    const stringColumns = factTable.columns?.filter(
+      (col) =>
+        (col.datatype === "string" || col.datatype === "boolean") &&
+        !col.deleted &&
+        !factTable.userIdTypes.includes(col.column),
+    );
+
+    if (!stringColumns || stringColumns.length === 0) return null;
+
+    return {
+      ...metric,
+      stringColumns: stringColumns.map((col) => ({
+        column: col.column,
+        name: col.name || col.column,
+        datatype: col.datatype,
+        isAutoSliceColumn: col.isAutoSliceColumn,
+        autoSlices: col.autoSlices,
+        topValues: col.topValues,
+      })),
+    } as MetricWithStringColumns;
+  }, [metric, factTable]);
+
+  const startEditing = (index: number) => {
+    setEditingIndex(index);
+    setEditState(index === -1 ? "adding" : "editing");
+    if (index === -1) {
+      // Adding new entry - start with empty slice-level pair
+      setEditingSliceLevels([]);
+      setAddingSlice(true);
+    } else {
+      // Editing existing entry
+      const levels = customMetricSlices[index];
+      setEditingSliceLevels(
+        levels.slices.map((s) => {
+          // Look up datatype from metricWithStringColumns
+          const columnMetadata = metricWithStringColumns?.stringColumns.find(
+            (col) => col.column === s.column,
+          );
+
+          return {
+            column: s.column,
+            levels: s.levels,
+            datatype: (columnMetadata?.datatype === "boolean"
+              ? "boolean"
+              : "string") as "string" | "boolean",
+          };
+        }),
+      );
+      setAddingSlice(false);
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditState(null);
+    setEditingIndex(null);
+    setEditingSliceLevels([]);
+    setAddingSlice(false);
+  };
+
+  const saveEditing = () => {
+    if (editingSliceLevels.length === 0) return;
+
+    const newLevels: CustomMetricSlice = {
+      slices: editingSliceLevels.map((dl) => ({
+        column: dl.column,
+        levels: dl.levels,
+      })),
+    };
+
+    // Update the custom slice levels
+    let updatedLevels: CustomMetricSlice[];
+    if (editState === "adding") {
+      // Adding new entry
+      updatedLevels = [...customMetricSlices, newLevels];
+    } else {
+      // Editing existing entry
+      updatedLevels = [...customMetricSlices];
+      updatedLevels[editingIndex as number] = newLevels;
+    }
+
+    setCustomMetricSlices(updatedLevels);
+    cancelEditing();
+  };
+
+  // Remove a metric slice levels entry
+  const removeMetricSliceLevels = useCallback(
+    (levelsIndex: number) => {
+      const updatedLevels = customMetricSlices.filter(
+        (_, i) => i !== levelsIndex,
+      );
+      setCustomMetricSlices(updatedLevels);
+    },
+    [customMetricSlices, setCustomMetricSlices],
+  );
+
+  // Remove a slice level from the current editing levels
+  const removeSliceLevel = (index: number) => {
+    const newLevels = editingSliceLevels.filter((_, i) => i !== index);
+
+    if (newLevels.length === 0) {
+      // If this was the last pair, cancel editing entirely
+      cancelEditing();
+    } else {
+      setEditingSliceLevels(newLevels);
+    }
+  };
+
+  // Update a slice level in the current editing levels
+  const updateSliceLevel = (
+    index: number,
+    field: "column" | "level",
+    value: string,
+  ) => {
+    const newLevels = [...editingSliceLevels];
+    if (field === "level") {
+      newLevels[index] = { ...newLevels[index], levels: [value] };
+    } else if (field === "column") {
+      // When column changes, update datatype based on column metadata
+      const columnMetadata = metricWithStringColumns?.stringColumns.find(
+        (col) => col.column === value,
+      );
+
+      newLevels[index] = {
+        ...newLevels[index],
+        column: value,
+        datatype: columnMetadata?.datatype === "boolean" ? "boolean" : "string",
+      };
+    }
+    setEditingSliceLevels(newLevels);
+  };
+
+  if (!metricWithStringColumns) {
+    return null;
+  }
+
+  return (
+    <div className="my-2">
+      {customMetricSlices.map((levels, levelsIndex) => {
+        const isEditing =
+          editState === "editing" && editingIndex === levelsIndex;
+
+        return (
+          <div key={levelsIndex} className="appbox px-2 py-1 mb-2">
+            {isEditing ? (
+              <EditingInterface
+                editingSliceLevels={editingSliceLevels}
+                addingSlice={addingSlice}
+                setAddingSlice={setAddingSlice}
+                setEditingSliceLevels={setEditingSliceLevels}
+                updateSliceLevel={updateSliceLevel}
+                removeSliceLevel={removeSliceLevel}
+                saveEditing={saveEditing}
+                cancelEditing={cancelEditing}
+                metricsWithSlices={[metricWithStringColumns]}
+                disabled={disabled}
+              />
+            ) : (
+              <div className="d-flex align-items-center">
+                <div className="flex-grow-1">
+                  <Flex gap="2" align="center">
+                    {levels.slices.map((combo, comboIndex) => {
+                      // Find the column datatype
+                      const columnMetadata =
+                        metricWithStringColumns.stringColumns.find(
+                          (col) => col.column === combo.column,
+                        );
+                      const isBoolean = columnMetadata?.datatype === "boolean";
+
+                      return (
+                        <React.Fragment key={comboIndex}>
+                          {comboIndex > 0 && <Text size="1">AND</Text>}
+                          <Badge
+                            label={
+                              <Text style={{ color: "var(--slate-12)" }}>
+                                {combo.column} ={" "}
+                                {isBoolean ? (
+                                  <span
+                                    style={{
+                                      textTransform: "uppercase",
+                                      fontWeight: 600,
+                                      fontSize: "10px",
+                                    }}
+                                  >
+                                    {combo.levels[0]}
+                                  </span>
+                                ) : (
+                                  combo.levels[0]
+                                )}
+                              </Text>
+                            }
+                            color="gray"
+                          />
+                        </React.Fragment>
+                      );
+                    })}
+                  </Flex>
+                </div>
+                <div
+                  className="d-flex align-items-center"
+                  style={{ gap: "0.5rem" }}
+                >
+                  <IconButton
+                    variant="ghost"
+                    size="1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!disabled) {
+                        startEditing(levelsIndex);
+                      }
+                    }}
+                    disabled={disabled}
+                    mr="1"
+                  >
+                    <PiPencilSimpleFill />
+                  </IconButton>
+                  <IconButton
+                    color="red"
+                    variant="ghost"
+                    size="1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!disabled) {
+                        removeMetricSliceLevels(levelsIndex);
+                      }
+                    }}
+                    disabled={disabled}
+                  >
+                    <PiX />
+                  </IconButton>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {editState === null ? (
+        <a
+          role="button"
+          className="d-inline-block link-purple font-weight-bold mt-1"
+          onClick={() => {
+            if (!disabled) {
+              startEditing(-1);
+            }
+          }}
+          style={{
+            opacity: disabled ? 0.5 : 1,
+            cursor: disabled ? "not-allowed" : "pointer",
+          }}
+        >
+          <FaPlusCircle className="mr-1" />
+          Add custom slice
+        </a>
+      ) : editState === "adding" ? (
+        // Adding new entry
+        <div className="appbox px-2 py-1 mb-2">
+          <EditingInterface
+            editingSliceLevels={editingSliceLevels}
+            addingSlice={addingSlice}
+            setAddingSlice={setAddingSlice}
+            setEditingSliceLevels={setEditingSliceLevels}
+            updateSliceLevel={updateSliceLevel}
+            removeSliceLevel={removeSliceLevel}
+            saveEditing={saveEditing}
+            cancelEditing={cancelEditing}
+            metricsWithSlices={[metricWithStringColumns]}
+            disabled={disabled}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Slice selector component for adding new slices
+function SliceSelector({
+  editingSliceLevels,
+  addingSlice,
+  setAddingSlice,
+  setEditingSliceLevels,
+  metricsWithSlices,
+  disabled,
+}: {
+  editingSliceLevels: SliceLevelsData[];
+  addingSlice: boolean;
+  setAddingSlice: (value: boolean) => void;
+  setEditingSliceLevels: (value: SliceLevelsData[]) => void;
+  metricsWithSlices: MetricWithStringColumns[];
+  disabled?: boolean;
+}) {
+  // Check if the last slice-level pair is complete before showing + AND
+  const lastPairIndex = editingSliceLevels.length - 1;
+  const lastPairIsComplete =
+    lastPairIndex >= 0 &&
+    editingSliceLevels[lastPairIndex].column &&
+    editingSliceLevels[lastPairIndex].levels[0];
+
+  // Get all available slice columns and union their levels
+  const usedSlices = new Set(editingSliceLevels.map((dl) => dl.column));
+
+  const sliceMap = new Map<
+    string,
+    { name: string; levels: Set<string>; column: string; datatype?: string }
+  >();
+
+  metricsWithSlices.forEach((metric) => {
+    (metric.stringColumns || []).forEach((col) => {
+      const existing = sliceMap.get(col.column);
+      if (existing) {
+        if (col.datatype === "boolean") {
+          existing.levels.add("true");
+          existing.levels.add("false");
+          existing.levels.add("null");
+        } else {
+          col.autoSlices?.forEach((level) => {
+            existing.levels.add(level);
+          });
+          col.topValues?.forEach((level) => {
+            existing.levels.add(level);
+          });
+        }
+      } else {
+        let allLevels: Set<string>;
+        if (col.datatype === "boolean") {
+          allLevels = new Set(["true", "false", "null"]);
+        } else {
+          allLevels = new Set([
+            ...(col.autoSlices || []),
+            ...(col.topValues || []),
+          ]);
+        }
+        sliceMap.set(col.column, {
+          column: col.column,
+          name: col.name || col.column || "",
+          levels: allLevels,
+          datatype: col.datatype,
+        });
+      }
+    });
+  });
+
+  // Convert to array and filter out used slices
+  const uniqueSlices = Array.from(sliceMap.values())
+    .filter((slice) => !usedSlices.has(slice.column))
+    .map((slice) => ({
+      column: slice.column,
+      name: slice.name,
+      slices: Array.from(slice.levels).sort(), // Convert Set back to sorted array
+      isAutoSliceColumn: metricsWithSlices.some((metric) =>
+        metric.stringColumns.some(
+          (col) => col.column === slice.column && col.isAutoSliceColumn,
+        ),
+      ),
+    }));
+
+  // Sort with isAutoSliceColumn first
+  const sortedSlices = uniqueSlices.sort((a, b) => {
+    if (a.isAutoSliceColumn && !b.isAutoSliceColumn) return -1;
+    if (!a.isAutoSliceColumn && b.isAutoSliceColumn) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Create a map for quick lookup of auto slice columns
+  const autoSliceColumnMap = new Set(
+    sortedSlices
+      .filter((slice) => slice.isAutoSliceColumn)
+      .map((slice) => slice.column),
+  );
+
+  // Only show + AND if there are available slices AND the last pair is complete
+  const shouldShowAndButton = sortedSlices.length > 0 && lastPairIsComplete;
+
+  return addingSlice ? (
+    sortedSlices.length > 0 ? (
+      <div className="border rounded d-flex align-items-center bg-white">
+        <SelectField
+          value=""
+          onChange={(value) => {
+            if (value && !disabled) {
+              // Look up datatype from metricsWithSlices
+              const columnMetadata = metricsWithSlices
+                .flatMap((metric) => metric.stringColumns || [])
+                .find((col) => col.column === value);
+
+              const newSliceLevel: SliceLevelsData = {
+                column: value,
+                levels: [""], // Start with empty level
+                datatype: (columnMetadata?.datatype === "boolean"
+                  ? "boolean"
+                  : "string") as "string" | "boolean",
+              };
+              setEditingSliceLevels([...editingSliceLevels, newSliceLevel]);
+              setAddingSlice(false);
+            }
+          }}
+          disabled={disabled}
+          style={{ minWidth: "150px" }}
+          options={sortedSlices.map((col) => ({
+            label: col.name || col.column || "",
+            value: col.column || "",
+          }))}
+          formatOptionLabel={(option) => (
+            <Flex align="center" gap="1">
+              {autoSliceColumnMap.has(option.value) ? (
+                <Text color="purple" size="1">
+                  <PiStackBold />
+                </Text>
+              ) : (
+                <div style={{ width: 13 }} />
+              )}
+              <Text>{option.label}</Text>
+            </Flex>
+          )}
+          placeholder="column"
+          className="mb-0"
+          autoFocus
+        />
+      </div>
+    ) : null
+  ) : shouldShowAndButton ? (
+    <a
+      role="button"
+      onClick={(e) => {
+        e.preventDefault();
+        if (!disabled) {
+          setAddingSlice(true);
+        }
+      }}
+      className="link-purple mx-1"
+      style={{
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      + AND
+    </a>
+  ) : null;
+}
+
+// Main editing interface component
+function EditingInterface({
+  editingSliceLevels,
+  addingSlice,
+  setAddingSlice,
+  setEditingSliceLevels,
+  updateSliceLevel,
+  removeSliceLevel,
+  saveEditing,
+  cancelEditing,
+  metricsWithSlices,
+  disabled,
+}: {
+  editingSliceLevels: SliceLevelsData[];
+  addingSlice: boolean;
+  setAddingSlice: (value: boolean) => void;
+  setEditingSliceLevels: (value: SliceLevelsData[]) => void;
+  updateSliceLevel: (
+    index: number,
+    field: "column" | "level",
+    value: string,
+  ) => void;
+  removeSliceLevel: (index: number) => void;
+  saveEditing: () => void;
+  cancelEditing: () => void;
+  metricsWithSlices: MetricWithStringColumns[];
+  disabled?: boolean;
+}) {
+  return (
+    <div className="d-flex align-items-top" style={{ gap: "3rem" }}>
+      <div
+        className="flex-grow-1 d-flex flex-wrap align-items-center"
+        style={{ gap: "0.5rem", minHeight: "40px" }}
+      >
+        {editingSliceLevels.map((sliceLevel, levelIndex) => {
+          const sliceMap = new Map<
+            string,
+            {
+              name: string;
+              levels: Set<string>;
+              column: string;
+              datatype?: string;
+            }
+          >();
+
+          metricsWithSlices.forEach((metric) => {
+            (metric.stringColumns || []).forEach((col) => {
+              if (col.column !== sliceLevel.column) return;
+
+              const existing = sliceMap.get(col.column);
+              if (existing) {
+                if (col.datatype === "boolean") {
+                  existing.levels.add("true");
+                  existing.levels.add("false");
+                  existing.levels.add("null");
+                } else {
+                  col.autoSlices?.forEach((level) => {
+                    existing.levels.add(level);
+                  });
+                  col.topValues?.forEach((level) => {
+                    existing.levels.add(level);
+                  });
+                }
+              } else {
+                let allLevels: Set<string>;
+                if (col.datatype === "boolean") {
+                  allLevels = new Set(["true", "false", "null"]);
+                } else {
+                  allLevels = new Set([
+                    ...(col.autoSlices || []),
+                    ...(col.topValues || []),
+                  ]);
+                }
+                sliceMap.set(col.column, {
+                  column: col.column,
+                  name: col.name || col.column || "",
+                  levels: allLevels,
+                  datatype: col.datatype,
+                });
+              }
+            });
+          });
+
+          const sliceColumn = sliceMap.get(sliceLevel.column);
+
+          if (!sliceColumn) return null;
+
+          if (sliceColumn.datatype === "boolean") {
+            const booleanOptions = [
+              { label: "TRUE", value: "true" },
+              { label: "FALSE", value: "false" },
+              { label: "NULL", value: "null" },
+            ];
+
+            return (
+              <div
+                key={levelIndex}
+                className="border rounded d-flex align-items-center bg-white"
+              >
+                <span className="px-2 font-weight-medium">
+                  {sliceColumn?.name || sliceLevel.column}:
+                </span>
+                <SelectField
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(value) =>
+                    updateSliceLevel(levelIndex, "level", value)
+                  }
+                  disabled={disabled}
+                  options={booleanOptions}
+                  className="mb-0"
+                  style={{ minWidth: "120px" }}
+                  placeholder="Select..."
+                  autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
+                />
+                <button
+                  type="button"
+                  className="btn btn-link p-0 ml-1 text-muted"
+                  onClick={() => {
+                    if (!disabled) {
+                      removeSliceLevel(levelIndex);
+                    }
+                  }}
+                  disabled={disabled}
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            );
+          }
+
+          const availableLevels = Array.from(sliceColumn.levels).sort();
+
+          return (
+            <div
+              key={levelIndex}
+              className="border rounded d-flex align-items-center bg-white"
+            >
+              <span className="px-2 font-weight-medium">
+                {sliceColumn?.name || sliceLevel.column}:
+              </span>
+              {availableLevels.length > 0 ? (
+                <SelectField
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(value) =>
+                    updateSliceLevel(levelIndex, "level", value)
+                  }
+                  disabled={disabled}
+                  options={availableLevels.map((level) => ({
+                    label: level,
+                    value: level,
+                  }))}
+                  className="mb-0"
+                  style={{ minWidth: "120px" }}
+                  createable
+                  placeholder=""
+                  autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
+                />
+              ) : (
+                <Field
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(e) =>
+                    updateSliceLevel(levelIndex, "level", e.target.value)
+                  }
+                  disabled={disabled}
+                  className="mb-0"
+                  style={{ width: "130px" }}
+                  placeholder="Column value..."
+                  autoFocus={!sliceLevel.levels[0]}
+                />
+              )}
+              <button
+                type="button"
+                className="btn btn-link p-0 ml-1 text-muted"
+                onClick={() => {
+                  if (!disabled) {
+                    removeSliceLevel(levelIndex);
+                  }
+                }}
+                disabled={disabled}
+              >
+                <FaTimes />
+              </button>
+            </div>
+          );
+        })}
+
+        <SliceSelector
+          editingSliceLevels={editingSliceLevels}
+          addingSlice={addingSlice}
+          setAddingSlice={setAddingSlice}
+          setEditingSliceLevels={setEditingSliceLevels}
+          metricsWithSlices={metricsWithSlices}
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
+        <Button
+          size="xs"
+          onClick={saveEditing}
+          disabled={
+            disabled ||
+            editingSliceLevels.length === 0 ||
+            editingSliceLevels.some(
+              (level) => !level.levels[0] || level.levels[0].trim() === "",
+            )
+          }
+          mr="1"
+        >
+          Done
+        </Button>
+        <IconButton
+          color="red"
+          variant="ghost"
+          size="1"
+          onClick={cancelEditing}
+          disabled={disabled}
+        >
+          <PiX />
+        </IconButton>
+      </div>
+    </div>
+  );
+}
