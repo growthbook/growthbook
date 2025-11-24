@@ -1573,13 +1573,13 @@ export function getAttributesWithVersionStringMismatches(
     if (
       attribute &&
       attribute.format === "version" &&
-      ["$gt", "$gte", "$lt", "$lte", "$eq", "$ne"].includes(operator)
+      STRING_OPERATORS.includes(operator)
     ) {
       mismatchedAttributes.add(field);
     } else if (
       attribute &&
       attribute.format !== "version" &&
-      ["$vgt", "$vgte", "$vlt", "$vlte", "$veq", "$vne"].includes(operator)
+      STRING_VERSION_OPERATORS.includes(operator)
     ) {
       mismatchedAttributes.add(field);
     }
