@@ -376,6 +376,12 @@ export function migrateBlock(
         showTable: true,
         showTimeseries: false,
       };
+    case "sql-explorer": {
+      return {
+        ...doc,
+        blockConfig: doc.blockConfig ?? [],
+      };
+    }
     default:
       return doc;
   }

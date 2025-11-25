@@ -117,13 +117,15 @@ function toggleBlockConfigItem(
   // Type guard to ensure we have a sql-explorer block with blockConfig
   if (!("blockConfig" in block)) return;
 
-  const currentBlockConfig = block.blockConfig || [];
+  const currentBlockConfig = block.blockConfig;
+  // Remove dataVizConfigIndex from legacy blocks so the new config format takes effect
+  const { dataVizConfigIndex: _, ...blockToSet } = block;
 
   if (value) {
     // Add item to blockConfig
     const newBlockConfig = [...currentBlockConfig, itemId];
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: newBlockConfig,
     });
   } else {
@@ -132,7 +134,7 @@ function toggleBlockConfigItem(
       (id: string) => id !== itemId,
     );
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: filteredBlockConfig,
     });
   }
