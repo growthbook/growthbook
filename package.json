@@ -72,7 +72,9 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.6.2"
+    "@growthbook/growthbook": "1.6.2",
+    "vite": "^6.0.0",
+    "execa": "^5.0.0"
   },
   "prettier": {
     "overrides": [

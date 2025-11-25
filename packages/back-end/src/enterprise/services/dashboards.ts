@@ -9,7 +9,6 @@ import {
   getBlockSnapshotSettings,
   snapshotSatisfiesBlock,
 } from "shared/enterprise";
-import { getValidDate } from "shared/dates";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -226,17 +225,16 @@ export async function updateDashboardMetricAnalyses(
       // Use the block's analysisSettings instead of the metricAnalysis.settings
       // This ensures filters and other block-specific settings are preserved
       const blockSettings = block.analysisSettings;
+      // Reset the stored dates based on the configured lookback days
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - blockSettings.lookbackDays);
+
       const settings: MetricAnalysisSettings = {
         userIdType: blockSettings.userIdType,
         lookbackDays: blockSettings.lookbackDays,
-        startDate:
-          blockSettings.startDate instanceof Date
-            ? blockSettings.startDate
-            : getValidDate(blockSettings.startDate),
-        endDate:
-          blockSettings.endDate instanceof Date
-            ? blockSettings.endDate
-            : getValidDate(blockSettings.endDate),
+        startDate,
+        endDate,
         populationType: blockSettings.populationType,
         populationId: blockSettings.populationId ?? null,
         additionalNumeratorFilters: blockSettings.additionalNumeratorFilters,
@@ -254,6 +252,8 @@ export async function updateDashboardMetricAnalyses(
 
       // Mutate the block in place (same object reference as in original blocks array)
       block.metricAnalysisId = queryRunner.model.id;
+      block.analysisSettings.startDate = startDate;
+      block.analysisSettings.endDate = endDate;
       return true;
     }),
   );
