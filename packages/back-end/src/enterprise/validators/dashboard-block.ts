@@ -43,18 +43,12 @@ const legacyExperimentDescriptionBlockInterface = baseBlockInterface
     experimentId: z.string(),
   })
   .strict();
-export type LegacyExperimentDescriptionBlockInterface = z.infer<
-  typeof legacyExperimentDescriptionBlockInterface
->;
 const legacyExperimentHypothesisBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-hypothesis"),
     experimentId: z.string(),
   })
   .strict();
-export type LegacyExperimentHypothesisBlockInterface = z.infer<
-  typeof legacyExperimentHypothesisBlockInterface
->;
 const legacyExperimentVariationImageBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-variation-image"),
@@ -62,9 +56,6 @@ const legacyExperimentVariationImageBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()),
   })
   .strict();
-export type LegacyExperimentVariationImageBlockInterface = z.infer<
-  typeof legacyExperimentVariationImageBlockInterface
->;
 const legacyExperimentTrafficTableBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-traffic-table"),
@@ -72,9 +63,6 @@ const legacyExperimentTrafficTableBlockInterface = baseBlockInterface
   })
   .strict();
 
-export type LegacyExperimentTrafficTableBlockInterface = z.infer<
-  typeof legacyExperimentTrafficTableBlockInterface
->;
 const legacyExperimentTrafficGraphBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-traffic-graph"),
@@ -82,9 +70,6 @@ const legacyExperimentTrafficGraphBlockInterface = baseBlockInterface
   })
   .strict();
 
-export type LegacyExperimentTrafficGraphBlockInterface = z.infer<
-  typeof legacyExperimentTrafficGraphBlockInterface
->;
 // End deprecated block types
 
 const experimentMetadataBlockInterface = baseBlockInterface
@@ -146,9 +131,6 @@ const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
     metricSelector: z.enum(metricSelectors).optional(),
   })
   .merge(metricSliceSettingsInterface.partial());
-export type LegacyExperimentMetricBlockInterface = z.infer<
-  typeof legacyExperimentMetricBlockInterface
->;
 
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
@@ -182,9 +164,6 @@ const legacyExperimentDimensionBlockInterface =
   experimentDimensionBlockInterface.omit({ metricSelector: true }).extend({
     metricSelector: z.enum(metricSelectors).optional(),
   });
-export type LegacyExperimentDimensionBlockInterface = z.infer<
-  typeof legacyExperimentDimensionBlockInterface
->;
 
 const experimentTimeSeriesBlockInterface = baseBlockInterface
   .extend({
@@ -209,18 +188,21 @@ const legacyExperimentTimeSeriesBlockInterface =
       metricSelector: z.enum(metricSelectors).optional(),
     })
     .merge(metricSliceSettingsInterface.partial());
-export type LegacyExperimentTimeSeriesBlockInterface = z.infer<
-  typeof legacyExperimentTimeSeriesBlockInterface
->;
 
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("sql-explorer"),
     savedQueryId: z.string(),
     dataVizConfigIndex: z.number().optional(), // Deprecated with the release of product analytics dashboards as we now allow users to show multiple visualizations
-    blockConfig: z.array(z.string()).optional(),
+    blockConfig: z.array(z.string()),
   })
   .strict();
+
+const legacySqlExplorerBlockInterface = sqlExplorerBlockInterface
+  .omit({ blockConfig: true })
+  .extend({
+    blockConfig: z.array(z.string()).optional(),
+  });
 
 export type SqlExplorerBlockInterface = z.infer<
   typeof sqlExplorerBlockInterface
@@ -263,6 +245,7 @@ export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [
   legacyExperimentTimeSeriesBlockInterface,
   legacyExperimentTrafficGraphBlockInterface,
   legacyExperimentTrafficTableBlockInterface,
+  legacySqlExplorerBlockInterface,
 ]);
 
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
