@@ -187,7 +187,7 @@ const DataSourceGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Define Fact Tables and Metrics",
+                      step: "Create a Fact Table",
                       source: "dataSourceGuide",
                       stepKey: "createFactTable",
                     })
@@ -230,7 +230,7 @@ const DataSourceGuide = (): React.ReactElement => {
               </div>
               <div className="col">
                 <Link
-                  href="/experiments?analyzeExisting=true"
+                  href="/fact-tables"
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,
