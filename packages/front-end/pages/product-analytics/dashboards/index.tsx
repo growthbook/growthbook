@@ -200,8 +200,18 @@ export default function DashboardsPage() {
             updateSchedule: showDuplicateModal.updateSchedule || undefined,
             userId: userId || "",
             projects: showDuplicateModal.projects || [],
+            blocks: showDuplicateModal.blocks?.length
+              ? showDuplicateModal.blocks.map((block) => ({
+                  // Remove id, uid, and org fields - those are generated when creating the new dashboard
+                  ...block,
+                  id: undefined,
+                  uid: undefined,
+                  organization: undefined,
+                }))
+              : [],
           }}
           submit={async (data) => {
+            console.log("data", data);
             await submitDashboard({ method: "POST", data });
             setIsEditing(true);
           }}

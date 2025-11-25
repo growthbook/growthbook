@@ -433,8 +433,9 @@ function DashboardEditor({
             enableAutoUpdates: enableAutoUpdates,
             updateSchedule: updateSchedule || undefined,
             shareLevel: initialShareLevel,
-            projects: projects,
+            projects,
             userId: ownerId,
+            blocks,
           }}
           close={() => setDuplicateDashboard(false)}
           submit={async (data) => {
@@ -451,8 +452,16 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
-                blocks: data.blocks || [],
-                // userId: userId || "",
+                blocks: data.blocks?.length
+                  ? data.blocks.map((block) => {
+                      return {
+                        ...block,
+                        id: undefined,
+                        uid: undefined,
+                        organization: undefined,
+                      };
+                    })
+                  : [],
               }),
             });
             if (res.status === 200) {
