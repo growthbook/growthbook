@@ -119,6 +119,14 @@ export default function SDKConnectionForm({
 
   const [languageError, setLanguageError] = useState<string | null>(null);
 
+  const initialCustomFieldSelection = initialValue.includeCustomFields ?? [];
+  const [customFieldsEnabled, setCustomFieldsEnabled] = useState(
+    initialCustomFieldSelection.length > 0,
+  );
+  const [customFieldsPickerVisible, setCustomFieldsPickerVisible] = useState(
+    initialCustomFieldSelection.length > 0,
+  );
+
   const form = useForm({
     defaultValues: {
       name: initialValue.name ?? "",
@@ -172,6 +180,8 @@ export default function SDKConnectionForm({
   };
 
   const languages = form.watch("languages");
+  const includeCustomFieldsSelection = form.watch("includeCustomFields") || [];
+  const includeCustomFieldsCount = includeCustomFieldsSelection.length;
   const languageTypes: Set<LanguageType> = new Set(
     languages.map((l) => languageMapping[l].type),
   );
@@ -335,6 +345,19 @@ export default function SDKConnectionForm({
     }
   }, [languages, languageError, setLanguageError]);
 
+  useEffect(() => {
+    if (includeCustomFieldsCount > 0 && !customFieldsEnabled) {
+      setCustomFieldsEnabled(true);
+    }
+    if (includeCustomFieldsCount > 0 && !customFieldsPickerVisible) {
+      setCustomFieldsPickerVisible(true);
+    }
+  }, [
+    includeCustomFieldsCount,
+    customFieldsEnabled,
+    customFieldsPickerVisible,
+  ]);
+
   // If the SDK Connection is externally managed, filter the environments that are in 'All Projects' or where the current project is included
   const filteredEnvironments =
     initialValue.managedBy?.type === "vercel"
@@ -382,6 +405,10 @@ export default function SDKConnectionForm({
           ...value,
           projects: value.projects || [],
         };
+
+        if (!customFieldsEnabled && includeCustomFieldsCount === 0) {
+          body.includeCustomFields = [];
+        }
 
         if (edit) {
           await apiCall(`/sdk-connections/${initialValue.id}`, {
@@ -1192,6 +1219,48 @@ export default function SDKConnectionForm({
                 setValue={(val) => form.setValue("includeProjectPublicId", val)}
               />
             </div>
+            {customFields && customFields.length > 0 && (
+              <div className="mb-2">
+                <Checkbox
+                  label="Include custom fields"
+                  value={customFieldsEnabled || includeCustomFieldsCount > 0}
+                  disabled={includeCustomFieldsCount > 0}
+                  setValue={(checked) => {
+                    if (checked) {
+                      setCustomFieldsPickerVisible(true);
+                      setCustomFieldsEnabled(true);
+                    } else {
+                      setCustomFieldsEnabled(false);
+                    }
+                  }}
+                />
+                {(customFieldsPickerVisible ||
+                  includeCustomFieldsCount > 0) && (
+                  <div className="mt-1 mb-3">
+                    <MultiSelectField
+                      placeholder="Select custom fields..."
+                      value={includeCustomFieldsSelection}
+                      onChange={(fields) => {
+                        if (!customFieldsPickerVisible) {
+                          setCustomFieldsPickerVisible(true);
+                        }
+                        form.setValue("includeCustomFields", fields);
+                        if (fields.length > 0) {
+                          setCustomFieldsEnabled(true);
+                        } else {
+                          setCustomFieldsEnabled(false);
+                        }
+                      }}
+                      options={customFields.map((field) => ({
+                        value: field.id,
+                        label: `${field.name} (${field.section})`,
+                      }))}
+                      sort={false}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mb-2 d-flex align-items-center">
               <Checkbox
                 label="Include rule IDs"
@@ -1228,42 +1297,6 @@ export default function SDKConnectionForm({
                 setValue={(val) => form.setValue("includeExperimentNames", val)}
               />
             </div>
-            {customFields && customFields.length > 0 && (
-              <div className="mb-2">
-                <label className="mb-1">
-                  Include Custom Fields{" "}
-                  <Tooltip
-                    body={
-                      <>
-                        <p>
-                          Select custom fields to include in feature and
-                          experiment metadata. Only fields that are whitelisted
-                          here will be included in the SDK payload.
-                        </p>
-                        <p className="mb-0">
-                          Custom fields will be added to{" "}
-                          <code>metadata.customFields</code> in the payload.
-                        </p>
-                      </>
-                    }
-                  >
-                    <FaInfoCircle />
-                  </Tooltip>
-                </label>
-                <MultiSelectField
-                  placeholder="Select custom fields..."
-                  value={form.watch("includeCustomFields") || []}
-                  onChange={(fields) =>
-                    form.setValue("includeCustomFields", fields)
-                  }
-                  options={customFields.map((field) => ({
-                    value: field.id,
-                    label: `${field.name} (${field.section})`,
-                  }))}
-                  sort={false}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
