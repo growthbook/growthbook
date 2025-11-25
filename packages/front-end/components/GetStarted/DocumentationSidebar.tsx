@@ -30,21 +30,6 @@ const DocumentationSidebar = ({
       <Flex direction="column" gapY="3">
         {getLinksFor(type, organization.isVercelIntegration)}
       </Flex>
-      {/* 
-      <Separator size="4" my="5" />
-      <SidebarHeading>PREMIUM FEATURES</SidebarHeading>
-      <Flex direction="column" gapY="3">
-        <LinkItem href="https://docs.growthbook.io/running-experiments/experiment-templates">
-          Templates
-        </LinkItem>
-        <LinkItem href="https://docs.growthbook.io/features/code-references">
-          Code References
-        </LinkItem>
-        <LinkItem href="https://docs.growthbook.io/account/user-permissions">
-          Team Settings
-        </LinkItem>
-      </Flex> */}
-
       <Separator size="4" my="5" />
       <SidebarHeading>QUESTIONS?</SidebarHeading>
       <Flex direction="column" gapY="3">
