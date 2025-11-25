@@ -156,7 +156,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
     organization?.demographicData?.ownerJobTitle === "engineer";
 
   const showDataScientistView = isOrgOwner && !isOwnerEngineer;
-  // const showDataScientistView = false;
 
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment,

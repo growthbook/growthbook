@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -21,18 +21,21 @@ export default function Home(): React.ReactElement {
   const { projectId: demoDataSourceProjectId, demoExperimentId } =
     useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, setProject } = useDefinitions();
   const { organization, email } = useUser();
 
   // Welcome modal logic - only show to org creator on first visit
   const [hasSeenWelcomeModal, _setHasSeenWelcomeModal] =
     useLocalStorage<boolean>("welcome-modal-shown", false);
+  const [sampleDataLoading, setSampleDataLoading] = useState(false);
 
   // Check if current user is the organization creator
   const isOrgCreator = organization?.ownerEmail === email;
 
   const openSampleExperimentResults = async () => {
+    setSampleDataLoading(true);
     if (demoDataSourceProjectId && demoExperimentId) {
+      setSampleDataLoading(false);
       router.push(`/experiment/${demoExperimentId}#results`);
     } else {
       track("Create Sample Project", {
@@ -51,6 +54,8 @@ export default function Home(): React.ReactElement {
       );
       await mutateDefinitions();
       if (res.experimentId) {
+        setProject(res.project.id);
+        setSampleDataLoading(false);
         router.push(`/experiment/${res.experimentId}#results`);
       } else {
         throw new Error("Could not create sample experiment");
@@ -95,7 +100,6 @@ export default function Home(): React.ReactElement {
         isCloud() &&
         organization.demographicData?.ownerJobTitle !== "engineer"
       ) {
-        // Do we need to await this?
         openSampleExperimentResults();
       } else {
         router.replace("/getstarted");
@@ -118,7 +122,7 @@ export default function Home(): React.ReactElement {
       </div>
     );
   }
-  return featuresLoading || experimentsLoading ? (
+  return featuresLoading || experimentsLoading || sampleDataLoading ? (
     <LoadingOverlay />
   ) : (
     <GetStartedAndHomePage />

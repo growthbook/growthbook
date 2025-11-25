@@ -73,16 +73,15 @@ export default function WelcomeModal({ experiment }: WelcomeModalProps) {
   const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
 
   // Only show the welcome modal for non-engineer owners in new orgs that have no features or experiments, are cloud, and have not
-  // seen the welcome modal yet
+  // seen the welcome modal yet. The modal should appear in the sample data results page after being redirected from the home page.
   const showWelcomeModal =
     experiment.project === demoProjectId &&
     !hasFeatures &&
     !hasExperiments &&
     !isOwnerEngineer &&
     isOrgOwner &&
-    !hasSeenWelcomeModal;
-  // TODO: Uncomment this when we are ready to release this feature. Needed for testing
-  // && isCloud()
+    !hasSeenWelcomeModal &&
+    isCloud();
 
   useEffect(() => {
     if (showWelcomeModal) {
@@ -107,18 +106,16 @@ export default function WelcomeModal({ experiment }: WelcomeModalProps) {
   const [step, setStep] = useState(0);
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
+  const [acknowledgedFailedInvites, setAcknowledgedFailedInvites] =
+    useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+
+  if (!showWelcomeModal) {
+    return null;
+  }
 
   const onSubmitInvites = form.handleSubmit(async (value) => {
     const { email: emails } = value;
-
-    // This should never happen, but just in case
-    if (freeSeatsExceeded) {
-      setInviteError(
-        `You can only invite up to ${freeSeats} team members on the Free plan. Please upgrade to invite more team members or remove ${value.email.length - (freeSeats - seatsInUse)} email${value.email.length - (freeSeats - seatsInUse) === 1 ? "" : "s"} to continue.`,
-      );
-      return;
-    }
 
     const failed: InviteResult[] = [];
     const succeeded: InviteResult[] = [];
@@ -161,10 +158,6 @@ export default function WelcomeModal({ experiment }: WelcomeModalProps) {
 
     refreshOrganization();
   });
-
-  if (!showWelcomeModal) {
-    return null;
-  }
 
   if (openUpgradeModal) {
     return (
@@ -213,15 +206,21 @@ export default function WelcomeModal({ experiment }: WelcomeModalProps) {
       step={step}
       setStep={setStep}
       ctaEnabled={
+        // Disable invite submission if user is trying to add more than their free seats limit.
         !(freeSeatsExceeded && form.watch("email").length > 0 && step === 0)
       }
     >
       <Page
         display="Start using GrowthBook"
         customNext={() => {
-          onSubmitInvites();
-          // Allow the user to correct the failed invites and try again
-          if (failedInvites.length > 0) {
+          // Only submit if there are no failed invites.
+          // We only want to submit once. If there are failed invites, show the user the failed invites before they continue.
+          if (failedInvites.length === 0) {
+            onSubmitInvites();
+          }
+          // Show the user the failed invites before we increment the step.
+          if (failedInvites.length > 0 && !acknowledgedFailedInvites) {
+            setAcknowledgedFailedInvites(true);
             return;
           }
           if (plan === "pro") {
@@ -281,22 +280,9 @@ export default function WelcomeModal({ experiment }: WelcomeModalProps) {
             <PiArrowSquareOut size={15} />
           </Link>
           <Box mt="6">
-            {/* TODO: We might not need to check failed if this is on cloud and we always have email setup */}
-            {failedInvites.length === 1 && (
+            {failedInvites.length > 0 && (
               <>
-                <Callout status="error">
-                  Failed to send invite email to{" "}
-                  <strong>{failedInvites[0].email}</strong>
-                </Callout>
-                <p>You can manually send them the following invite link:</p>
-                <div className="mb-3">
-                  <code>{failedInvites[0].inviteUrl}</code>
-                </div>
-              </>
-            )}
-            {failedInvites.length > 1 && (
-              <>
-                <Callout status="error">
+                <Callout status="error" contentsAs="div" mb="3">
                   <strong>
                     Whoops! We weren&apos;t able to email the following members:
                   </strong>
@@ -310,13 +296,14 @@ export default function WelcomeModal({ experiment }: WelcomeModalProps) {
                         );
                       })}
                     </ul>
+                    <div>
+                      To manually send a member their invite link, visit{" "}
+                      <strong>Settings &gt; Members</strong> and click the 3
+                      dots next to each member and select &apos;Resend
+                      Invite&apos;. Continue to finish setting up.
+                    </div>
                   </div>
                 </Callout>
-                <div className="pl-2 pr-2 mb-3">
-                  To manually send a member their invite link, close this modal
-                  and click the 3 dots next to each member and select
-                  &apos;Resend Invite&apos;.
-                </div>
               </>
             )}
             <h4 className="mb-1" style={{ color: "var(--color-text-high)" }}>
@@ -335,8 +322,18 @@ export default function WelcomeModal({ experiment }: WelcomeModalProps) {
               placeholder="name@example.com"
               value={form.watch("email")}
               onChange={(emails) => {
-                form.setValue("email", emails);
+                // check for multiple values
+                const parsedEmails: string[] = [];
+                emails.forEach((em) => {
+                  parsedEmails.push(
+                    ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0),
+                  );
+                });
+                // dedupe:
+                const dedupedEmails = [...new Set(parsedEmails)];
+                form.setValue("email", dedupedEmails);
               }}
+              disabled={failedInvites.length > 0}
             />
           </Box>
         </Box>

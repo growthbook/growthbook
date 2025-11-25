@@ -74,7 +74,7 @@ export default function UpgradeModal({
 
   function shouldShowEnterpriseTreatment(): boolean {
     // Self-hosted Pro is not allowed, always show Enterprise
-    if (!isCloud()) return false; // TODO: Remove this after testing
+    if (!isCloud()) return true;
 
     // if no commercialFeature is provided, determine what plan to show based on org's current plan
     if (!commercialFeature) {
