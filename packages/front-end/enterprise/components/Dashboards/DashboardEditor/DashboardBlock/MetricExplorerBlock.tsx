@@ -171,7 +171,7 @@ export default function MetricExplorerBlock({
           </Text>
         </Box>
       ) : metricAnalysis.status === "error" ? (
-        <Callout status="error" icon={null} contentsAs="div">
+        <Callout status="error" icon={null}>
           <Box width="100%">
             <Flex align="center" gap="4">
               {metricAnalysis.error || "There was an error with the analysis"}
