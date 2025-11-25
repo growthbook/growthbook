@@ -21,7 +21,7 @@ const QueriesLastRun: FC<{
       style={{ maxWidth: 130, fontSize: "0.8em" }}
     >
       <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-        last updated
+        Updated
         {status === "partially-succeeded" && (
           <Tooltip
             body={
