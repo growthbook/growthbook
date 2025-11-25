@@ -34,37 +34,44 @@ const MAX_FETCH_RESP_SIZE = parseEnvInt(
 );
 
 // Export wrapped calls for each hook type
-export async function runValidateFeatureHooks(
-  context: ReqContextClass,
-  feature: FeatureInterface,
-  original?: {
-    feature: FeatureInterface;
-  },
-): Promise<void> {
+export async function runValidateFeatureHooks({
+  context,
+  feature,
+  original,
+}: {
+  context: ReqContextClass;
+  feature: FeatureInterface;
+  original: FeatureInterface | null;
+}): Promise<void> {
   return _runCustomHooks(
     context,
     "validateFeature",
     { feature },
     feature.project,
-    original,
+    original ? { feature: original } : undefined,
   );
 }
 
-export async function runValidateFeatureRevisionHooks(
-  context: ReqContextClass,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  original?: {
-    feature: FeatureInterface;
-    revision: FeatureRevisionInterface;
-  },
-): Promise<void> {
+export async function runValidateFeatureRevisionHooks({
+  context,
+  feature,
+  revision,
+  original,
+}: {
+  context: ReqContextClass;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  original: FeatureRevisionInterface;
+}): Promise<void> {
   return _runCustomHooks(
     context,
     "validateFeatureRevision",
     { feature, revision },
     feature.project,
-    original,
+    {
+      feature,
+      revision: original,
+    },
   );
 }
 

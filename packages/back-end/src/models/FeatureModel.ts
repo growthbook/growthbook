@@ -340,7 +340,11 @@ export async function createFeature(
   };
 
   // Run any custom hooks for this feature
-  await runValidateFeatureHooks(context, featureToCreate);
+  await runValidateFeatureHooks({
+    context,
+    feature: featureToCreate,
+    original: null,
+  });
 
   const feature = await FeatureModel.create(featureToCreate);
 
@@ -680,7 +684,11 @@ export async function updateFeature(
     });
   }
 
-  await runValidateFeatureHooks(context, updatedFeature, { feature });
+  await runValidateFeatureHooks({
+    context,
+    feature: updatedFeature,
+    original: feature,
+  });
 
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },

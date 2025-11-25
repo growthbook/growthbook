@@ -356,9 +356,11 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(context, feature, revision, {
+  await runValidateFeatureRevisionHooks({
+    context,
     feature,
-    revision: baseRevision,
+    revision,
+    original: baseRevision,
   });
 
   const doc = await FeatureRevisionModel.create(revision);
@@ -421,19 +423,16 @@ export async function updateRevision(
     status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(
+  await runValidateFeatureRevisionHooks({
     context,
     feature,
-    {
+    revision: {
       ...revision,
       ...changes,
       status,
     },
-    {
-      feature,
-      revision,
-    },
-  );
+    original: revision,
+  });
 
   await FeatureRevisionModel.updateOne(
     {
@@ -477,18 +476,15 @@ export async function markRevisionAsPublished(
     comment: revisionComment,
   };
 
-  await runValidateFeatureRevisionHooks(
+  await runValidateFeatureRevisionHooks({
     context,
     feature,
-    {
+    revision: {
       ...revision,
       ...changes,
     },
-    {
-      feature,
-      revision,
-    },
-  );
+    original: revision,
+  });
 
   await FeatureRevisionModel.updateOne(
     {
