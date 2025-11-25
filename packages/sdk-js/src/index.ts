@@ -18,6 +18,7 @@ export type {
   FeatureDefinitions,
   FeatureDefinition,
   FeatureMetadata,
+  ExperimentMetadata,
   FeatureRule,
   FeatureResult,
   FeatureResultSource,

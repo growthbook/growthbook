@@ -44,6 +44,7 @@ import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Checkbox from "@/ui/Checkbox";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -96,6 +97,7 @@ export default function SDKConnectionForm({
 
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const customFields = useCustomFields();
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint",
   );
@@ -145,6 +147,7 @@ export default function SDKConnectionForm({
         initialValue.includeRedirectExperiments ?? false,
       includeRuleIds: initialValue.includeRuleIds ?? false,
       includeProjectPublicId: initialValue.includeProjectPublicId ?? false,
+      includeCustomFields: initialValue.includeCustomFields ?? [],
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -1225,6 +1228,42 @@ export default function SDKConnectionForm({
                 setValue={(val) => form.setValue("includeExperimentNames", val)}
               />
             </div>
+            {customFields && customFields.length > 0 && (
+              <div className="mb-2">
+                <label className="mb-1">
+                  Include Custom Fields{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          Select custom fields to include in feature and
+                          experiment metadata. Only fields that are whitelisted
+                          here will be included in the SDK payload.
+                        </p>
+                        <p className="mb-0">
+                          Custom fields will be added to{" "}
+                          <code>metadata.customFields</code> in the payload.
+                        </p>
+                      </>
+                    }
+                  >
+                    <FaInfoCircle />
+                  </Tooltip>
+                </label>
+                <MultiSelectField
+                  placeholder="Select custom fields..."
+                  value={form.watch("includeCustomFields") || []}
+                  onChange={(fields) =>
+                    form.setValue("includeCustomFields", fields)
+                  }
+                  options={customFields.map((field) => ({
+                    value: field.id,
+                    label: `${field.name} (${field.section})`,
+                  }))}
+                  sort={false}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

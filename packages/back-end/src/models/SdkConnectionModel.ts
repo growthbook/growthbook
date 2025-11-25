@@ -27,7 +27,10 @@ import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { logger } from "back-end/src/util/logger";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+import { getPayloadKeysForAllEnvs } from "./ExperimentModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
   id: {
@@ -55,6 +58,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeRedirectExperiments: Boolean,
   includeRuleIds: Boolean,
   includeProjectPublicId: Boolean,
+  includeCustomFields: [String],
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -196,6 +200,7 @@ export const createSDKConnectionValidator = z
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
     includeProjectPublicId: z.boolean().optional(),
+    includeCustomFields: z.array(z.string()).optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -275,6 +280,7 @@ export const editSDKConnectionValidator = z
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
     includeProjectPublicId: z.boolean().optional(),
+    includeCustomFields: z.array(z.string()).optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
@@ -337,6 +343,7 @@ export async function editSDKConnection(
     "includeRedirectExperiments",
     "includeRuleIds",
     "includeProjectPublicId",
+    "includeCustomFields",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -372,6 +379,21 @@ export async function editSDKConnection(
       newProxy,
       isUsingProxy,
     );
+  }
+
+  // Refresh SDK payload cache if includeCustomFields changed (affects metadata in payloads)
+  if (
+    "includeCustomFields" in otherChanges &&
+    !isEqual(otherChanges.includeCustomFields, connection.includeCustomFields)
+  ) {
+    // Refresh cache for all environments since custom fields can be used across environments
+    const payloadKeys = getPayloadKeysForAllEnvs(context, connection.projects);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after SDK connection custom fields update",
+      );
+    });
   }
 
   return { ...connection, ...fullChanges };

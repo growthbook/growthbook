@@ -28,11 +28,15 @@
    Holdout Changes
    • back-end/src/routers/holdout/holdout.controller.ts:editStatus()
    • back-end/src/routers/holdout/holdout.controller.ts:deleteHoldout()
-   Note: HoldoutModel doesn't use afterUpdate hooks; controller directly calls
-   refreshSDKPayloadCache
+   Note: HoldoutModel doesn't use afterUpdate hooks; controller directly
+   calls refreshSDKPayloadCache
 
    Saved Group Changes
    • back-end/src/services/savedGroups.ts:savedGroupUpdated()
+
+   SDK Connection Changes
+   • back-end/src/models/SdkConnectionModel.ts:editSDKConnection()
+   • Changes to includeCustomFields trigger cache refresh
 
    Model hooks detect changes and trigger cache refresh (non-blocking)
 └─────────────────────────────────────────────────────────────────────────┘
@@ -90,12 +94,16 @@
      • getAllURLRedirectExperiments() - URL redirect experiments
      • getAllPayloadHoldouts() - all holdouts
      • getSavedGroupMap() - all saved groups
+     • findSDKConnectionsByOrganization() - used to union all custom fields
+       whitelisted across all SDK Connections' settings
 
      Payload Generation:
      • generateFeaturesPayload() - creates feature definitions with
-       temporary `.project` field
+       temporary `.project` field and `metadata.customFields` (limited to SDK
+       connection union)
      • generateAutoExperimentsPayload() - creates experiment definitions
-       with temporary `.project` field
+       with temporary `.project` field and `metadata.customFields` (limited to
+       SDK connection union)
      • generateHoldoutsPayload() - creates holdout definitions
      • filterUsedSavedGroups() - identifies which saved groups are used
 
@@ -110,11 +118,14 @@
 
    Intermediate data stored in cache:
    • FeatureDefinitionWithProject: includes temporary `project?: string`
-     field (project ID)
+     field (project ID) and `metadata.customFields` (union of SDK connection
+     whitelists)
    • AutoExperimentWithProject: includes temporary `project?: string`
-     field (project ID)
-   • These `.project` fields are used for filtering in step 7, then
-     stripped before returning to SDK
+     field (project ID) and `metadata.customFields` (union of SDK connection
+     whitelists)
+   • The `.project` field is used for filtering in step 7, then stripped
+   • `metadata.projects` and `metadata.customFields` are precomputed here and
+     filtered per-request in step 7
 
    Note: Payload keys are NOT used as MongoDB lookup keys. They're used to
    determine which environments to regenerate. Cache contains ALL projects
@@ -162,7 +173,7 @@
    • environment, projects, capabilities, encryptionKey, and all payload
      modifier flags (includeVisualExperiments, includeDraftExperiments,
      includeExperimentNames, includeRedirectExperiments, includeRuleIds,
-     includeProjectPublicId, hashSecureAttributes,
+     includeProjectPublicId, includeCustomFields, hashSecureAttributes,
      savedGroupReferencesEnabled)
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -177,7 +188,8 @@
    • back-end/src/models/SdkPayloadModel.ts:getSDKPayload()
    • Query: {organization, environment, schemaVersion}
 
-   Returns cached payload with intermediate `.project` fields:
+   Returns cached payload with intermediate `.project` field and
+   `metadata.customFields` (pre-filtered union):
    • features: Record<string, FeatureDefinitionWithProject>
    • experiments: AutoExperimentWithProject[]
    • savedGroupsInUse: string[]
@@ -195,9 +207,11 @@
    • Filter draft experiments (if !includeDraftExperiments)
    • Remove experiment/rule names (if !includeExperimentNames)
    • Filter by projects using `.project` field from cached payload
-   • Transform metadata: if includeProjectPublicId, load projects and
-     replace project.id with project.publicId || project.id, add
-     metadata.projects = [publicId], then strip `.project` field
+   • Transform metadata: remove `metadata.projects` if !includeProjectPublicId
+     (values already populated in step 3)
+   • Transform metadata: if includeCustomFields is provided, filter existing
+     `metadata.customFields` down to that whitelist; otherwise remove
+   • Strip temporary `.project` field
 
    • Scrub holdouts and merge into features
      - shared/src/sdk-versioning/sdk-payload.ts:scrubHoldouts()

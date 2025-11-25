@@ -230,6 +230,7 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
     "holdout",
+    "customFields",
   ];
 
   if (

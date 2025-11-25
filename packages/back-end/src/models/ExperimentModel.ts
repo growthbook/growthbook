@@ -1631,6 +1631,7 @@ const getExperimentChanges = (
     "autoAssign",
     "variations",
     "phases",
+    "customFields",
   ];
 
   return {
