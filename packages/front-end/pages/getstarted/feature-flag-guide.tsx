@@ -114,7 +114,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Integrate the GrowthBook SDK into your app",
-                      source: "features",
+                      source: "featureFlagGuide",
                       stepKey: "sdk",
                     })
                   }
@@ -164,7 +164,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                       step: `Create a Test Feature Flag${
                         project && " in this Project"
                       }`,
-                      source: "features",
+                      source: "featureFlagGuide",
                       stepKey: "createFeatureFlag",
                     })
                   }

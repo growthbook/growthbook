@@ -18,6 +18,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   AnalyzeExperimentFeatureCard,
+  ExperimentFeatureCard,
+  FeatureFlagFeatureCard,
   ImportFromOtherPlatformFeatureCard,
   SampleDataFeatureCard,
   SetUpDataSourceAndMetricsFeatureCard,
@@ -40,25 +42,41 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import { DocSection } from "@/components/DocLink";
-import WelcomeModal from "@/components/GetStarted/WelcomeModal";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 
-type AdvancedFeature = {
+type AdvancedFeature = (
+  | { docSection: DocSection; href?: never }
+  | { docSection?: never; href: string }
+) & {
   imgUrl: string;
   title: string;
   description: string;
-  docSection: DocSection;
   commercialFeature?: CommercialFeature;
 };
 
-const advancedFeatureList: AdvancedFeature[] = [
+const dataScientistFeatureList: AdvancedFeature[] = [
+  {
+    imgUrl: "/images/get-started/advanced/fact-tables.png",
+    title: "Fact Tables",
+    description: "Enable automatic query optimization",
+    href: "/fact-tables",
+  },
   {
     imgUrl: "/images/get-started/advanced/metrics.jpg",
     title: "Metric Groups",
     description: "Easily reuse sets of metrics",
-    docSection: "metricGroups",
+    href: "/metrics#metricgroups",
     commercialFeature: "metric-groups",
   },
+  {
+    imgUrl: "/images/get-started/advanced/data-pipeline.png",
+    title: "Data Pipeline Mode",
+    description: "Use temp tables for intermediate steps",
+    docSection: "pipelineMode",
+    commercialFeature: "pipeline-mode",
+  },
+];
+
+const advancedFeatureList: AdvancedFeature[] = [
   {
     imgUrl: "/images/get-started/advanced/features.jpg",
     title: "Dev Tools",
@@ -69,21 +87,21 @@ const advancedFeatureList: AdvancedFeature[] = [
     imgUrl: "/images/get-started/advanced/archetypes.png",
     title: "Archetype Overview",
     description: "Simulate the result of targeting rules",
-    docSection: "archetypes",
+    href: "/archetypes",
     commercialFeature: "archetypes",
   },
   {
     imgUrl: "/images/get-started/advanced/custom-roles.png",
     title: "Custom Roles",
     description: "Define fine-grained permission control",
-    docSection: "customRoles",
+    href: "/settings/team#roles",
     commercialFeature: "custom-roles",
   },
   {
     imgUrl: "/images/get-started/advanced/teams.png",
     title: "Teams",
     description: "Manage member permissions",
-    docSection: "team",
+    href: "/settings/team#teams",
     commercialFeature: "teams",
   },
   {
@@ -94,29 +112,24 @@ const advancedFeatureList: AdvancedFeature[] = [
     commercialFeature: "code-references",
   },
   {
-    imgUrl: "/images/get-started/advanced/feature-flag.png", // don't have an image for this yet "/images/get-started/advanced/data-pipeline-mode.png",
-    title: "Data Pipeline Mode",
-    description: "Use temp tables for intermediate steps",
-    docSection: "pipelineMode",
-    commercialFeature: "pipeline-mode",
-  },
-  {
     imgUrl: "/images/get-started/advanced/fact-tables.png",
     title: "Query Optimization",
     description: "Improve SQL performance and reduce costs",
     docSection: "queryOptimization",
   },
+  ...dataScientistFeatureList,
 ];
 
 const GetStartedAndHomePage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
-  const { features, loading: featuresLoading } = useFeaturesList();
-  const { experiments, loading: experimentsLoading } = useExperiments();
+  const { features } = useFeaturesList();
+  const { experiments } = useExperiments();
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
-  const { organization, userId, email } = useUser();
+  const { organization, email } = useUser();
+
   const [openNewExperimentModal, setOpenNewExperimentModal] =
     useState<boolean>(false);
   const canUseSetupFlow =
@@ -135,75 +148,21 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
+  // Check if current user is the organization owner
+  const isOrgOwner = organization?.ownerEmail === email;
+
+  // Check if owner is an engineer
+  const isOwnerEngineer =
+    organization?.demographicData?.ownerJobTitle === "engineer";
+
+  const showDataScientistView = isOrgOwner && !isOwnerEngineer;
+  // const showDataScientistView = false;
+
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment,
   );
   const [openNewFeatureFlagModal, setOpenNewFeatureFlagModal] =
     useState<boolean>(false);
-
-  // Welcome modal logic - only show to org creator on first visit
-  const welcomeModalKey = organization?.id
-    ? `welcomeModalShown_${organization.id}`
-    : null;
-  const [hasSeenWelcomeModal, setHasSeenWelcomeModal] = useLocalStorage<
-    boolean | null
-  >(welcomeModalKey || "welcomeModalShown", false);
-
-  // Check if current user is the organization creator
-  const isOrgCreator = useMemo(() => {
-    if (!organization || !userId || !email) return false;
-
-    // Check if user's email matches ownerEmail
-    if (organization.ownerEmail === email) return true;
-
-    // Check if user is the first member (sorted by dateCreated)
-    if (organization.members && organization.members.length > 0) {
-      const sortedMembers = [...organization.members].sort((a, b) => {
-        const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
-        const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
-        return dateA - dateB;
-      });
-
-      const firstMember = sortedMembers[0];
-      if (firstMember && firstMember.id === userId) return true;
-    }
-
-    return false;
-  }, [organization, userId, email]);
-
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
-
-  // Show welcome modal if user is org creator and hasn't seen it yet
-  useEffect(() => {
-    if (
-      isOrgCreator &&
-      !hasSeenWelcomeModal &&
-      organization?.id &&
-      userId &&
-      !featuresLoading &&
-      !experimentsLoading
-    ) {
-      // Small delay to ensure page is fully loaded
-      const timer = setTimeout(() => {
-        setShowWelcomeModal(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    isOrgCreator,
-    hasSeenWelcomeModal,
-    organization?.id,
-    userId,
-    featuresLoading,
-    experimentsLoading,
-  ]);
-
-  const handleWelcomeModalClose = () => {
-    setShowWelcomeModal(false);
-    if (welcomeModalKey) {
-      setHasSeenWelcomeModal(true);
-    }
-  };
 
   useEffect(() => {
     setShowGettingStarted(!orgIsUsingFeatureOrExperiment);
@@ -243,13 +202,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
 
   return (
     <>
-      {showWelcomeModal && (
-        <WelcomeModal
-          open={showWelcomeModal}
-          onClose={handleWelcomeModalClose}
-          organizationName={organization?.name}
-        />
-      )}
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
@@ -350,11 +302,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                       {advancedFeatures.map((feature) => (
                         <AdvancedFeaturesCard
                           key={feature.title}
-                          imgUrl={feature.imgUrl}
-                          docSection={feature.docSection}
-                          title={feature.title}
-                          description={feature.description}
-                          commercialFeature={feature.commercialFeature}
+                          {...feature}
                         />
                       ))}
                     </Flex>
@@ -397,47 +345,22 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                     columns={{ initial: "1fr", sm: "1fr 1fr" }}
                     rows="auto auto"
                   >
-                    {/* <FeatureFlagFeatureCard /> */}
-                    <SampleDataFeatureCard />
-                    <SetUpDataSourceAndMetricsFeatureCard />
-                    {/* <ExperimentFeatureCard /> */}
+                    {showDataScientistView ? (
+                      <>
+                        <SampleDataFeatureCard />
+                        <SetUpDataSourceAndMetricsFeatureCard />
+                      </>
+                    ) : (
+                      <>
+                        <FeatureFlagFeatureCard />
+                        <ExperimentFeatureCard />
+                      </>
+                    )}
                     <ImportFromOtherPlatformFeatureCard />
                     <AnalyzeExperimentFeatureCard />
                   </Grid>
 
                   <Separator my="5" size="4" />
-
-                  {/* <Box mb="6">
-                    <Box mb="3">
-                      <Text size="1" weight="bold">
-                        PRODUCT OVERVIEW
-                      </Text>
-                    </Box>
-
-                    <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-                      <OverviewCard
-                        imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
-                        hoverText="Launch Video Player"
-                        onClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                        playTime={5}
-                        type="video"
-                      />
-
-                      <OverviewCard
-                        imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
-                        hoverText="View Blog Post"
-                        href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
-                        type="link"
-                      />
-
-                      <OverviewCard
-                        imgUrl="/images/get-started/thumbnails/4.2-release.png"
-                        hoverText="View Blog Post"
-                        href="https://blog.growthbook.io/growthbook-version-4-2/"
-                        type="link"
-                      />
-                    </Flex>
-                  </Box> */}
 
                   {showSetUpFlow && (
                     <Callout status="wizard" size="md" mb="6">
@@ -453,43 +376,86 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                     </Callout>
                   )}
 
-                  <Box mt="6" mb="2">
-                    <Box mb="3">
-                      <Text
-                        size="1"
-                        weight="medium"
-                        style={{ color: "var(--color-text-mid)" }}
+                  {!showDataScientistView && (
+                    <Box mb="6">
+                      <Box mb="3">
+                        <Text size="1" weight="bold">
+                          PRODUCT OVERVIEW
+                        </Text>
+                      </Box>
+
+                      <Flex
+                        direction={{ initial: "column", sm: "row" }}
+                        gap="4"
                       >
-                        EXPLORE FEATURES
-                      </Text>
-                    </Box>
-                    <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-                      {advancedFeatures.map((feature) => (
-                        <AdvancedFeaturesCard
-                          key={feature.title}
-                          imgUrl={feature.imgUrl}
-                          docSection={feature.docSection}
-                          title={feature.title}
-                          description={feature.description}
-                          commercialFeature={feature.commercialFeature}
+                        <OverviewCard
+                          imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
+                          hoverText="Launch Video Player"
+                          onClick={() => setShowVideoId("b4xUnDGRKRQ")}
+                          playTime={5}
+                          type="video"
                         />
-                      ))}
-                    </Flex>
-                  </Box>
 
-                  {/* <Box mb="6">
-                    <Box mb="3">
-                      <Text size="1" weight="bold">
-                        SET UP YOUR WORKSPACE
-                      </Text>
+                        <OverviewCard
+                          imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
+                          hoverText="View Blog Post"
+                          href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
+                          type="link"
+                        />
+
+                        <OverviewCard
+                          imgUrl="/images/get-started/thumbnails/4.2-release.png"
+                          hoverText="View Blog Post"
+                          href="https://blog.growthbook.io/growthbook-version-4-2/"
+                          type="link"
+                        />
+                      </Flex>
                     </Box>
+                  )}
 
-                    <Card>
-                      <Grid columns={{ initial: "1fr", md: "1fr 1fr" }} pb="2">
-                        <WorkspaceLinks />
-                      </Grid>
-                    </Card>
-                  </Box> */}
+                  {showDataScientistView && (
+                    <Box mt="6" mb="2">
+                      <Box mb="3">
+                        <Text
+                          size="1"
+                          weight="medium"
+                          style={{ color: "var(--color-text-mid)" }}
+                        >
+                          EXPLORE FEATURES
+                        </Text>
+                      </Box>
+                      <Flex
+                        direction={{ initial: "column", sm: "row" }}
+                        gap="4"
+                      >
+                        {dataScientistFeatureList.map((feature) => (
+                          <AdvancedFeaturesCard
+                            key={feature.title}
+                            {...feature}
+                          />
+                        ))}
+                      </Flex>
+                    </Box>
+                  )}
+
+                  {!showDataScientistView && (
+                    <Box mb="6">
+                      <Box mb="3">
+                        <Text size="1" weight="bold">
+                          SET UP YOUR WORKSPACE
+                        </Text>
+                      </Box>
+
+                      <Card>
+                        <Grid
+                          columns={{ initial: "1fr", md: "1fr 1fr" }}
+                          pb="2"
+                        >
+                          <WorkspaceLinks />
+                        </Grid>
+                      </Card>
+                    </Box>
+                  )}
                 </>
               )}
             </Box>

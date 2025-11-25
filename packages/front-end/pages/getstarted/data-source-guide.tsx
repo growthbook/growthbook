@@ -1,13 +1,12 @@
-import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
+import { PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { Box, Separator } from "@radix-ui/themes";
+import { Box, Grid, Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
-import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useGetStarted } from "@/services/GetStartedProvider";
@@ -15,16 +14,19 @@ import Frame from "@/ui/Frame";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 
+// Also used for the `Launch Setup Flow` button to keep it aligned
+const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";
+
 const DataSourceGuide = (): React.ReactElement => {
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
-  const { experiments, loading: experimentsLoading, error } = useExperiments();
   const {
     factTables,
     datasources,
     ready: definitionsReady,
     project,
     factMetrics,
+    error,
   } = useDefinitions();
   const { setStep, clearStep } = useGetStarted();
 
@@ -37,29 +39,35 @@ const DataSourceGuide = (): React.ReactElement => {
     clearStep();
   }, [clearStep]);
 
-  const loading = experimentsLoading && !definitionsReady;
+  const loading = !definitionsReady;
 
   if (loading) {
     return <LoadingOverlay />;
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <div className="alert alert-danger">{error}</div>;
   }
 
-  // Ignore the demo datasource
-  const hasExperiments = project
-    ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project,
+  // Ignore the demo datasource for all checks
+  const hasFactTables = project
+    ? factTables.some(
+        (f) =>
+          f.projects.includes(project) && !f.projects.includes(demoProjectId),
       )
-    : experiments.some((e) => e.project !== demoProjectId);
-
-  const hasFactTables = factTables.length > 0;
-  const hasFactMetrics = factMetrics.length > 0;
-  // Ignore the demo datasource
-  const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId),
-  );
+    : factTables.some((f) => !f.projects.includes(demoProjectId));
+  const hasFactMetrics = project
+    ? factMetrics.some(
+        (m) =>
+          m.projects.includes(project) && !m.projects.includes(demoProjectId),
+      )
+    : factMetrics.some((m) => !m.projects.includes(demoProjectId));
+  const hasDatasource = project
+    ? datasources.some(
+        (d) =>
+          d.projects?.includes(project) && !d.projects?.includes(demoProjectId),
+      )
+    : datasources.some((d) => !d.projects?.includes(demoProjectId));
 
   return (
     <div className="container pagecontents p-4">
@@ -76,12 +84,15 @@ const DataSourceGuide = (): React.ReactElement => {
           commercialFeature={null}
         />
       )}
-      {/* <div className="d-flex align-middle justify-content-between mb-4">
-        <h1 className="mb-3 mr-3">Set up Data Source & Metrics</h1>
-        <ViewSampleDataButton />
-      </div> */}
-      <div className="row mt-4">
-        <div className="col mr-auto" style={{ minWidth: 500 }}>
+      <Grid
+        columns={{
+          initial: "1fr",
+          sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+        }}
+        gapX="4"
+        mt="4"
+      >
+        <Box style={{ minWidth: 500 }}>
           <h1 className="mb-3 mr-3">Set up Data Source & Metrics</h1>
           <Frame>
             <div className="d-flex align-items-center justify-content-center w-100">
@@ -242,8 +253,8 @@ const DataSourceGuide = (): React.ReactElement => {
               </div>
             </div>
           </div>
-        </div>
-        <div className="col-auto">
+        </Box>
+        <Box>
           <Box mb="3">
             <ViewSampleDataButton />
           </Box>
@@ -251,8 +262,8 @@ const DataSourceGuide = (): React.ReactElement => {
             setUpgradeModal={setUpgradeModal}
             type="data-source"
           />
-        </div>
-      </div>
+        </Box>
+      </Grid>
     </div>
   );
 };

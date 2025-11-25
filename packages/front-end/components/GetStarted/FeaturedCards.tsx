@@ -125,11 +125,10 @@ export function SetUpDataSourceAndMetricsFeatureCard() {
           </Heading>
           <ActionArrow />
         </Flex>
-
         <Text color="gray" mb="8">
           Prepare to analyze experiment results
         </Text>
-
+        {/* TODO: Replace with actual image once it's ready */}
         <Box mt="auto" mr="-9" className={styles.experimentImage} />
       </Flex>
     </CardLink>

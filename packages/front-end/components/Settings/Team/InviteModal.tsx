@@ -14,7 +14,7 @@ import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import RoleSelector from "./RoleSelector";
 
-type InviteResult = {
+export type InviteResult = {
   email: string;
   inviteUrl: string;
 };
