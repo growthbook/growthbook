@@ -1614,6 +1614,10 @@ paths:
                   type: boolean
                 includeProjectPublicId:
                   type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1705,6 +1709,10 @@ paths:
                   type: boolean
                 includeProjectPublicId:
                   type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -6989,6 +6997,10 @@ components:
           type: boolean
         includeProjectPublicId:
           type: boolean
+        includeCustomFields:
+          type: array
+          items:
+            type: string
         key:
           type: string
         proxyEnabled:

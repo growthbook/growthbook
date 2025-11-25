@@ -58,6 +58,10 @@ properties:
     type: boolean
   includeProjectPublicId:
     type: boolean
+  includeCustomFields:
+    type: array
+    items:
+      type: string
   key:
     type: string
   proxyEnabled:
