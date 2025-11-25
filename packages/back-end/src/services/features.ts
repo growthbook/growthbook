@@ -447,6 +447,8 @@ export function filterUsedSavedGroups(
   );
 }
 
+// Regenerates cached SDK payloads for affected environments.
+// See SDK_PAYLOAD_FLOW.md in this directory for detailed flow diagram.
 export async function refreshSDKPayloadCache(
   baseContext: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],

@@ -26,7 +26,9 @@ export const getSdkPayload = createApiRequestHandler()(async (
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectPublicId,
     hashSecureAttributes,
+    savedGroupReferencesEnabled,
   } = await getPayloadParamsFromApiKey(key, req);
 
   const environmentDoc = req.context.org?.settings?.environments?.find(
@@ -49,7 +51,9 @@ export const getSdkPayload = createApiRequestHandler()(async (
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectPublicId,
     hashSecureAttributes,
+    savedGroupReferencesEnabled,
   });
 
   return {

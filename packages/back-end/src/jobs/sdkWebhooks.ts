@@ -386,7 +386,9 @@ export async function fireSdkWebhook(
           includeExperimentNames: connection.includeExperimentNames,
           includeRedirectExperiments: connection.includeRedirectExperiments,
           includeRuleIds: connection.includeRuleIds,
+          includeProjectPublicId: connection.includeProjectPublicId,
           hashSecureAttributes: connection.hashSecureAttributes,
+          savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
         });
 
         return [[connection.key, defs], ...payloads];
