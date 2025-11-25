@@ -59,6 +59,7 @@ interface CreateSdkConnectionRequestBody
   includeRuleIds?: boolean;
   includeProjectPublicId?: boolean;
   includeCustomFields?: string[];
+  includeTags?: string[];
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -165,6 +166,7 @@ export async function validatePostPayload(
     includeRuleIds = false,
     includeProjectPublicId = false,
     includeCustomFields = [],
+    includeTags = [],
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
@@ -200,6 +202,7 @@ export async function validatePostPayload(
     includeRuleIds,
     includeProjectPublicId,
     includeCustomFields,
+    includeTags,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -228,6 +231,7 @@ export async function validatePutPayload(
     includeRuleIds,
     includeProjectPublicId,
     includeCustomFields,
+    includeTags,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -264,6 +268,7 @@ export async function validatePutPayload(
     includeRuleIds,
     includeProjectPublicId,
     includeCustomFields,
+    includeTags,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,

@@ -28,6 +28,7 @@ export const getSdkPayload = createApiRequestHandler()(async (
     includeRuleIds,
     includeProjectPublicId,
     includeCustomFields,
+    includeTags,
     hashSecureAttributes,
     savedGroupReferencesEnabled,
   } = await getPayloadParamsFromApiKey(key, req);
@@ -54,6 +55,7 @@ export const getSdkPayload = createApiRequestHandler()(async (
     includeRuleIds,
     includeProjectPublicId,
     includeCustomFields,
+    includeTags,
     hashSecureAttributes,
     savedGroupReferencesEnabled,
   });

@@ -59,6 +59,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeRuleIds: Boolean,
   includeProjectPublicId: Boolean,
   includeCustomFields: [String],
+  includeTags: [String],
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -201,6 +202,7 @@ export const createSDKConnectionValidator = z
     includeRuleIds: z.boolean().optional(),
     includeProjectPublicId: z.boolean().optional(),
     includeCustomFields: z.array(z.string()).optional(),
+    includeTags: z.array(z.string()).optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -281,6 +283,7 @@ export const editSDKConnectionValidator = z
     includeRuleIds: z.boolean().optional(),
     includeProjectPublicId: z.boolean().optional(),
     includeCustomFields: z.array(z.string()).optional(),
+    includeTags: z.array(z.string()).optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
@@ -344,6 +347,7 @@ export async function editSDKConnection(
     "includeRuleIds",
     "includeProjectPublicId",
     "includeCustomFields",
+    "includeTags",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -387,11 +391,36 @@ export async function editSDKConnection(
     !isEqual(otherChanges.includeCustomFields, connection.includeCustomFields)
   ) {
     // Refresh cache for all environments since custom fields can be used across environments
-    const payloadKeys = getPayloadKeysForAllEnvs(context, connection.projects);
+    // If projects is empty, get all projects to ensure we refresh all environments
+    const projectsToUse =
+      connection.projects.length > 0
+        ? connection.projects
+        : (await context.models.projects.getAll()).map((p) => p.id);
+    const payloadKeys = getPayloadKeysForAllEnvs(context, projectsToUse);
     refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
       logger.error(
         e,
         "Error refreshing SDK payload cache after SDK connection custom fields update",
+      );
+    });
+  }
+
+  // Refresh SDK payload cache if includeTags changed (affects metadata in payloads)
+  if (
+    "includeTags" in otherChanges &&
+    !isEqual(otherChanges.includeTags, connection.includeTags)
+  ) {
+    // Refresh cache for all environments since tags can be used across environments
+    // If projects is empty, get all projects to ensure we refresh all environments
+    const projectsToUse =
+      connection.projects.length > 0
+        ? connection.projects
+        : (await context.models.projects.getAll()).map((p) => p.id);
+    const payloadKeys = getPayloadKeysForAllEnvs(context, projectsToUse);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after SDK connection tags update",
       );
     });
   }

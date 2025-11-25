@@ -231,6 +231,7 @@ export function getSDKPayloadKeysByDiff(
     "nextScheduledUpdate",
     "holdout",
     "customFields",
+    "tags",
   ];
 
   if (

@@ -62,6 +62,10 @@ properties:
     type: array
     items:
       type: string
+  includeTags:
+    type: array
+    items:
+      type: string
   key:
     type: string
   proxyEnabled:

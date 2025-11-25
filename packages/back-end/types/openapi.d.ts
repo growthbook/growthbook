@@ -2787,6 +2787,7 @@ export interface components {
       includeRuleIds?: boolean;
       includeProjectPublicId?: boolean;
       includeCustomFields?: (string)[];
+      includeTags?: (string)[];
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -8627,6 +8628,7 @@ export interface operations {
                 includeRuleIds?: boolean;
                 includeProjectPublicId?: boolean;
                 includeCustomFields?: (string)[];
+                includeTags?: (string)[];
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -8666,6 +8668,7 @@ export interface operations {
           includeRuleIds?: boolean;
           includeProjectPublicId?: boolean;
           includeCustomFields?: (string)[];
+          includeTags?: (string)[];
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -8701,6 +8704,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8750,6 +8754,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8788,6 +8793,7 @@ export interface operations {
           includeRuleIds?: boolean;
           includeProjectPublicId?: boolean;
           includeCustomFields?: (string)[];
+          includeTags?: (string)[];
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -8823,6 +8829,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8890,6 +8897,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;

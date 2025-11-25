@@ -53,6 +53,7 @@ export type FeatureRule<T = any> = {
 export interface FeatureMetadata {
   projects?: string[];
   customFields?: Record<string, unknown>;
+  tags?: string[];
 }
 
 export interface FeatureDefinition<T = any> {

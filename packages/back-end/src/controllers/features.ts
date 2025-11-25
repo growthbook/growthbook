@@ -161,6 +161,7 @@ export async function getPayloadParamsFromApiKey(
   includeRuleIds?: boolean;
   includeProjectPublicId?: boolean;
   includeCustomFields?: string[];
+  includeTags?: string[];
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
@@ -195,6 +196,7 @@ export async function getPayloadParamsFromApiKey(
       includeRuleIds: connection.includeRuleIds,
       includeProjectPublicId: connection.includeProjectPublicId,
       includeCustomFields: connection.includeCustomFields,
+      includeTags: connection.includeTags,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -253,6 +255,7 @@ export async function getFeatureDefinitionsFilteredByEnvironment({
   includeRuleIds,
   includeProjectPublicId,
   includeCustomFields,
+  includeTags,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
   environment,
@@ -270,6 +273,7 @@ export async function getFeatureDefinitionsFilteredByEnvironment({
   includeRuleIds: boolean | undefined;
   includeProjectPublicId: boolean | undefined;
   includeCustomFields: string[] | undefined;
+  includeTags: string[] | undefined;
   hashSecureAttributes: boolean | undefined;
   savedGroupReferencesEnabled: boolean | undefined;
   environment: string;
@@ -293,6 +297,7 @@ export async function getFeatureDefinitionsFilteredByEnvironment({
     includeRuleIds,
     includeProjectPublicId,
     includeCustomFields,
+    includeTags,
     hashSecureAttributes,
     savedGroupReferencesEnabled:
       savedGroupReferencesEnabled &&
@@ -324,6 +329,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeRuleIds,
       includeProjectPublicId,
       includeCustomFields,
+      includeTags,
       hashSecureAttributes,
       remoteEvalEnabled,
       savedGroupReferencesEnabled,
@@ -354,6 +360,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeRuleIds,
       includeProjectPublicId,
       includeCustomFields,
+      includeTags,
       hashSecureAttributes,
       savedGroupReferencesEnabled,
       environment,
@@ -421,6 +428,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeRuleIds,
       includeProjectPublicId,
       includeCustomFields,
+      includeTags,
       hashSecureAttributes,
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
@@ -466,6 +474,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeRuleIds,
       includeProjectPublicId,
       includeCustomFields,
+      includeTags,
       hashSecureAttributes,
     });
 

@@ -36,7 +36,7 @@
 
    SDK Connection Changes
    • back-end/src/models/SdkConnectionModel.ts:editSDKConnection()
-   • Changes to includeCustomFields trigger cache refresh
+   • Changes to includeCustomFields or includeTags trigger cache refresh
 
    Model hooks detect changes and trigger cache refresh (non-blocking)
 └─────────────────────────────────────────────────────────────────────────┘
@@ -95,15 +95,15 @@
      • getAllPayloadHoldouts() - all holdouts
      • getSavedGroupMap() - all saved groups
      • findSDKConnectionsByOrganization() - used to union all custom fields
-       whitelisted across all SDK Connections' settings
+       and tags whitelisted across all SDK Connections' settings
 
      Payload Generation:
      • generateFeaturesPayload() - creates feature definitions with
-       temporary `.project` field and `metadata.customFields` (limited to SDK
-       connection union)
+       temporary `.project` field and metadata (projects, customFields, tags
+       - limited to SDK connection union)
      • generateAutoExperimentsPayload() - creates experiment definitions
-       with temporary `.project` field and `metadata.customFields` (limited to
-       SDK connection union)
+       with temporary `.project` field and metadata (projects, customFields,
+       tags - limited to SDK connection union)
      • generateHoldoutsPayload() - creates holdout definitions
      • filterUsedSavedGroups() - identifies which saved groups are used
 
@@ -118,14 +118,14 @@
 
    Intermediate data stored in cache:
    • FeatureDefinitionWithProject: includes temporary `project?: string`
-     field (project ID) and `metadata.customFields` (union of SDK connection
-     whitelists)
+     field (project ID) and metadata (projects, customFields, tags - union
+     of SDK connection whitelists)
    • AutoExperimentWithProject: includes temporary `project?: string`
-     field (project ID) and `metadata.customFields` (union of SDK connection
-     whitelists)
+     field (project ID) and metadata (projects, customFields, tags - union
+     of SDK connection whitelists)
    • The `.project` field is used for filtering in step 7, then stripped
-   • `metadata.projects` and `metadata.customFields` are precomputed here and
-     filtered per-request in step 7
+   • `metadata.projects`, `metadata.customFields`, and `metadata.tags` are
+     precomputed here and filtered per-request in step 7
 
    Note: Payload keys are NOT used as MongoDB lookup keys. They're used to
    determine which environments to regenerate. Cache contains ALL projects
@@ -173,8 +173,8 @@
    • environment, projects, capabilities, encryptionKey, and all payload
      modifier flags (includeVisualExperiments, includeDraftExperiments,
      includeExperimentNames, includeRedirectExperiments, includeRuleIds,
-     includeProjectPublicId, includeCustomFields, hashSecureAttributes,
-     savedGroupReferencesEnabled)
+     includeProjectPublicId, includeCustomFields, includeTags,
+     hashSecureAttributes, savedGroupReferencesEnabled)
 └─────────────────────────────────────────────────────────────────────────┘
 
                               ▼
@@ -188,12 +188,14 @@
    • back-end/src/models/SdkPayloadModel.ts:getSDKPayload()
    • Query: {organization, environment, schemaVersion}
 
-   Returns cached payload with intermediate `.project` field and
-   `metadata.customFields` (pre-filtered union):
+   Returns cached payload with intermediate `.project` field and metadata
+   (pre-filtered union):
    • features: Record<string, FeatureDefinitionWithProject>
    • experiments: AutoExperimentWithProject[]
    • savedGroupsInUse: string[]
    • holdouts: Record<string, FeatureDefinitionWithProjects>
+   • Metadata includes `metadata.projects`, `metadata.customFields`, and
+     `metadata.tags` (union of all SDK connection whitelists)
 └─────────────────────────────────────────────────────────────────────────┘
 
                               ▼
@@ -207,10 +209,18 @@
    • Filter draft experiments (if !includeDraftExperiments)
    • Remove experiment/rule names (if !includeExperimentNames)
    • Filter by projects using `.project` field from cached payload
-   • Transform metadata: remove `metadata.projects` if !includeProjectPublicId
-     (values already populated in step 3)
-   • Transform metadata: if includeCustomFields is provided, filter existing
-     `metadata.customFields` down to that whitelist; otherwise remove
+   • Transform metadata:
+     - Remove `metadata.projects` if !includeProjectPublicId (values already
+       populated in step 3)
+     - Remove empty `metadata.projects` arrays even if includeProjectPublicId
+       is true
+     - If includeCustomFields is provided and non-empty, filter existing
+       `metadata.customFields` down to that whitelist; otherwise remove
+     - Remove empty `metadata.customFields` objects
+     - If includeTags is provided and non-empty, filter existing
+       `metadata.tags` down to that whitelist; otherwise remove
+     - Remove empty `metadata.tags` arrays
+     - Remove `metadata` object entirely if all fields are empty/removed
    • Strip temporary `.project` field
 
    • Scrub holdouts and merge into features
