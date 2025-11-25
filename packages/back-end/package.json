@@ -149,11 +149,11 @@
     "cross-env": "^7.0.3",
     "delay-cli": "^2.0.0",
     "fishery": "^2.2.2",
-    "jest": "^30.2.0",
+    "jest": "^27.1.1",
     "minimist": "^1.2.8",
     "mongodb-memory-server": "^9.2.0",
     "rimraf": "^3.0.2",
-    "supertest": "^7.1.4",
+    "supertest": "^7.0.0",
     "typescript": "5.7.3"
   },
   "optionalDependencies": {
