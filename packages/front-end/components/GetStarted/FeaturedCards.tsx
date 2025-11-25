@@ -129,7 +129,7 @@ export function SetUpDataSourceAndMetricsFeatureCard() {
           Prepare to analyze experiment results
         </Text>
         {/* TODO: Replace with actual image once it's ready */}
-        <Box mt="auto" mr="-9" className={styles.experimentImage} />
+        <Box mt="auto" ml="auto" mr="-7" className={styles.datasourceImage} />
       </Flex>
     </CardLink>
   );
