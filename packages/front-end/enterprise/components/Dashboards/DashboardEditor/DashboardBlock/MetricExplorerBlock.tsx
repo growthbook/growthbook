@@ -1,8 +1,9 @@
 import { MetricExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCurrency } from "@/hooks/useCurrency";
 import { getExperimentMetricFormatter } from "@/services/metrics";
@@ -10,6 +11,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
@@ -169,8 +171,22 @@ export default function MetricExplorerBlock({
           </Text>
         </Box>
       ) : metricAnalysis.status === "error" ? (
-        <Callout status="error">
-          {metricAnalysis.error || "There was an error with the analysis"}
+        <Callout status="error" icon={null} contentsAs="div">
+          <Box width="100%">
+            <Flex align="center" gap="4">
+              {metricAnalysis.error || "There was an error with the analysis"}
+              <ViewAsyncQueriesButton
+                queries={metricAnalysis.queries.map((q) => q.query)}
+                error={metricAnalysis.error}
+                display="View error(s)"
+                color="danger"
+                status="failed"
+                icon={<FaExclamationTriangle className="mr-2" />}
+                condensed={true}
+                hideQueryCount={true}
+              />
+            </Flex>
+          </Box>
         </Callout>
       ) : ["running", "queued"].includes(metricAnalysis.status || "") ? (
         <LoadingOverlay />
