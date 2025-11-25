@@ -87,7 +87,7 @@ const BaseClass = MakeModelClass({
       createBody: createDashboardValidator.bodySchema,
       updateBody: updateDashboardValidator.bodySchema,
     },
-    crudActions: ["get", "update", "create", "list", "delete"],
+    includeDefaultCrud: true,
     customHandlers: [
       {
         pathFragment: "/by-experiment/:experimentId",
