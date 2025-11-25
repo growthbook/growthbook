@@ -332,7 +332,7 @@ export function migrateBlock(
     case "experiment-time-series":
       return {
         ...doc,
-        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
+        metricIds: doc.metricId ? [doc.metricId] : (doc.metricIds ?? undefined),
         metricId: undefined,
         metricSelector: doc.metricSelector || "custom",
         pinSource: doc.pinSource || "experiment",
