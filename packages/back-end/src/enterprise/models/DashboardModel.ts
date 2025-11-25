@@ -5,7 +5,6 @@ import { UpdateProps } from "shared/types/base-model";
 import { isString } from "shared/util";
 import { blockHasFieldOfType, dashboardBlockHasIds } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
-import { z } from "zod";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -23,12 +22,14 @@ import {
   ApiCreateDashboardBlock,
   ApiDashboard,
   ApiDashboardBlock,
+  GetDashboardsForExperimentResponse,
 } from "back-end/types/openapi";
-import { ApiRequest } from "back-end/src/util/handler";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getDashboardsForExperimentValidator,
   createDashboardValidator,
   updateDashboardValidator,
+  apiDashboardValidator,
 } from "back-end/src/validators/openapi";
 import {
   CreateDashboardBlockInterface,
@@ -45,6 +46,18 @@ type LegacyDashboardDocument = Omit<
   editLevel: "organization" | "private";
   shareLevel?: DashboardInterface["shareLevel"];
 };
+
+const apiFindByExperiment = createApiRequestHandler(
+  getDashboardsForExperimentValidator,
+)(async (req): Promise<GetDashboardsForExperimentResponse> => {
+  const dashboards = await req.context.models.dashboards.findByExperiment(
+    req.params.experimentId,
+  );
+
+  return {
+    dashboards: dashboards.map(req.context.models.dashboards.toApiInterface),
+  };
+});
 
 const COLLECTION_NAME = "dashboards";
 const BaseClass = MakeModelClass({
@@ -69,13 +82,17 @@ const BaseClass = MakeModelClass({
     modelKey: "dashboards",
     modelSingular: "dashboard",
     modelPlural: "dashboards",
+    apiInterface: apiDashboardValidator,
+    schemas: {
+      createBody: createDashboardValidator.bodySchema,
+      updateBody: updateDashboardValidator.bodySchema,
+    },
     crudActions: ["get", "update", "create", "list", "delete"],
     customHandlers: [
       {
         pathFragment: "/by-experiment/:experimentId",
-        handlerFnName: "apiFindByExperiment",
         verb: "get",
-        validator: getDashboardsForExperimentValidator,
+        wrappedHandler: apiFindByExperiment,
       },
     ],
   },
@@ -426,18 +443,6 @@ export class DashboardModel extends BaseClass {
       updates.blocks = createdBlocks;
     }
     return updates;
-  }
-
-  protected async apiFindByExperiment(
-    req: ApiRequest<unknown, z.Schema<{ experimentId: string }>>,
-  ) {
-    const dashboards = await req.context.models.dashboards.findByExperiment(
-      req.params.experimentId,
-    );
-
-    return {
-      dashboards: dashboards.map(req.context.models.dashboards.toApiInterface),
-    };
   }
 }
 
