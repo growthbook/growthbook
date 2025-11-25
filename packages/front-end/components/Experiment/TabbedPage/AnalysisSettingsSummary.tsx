@@ -252,7 +252,7 @@ export default function AnalysisSettingsSummary({
   const numMetrics = goals.length + secondary.length + guardrails.length;
 
   return (
-    <div className="px-3 py-2 analysis-settings-top border-bottom">
+    <div className="px-3 py-2">
       {analysisModal && (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
