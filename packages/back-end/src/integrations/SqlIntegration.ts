@@ -21,6 +21,9 @@ import {
   isCappableMetricType,
   getFactTableTemplateVariables,
   parseSliceMetricId,
+  generateSliceStringFromLevels,
+  generateSliceString,
+  SliceLevelsData,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -894,6 +897,122 @@ export default abstract class SqlIntegration
   ): string {
     const { settings } = params;
 
+    // Create metrics with indices - one per slice group if slices are provided
+    const metricsWithIndices: Array<{
+      metric: FactMetricInterface;
+      index: number;
+    }> = [];
+
+    // Get fact table once for reuse
+    const factTable = params.factTableMap.get(
+      metric.numerator?.factTableId || "",
+    );
+    if (!factTable) {
+      throw new Error("Unknown fact table");
+    }
+
+    let currentIndex = 0;
+
+    // 1. Process custom metric slices (if any)
+    if (settings.customMetricSlices && settings.customMetricSlices.length > 0) {
+      settings.customMetricSlices.forEach((sliceGroup) => {
+        // Sort slices alphabetically for consistent ID generation (matching experiment analysis)
+        const sortedSlices = sliceGroup.slices.sort((a, b) =>
+          a.column.localeCompare(b.column),
+        );
+
+        // Build slice levels
+        const sliceLevels: SliceLevelsData[] = sortedSlices.map((slice) => {
+          const column = factTable.columns.find(
+            (col) => col.column === slice.column,
+          );
+          const datatype =
+            column?.datatype === "boolean" ? "boolean" : "string";
+
+          // For boolean "null" slices, use empty array to generate ?dim:col= format
+          const levels =
+            slice.levels[0] === "null" && datatype === "boolean"
+              ? []
+              : slice.levels;
+
+          return {
+            column: slice.column,
+            datatype,
+            levels,
+          };
+        });
+
+        // Generate slice string and create slice metric
+        if (sliceLevels.length > 0) {
+          const sliceString = generateSliceStringFromLevels(sliceLevels);
+          const sliceMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${sortedSlices
+              .map((combo) => `${combo.column}: ${combo.levels[0] || ""}`)
+              .join(", ")})`,
+          };
+          metricsWithIndices.push({
+            metric: sliceMetric,
+            index: currentIndex++,
+          });
+        }
+      });
+    }
+
+    // 2. Process auto slices from settings (if any) - separate from custom slices
+    if (settings.metricAutoSlices && settings.metricAutoSlices.length > 0) {
+      // Find auto slice columns that match the column names in settings.metricAutoSlices
+      const autoSliceColumns = factTable.columns.filter(
+        (col) =>
+          col.isAutoSliceColumn &&
+          !col.deleted &&
+          (col.autoSlices?.length || 0) > 0 &&
+          settings.metricAutoSlices?.includes(col.column),
+      );
+
+      autoSliceColumns.forEach((col) => {
+        const autoSlices = col.autoSlices || [];
+
+        // Create a metric for each auto slice value
+        autoSlices.forEach((value: string) => {
+          const sliceString = generateSliceString({
+            [col.column]: value,
+          });
+          const sliceMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: ${value})`,
+          };
+          metricsWithIndices.push({
+            metric: sliceMetric,
+            index: currentIndex++,
+          });
+        });
+
+        // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
+        if (autoSlices.length > 0 || col.datatype === "boolean") {
+          const sliceString = generateSliceString({
+            [col.column]: "",
+          });
+          const otherMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: other)`,
+          };
+          metricsWithIndices.push({
+            metric: otherMetric,
+            index: currentIndex++,
+          });
+        }
+      });
+    }
+
+    // If no slices were added, use the base metric
+    if (metricsWithIndices.length === 0) {
+      metricsWithIndices.push({ metric, index: 0 });
+    }
+
     // Get any required identity join queries; only use same id type for now,
     // so not needed
     const idTypeObjects = [
@@ -908,15 +1027,10 @@ export default abstract class SqlIntegration
       forcedBaseIdType: settings.userIdType,
     });
 
-    const factTable = params.factTableMap.get(
-      metric.numerator?.factTableId || "",
-    );
-    if (!factTable) {
-      throw new Error("Unknown fact table");
-    }
+    // factTable already declared above for slice processing
 
     const metricData = this.getMetricData(
-      { metric, index: 0 },
+      { metric: metricsWithIndices[0].metric, index: 0 },
       {
         attributionModel: "experimentDuration",
         regressionAdjustmentEnabled: false,
@@ -999,7 +1113,7 @@ export default abstract class SqlIntegration
       __factTable AS (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
-        metricsWithIndices: [{ metric: metric, index: 0 }],
+        metricsWithIndices: metricsWithIndices,
         factTable,
         endDate: metricData.metricEnd,
         startDate: metricData.metricStart,
