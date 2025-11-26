@@ -18,7 +18,7 @@ import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
-import { dashboardBlockHasIds } from "shared/enterprise";
+import { dashboardBlockHasIds, getBlockData } from "shared/enterprise";
 import {
   DashboardEditLevel,
   DashboardInterface,
@@ -452,16 +452,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
-                blocks: data.blocks?.length
-                  ? data.blocks.map((block) => {
-                      return {
-                        ...block,
-                        id: undefined,
-                        uid: undefined,
-                        organization: undefined,
-                      };
-                    })
-                  : [],
+                blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
             if (res.status === 200) {

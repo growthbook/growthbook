@@ -11,6 +11,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
+import { getBlockData } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
@@ -200,18 +201,9 @@ export default function DashboardsPage() {
             updateSchedule: showDuplicateModal.updateSchedule || undefined,
             userId: userId || "",
             projects: showDuplicateModal.projects || [],
-            blocks: showDuplicateModal.blocks?.length
-              ? showDuplicateModal.blocks.map((block) => ({
-                  // Remove id, uid, and org fields - those are generated when creating the new dashboard
-                  ...block,
-                  id: undefined,
-                  uid: undefined,
-                  organization: undefined,
-                }))
-              : [],
+            blocks: (showDuplicateModal.blocks ?? []).map(getBlockData),
           }}
           submit={async (data) => {
-            console.log("data", data);
             await submitDashboard({ method: "POST", data });
             setIsEditing(true);
           }}
