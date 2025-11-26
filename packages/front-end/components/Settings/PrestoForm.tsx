@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import SelectField from "@/components/Forms/SelectField";
+import { isCloud } from "@/services/env";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -11,6 +12,29 @@ const PrestoForm: FC<{
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
+  const authMethodOptions = [
+    {
+      value: "basicAuth",
+      label: "Basic Auth (Username/Password)",
+    },
+    {
+      value: "customAuth",
+      label: "Custom Auth (HTTP Authorization header)",
+    },
+    ...(!isCloud()
+      ? [
+          {
+            value: "kerberos",
+            label: "Kerberos",
+          },
+        ]
+      : []),
+    {
+      value: "none",
+      label: "None (Authentication handled outside of GrowthBook)",
+    },
+  ];
+
   return (
     <div className="row">
       <div className="form-group col-md-12">
@@ -63,24 +87,7 @@ const PrestoForm: FC<{
       <div className="col-md-12">
         <SelectField
           label="Authentication Method"
-          options={[
-            {
-              value: "basicAuth",
-              label: "Basic Auth (Username/Password)",
-            },
-            {
-              value: "customAuth",
-              label: "Custom Auth (HTTP Authorization header)",
-            },
-            {
-              value: "kerberos",
-              label: "Kerberos",
-            },
-            {
-              value: "none",
-              label: "None (Authentication handled outside of GrowthBook)",
-            },
-          ]}
+          options={authMethodOptions}
           helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. Kerberos auth uses KRB5 authentication with client principal. 'None' only is used for custom authentication methods."
           value={params.authType || "basicAuth"}
           onChange={(v) => {

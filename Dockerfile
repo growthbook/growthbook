@@ -18,7 +18,7 @@ WORKDIR /usr/local/src/app
 # Set node max memory
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
+  apt-get install -y wget gnupg2 build-essential ca-certificates && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \

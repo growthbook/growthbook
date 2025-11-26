@@ -5,11 +5,19 @@ import {
   GSS_MECH_OID_KRB5,
 } from "kerberos";
 import { logger } from "./logger";
+import { IS_CLOUD } from "./secrets";
 
 export async function getKerberosHeader(
   servicePrincipal: string,
   clientPrincipal?: string,
 ): Promise<string> {
+  // As we can't use Kerberos in Cloud, ensure we don't try to use it
+  if (IS_CLOUD) {
+    throw new Error(
+      "Kerberos authentication is not supported in GrowthBook Cloud",
+    );
+  }
+
   const startTime = performance.now();
   const formattedServicePrincipal = formatServicePrincipal(servicePrincipal);
   const clientOptions: InitializeClientOptions = {
