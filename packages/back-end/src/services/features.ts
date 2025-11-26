@@ -664,7 +664,7 @@ export async function refreshSDKPayloadCache(
 }
 
 // Returns the union of all custom fields enabled across SDK connections
-async function getAllowedCustomFieldsForPayloads(
+export async function getAllowedCustomFieldsForPayloads(
   context: ReqContext | ApiReqContext,
 ): Promise<Set<string> | undefined> {
   const connections = await findSDKConnectionsByOrganization(context);
@@ -682,7 +682,7 @@ async function getAllowedCustomFieldsForPayloads(
 }
 
 // Returns the union of all tags enabled across SDK connections
-async function getAllowedTagsForPayloads(
+export async function getAllowedTagsForPayloads(
   context: ReqContext | ApiReqContext,
 ): Promise<Set<string> | undefined> {
   const connections = await findSDKConnectionsByOrganization(context);
@@ -697,6 +697,35 @@ async function getAllowedTagsForPayloads(
   }
 
   return whitelist.size > 0 ? whitelist : undefined;
+}
+
+// Checks if tags or customFields changed and if any SDK connections use them
+// Returns true if a cache refresh is needed for tags/customFields changes
+export async function shouldRefreshForMetadataChanges(
+  context: ReqContext | ApiReqContext,
+  old: Omit<FeatureMetadata, "projects">,
+  newValue: Omit<FeatureMetadata, "projects">,
+): Promise<boolean> {
+  const tagsChanged = !isEqual(old.tags ?? null, newValue.tags ?? null);
+  const customFieldsChanged = !isEqual(
+    old.customFields ?? null,
+    newValue.customFields ?? null,
+  );
+
+  if (!tagsChanged && !customFieldsChanged) {
+    return false;
+  }
+
+  const [allowedCustomFields, allowedTags] = await Promise.all([
+    getAllowedCustomFieldsForPayloads(context),
+    getAllowedTagsForPayloads(context),
+  ]);
+
+  // Only refresh if any SDK connections actually use these fields
+  return !!(
+    (tagsChanged && allowedTags && allowedTags.size > 0) ||
+    (customFieldsChanged && allowedCustomFields && allowedCustomFields.size > 0)
+  );
 }
 
 export type FeatureDefinitionsResponseArgs = {

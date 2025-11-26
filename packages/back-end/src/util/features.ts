@@ -223,6 +223,7 @@ export function getSDKPayloadKeysByDiff(
   }
 
   // Some of the feature keys that change affect all enabled environments
+  // Note: customFields and tags are handled separately when called
   const allEnvKeys: (keyof FeatureInterface)[] = [
     "archived",
     "defaultValue",
@@ -230,8 +231,6 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
     "holdout",
-    "customFields",
-    "tags",
   ];
 
   if (

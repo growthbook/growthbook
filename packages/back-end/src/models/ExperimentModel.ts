@@ -24,6 +24,7 @@ import {
   refreshSDKPayloadCache,
   URLRedirectExperiment,
   VisualExperiment,
+  shouldRefreshForMetadataChanges,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { FeatureInterface } from "back-end/types/feature";
@@ -1618,6 +1619,8 @@ const getExperimentChanges = (
 ): Omit<ExperimentInterface, "variations"> & {
   variations: Partial<Variation>[];
 } => {
+  // Note: customFields and tags are handled separately at the call site
+  // to check if any SDK connections actually use them
   const importantKeys: Array<keyof ExperimentInterface> = [
     "trackingKey",
     "project",
@@ -1631,7 +1634,6 @@ const getExperimentChanges = (
     "autoAssign",
     "variations",
     "phases",
-    "customFields",
   ];
 
   return {
@@ -1693,9 +1695,21 @@ const onExperimentUpdate = async ({
     previous: oldExperiment,
   });
 
+  const hasOtherChangesForSDKPayloadRefresh = hasChangesForSDKPayloadRefresh(
+    oldExperiment,
+    newExperiment,
+  );
+
+  // Check if tags or customFields changed, and if any SDK connections use them
+  const needsMetadataRefresh = await shouldRefreshForMetadataChanges(
+    context,
+    oldExperiment,
+    newExperiment,
+  );
+
   if (
     !bypassWebhooks &&
-    hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
+    (hasOtherChangesForSDKPayloadRefresh || needsMetadataRefresh)
   ) {
     // Get linked features
     const featureIds = new Set([
