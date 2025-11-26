@@ -89,6 +89,9 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
           .fn()
           .mockResolvedValue(new Map()) as jest.Mock,
       },
+      projects: {
+        getAll: jest.fn().mockResolvedValue([]) as jest.Mock,
+      },
     },
     userId: "test-user",
     email: "test@example.com",
