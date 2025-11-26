@@ -230,7 +230,7 @@ export const testQueryRowSchema = z.record(z.string(), z.any());
 
 export const queryExecutionResultValidator = z.object({
   results: z.array(testQueryRowSchema),
-  error: z.string().optional(),
+  error: z.string().nullable().optional(),
   duration: z.number().optional(),
   sql: z.string().optional(),
 });
