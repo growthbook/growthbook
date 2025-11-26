@@ -12,6 +12,7 @@ import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import HelperText from "@/ui/HelperText";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
@@ -171,23 +172,30 @@ export default function MetricExplorerBlock({
           </Text>
         </Box>
       ) : metricAnalysis.status === "error" ? (
-        <Callout status="error" icon={null}>
-          <Box width="100%">
-            <Flex align="center" gap="4">
+        <Box
+          p="4"
+          overflow="scroll"
+          style={{
+            backgroundColor: "var(--red-a3)",
+            borderRadius: "var(--radius-4)",
+          }}
+        >
+          <Flex align="center" gap="4" justify="between">
+            <HelperText status="error">
               {metricAnalysis.error || "There was an error with the analysis"}
-              <ViewAsyncQueriesButton
-                queries={metricAnalysis.queries.map((q) => q.query)}
-                error={metricAnalysis.error}
-                display="View error(s)"
-                color="danger"
-                status="failed"
-                icon={<FaExclamationTriangle className="mr-2" />}
-                condensed={true}
-                hideQueryCount={true}
-              />
-            </Flex>
-          </Box>
-        </Callout>
+            </HelperText>
+            <ViewAsyncQueriesButton
+              queries={metricAnalysis.queries.map((q) => q.query)}
+              error={metricAnalysis.error}
+              display="View error(s)"
+              color="danger"
+              status="failed"
+              icon={<FaExclamationTriangle className="mr-2" />}
+              condensed={true}
+              hideQueryCount={true}
+            />
+          </Flex>
+        </Box>
       ) : ["running", "queued"].includes(metricAnalysis.status || "") ? (
         <LoadingOverlay />
       ) : "dataset" in chartData &&
