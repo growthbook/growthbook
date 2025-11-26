@@ -302,6 +302,7 @@ export class DashboardModel extends BaseClass {
           organization: _o,
           dateCreated: _c,
           dateUpdated: _u,
+          linkedDashboardIds: _l,
           ...toCreate
         } = existing;
         const { id } = await this.context.models.savedQueries.create(toCreate);
@@ -321,7 +322,10 @@ export class DashboardModel extends BaseClass {
 function getSavedQueryIds(doc: DashboardDocument): Set<string> {
   const queryIdSet = new Set<string>();
   doc.blocks.forEach((block) => {
-    if (block.type === "sql-explorer" && block.savedQueryId) {
+    if (
+      blockHasFieldOfType(block, "savedQueryId", isString) &&
+      block.savedQueryId
+    ) {
       queryIdSet.add(block.savedQueryId);
     }
   });
