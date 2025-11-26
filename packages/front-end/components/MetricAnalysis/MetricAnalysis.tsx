@@ -6,6 +6,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import clsx from "clsx";
+import { isEqual } from "lodash";
 import { isBinomialMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
@@ -156,10 +157,11 @@ function settingsMatch(
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
-  return Object.entries(settings).every(
-    ([key, value]) =>
-      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key),
-  );
+  return Object.entries(settings).every(([key, value]) => {
+    return (
+      fieldsThatCanDiffer.includes(key) || isEqual(value, desiredSettings[key])
+    );
+  });
 }
 
 function isOutdated(
@@ -190,6 +192,8 @@ function getAnalysisSettingsForm(
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
+    additionalNumeratorFilters: settings?.additionalNumeratorFilters,
+    additionalDenominatorFilters: settings?.additionalDenominatorFilters,
   };
 }
 
@@ -201,6 +205,8 @@ export type MetricAnalysisFormFields = {
 
   populationType: MetricAnalysisPopulationType;
   populationId: string | null;
+  additionalNumeratorFilters?: string[];
+  additionalDenominatorFilters?: string[];
 };
 
 interface MetricAnalysisProps {
