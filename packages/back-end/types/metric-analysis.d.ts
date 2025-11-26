@@ -29,12 +29,6 @@ export type MetricAnalysisResultDate = {
   stddev?: number;
 };
 
-export type MetricAnalysisCappingResult = {
-  cappingValue: number;
-  unitsCapped: number;
-  uncappedHistogram: MetricAnalysisHistogram;
-};
-
 export type MetricAnalysisHistogram = z.infer<
   typeof metricAnalysisHistogramValidator
 >;

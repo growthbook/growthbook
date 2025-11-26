@@ -153,6 +153,8 @@ import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
+export const MAX_METRICS_IN_METRIC_ANALYSIS_QUERY = 100;
+export const MAX_METRICS_IN_FACT_METRIC_QUERY = 100;
 export const TEST_QUERY_SQL = "SELECT 1";
 
 const N_STAR_VALUES = [
@@ -876,16 +878,16 @@ export default abstract class SqlIntegration
     finalValueColumn: string,
     finalDenominatorColumn: string,
     ratioMetric: boolean,
+    alias: string,
   ): string {
-    return `, COUNT(*) as units
-            , SUM(${finalValueColumn}) as main_sum
-            , SUM(POWER(${finalValueColumn}, 2)) as main_sum_squares
+    return `, SUM(${finalValueColumn}) as ${alias}_main_sum
+            , SUM(POWER(${finalValueColumn}, 2)) as ${alias}_main_sum_squares
             ${
               ratioMetric
                 ? `
-            , SUM(${finalDenominatorColumn}) as denominator_sum
-            , SUM(POWER(${finalDenominatorColumn}, 2)) as denominator_sum_squares
-            , SUM(${finalDenominatorColumn} * ${finalValueColumn}) as main_denominator_sum_product
+            , SUM(${finalDenominatorColumn}) as ${alias}_denominator_sum
+            , SUM(POWER(${finalDenominatorColumn}, 2)) as ${alias}_denominator_sum_squares
+            , SUM(${finalDenominatorColumn} * ${finalValueColumn}) as ${alias}_main_denominator_sum_product
             `
                 : ""
             }`;
@@ -897,11 +899,8 @@ export default abstract class SqlIntegration
   ): string {
     const { settings } = params;
 
-    // Create metrics with indices - one per slice group if slices are provided
-    const metricsWithIndices: Array<{
-      metric: FactMetricInterface;
-      index: number;
-    }> = [];
+    // Create metrics with indices - one per slice group if slices are provided, plus the base metric
+    const metrics: FactMetricInterface[] = [metric];
 
     // Get fact table once for reuse
     const factTable = params.factTableMap.get(
@@ -910,8 +909,6 @@ export default abstract class SqlIntegration
     if (!factTable) {
       throw new Error("Unknown fact table");
     }
-
-    let currentIndex = 0;
 
     // 1. Process custom metric slices (if any)
     if (settings.customMetricSlices && settings.customMetricSlices.length > 0) {
@@ -952,10 +949,7 @@ export default abstract class SqlIntegration
               .map((combo) => `${combo.column}: ${combo.levels[0] || ""}`)
               .join(", ")})`,
           };
-          metricsWithIndices.push({
-            metric: sliceMetric,
-            index: currentIndex++,
-          });
+          metrics.push(sliceMetric);
         }
       });
     }
@@ -984,10 +978,7 @@ export default abstract class SqlIntegration
             id: `${metric.id}?${sliceString}`,
             name: `${metric.name} (${col.name || col.column}: ${value})`,
           };
-          metricsWithIndices.push({
-            metric: sliceMetric,
-            index: currentIndex++,
-          });
+          metrics.push(sliceMetric);
         });
 
         // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
@@ -1000,18 +991,15 @@ export default abstract class SqlIntegration
             id: `${metric.id}?${sliceString}`,
             name: `${metric.name} (${col.name || col.column}: other)`,
           };
-          metricsWithIndices.push({
-            metric: otherMetric,
-            index: currentIndex++,
-          });
+          metrics.push(otherMetric);
         }
       });
     }
 
-    // If no slices were added, use the base metric
-    if (metricsWithIndices.length === 0) {
-      metricsWithIndices.push({ metric, index: 0 });
-    }
+    const metricsWithIndices = metrics.map((metric, index) => ({
+      metric,
+      index,
+    }));
 
     // Get any required identity join queries; only use same id type for now,
     // so not needed
@@ -1029,17 +1017,19 @@ export default abstract class SqlIntegration
 
     // factTable already declared above for slice processing
 
-    const metricData = this.getMetricData(
-      { metric: metricsWithIndices[0].metric, index: 0 },
-      {
-        attributionModel: "experimentDuration",
-        regressionAdjustmentEnabled: false,
-        startDate: settings.startDate,
-        endDate: settings.endDate ?? undefined,
-      },
-      null,
-      [{ factTable, index: 0 }],
-      "m0",
+    const metricData = metricsWithIndices.map((metricWithIndex) =>
+      this.getMetricData(
+        metricWithIndex,
+        {
+          attributionModel: "experimentDuration",
+          regressionAdjustmentEnabled: false,
+          startDate: settings.startDate,
+          endDate: settings.endDate ?? undefined,
+        },
+        null,
+        [{ factTable, index: 0 }],
+        `m${metricWithIndex.index}`,
+      ),
     );
 
     // TODO(sql): Support analyses for cross-table ratio metrics
@@ -1055,45 +1045,38 @@ export default abstract class SqlIntegration
 
     const createHistogram = metric.metricType === "mean";
 
-    const finalDailyValueColumn = this.capCoalesceValue({
-      valueCol: this.getValueFromAggregateColumns("value", metric.numerator),
-      metric,
-      capTablePrefix: "cap",
-      capValueCol: "value_capped",
-      columnRef: metric.numerator,
-    });
-    const finalDailyDenominatorColumn = this.capCoalesceValue({
-      valueCol: this.getValueFromAggregateColumns(
-        "denominator",
-        metric.denominator,
-      ),
-      metric,
-      capTablePrefix: "cap",
-      capValueCol: "denominator_capped",
-      columnRef: metric.denominator,
-    });
-
-    const finalOverallValueColumn = this.capCoalesceValue({
-      valueCol: "value",
-      metric,
-      capTablePrefix: "cap",
-      capValueCol: "value_capped",
-      columnRef: metric.numerator,
-    });
-    const finalOverallDenominatorColumn = this.capCoalesceValue({
-      valueCol: "denominator",
-      metric,
-      capTablePrefix: "cap",
-      capValueCol: "denominator_capped",
-      columnRef: metric.denominator,
-    });
-
+    // TODO test HLL count distinct works for daily values
     const populationSQL = this.getMetricAnalysisPopulationCTEs({
       settings,
       idJoinMap,
       factTableMap: params.factTableMap,
       segment: params.segment,
     });
+
+    const percentileTableIndices = new Set<number>();
+    const percentileData: FactMetricPercentileData[] = [];
+    metricData
+      .filter((m) => m.isPercentileCapped)
+      .forEach((m) => {
+        percentileData.push({
+          valueCol: `${m.alias}_value`,
+          outputCol: `${m.alias}_value_cap`,
+          percentile: m.metric.cappingSettings.value ?? 1,
+          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+          sourceIndex: m.numeratorSourceIndex,
+        });
+        percentileTableIndices.add(m.numeratorSourceIndex);
+        if (m.ratioMetric) {
+          percentileData.push({
+            valueCol: `${m.alias}_denominator`,
+            outputCol: `${m.alias}_denominator_cap`,
+            percentile: m.metric.cappingSettings.value ?? 1,
+            ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+            sourceIndex: m.denominatorSourceIndex,
+          });
+          percentileTableIndices.add(m.denominatorSourceIndex);
+        }
+      });
 
     // TODO check if query broken if segment has template variables
     // TODO return cap numbers
@@ -1107,8 +1090,9 @@ export default abstract class SqlIntegration
         idJoinMap,
         metricsWithIndices: metricsWithIndices,
         factTable,
-        endDate: metricData.metricEnd,
-        startDate: metricData.metricStart,
+        // ignore metric start and end dates and use query settings
+        endDate: settings.endDate,
+        startDate: settings.startDate,
         addFiltersToWhere: settings.populationType == "metric",
       })})
         , __userMetricDaily AS (
@@ -1116,22 +1100,15 @@ export default abstract class SqlIntegration
           SELECT
           ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
             , ${this.dateTrunc("timestamp")} AS date
-            , ${this.getAggregateMetricColumn({
-              metric: metricData.metric,
-              useDenominator: false,
-              valueColumn: `f.${metricData.alias}_value`,
-              willReaggregate: true,
-            })} AS value
-                  ${
-                    metricData.ratioMetric
-                      ? `, ${this.getAggregateMetricColumn({
-                          metric: metricData.metric,
-                          useDenominator: true,
-                          valueColumn: `f.${metricData.alias}_denominator`,
-                          willReaggregate: true,
-                        })} AS denominator`
-                      : ""
-                  }
+            ${metricData
+              .map((m) => {
+                return `
+                , ${this.castToString(`"${m.metric.id}"`)} AS ${m.alias}_id
+                , ${m.aggFns.partialAggregationFunction(`f.${m.alias}_value`)} AS ${m.alias}_value
+                ${m.ratioMetric && m.denomAggFns ? `, ${m.denomAggFns.partialAggregationFunction(`f.${m.alias}_denominator`)} AS ${m.alias}_denominator` : ""}
+                `;
+              })
+              .join("\n")}
           
           ${
             populationSQL
@@ -1148,54 +1125,26 @@ export default abstract class SqlIntegration
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
-            , ${this.getReaggregateMetricColumn(
-              metric,
-              false,
-              "value",
-            )} AS value
-             ${
-               metricData.ratioMetric
-                 ? `, ${this.getReaggregateMetricColumn(
-                     metric,
-                     true,
-                     "denominator",
-                   )} AS denominator`
-                 : ""
-             }
+            ${metricData
+              .map((m) => {
+                return `
+                , MAX(${m.alias}_id) AS ${m.alias}_id
+                , ${m.aggFns.reAggregationFunction(`${m.alias}_value`)} AS ${m.alias}_value
+              ${m.ratioMetric && m.denomAggFns ? `, ${m.denomAggFns.reAggregationFunction(`${m.alias}_denominator`)} AS ${m.alias}_denominator` : ""}
+              `;
+              })
+              .join("\n")}
           FROM
             __userMetricDaily
           GROUP BY
             ${baseIdType}
         )
         ${
-          metricData.isPercentileCapped
+          percentileData.length > 0
             ? `
         , __capValue AS (
             ${this.percentileCapSelectClause(
-              [
-                {
-                  valueCol: "value",
-                  outputCol: "value_capped",
-                  percentile: metricData.metric.cappingSettings.value ?? 1,
-                  ignoreZeros:
-                    metricData.metric.cappingSettings.ignoreZeros ?? false,
-                  sourceIndex: metricData.numeratorSourceIndex,
-                },
-                ...(metricData.ratioMetric
-                  ? [
-                      {
-                        valueCol: "denominator",
-                        outputCol: "denominator_capped",
-                        percentile:
-                          metricData.metric.cappingSettings.value ?? 1,
-                        ignoreZeros:
-                          metricData.metric.cappingSettings.ignoreZeros ??
-                          false,
-                        sourceIndex: metricData.denominatorSourceIndex,
-                      },
-                    ]
-                  : []),
-              ],
+              percentileData,
               "__userMetricOverall",
             )}
         )
@@ -1206,82 +1155,112 @@ export default abstract class SqlIntegration
           SELECT
             date
             , MAX(${this.castToString("'date'")}) AS data_type
-            , ${this.castToString(
-              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
-            )} AS capped
-            ${this.getMetricAnalysisStatisticClauses(
-              finalDailyValueColumn,
-              finalDailyDenominatorColumn,
-              metricData.ratioMetric,
-            )}
-            ${
-              createHistogram
-                ? `
-            , MIN(${finalDailyValueColumn}) as value_min
-            , MAX(${finalDailyValueColumn}) as value_max
-            , ${this.ensureFloat("NULL")} AS bin_width
-            ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()]
-              .map((i) => `, ${this.ensureFloat("NULL")} AS units_bin_${i}`)
-              .join("\n")}`
-                : ""
-            }
-          FROM __userMetricDaily
-          ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+            , COUNT(*) as units
+            ${metricData
+              .map((m) => {
+                return `
+                , MAX(${this.castToString(`"${m.metric.id}"`)}) AS ${m.alias}_id
+                ${this.getMetricAnalysisStatisticClauses(
+                  m.capCoalesceMetric,
+                  m.capCoalesceDenominator,
+                  m.ratioMetric,
+                  m.alias,
+                )}
+                ${
+                  createHistogram
+                    ? `
+                  , MIN(${m.capCoalesceMetric}) as ${m.alias}_value_min
+                  , MAX(${m.capCoalesceMetric}) as ${m.alias}_value_max
+                  , ${this.ensureFloat("NULL")} AS ${m.alias}_bin_width`
+                    : ""
+                }
+                `;
+              })
+              .join("\n")}
+          ${
+            createHistogram
+              ? metricData
+                  .map((m) =>
+                    [...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()]
+                      .map(
+                        (i) =>
+                          `, ${this.ensureFloat("NULL")} AS ${m.alias}_units_bin_${i}`,
+                      )
+                      .join("\n"),
+                  )
+                  .join("\n")
+              : ""
+          }
+          FROM __userMetricDaily m
+          ${percentileData.length > 0 ? "CROSS JOIN __capValue cap" : ""}
           GROUP BY date
         )
         , __statisticsOverall AS (
           SELECT
             ${this.castToDate("NULL")} AS date
             , MAX(${this.castToString("'overall'")}) AS data_type
-            , ${this.castToString(
-              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
-            )} AS capped
-            ${this.getMetricAnalysisStatisticClauses(
-              finalOverallValueColumn,
-              finalOverallDenominatorColumn,
-              metricData.ratioMetric,
-            )}
-            ${
-              createHistogram
-                ? `
-            , MIN(${finalOverallValueColumn}) as value_min
-            , MAX(${finalOverallValueColumn}) as value_max
-            , (MAX(${finalOverallValueColumn}) - MIN(${finalOverallValueColumn})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as bin_width
-            `
-                : ""
-            }
-          FROM __userMetricOverall
-        ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+            , COUNT(*) as units
+            ${metricData
+              .map((m) => {
+                return `
+              , MAX(${this.castToString(`"${m.metric.id}"`)}) AS ${m.alias}_id
+              ${this.getMetricAnalysisStatisticClauses(
+                m.capCoalesceMetric,
+                m.capCoalesceDenominator,
+                m.ratioMetric,
+                m.alias,
+              )}
+              ${
+                createHistogram
+                  ? `
+                , MIN(${m.capCoalesceMetric}) as ${m.alias}_value_min
+                , MAX(${m.capCoalesceMetric}) as ${m.alias}_value_max
+                , (MAX(${m.capCoalesceMetric}) - MIN(${m.capCoalesceMetric})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as ${m.alias}_bin_width
+                `
+                  : ""
+              }
+            `;
+              })
+              .join("\n")}
+            
+          FROM __userMetricOverall m
+        ${percentileData.length > 0 ? "CROSS JOIN __capValue cap" : ""}
         )
         ${
           createHistogram
             ? `
         , __histogram AS (
           SELECT
+            ${metricData
+              .map(
+                (m) => `
             SUM(${this.ifElse(
-              "m.value < (s.value_min + s.bin_width)",
+              `m.${m.alias}_value < (s.${m.alias}_value_min + s.${m.alias}_bin_width)`,
               "1",
               "0",
-            )}) as units_bin_0
+            )}) AS ${m.alias}_units_bin_0
             ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS - 2).keys()]
               .map(
                 (i) =>
                   `, SUM(${this.ifElse(
-                    `m.value >= (s.value_min + s.bin_width*${
+                    `m.${m.alias}_value >= (s.${m.alias}_value_min + s.${m.alias}_bin_width*${
                       i + 1
-                    }.0) AND m.value < (s.value_min + s.bin_width*${i + 2}.0)`,
+                    }.0) AND m.${m.alias}_value < (s.${m.alias}_value_min + s.${m.alias}_bin_width*${i + 2}.0)`,
                     "1",
                     "0",
-                  )}) as units_bin_${i + 1}`,
+                  )}) AS ${m.alias}_units_bin_${i + 1}`,
               )
               .join("\n")}
             , SUM(${this.ifElse(
-              `m.value >= (s.value_min + s.bin_width*${
+              `m.${m.alias}_value >= (s.${m.alias}_value_min + s.${m.alias}_bin_width*${
                 DEFAULT_METRIC_HISTOGRAM_BINS - 1
               }.0)`,
               "1",
               "0",
-            )}) as units_bin_${DEFAULT_METRIC_HISTOGRAM_BINS - 1}
+            )}) AS ${m.alias}_units_bin_${DEFAULT_METRIC_HISTOGRAM_BINS - 1}
+          `,
+              )
+              .join("\n,")}
           FROM
             __userMetricOverall m
           CROSS JOIN
@@ -1308,62 +1287,52 @@ export default abstract class SqlIntegration
   ): Promise<MetricAnalysisQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
 
-    function parseUnitsBinData(
-      // eslint-disable-next-line
-      row: Record<string, any>,
-    ): Partial<MetricAnalysisQueryResponseRow> {
-      const data: Record<string, number> = {};
+    const floatCols = [
+      "main_sum",
+      "main_sum_squares",
+      "denominator_sum",
+      "denominator_sum_squares",
+      "main_denominator_sum_product",
+      "value_min",
+      "value_max",
+      "bin_width",
+    ];
 
-      for (let i = 0; i < DEFAULT_METRIC_HISTOGRAM_BINS; i++) {
-        const key = `units_bin_${i}`;
-        const parsed = parseFloat(row[key]);
-        if (parsed) {
-          data[key] = parsed;
+    const processedRows = rows.map((row) => {
+      const metricData: {
+        [key: string]: number | string;
+      } = {};
+      for (let i = 0; i < MAX_METRICS_IN_METRIC_ANALYSIS_QUERY; i++) {
+        const prefix = `m${i}_`;
+        // Reached the end
+        if (!row[prefix + "id"]) break;
+
+        metricData[prefix + "id"] = row[prefix + "id"];
+        floatCols.forEach((col) => {
+          if (row[prefix + col] !== undefined) {
+            metricData[prefix + col] = parseFloat(row[prefix + col]) || 0;
+          }
+        });
+        for (let i = 0; i < DEFAULT_METRIC_HISTOGRAM_BINS; i++) {
+          const key = `${prefix}units_bin_${i}`;
+          const parsed = parseFloat(row[key]);
+          if (parsed) {
+            metricData[key] = parsed;
+          }
         }
       }
-
-      return data as Partial<MetricAnalysisQueryResponseRow>;
-    }
-
-    return {
-      rows: rows.map((row) => {
-        const {
-          date,
-          data_type,
-          units,
-          capped,
-          main_sum,
-          main_sum_squares,
-          denominator_sum,
-          denominator_sum_squares,
-          main_denominator_sum_product,
-          value_min,
-          value_max,
-        } = row;
-
-        const ret: MetricAnalysisQueryResponseRow = {
-          date: date ? getValidDate(date).toISOString() : "",
-          data_type: data_type ?? "",
-          capped: (capped ?? "uncapped") == "capped",
-          units: parseFloat(units) || 0,
-          main_sum: parseFloat(main_sum) || 0,
-          main_sum_squares: parseFloat(main_sum_squares) || 0,
-          denominator_sum: parseFloat(denominator_sum) || 0,
-          denominator_sum_squares: parseFloat(denominator_sum_squares) || 0,
-          main_denominator_sum_product:
-            parseFloat(main_denominator_sum_product) || 0,
-
-          value_min: parseFloat(value_min) || 0,
-          value_max: parseFloat(value_max) || 0,
-          ...(parseFloat(row.bin_width) && {
-            bin_width: parseFloat(row.bin_width),
-          }),
-          ...parseUnitsBinData(row),
-        };
-        return ret;
-      }),
+      return {
+        date: row.date ? getValidDate(row.date).toISOString() : "",
+        data_type: row.data_type ?? "",
+        units: parseFloat(row.units) || 0,
+        ...metricData,
+      };
+    });
+    const ret: MetricAnalysisQueryResponse = {
+      rows: processedRows,
       statistics: statistics,
     };
+    return ret;
   }
 
   getQuantileBoundsFromQueryResponse(
@@ -1443,7 +1412,7 @@ export default abstract class SqlIntegration
       let metricData: {
         [key: string]: number | string;
       } = {};
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < MAX_METRICS_IN_FACT_METRIC_QUERY; i++) {
         const prefix = `m${i}_`;
         // Reached the end
         if (!row[prefix + "id"]) break;
@@ -2871,6 +2840,12 @@ export default abstract class SqlIntegration
       activationMetric,
     );
 
+    const aggFns = this.getAggregationMetadata({ metric });
+    const denomAggFns =
+      isRatioMetric(metric) && metric.denominator
+        ? this.getAggregationMetadata({ metric, useDenominator: true })
+        : undefined;
+
     return {
       alias,
       id: metric.id,
@@ -2884,8 +2859,13 @@ export default abstract class SqlIntegration
       regressionAdjustmentHours,
       overrideConversionWindows,
       isPercentileCapped,
+      // fact table source indices in which the column ref is found
       numeratorSourceIndex,
       denominatorSourceIndex,
+      // functions used to partially or fully aggregate the metric data
+      aggFns,
+      denomAggFns,
+      // final coalesced value columns in the return statement
       capCoalesceMetric,
       capCoalesceDenominator,
       capCoalesceCovariate,
