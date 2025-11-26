@@ -1556,6 +1556,18 @@ class EffectMomentsPostStratification:
         """Check if any variance is 0 or negative"""
         return stat_a._has_zero_variance or stat_b._has_zero_variance
 
+    @staticmethod
+    def is_cell_viable(stat_a: TestStatistic, stat_b: TestStatistic) -> bool:
+        if EffectMomentsPostStratification._has_zero_variance(stat_a, stat_b):
+            return False
+        # need 7 units per cell to run CUPED post-stratification on ratio metrics
+        if isinstance(stat_a, RegressionAdjustedRatioStatistic) or isinstance(
+            stat_b, RegressionAdjustedRatioStatistic
+        ):
+            if (stat_a.n + stat_b.n) <= 6:
+                return False
+        return True
+
     # Combine cells for analysis if there are any cells with data but without enough
     # data to properly run a cell-level test
     @staticmethod
@@ -1567,7 +1579,7 @@ class EffectMomentsPostStratification:
 
         cells_for_analysis = [sorted_cells[0]]
         for i in range(1, len(sorted_cells)):
-            if not EffectMomentsPostStratification._has_zero_variance(
+            if EffectMomentsPostStratification.is_cell_viable(
                 sorted_cells[i][0], sorted_cells[i][1]
             ):
                 cells_for_analysis.append(sorted_cells[i])
