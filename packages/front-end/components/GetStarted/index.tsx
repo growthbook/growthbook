@@ -12,6 +12,7 @@ import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { CommercialFeature } from "shared/src/enterprise/license-consts";
 import router from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -42,6 +43,7 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import { DocSection } from "@/components/DocLink";
+import { AppFeatures } from "@/types/app-features";
 
 type AdvancedFeature = (
   | { docSection: DocSection; href?: never }
@@ -129,6 +131,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
   const { organization } = useUser();
+  const gb = useGrowthBook<AppFeatures>();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] =
     useState<boolean>(false);
@@ -155,13 +158,15 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
-  // Check if owner is an engineer
   const intentToExperiment =
     organization?.demographicData?.ownerUsageIntents?.includes("experiments") ||
     organization?.demographicData?.ownerUsageIntents?.length === 0 ||
     !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
 
-  const showDataScientistView = intentToExperiment && isCloud();
+  const showDataScientistView =
+    intentToExperiment &&
+    isCloud() &&
+    gb.isOn("experimentation-focused-onboarding");
 
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment,

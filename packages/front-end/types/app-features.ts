@@ -35,7 +35,6 @@ export type AppFeatures = {
   "visual-editor-ai-enabled": boolean;
   "team-permissions-enabled": boolean;
   "ff-approval-flow": boolean;
-  "gbdemo-checkout-layout": string;
   "datasource-pipeline-mode": boolean;
   "fact-tables": boolean;
   "health-tab": boolean;
@@ -105,4 +104,9 @@ export type AppFeatures = {
   "october16-ff": boolean;
   "general-dashboards": boolean;
   "incremental-refresh": boolean;
+  "top-banner": Record<string, unknown>;
+  "gbdemo-checkout-layout": boolean;
+  "post-stratification": boolean;
+  liebenowflag9: boolean;
+  "experimentation-focused-onboarding": boolean;
 };

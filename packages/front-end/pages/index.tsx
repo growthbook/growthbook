@@ -1,67 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { ProjectInterface } from "back-end/types/project";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useFeaturesList } from "@/services/features";
 import GetStartedAndHomePage from "@/components/GetStarted";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import track from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { AppFeatures } from "@/types/app-features";
 import { isCloud } from "@/services/env";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
-  const gb = useGrowthBook();
-  const { projectId: demoDataSourceProjectId, demoExperimentId } =
-    useDemoDataSourceProject();
-  const { apiCall } = useAuth();
-  const { mutateDefinitions, setProject } = useDefinitions();
-  const { organization, email } = useUser();
-
-  // Welcome modal logic - only show to org creator on first visit
-  const [hasSeenWelcomeModal, _setHasSeenWelcomeModal] =
-    useLocalStorage<boolean>("welcome-modal-shown", false);
-  const [sampleDataLoading, setSampleDataLoading] = useState(false);
-
-  // Check if current user is the organization creator
-  const isOrgCreator = organization?.ownerEmail === email;
-
-  const openSampleExperimentResults = async () => {
-    setSampleDataLoading(true);
-    if (demoDataSourceProjectId && demoExperimentId) {
-      setSampleDataLoading(false);
-      router.push(`/experiment/${demoExperimentId}#results`);
-    } else {
-      track("Create Sample Project", {
-        source: "home-page",
-      });
-      const res = await apiCall<{
-        project: ProjectInterface;
-        experimentId: string;
-      }>(
-        gb.isOn("new-sample-data")
-          ? "/demo-datasource-project/new"
-          : "/demo-datasource-project",
-        {
-          method: "POST",
-        },
-      );
-      await mutateDefinitions();
-      if (res.experimentId) {
-        setProject(res.project.id);
-        setSampleDataLoading(false);
-        router.push(`/experiment/${res.experimentId}#results`);
-      } else {
-        throw new Error("Could not create sample experiment");
-      }
-    }
-  };
   const {
     experiments,
     loading: experimentsLoading,
@@ -73,6 +23,10 @@ export default function Home(): React.ReactElement {
     loading: featuresLoading,
     error: featuresError,
   } = useFeaturesList(false);
+
+  const { organization } = useUser();
+
+  const gb = useGrowthBook<AppFeatures>();
 
   useEffect(() => {
     if (!organization) return;
@@ -88,19 +42,19 @@ export default function Home(): React.ReactElement {
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
     const hasFeatureOrExperiment = hasFeatures || hasExperiments;
+    const intentToExperiment =
+      organization?.demographicData?.ownerUsageIntents?.includes(
+        "experiments",
+      ) ||
+      organization?.demographicData?.ownerUsageIntents?.length === 0 ||
+      !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
     if (!hasFeatureOrExperiment) {
-      if (
-        !organization.isVercelIntegration &&
-        organization.demographicData?.ownerJobTitle === "engineer"
-      ) {
+      const useNewOnboarding =
+        gb.isOn("experimentation-focused-onboarding") && isCloud();
+      // If new onboarding is enabled, use the setup flow if the user is only interested in feature flags
+      const useSetupFlow = useNewOnboarding ? !intentToExperiment : true;
+      if (!organization.isVercelIntegration && useSetupFlow) {
         router.replace("/setup");
-      } else if (
-        isOrgCreator &&
-        !hasSeenWelcomeModal &&
-        isCloud() &&
-        organization.demographicData?.ownerJobTitle !== "engineer"
-      ) {
-        openSampleExperimentResults();
       } else {
         router.replace("/getstarted");
       }
@@ -122,7 +76,7 @@ export default function Home(): React.ReactElement {
       </div>
     );
   }
-  return featuresLoading || experimentsLoading || sampleDataLoading ? (
+  return featuresLoading || experimentsLoading ? (
     <LoadingOverlay />
   ) : (
     <GetStartedAndHomePage />
