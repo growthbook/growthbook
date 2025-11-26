@@ -123,6 +123,7 @@ function CustomHooksModal({
       code: current?.code || "",
       projects: current?.projects || [],
       enabled: current?.enabled ?? true,
+      incrementalChangesOnly: current?.incrementalChangesOnly || false,
     },
   });
 
