@@ -128,7 +128,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const { experiments } = useExperiments();
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
-  const { organization, email } = useUser();
+  const { organization } = useUser();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] =
     useState<boolean>(false);
@@ -141,6 +141,13 @@ const GetStartedAndHomePage = (): React.ReactElement => {
       projects: [project],
       id: "production",
     });
+  const canCreateFeature = permissionsUtils.canCreateFeature({
+    project,
+  });
+  const canCreateExperiment = permissionsUtils.canCreateExperiment({
+    project,
+  });
+
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
     organization.id || "",
   );
@@ -148,14 +155,13 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
-  // Check if current user is the organization owner
-  const isOrgOwner = organization?.ownerEmail === email;
-
   // Check if owner is an engineer
-  const isOwnerEngineer =
-    organization?.demographicData?.ownerJobTitle === "engineer";
+  const intentToExperiment =
+    organization?.demographicData?.ownerUsageIntents?.includes("experiments") ||
+    organization?.demographicData?.ownerUsageIntents?.length === 0 ||
+    !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
 
-  const showDataScientistView = isOrgOwner && !isOwnerEngineer;
+  const showDataScientistView = intentToExperiment && isCloud();
 
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment,
@@ -168,10 +174,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   }, [orgIsUsingFeatureOrExperiment]);
 
   const { data: sdkConnectionData } = useSDKConnections();
-  const showSetUpFlow =
-    canUseSetupFlow &&
-    sdkConnectionData &&
-    !sdkConnectionData.connections.some((c) => c.connected);
+  const orgHasConnectedSDK =
+    sdkConnectionData && sdkConnectionData.connections.some((c) => c.connected);
+  const showSetUpFlow = canUseSetupFlow && !orgHasConnectedSDK;
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -242,30 +247,36 @@ const GetStartedAndHomePage = (): React.ReactElement => {
           <Text size="7" weight="regular" mb="5" as="div">
             Home
           </Text>
-          <Flex justify={{ initial: "end", sm: "start" }} align="center">
-            <DropdownMenu
-              trigger={
-                <Button icon={<PiCaretDownFill />} iconPosition="right">
-                  Create
-                </Button>
-              }
-            >
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenNewFeatureFlagModal(true);
-                }}
+          {orgHasConnectedSDK && (canCreateFeature || canCreateExperiment) && (
+            <Flex justify={{ initial: "end", sm: "start" }} align="center">
+              <DropdownMenu
+                trigger={
+                  <Button icon={<PiCaretDownFill />} iconPosition="right">
+                    Create
+                  </Button>
+                }
               >
-                Feature Flag
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenNewExperimentModal(true);
-                }}
-              >
-                Experiment
-              </DropdownMenuItem>
-            </DropdownMenu>
-          </Flex>
+                {canCreateFeature && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOpenNewFeatureFlagModal(true);
+                    }}
+                  >
+                    Feature Flag
+                  </DropdownMenuItem>
+                )}
+                {canCreateExperiment && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOpenNewExperimentModal(true);
+                    }}
+                  >
+                    Experiment
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenu>
+            </Flex>
+          )}
         </Grid>
 
         {!orgIsUsingFeatureOrExperiment && (
