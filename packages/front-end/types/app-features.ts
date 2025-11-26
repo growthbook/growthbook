@@ -107,6 +107,5 @@ export type AppFeatures = {
   "top-banner": Record<string, unknown>;
   "gbdemo-checkout-layout": boolean;
   "post-stratification": boolean;
-  liebenowflag9: boolean;
   "experimentation-focused-onboarding": boolean;
 };

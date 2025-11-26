@@ -1,7 +1,8 @@
 import { FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago, datetime } from "shared/dates";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { Text, Flex } from "@radix-ui/themes";
+import Tooltip from "@/ui/Tooltip";
 
 const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partial results
                 are displayed below.`;
@@ -9,41 +10,45 @@ const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partia
 const QueriesLastRun: FC<{
   status;
   dateCreated: Date | undefined;
+  nextUpdate?: Date;
   partiallySucceededString?: string;
 }> = ({
   status,
   dateCreated,
+  nextUpdate,
   partiallySucceededString = PARTIALLY_SUCCEEDED_STRING,
 }) => {
   return (
-    <div
-      className="text-muted text-right"
-      style={{ maxWidth: 130, fontSize: "0.8em" }}
-    >
-      <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-        Updated
+    <div style={{ fontSize: "12px" }}>
+      <div
+        style={{
+          lineHeight: 1.2,
+        }}
+      >
+        <Tooltip
+          content={
+            <Flex direction="column">
+              <Text>Last update: {datetime(dateCreated ?? "")}</Text>
+              {nextUpdate && <Text>Next update: {datetime(nextUpdate)}</Text>}
+            </Flex>
+          }
+        >
+          <Text weight="medium" style={{ color: "var(--color-text-mid)" }}>
+            Updated {ago(dateCreated ?? "")}
+          </Text>
+        </Tooltip>
+
         {status === "partially-succeeded" && (
-          <Tooltip
-            body={
-              <div className="text-left">
-                <span style={{ lineHeight: 1.5 }}>
-                  {partiallySucceededString}
-                </span>
-              </div>
-            }
-          >
-            <FaExclamationTriangle
-              size={14}
-              className="text-danger ml-1"
-              style={{ marginTop: -4 }}
-            />
+          <Tooltip content={partiallySucceededString}>
+            <span>
+              <FaExclamationTriangle
+                size={14}
+                className="text-danger ml-1"
+                style={{ marginTop: -4 }}
+              />
+            </span>
           </Tooltip>
         )}
-      </div>
-      <div className="d-flex align-items-center">
-        <div style={{ lineHeight: 1 }} title={datetime(dateCreated ?? "")}>
-          {ago(dateCreated ?? "")}
-        </div>
       </div>
     </div>
   );

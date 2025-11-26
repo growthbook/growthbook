@@ -474,25 +474,6 @@ const Results: FC<{
           />
         </>
       ) : null}
-
-      {!draftMode && hasData ? (
-        <div className="row align-items-center mx-2 my-3">
-          <div className="col-auto small" style={{ lineHeight: 1.2 }}>
-            <div>
-              <span className="text-muted">Run date:</span>{" "}
-              <span>
-                {getValidDate(snapshot?.dateCreated ?? "").toLocaleString([], {
-                  year: "numeric",
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 };

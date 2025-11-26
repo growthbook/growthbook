@@ -15,6 +15,7 @@ import {
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
+import { startCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBEdit } from "@/components/Icons";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
@@ -130,6 +131,11 @@ export default function AnalysisSettingsSummary({
     (acc, a) => acc + a,
     0,
   );
+
+  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
+  const unitDisplayName = userIdType
+    ? startCase(userIdType.split("_").join(" ")) + "s"
+    : "Units";
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -290,6 +296,12 @@ export default function AnalysisSettingsSummary({
           </div>
         </div>
         <div className="col flex-1" />
+        <div className="col-auto" style={{ fontSize: "12px" }}>
+          <Metadata
+            label={unitDisplayName}
+            value={numberFormatter.format(totalUnits ?? 0)}
+          />
+        </div>
         <div className="col-auto">
           <div className="row align-items-center justify-content-end">
             <div className="col-auto">
@@ -300,14 +312,9 @@ export default function AnalysisSettingsSummary({
                   <QueriesLastRun
                     status={status}
                     dateCreated={snapshot?.dateCreated}
+                    nextUpdate={experiment.nextSnapshotAttempt}
                   />
                 ))}
-            </div>
-            <div className="col-auto" style={{ fontSize: "12px" }}>
-              <Metadata
-                label="Units"
-                value={numberFormatter.format(totalUnits ?? 0)}
-              />
             </div>
 
             {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
