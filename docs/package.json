@@ -48,7 +48,7 @@
     "docusaurus-plugin-module-alias": "^0.0.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.3.3",
+    "typescript": "^5.7.3",
     "zod": "^3.23.8",
     "zod-to-ts": "^1.2.0"
   },

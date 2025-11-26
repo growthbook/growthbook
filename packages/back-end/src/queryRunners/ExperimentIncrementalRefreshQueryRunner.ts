@@ -86,7 +86,7 @@ export interface MetricSourceGroups {
   metrics: FactMetricInterface[];
 }
 
-function getIncrementalRefreshMetricSources(
+export function getIncrementalRefreshMetricSources(
   metrics: FactMetricInterface[],
   existingMetricSources: IncrementalRefreshInterface["metricSources"],
 ): {
@@ -293,22 +293,33 @@ const startExperimentIncrementalRefreshQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
-  let experimentDimensions: ExperimentDimension[] = [];
-  if (exposureQuery?.dimensionMetadata) {
-    experimentDimensions = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
-        type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
+  if (!exposureQuery) {
+    throw new Error("Exposure query not found");
   }
+
+  const experimentDimensions: ExperimentDimension[] =
+    params.fullRefresh || !incrementalRefreshModel
+      ? exposureQuery.dimensions.map((d) => {
+          return {
+            type: "experiment",
+            id: d,
+          };
+        })
+      : exposureQuery.dimensions
+          .filter((d) => incrementalRefreshModel?.unitsDimensions?.includes(d))
+          .map((d) => {
+            return {
+              type: "experiment",
+              id: d,
+            };
+          });
+
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
     settings: snapshotSettings,
     activationMetric: null, // TODO(incremental-refresh): activation metric
-    dimensions: experimentDimensions, // TODO(incremental-refresh): validate experiment dimensions are available
+    dimensions: experimentDimensions,
     segment: segmentObj,
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
@@ -409,6 +420,7 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            unitsDimensions: experimentDimensions.map((d) => d.id),
           })
           .catch((e) => context.logger.error(e));
       }
@@ -516,7 +528,6 @@ const startExperimentIncrementalRefreshQueries = async (
     const metricParams: InsertMetricSourceDataQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      dimensions: [], // TODO(incremental-refresh): experiment dimensions
       factTableMap: params.factTableMap,
       metricSourceTableFullName,
       unitsSourceTableFullName: unitsTableFullName,
@@ -540,13 +551,14 @@ const startExperimentIncrementalRefreshQueries = async (
 
     // CUPED tables
     const metricSourceCovariateTableFullName: string | undefined =
-      integration.generateTablePath &&
-      integration.generateTablePath(
-        `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}_covariate`,
-        settings.pipelineSettings?.writeDataset,
-        settings.pipelineSettings?.writeDatabase,
-        true,
-      );
+      existingCovariateSource?.tableFullName ??
+      (integration.generateTablePath &&
+        integration.generateTablePath(
+          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}_covariate`,
+          settings.pipelineSettings?.writeDataset,
+          settings.pipelineSettings?.writeDatabase,
+          true,
+        ));
     if (!metricSourceCovariateTableFullName) {
       throw new Error(
         "Unable to generate table; table path generator not specified.",
@@ -614,6 +626,7 @@ const startExperimentIncrementalRefreshQueries = async (
               : {
                   groupId: group.groupId,
                   lastSuccessfulMaxTimestamp,
+                  tableFullName: metricSourceCovariateTableFullName,
                 };
           if (!existingCovariateSource) {
             runningCovariateSourceData = runningCovariateSourceData.concat(
@@ -706,6 +719,7 @@ const startExperimentIncrementalRefreshQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
+        dimensions: [], // TODO(incremental-refresh): pre-compute dimensions
         metricSourceCovariateTableFullName,
       }),
       dependencies: [
@@ -729,7 +743,7 @@ const startExperimentIncrementalRefreshQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: experimentDimensions, // TODO(incremental-refresh): validate experiment dimensions are available
+        dimensions: experimentDimensions,
         useUnitsTable: true,
       }),
       dependencies: [alterUnitsTableQuery.query],
@@ -790,7 +804,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       factTableMap: params.factTableMap,
       experiment,
       incrementalRefreshModel,
-      fullRefresh: params.fullRefresh,
+      analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
     return startExperimentIncrementalRefreshQueries(

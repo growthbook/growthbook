@@ -253,7 +253,7 @@ const MetricEffectCard = ({
 }): React.ReactElement => {
   const { apiCall } = useAuth();
 
-  const { project, getExperimentMetricById, getFactTableById } =
+  const { project, getExperimentMetricById, getFactTableById, metricGroups } =
     useDefinitions();
 
   const metricExpCounts = useMetricExpCounts(experiments);
@@ -312,8 +312,12 @@ const MetricEffectCard = ({
     }
 
     setLoading(true);
-
-    const filteredExperiments = filterExperimentsByMetrics(experiments, metric);
+    const filteredExperiments = filterExperimentsByMetrics(
+      experiments,
+      metric,
+      undefined,
+      metricGroups,
+    );
     const experimentsWithData = new Map<string, ExperimentWithSnapshot>();
 
     setSearchParams({
@@ -407,7 +411,14 @@ const MetricEffectCard = ({
       setExperimentsWithSnapshot(Array.from(experimentsWithData.values()));
       setLoading(false);
     }
-  }, [metric, experiments, differenceType, setSearchParams, apiCall]);
+  }, [
+    metric,
+    experiments,
+    differenceType,
+    setSearchParams,
+    apiCall,
+    metricGroups,
+  ]);
 
   useEffect(() => {
     handleFetchMetric();

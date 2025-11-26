@@ -4,6 +4,7 @@ import {
   DataVizConfig,
   LineChart,
   ScatterChart,
+  dimensionAxisConfiguration,
   xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
 import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
@@ -88,7 +89,9 @@ export function normalizeDimensionsForChartType(
 
     // If display is stacked, and chart type isn't bar or area, we need to reset the display to grouped
     const needsNormalization =
-      config.dimension.some((dim) => dim.display === "stacked") &&
+      (config.dimension as dimensionAxisConfiguration[]).some(
+        (dim) => dim.display === "stacked",
+      ) &&
       config.chartType !== "bar" &&
       config.chartType !== "area";
 

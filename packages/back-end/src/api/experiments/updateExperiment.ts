@@ -105,13 +105,22 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   // Validate that specified metrics exist and belong to the organization
-  const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
-  const newMetricIds = getAllMetricIdsFromExperiment({
-    goalMetrics: req.body.metrics,
-    secondaryMetrics: req.body.secondaryMetrics,
-    guardrailMetrics: req.body.guardrailMetrics,
-    activationMetric: req.body.activationMetric,
-  }).filter((m) => !oldMetricIds.includes(m));
+  const metricGroups = await req.context.models.metricGroups.getAll();
+  const oldMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    true,
+    metricGroups,
+  );
+  const newMetricIds = getAllMetricIdsFromExperiment(
+    {
+      goalMetrics: req.body.metrics,
+      secondaryMetrics: req.body.secondaryMetrics,
+      guardrailMetrics: req.body.guardrailMetrics,
+      activationMetric: req.body.activationMetric,
+    },
+    true,
+    metricGroups,
+  ).filter((m) => !oldMetricIds.includes(m));
 
   const map = await getMetricMap(req.context);
 

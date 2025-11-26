@@ -25,11 +25,13 @@ import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Callout from "@/ui/Callout";
+import { createTemporaryDashboard } from "@/pages/product-analytics/dashboards/new";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -137,7 +139,14 @@ function DashboardsTab({
     timeout: 1500,
   });
 
-  const dashboard = dashboards.find((d) => d.id === dashboardId);
+  const [temporaryDashboard, setTemporaryDashboard] = useState<
+    DashboardInterface | undefined
+  >(undefined);
+  const [dashboardFirstSave, setDashboardFirstSave] = useState(false);
+  const dashboard =
+    dashboardId === "new"
+      ? temporaryDashboard
+      : dashboards.find((d) => d.id === dashboardId);
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -162,6 +171,10 @@ function DashboardsTab({
     canEdit = false;
   }
 
+  const isIncrementalRefreshExperiment =
+    useExperimentPipelineMode(experiment ?? undefined) ===
+    "incremental-refresh";
+
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
@@ -173,7 +186,8 @@ function DashboardsTab({
   const submitDashboard: SubmitDashboard<
     CreateDashboardArgs | UpdateDashboardArgs
   > = useCallback(
-    async ({ method, dashboardId, data }) => {
+    async ({ method: requestedMethod, dashboardId, data }) => {
+      const method = dashboardId === "new" ? "POST" : requestedMethod;
       const res = await apiCall<{
         status: number;
         dashboard: DashboardInterface;
@@ -201,8 +215,13 @@ function DashboardsTab({
       });
       if (res.status === 200) {
         mutateDashboards();
-        setDashboardId(res.dashboard.id);
         setBlocks(res.dashboard.blocks);
+        if (dashboardId === "new") {
+          setTemporaryDashboard(res.dashboard);
+        }
+        if (method === "POST" && dashboardId !== "new") {
+          setDashboardId(res.dashboard.id);
+        }
       } else {
         console.error(res);
       }
@@ -225,6 +244,19 @@ function DashboardsTab({
     [blocks, submitDashboard, dashboardId],
   );
 
+  const createOrPromptUpgrade = () => {
+    if (canCreate) {
+      setTemporaryDashboard(
+        createTemporaryDashboard(userId, undefined, experiment.id),
+      );
+      setDashboardId("new");
+      setDashboardFirstSave(true);
+      setIsEditing(true);
+    } else if (!hasCommercialFeature("dashboards")) {
+      setShowUpgradeModal(true);
+    }
+  };
+
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
   return (
     <DashboardSnapshotProvider
@@ -238,8 +270,15 @@ function DashboardsTab({
           dashboard={dashboard}
           submitDashboard={submitDashboard}
           mutate={mutateDashboards}
-          close={() => setIsEditing(false)}
+          close={() => {
+            setIsEditing(false);
+            setDashboardFirstSave(false);
+            if (dashboardId === "new") {
+              setDashboardId(dashboard.id === "new" ? "" : dashboard.id);
+            }
+          }}
           isTabActive={isTabActive}
+          dashboardFirstSave={dashboardFirstSave}
         />
       ) : (
         <div>
@@ -268,6 +307,7 @@ function DashboardsTab({
                 editLevel: dashboard.editLevel,
                 shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
+                updateSchedule: dashboard.updateSchedule || undefined,
                 title: dashboard.title,
                 projects: dashboard.projects || [],
                 userId: dashboard.userId,
@@ -289,6 +329,7 @@ function DashboardsTab({
                 editLevel: dashboard.editLevel,
                 shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
+                updateSchedule: dashboard.updateSchedule || undefined,
                 title: `Copy of ${dashboard.title}`,
                 projects: dashboard.projects || [],
                 userId: dashboard.userId,
@@ -330,13 +371,7 @@ function DashboardsTab({
                 <Flex align="center" justify="center">
                   <Button
                     size="sm"
-                    onClick={() => {
-                      if (canCreate) {
-                        setShowCreateModal(true);
-                      } else {
-                        setShowUpgradeModal(true);
-                      }
-                    }}
+                    onClick={createOrPromptUpgrade}
                     disabled={!canCreate}
                   >
                     Create Dashboard{" "}
@@ -357,11 +392,7 @@ function DashboardsTab({
                           value={dashboardId}
                           setValue={(value) => {
                             if (value === "__create__") {
-                              if (canCreate) {
-                                setShowCreateModal(true);
-                              } else {
-                                setShowUpgradeModal(true);
-                              }
+                              createOrPromptUpgrade();
                               return;
                             }
                             setDashboardId(value);
@@ -437,14 +468,19 @@ function DashboardsTab({
                               {mutateExperiment && canUpdateExperiment && (
                                 <Tooltip
                                   body={
-                                    experiment.defaultDashboardId ===
-                                    dashboard.id
-                                      ? "Remove this dashboard as the default view for the experiment"
-                                      : "Set this dashboard as the default view for the experiment"
+                                    dashboard.shareLevel !== "published"
+                                      ? "Only published dashboards can be set as the default view"
+                                      : experiment.defaultDashboardId ===
+                                          dashboard.id
+                                        ? "Remove this dashboard as the default view for the experiment"
+                                        : "Set this dashboard as the default view for the experiment"
                                   }
                                 >
                                   <Button
                                     className="dropdown-item"
+                                    disabled={
+                                      dashboard.shareLevel !== "published"
+                                    }
                                     onClick={async () => {
                                       await apiCall(
                                         `/experiment/${experiment.id}`,
@@ -613,9 +649,13 @@ function DashboardsTab({
                           experiment.project ? [experiment.project] : []
                         }
                         isEditing={false}
+                        updateSchedule={dashboard.updateSchedule}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
                         isGeneralDashboard={false}
+                        isIncrementalRefreshExperiment={
+                          isIncrementalRefreshExperiment
+                        }
                         setBlock={canEdit ? memoizedSetBlock : undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}

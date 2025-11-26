@@ -103,6 +103,8 @@ export default function MetricExplorerBlock({
         },
         axisLabel: {
           color: textColor,
+          rotate: -45,
+          hideOverlap: true,
         },
       },
       yAxis: {
@@ -172,6 +174,14 @@ export default function MetricExplorerBlock({
         </Callout>
       ) : ["running", "queued"].includes(metricAnalysis.status || "") ? (
         <LoadingOverlay />
+      ) : "dataset" in chartData &&
+        Array.isArray(chartData.dataset) &&
+        !chartData.dataset[0]?.source?.length ? (
+        <Box p="4" style={{ textAlign: "center" }}>
+          <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+            The query ran successfully, but no data was returned.
+          </Text>
+        </Box>
       ) : visualizationType === "bigNumber" ? (
         <BigValueChart
           value={(chartData && "value" in chartData && chartData.value) || 0}

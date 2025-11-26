@@ -64,7 +64,7 @@ export default function LegacyReportPage({
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -420,6 +420,7 @@ export default function LegacyReportPage({
                       metrics={getAllMetricIdsFromExperiment(
                         report.args,
                         false,
+                        metricGroups,
                       )}
                       trackingKey={report.title}
                       dimension={report.args.dimension ?? undefined}

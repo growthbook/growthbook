@@ -95,6 +95,10 @@ export default function ResultMoreMenu({
     ? "Full Refresh"
     : "Re-run All Queries";
 
+  const allowFullRefresh =
+    !isExperimentIncludedInIncrementalRefresh ||
+    (!dimension && isExperimentIncludedInIncrementalRefresh);
+
   return (
     <>
       <MoreMenu autoCloseOnClick={false}>
@@ -108,7 +112,8 @@ export default function ResultMoreMenu({
         )}
         {forceRefresh &&
           datasource &&
-          permissionsUtil.canRunExperimentQueries(datasource) && (
+          permissionsUtil.canRunExperimentQueries(datasource) &&
+          allowFullRefresh && (
             <button
               className="btn dropdown-item py-2"
               onClick={(e) => {

@@ -8,7 +8,7 @@ import React, { useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
-import { isPersistedDashboardBlock } from "shared/enterprise";
+import { dashboardBlockHasIds } from "shared/enterprise";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenuItem,
@@ -21,6 +21,7 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
@@ -94,6 +95,11 @@ export default function DashboardEditorSidebar({
     number | undefined
   >(undefined);
 
+  // TODO(incremental-refresh): remove when dimensions supported in dashboard
+  const experimentalRefreshMode = useExperimentPipelineMode(
+    experiment ?? undefined,
+  );
+
   const resetDragState = () => {
     setDraggingBlockIndex(undefined);
     setPreviewBlockPlacement(undefined);
@@ -122,7 +128,11 @@ export default function DashboardEditorSidebar({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
+          isBlockTypeAllowed(
+            bType,
+            isGeneralDashboard,
+            experimentalRefreshMode === "incremental-refresh",
+          ),
         );
 
         // Don't render the subgroup if no block types are allowed
@@ -273,7 +283,7 @@ export default function DashboardEditorSidebar({
                   <Flex
                     width="100%"
                     justify="between"
-                    key={isPersistedDashboardBlock(block) ? block.id : i}
+                    key={dashboardBlockHasIds(block) ? block.id : i}
                     my="2"
                     onClick={() => focusBlock(i)}
                     className="hover-border-violet"

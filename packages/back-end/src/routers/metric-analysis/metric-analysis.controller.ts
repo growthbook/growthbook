@@ -51,6 +51,7 @@ export const postMetricAnalysis = async (
   ) {
     throw new Error("Custom metric populations are a premium feature");
   }
+
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,
@@ -58,7 +59,10 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
+    additionalNumeratorFilters: data.additionalNumeratorFilters,
+    additionalDenominatorFilters: data.additionalDenominatorFilters,
   };
+
   const metricAnalysis = await createMetricAnalysis(
     context,
     metricObj,

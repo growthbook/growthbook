@@ -303,7 +303,8 @@ export function getColumnRefFormatter(
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (
     columnRef.column === "$$count" ||
-    columnRef.column === "$$distinctUsers"
+    columnRef.column === "$$distinctUsers" ||
+    columnRef.column === "$$distinctDates"
   ) {
     return formatNumber;
   }

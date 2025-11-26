@@ -102,6 +102,7 @@ function DashboardStatusSummary({
 }
 
 interface Props {
+  dashboardId: string;
   enableAutoUpdates: boolean;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date;
@@ -110,6 +111,7 @@ interface Props {
 }
 
 export default function DashboardUpdateDisplay({
+  dashboardId,
   enableAutoUpdates,
   nextUpdate,
   dashboardLastUpdated,
@@ -178,7 +180,7 @@ export default function DashboardUpdateDisplay({
         {canRefresh && (
           <Button
             size="xs"
-            disabled={refreshing}
+            disabled={refreshing || !dashboardId || dashboardId === "new"}
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
             variant="ghost"

@@ -318,9 +318,13 @@ function getSafeRolloutSnapshotSettings({
   );
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment({
-      guardrailMetrics: safeRollout.guardrailMetricIds,
-    }),
+    getAllMetricIdsFromExperiment(
+      {
+        guardrailMetrics: safeRollout.guardrailMetricIds,
+      },
+      true,
+      metricGroups,
+    ),
     metricGroups,
   )
     .map((m) =>

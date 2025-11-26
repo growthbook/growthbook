@@ -76,8 +76,8 @@ const ASSET_OWNER = "";
 const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
-const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
-  type: "conversion",
+const RETENTION_WINDOW_SETTINGS: MetricWindowSettings = {
+  type: "",
   windowUnit: "days",
   windowValue: 7,
   delayUnit: "days",
@@ -125,7 +125,7 @@ const DEMO_METRICS: Pick<
       column: "$$distinctUsers",
       filters: [],
     },
-    windowSettings: EMPTY_WINDOW_SETTINGS,
+    windowSettings: RETENTION_WINDOW_SETTINGS,
   },
 ];
 
@@ -151,7 +151,7 @@ const DEMO_RATIO_METRIC: Pick<
     column: "$$count",
     filters: [],
   },
-  windowSettings: CONVERSION_WINDOW_SETTINGS,
+  windowSettings: EMPTY_WINDOW_SETTINGS,
 };
 
 const DEMO_DATA_EXPERIMENT_ID = "gbdemo-add-to-cart-cta";

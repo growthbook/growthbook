@@ -93,6 +93,7 @@ export interface UserContextValue {
   ready?: boolean;
   userId?: string;
   name?: string;
+  pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
   license?: Partial<LicenseInterface> | null;
@@ -134,6 +135,7 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
@@ -499,6 +501,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
+        pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
         updateUser,
         user,

@@ -22,7 +22,7 @@ appVersion: "4.1.0"
 dependencies:
   - name: mongodb
     repository: oci://registry-1.docker.io/bitnamicharts
-    version: "^16.5.0"
+    version: "^18.0.0"
     condition: mongodb.enabled
   - name: server
     version: "0.0.0"

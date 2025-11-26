@@ -65,6 +65,7 @@ function SingleDashboardPage() {
         editLevel?: DashboardInterface["editLevel"];
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+        userId?: string;
       };
     }) => {
       const res = (await apiCall(
@@ -78,6 +79,7 @@ function SingleDashboardPage() {
                   title: data.title,
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
+                  userId: data.userId,
                 }
               : data,
           ),
@@ -177,6 +179,7 @@ function SingleDashboardPage() {
             initialShareLevel={dashboard.shareLevel}
             dashboardOwnerId={dashboard.userId}
             isGeneralDashboard={true}
+            isIncrementalRefreshExperiment={false}
             isEditing={false}
             title={dashboard.title}
             blocks={dashboard.blocks}
@@ -184,6 +187,7 @@ function SingleDashboardPage() {
             setBlock={canEdit ? memoizedSetBlock : undefined}
             projects={dashboard.projects ? dashboard.projects : []}
             mutate={mutate}
+            updateSchedule={dashboard.updateSchedule || undefined}
             nextUpdate={dashboard.nextUpdate}
             dashboardLastUpdated={dashboard.lastUpdated}
             setIsEditing={setIsEditing}

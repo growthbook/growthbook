@@ -244,6 +244,9 @@ export default function CodeTextArea({
     timeout: 800,
   });
 
+  // Throttle cursor updates to avoid excessive re-renders
+  const cursorUpdateTimeoutRef = useRef<NodeJS.Timeout>();
+
   const heightProps =
     fullHeight || resizable ? { height: "100%" } : { minLines, maxLines };
 
@@ -269,10 +272,18 @@ export default function CodeTextArea({
     if (!editor || !containerRef.current) return;
     if (!fullHeight && !resizable && !isFullscreen) return;
 
-    const resizeObserver = new ResizeObserver(() => editor.resize());
+    // Debounce resize calls to avoid excessive editor.resize() calls
+    let resizeTimeout: NodeJS.Timeout;
+    const resizeObserver = new ResizeObserver(() => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => editor.resize(), 100);
+    });
     resizeObserver.observe(containerRef.current);
 
-    return () => resizeObserver.disconnect();
+    return () => {
+      clearTimeout(resizeTimeout);
+      resizeObserver.disconnect();
+    };
   }, [editor, fullHeight, resizable, isFullscreen]);
 
   // Resize and focus editor when entering/exiting fullscreen
@@ -301,6 +312,15 @@ export default function CodeTextArea({
     document.addEventListener("keydown", handleEscape, true);
     return () => document.removeEventListener("keydown", handleEscape, true);
   }, [isFullscreen]);
+
+  // Cleanup cursor timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (cursorUpdateTimeoutRef.current) {
+        clearTimeout(cursorUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Field
@@ -412,14 +432,18 @@ export default function CodeTextArea({
                       : undefined
                   }
                   readOnly={fieldProps.disabled}
-                  onCursorChange={(e) =>
-                    setCursorData &&
-                    setCursorData({
-                      row: e.cursor.row,
-                      column: e.cursor.column,
-                      input: e.cursor.document.$lines,
-                    })
-                  }
+                  onCursorChange={(e) => {
+                    if (!setCursorData) return;
+                    // Throttle cursor updates to reduce performance impact on large files
+                    clearTimeout(cursorUpdateTimeoutRef.current);
+                    cursorUpdateTimeoutRef.current = setTimeout(() => {
+                      setCursorData({
+                        row: e.cursor.row,
+                        column: e.cursor.column,
+                        input: e.cursor.document.$lines,
+                      });
+                    }, 150);
+                  }}
                 />
                 {(showCopyButton || showFullscreenButton) && (
                   <Flex
