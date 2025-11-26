@@ -17,6 +17,7 @@ jest.mock("back-end/src/models/SavedGroupModel", () => ({
 jest.mock("back-end/src/models/SdkPayloadModel", () => ({
   getSDKPayload: jest.fn(),
   updateSDKPayload: jest.fn(),
+  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
 }));
 
 // Now import the features service after mocking its dependencies

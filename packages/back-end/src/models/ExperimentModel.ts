@@ -1386,11 +1386,18 @@ export async function getExperimentMapForFeature(
 
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string,
+  projects?: string[],
 ): Promise<Map<string, ExperimentInterface>> {
+  const projectFilter =
+    !projects || !projects.length
+      ? {}
+      : projects.length === 1
+        ? { project: projects[0] }
+        : { project: { $in: projects } };
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...(project ? { project } : {}),
+    ...projectFilter,
     archived: { $ne: true },
     $or: [
       {
