@@ -37,6 +37,13 @@ type CustomHandler = {
   verb: HttpVerb;
   wrappedHandler: RequestHandler;
 };
+const defaultHandlers = {
+  get: "handleApiGet",
+  create: "handleApiCreate",
+  list: "handleApiList",
+  delete: "handleApiDelete",
+  update: "handleApiUpdate",
+} as const;
 export type ApiModelConfig<T extends ApiBaseSchema = ApiBaseSchema> = {
   modelKey: ModelName;
   modelSingular: string;
@@ -108,7 +115,7 @@ export function defineRouterForApiModel(modelDef: ApiModel) {
     const validator = getCrudValidator(action, apiConfig);
     const handler = createApiRequestHandler(validator)(async (req) => {
       const modelInstance = req.context.models[apiConfig.modelKey];
-      const result = await modelInstance[`handleApi${action}`](req);
+      const result = await modelInstance[defaultHandlers[action]](req);
       return { [modelString]: result };
     });
     r[verb](pathFragment, handler);

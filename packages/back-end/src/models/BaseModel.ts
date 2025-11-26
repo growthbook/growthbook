@@ -239,7 +239,7 @@ export abstract class BaseModel<
     return keys;
   }
 
-  protected async handleApiget(
+  protected async handleApiGet(
     req: ApiRequest<
       unknown,
       Schema<{ id: string }>,
@@ -252,7 +252,7 @@ export abstract class BaseModel<
     if (!doc) throw new Error("Not found");
     return doc;
   }
-  protected async handleApicreate(
+  protected async handleApiCreate(
     req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
   ): Promise<z.infer<T> | null> {
     const rawBody = req.body;
@@ -264,12 +264,12 @@ export abstract class BaseModel<
   ): Promise<CreateProps<z.infer<T>>> {
     return rawBody as CreateProps<z.infer<T>>;
   }
-  protected async handleApilist(
+  protected async handleApiList(
     _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
   ): Promise<z.infer<T>[]> {
     return await this.getAll();
   }
-  protected async handleApidelete(
+  protected async handleApiDelete(
     req: ApiRequest<
       unknown,
       Schema<{ id: string }>,
@@ -280,7 +280,7 @@ export abstract class BaseModel<
     const id = req.params.id;
     return await this.deleteById(id);
   }
-  protected async handleApiupdate(
+  protected async handleApiUpdate(
     req: ApiRequest<
       unknown,
       Schema<{ id: string }>,
