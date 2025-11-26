@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import replace
-from typing import List, Optional, Tuple, Literal, Union, cast
+from typing import List, Optional, Tuple, Literal, Union
 from pydantic.dataclasses import dataclass
 
 import numpy as np
@@ -1551,34 +1551,37 @@ class EffectMomentsPostStratification:
             error_message=error_message,
         )
 
-    def _has_zero_variance(self, stat_a: TestStatistic, stat_b: TestStatistic) -> bool:
+    @staticmethod
+    def _has_zero_variance(stat_a: TestStatistic, stat_b: TestStatistic) -> bool:
         """Check if any variance is 0 or negative"""
         return stat_a._has_zero_variance or stat_b._has_zero_variance
 
+    # Combine cells for analysis if there are any cells with data but without enough
+    # data to properly run a cell-level test
     @staticmethod
-    def create_cells_for_analysis(
+    def combine_cells_for_analysis(
         stats: List[Tuple[SummableStatistic, SummableStatistic]]
     ) -> List[Tuple[SummableStatistic, SummableStatistic]]:
+        # Sort cells from largest to smallest by number of users
         sorted_cells = sorted(stats, key=lambda x: x[0].n + x[1].n, reverse=True)
-        min_n = [min(t[0].n, t[1].n) for t in sorted_cells]
-        num_strata = len(min_n)
+
         cells_for_analysis = [sorted_cells[0]]
-        for i in range(1, num_strata):
-            if min_n[i] == 0:
+        for i in range(1, len(sorted_cells)):
+            if not EffectMomentsPostStratification._has_zero_variance(
+                sorted_cells[i][0], sorted_cells[i][1]
+            ):
+                cells_for_analysis.append(sorted_cells[i])
+            else:
+                # Combine cells that cannot compute stats independently with the largest cell
                 cells_for_analysis[0] = (
                     cells_for_analysis[0][0] + sorted_cells[i][0],
                     cells_for_analysis[0][1] + sorted_cells[i][1],
                 )
-            else:
-                cells_for_analysis.append(sorted_cells[i])
-        if cells_for_analysis[0][0].n == 0 or cells_for_analysis[0][1].n == 0:
-            summed_cells = sum_stats(cells_for_analysis)
-            return cast(List[Tuple[SummableStatistic, SummableStatistic]], summed_cells)
         return cells_for_analysis
 
     def compute_result(self) -> EffectMomentsResult:
         stat_a, stat_b = sum_stats(list(self.stats))
-        if self._has_zero_variance(stat_a, stat_b):
+        if EffectMomentsPostStratification._has_zero_variance(stat_a, stat_b):
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
         if stat_a.mean == 0:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
@@ -1586,7 +1589,9 @@ class EffectMomentsPostStratification:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
 
         # if any cells have 0 users in a variation, add that cell to the cell with the largest number of users
-        cells_for_analysis = self.create_cells_for_analysis(self.stats)
+        cells_for_analysis = EffectMomentsPostStratification.combine_cells_for_analysis(
+            self.stats
+        )
         # if there is only one strata cell, run the regular effect moments test
         if len(cells_for_analysis) == 1:
             return EffectMoments(cells_for_analysis, EffectMomentsConfig(difference_type="relative" if self.relative else "absolute")).compute_result()  # type: ignore
