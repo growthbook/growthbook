@@ -53,19 +53,22 @@ const DataSourceGuide = (): React.ReactElement => {
   const hasFactTables = project
     ? factTables.some(
         (f) =>
-          f.projects.includes(project) && !f.projects.includes(demoProjectId),
+          (f.projects.includes(project) || f.projects.length === 0) &&
+          !f.projects.includes(demoProjectId),
       )
     : factTables.some((f) => !f.projects.includes(demoProjectId));
   const hasFactMetrics = project
     ? factMetrics.some(
         (m) =>
-          m.projects.includes(project) && !m.projects.includes(demoProjectId),
+          (m.projects.includes(project) || m.projects.length === 0) &&
+          !m.projects.includes(demoProjectId),
       )
     : factMetrics.some((m) => !m.projects.includes(demoProjectId));
   const hasDatasource = project
     ? datasources.some(
         (d) =>
-          d.projects?.includes(project) && !d.projects?.includes(demoProjectId),
+          (d.projects?.includes(project) || d.projects?.length === 0) &&
+          !d.projects?.includes(demoProjectId),
       )
     : datasources.some((d) => !d.projects?.includes(demoProjectId));
 
