@@ -5,6 +5,7 @@ import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -12,6 +13,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
+import { useEnvironments } from "@/services/features";
 import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import HoldoutSummary from "./HoldoutSummary";
 import ConditionDisplay from "./ConditionDisplay";
@@ -37,11 +39,14 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     }>(`/holdout/${feature.holdout?.id}`);
 
     const permissionsUtil = usePermissionsUtil();
+    const allEnvironments = useEnvironments();
 
     const holdout = data?.holdout;
     const holdoutExperiment = data?.experiment;
 
     if (!holdout || !holdoutExperiment) return null;
+
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
     const hasCondition =
       (holdoutExperiment.phases[0].condition &&
@@ -142,6 +147,24 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                       </MoreMenu>
                     </Flex>
                   )}
+                </Flex>
+                {/* Environment badges */}
+                <Flex gap="2" wrap="wrap" mb="4">
+                  {environments.map((env) => {
+                    const isEnabled =
+                      !!holdout?.environmentSettings?.[env.id]?.enabled;
+                    return (
+                      <Badge
+                        key={env.id}
+                        label={env.id}
+                        color={isEnabled ? "gray" : "gray"}
+                        style={{ opacity: isEnabled ? 1 : 0.5 }}
+                        variant="outline"
+                        radius="full"
+                        size="2"
+                      />
+                    );
+                  })}
                 </Flex>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
                   {holdoutExperiment.status === "stopped" && (

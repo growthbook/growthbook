@@ -95,7 +95,7 @@ import {
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
 import { ConfigFile } from "back-end/src/init/config";
-import { ExperimentRule, NamespaceValue } from "back-end/types/feature";
+import { NamespaceValue } from "back-end/types/feature";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import {
@@ -832,7 +832,10 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (f.archived) return;
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
-      const rules = f.environmentSettings?.[env]?.rules || [];
+      // Get rules for this environment from top-level rules array
+      const rules = f.rules.filter(
+        (rule) => rule.allEnvironments || rule.environments?.includes(env),
+      );
       rules
         .filter(
           (r) =>
@@ -841,7 +844,8 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             r.namespace &&
             r.namespace.enabled,
         )
-        .forEach((r: ExperimentRule) => {
+        .forEach((r) => {
+          if (r.type !== "experiment") return;
           const { name, range } = r.namespace as NamespaceValue;
           namespaces[name] = namespaces[name] || [];
           namespaces[name].push({

@@ -14,6 +14,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import { getCurrentUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
+  getRules,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
@@ -174,7 +175,7 @@ export default function RequestReviewModal({
     }
     if (result.rules) {
       environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
+        const liveRules = getRules(feature, env.id);
         if (result.rules && result.rules[env.id]) {
           diffs.push({
             title: `Rules - ${env.id}`,
@@ -186,12 +187,7 @@ export default function RequestReviewModal({
     }
 
     return diffs;
-  }, [
-    environments,
-    feature.defaultValue,
-    feature.environmentSettings,
-    mergeResult,
-  ]);
+  }, [environments, feature, mergeResult]);
 
   if (!revision || !mergeResult) return null;
 

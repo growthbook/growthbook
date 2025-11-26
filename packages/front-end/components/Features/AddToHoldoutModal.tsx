@@ -34,11 +34,9 @@ const AddToHoldoutModal = ({
   );
 
   // Check if the feature has any safe rollout rules. If it does, we can't add it to a holdout
-  // go through each environment setting object and make sure no rule in its rules array has a type of experiment or safe-rollout
-  const eligibleToAddToHoldout = Object.values(
-    feature.environmentSettings,
-  ).every((setting) =>
-    setting.rules.every((rule) => rule.type !== "safe-rollout"),
+  // Check all rules in the top-level rules array
+  const eligibleToAddToHoldout = feature.rules.every(
+    (rule) => rule.type !== "safe-rollout",
   );
 
   const showHoldoutSelect = experimentsAreInDraft && eligibleToAddToHoldout;

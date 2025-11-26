@@ -31,6 +31,7 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "back-end/types/feature-rule";
+import { v4 as uuidv4 } from "uuid";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -395,7 +396,10 @@ export default function RuleModal({
           {
             ...values,
             type: "experiment",
-          },
+            uid: uuidv4(),
+            environments: [],
+            allEnvironments: false,
+          } as FeatureRule,
           feature,
         );
         if (newRule) {
@@ -575,7 +579,13 @@ export default function RuleModal({
             variationId: res.experiment.variations[i]?.id || "",
           })),
           scheduleRules: values.scheduleRules || [],
-        };
+          uid: uuidv4(),
+          environments: [],
+          allEnvironments: false,
+        } as
+          | Exclude<FeatureRule, SafeRolloutRule>
+          | NewExperimentRefRule
+          | SafeRolloutRuleCreateFields;
         mutateExperiments();
       } else if (values.type === "experiment-ref") {
         // Validate a proper experiment was chosen and it has a value for every variation id
@@ -637,7 +647,21 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
-      const correctedRule = validateFeatureRule(values, feature);
+      // Ensure rule has required fields for modern format
+      // Add uid, environments, allEnvironments if they don't exist
+      const ruleWithFields: FeatureRule = {
+        ...values,
+        uid: "uid" in values && values.uid ? values.uid : uuidv4(),
+        environments:
+          "environments" in values && values.environments
+            ? values.environments
+            : [],
+        allEnvironments:
+          "allEnvironments" in values && values.allEnvironments !== undefined
+            ? values.allEnvironments
+            : false,
+      } as FeatureRule;
+      const correctedRule = validateFeatureRule(ruleWithFields, feature);
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(

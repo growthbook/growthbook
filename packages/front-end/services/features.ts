@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Environment,
   NamespaceUsage,
@@ -37,6 +37,7 @@ import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLau
 import { SavedGroupInterface } from "shared/src/types";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { v4 as uuidv4 } from "uuid";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -77,11 +78,33 @@ export type NewExperimentRefRule = {
   name: string;
 } & Omit<ExperimentRule, "type">;
 
+// Returns selected environment IDs as an array
+// Empty array means "all environments"
+// Single element array means single environment selected
+// Multiple elements means multi-select
 export function useEnvironmentState() {
-  const [state, setState] = useLocalStorage("currentEnvironment", "dev");
+  const [state, setState] = useLocalStorage<string | string[]>(
+    "currentEnvironment",
+    "dev",
+  );
   const { settings } = useUser();
   const environments = useEnvironments();
   const hasAppliedPreferredEnv = useRef(false);
+  const envIds = environments.map((e) => e.id);
+
+  // Normalize state to array format
+  const selectedEnvs = useMemo(() => {
+    if (Array.isArray(state)) {
+      // Filter out invalid environments
+      return state.filter((id) => envIds.includes(id));
+    }
+    // Legacy: single string value
+    if (typeof state === "string" && envIds.includes(state)) {
+      return [state];
+    }
+    // Default: empty array means "all"
+    return [];
+  }, [state, envIds]);
 
   // Apply any preferred environment on first load
   useEffect(() => {
@@ -94,18 +117,41 @@ export function useEnvironmentState() {
       return;
     }
 
-    const isValidEnv = environments.some((e) => e.id === preferredEnv);
+    const isValidEnv = envIds.includes(preferredEnv);
     if (isValidEnv) {
-      setState(preferredEnv);
+      setState([preferredEnv]);
     }
     hasAppliedPreferredEnv.current = true;
-  }, [settings, state, setState, environments]);
+  }, [settings, envIds, setState]);
 
-  if (!environments.map((e) => e.id).includes(state)) {
-    return [environments[0]?.id || "production", setState] as const;
-  }
+  // Setter function that supports various input formats
+  const setSelectedEnvs = useCallback(
+    (value: string | string[] | null | undefined) => {
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        // Empty array or null/undefined means "all"
+        setState([]);
+        return;
+      }
 
-  return [state, setState] as const;
+      if (typeof value === "string") {
+        // Single string: convert to array
+        if (envIds.includes(value)) {
+          setState([value]);
+        }
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        // Array: filter to valid environments only
+        const validEnvs = value.filter((id) => envIds.includes(id));
+        setState(validEnvs.length > 0 ? validEnvs : []);
+        return;
+      }
+    },
+    [envIds, setState],
+  );
+
+  return [selectedEnvs, setSelectedEnvs] as const;
 }
 
 export function useEnvironments() {
@@ -298,8 +344,23 @@ export function useFeatureSearch({
   });
 }
 
-export function getRules(feature: FeatureInterface, environment: string) {
-  return feature?.environmentSettings?.[environment]?.rules ?? [];
+// Utility function to filter rules by environment
+// Returns all rules if environment is null/undefined, otherwise filters by environment
+export function getRules(
+  feature: FeatureInterface,
+  environment: string | null | undefined,
+): FeatureRule[] {
+  const allRules = feature?.rules ?? [];
+
+  // Return all rules if no environment specified
+  if (!environment) {
+    return allRules;
+  }
+
+  // Filter rules by environment
+  return allRules.filter(
+    (rule) => rule.allEnvironments || rule.environments?.includes(environment),
+  );
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   return feature.defaultValue ?? "";
@@ -662,7 +723,8 @@ export function getAffectedRevisionEnvs(
   if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
 
   return enabledEnvs.filter((env) => {
-    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
+    // Get rules for this environment from top-level rules array
+    const liveRules = getRules(liveFeature, env);
     const revisionRules = revision.rules?.[env] || [];
 
     return !isEqual(liveRules, revisionRules);
@@ -736,6 +798,9 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
+      uid: uuidv4(),
+      environments: [],
+      allEnvironments: false,
     };
   }
   if (ruleType === "safe-rollout") {
@@ -759,6 +824,9 @@ export function getDefaultRuleValue({
         guardrailMetricIds: [],
         autoRollback: isSafeRolloutAutoRollbackEnabled,
       },
+      uid: uuidv4(),
+      environments: [],
+      allEnvironments: false,
     };
   }
   if (ruleType === "experiment") {
@@ -798,6 +866,9 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
+      uid: uuidv4(),
+      environments: [],
+      allEnvironments: false,
     };
   }
   if (ruleType === "experiment-ref") {
@@ -819,6 +890,9 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
+      uid: uuidv4(),
+      environments: [],
+      allEnvironments: false,
     };
   }
   if (ruleType === "experiment-ref-new") {
@@ -860,7 +934,10 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
-    };
+      uid: uuidv4(),
+      environments: [],
+      allEnvironments: false,
+    } as NewExperimentRefRule;
   }
   if (ruleType === "force" || !ruleType) {
     return {
@@ -881,6 +958,9 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
+      uid: uuidv4(),
+      environments: [],
+      allEnvironments: false,
     };
   }
   throw new Error("Unknown Rule Type: " + ruleType);

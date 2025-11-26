@@ -1,4 +1,8 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureRule,
+} from "back-end/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
@@ -10,8 +14,10 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { v4 as uuidv4 } from "uuid";
 import {
   getAffectedRevisionEnvs,
+  getRules,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
@@ -193,10 +199,25 @@ export default function DraftModal({
     }
     if (result.rules) {
       environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
+        const liveRules = getRules(feature, env.id);
         const processedLiveRules = processRulesForDiff(liveRules);
         const resultRules = result.rules?.[env.id];
-        const processedResultRules = processRulesForDiff(resultRules || []);
+        // Convert legacy rules to modern format for processRulesForDiff
+        const modernResultRules = (resultRules || []).map(
+          (
+            legacyRule: LegacyFeatureRule & {
+              uid?: string;
+              environments?: string[];
+              allEnvironments?: boolean;
+            },
+          ) => ({
+            ...legacyRule,
+            uid: legacyRule.uid || uuidv4(),
+            environments: legacyRule.environments || [env.id],
+            allEnvironments: legacyRule.allEnvironments ?? false,
+          }),
+        );
+        const processedResultRules = processRulesForDiff(modernResultRules);
 
         if (resultRules) {
           diffs.push({

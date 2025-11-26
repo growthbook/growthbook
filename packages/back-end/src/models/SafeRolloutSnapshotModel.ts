@@ -140,7 +140,13 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       if (!environment) {
         throw new Error("Environment not found");
       }
-      const ruleIndex = environment.rules.findIndex(
+      // Get rules for this environment from top-level rules array
+      const envRules = feature.rules.filter(
+        (rule) =>
+          rule.allEnvironments ||
+          rule.environments?.includes(safeRollout.environment),
+      );
+      const ruleIndex = envRules.findIndex(
         (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
       );
       if (ruleIndex === -1) {

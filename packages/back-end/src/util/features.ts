@@ -8,10 +8,12 @@ import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
+import { v4 as uuidv4 } from "uuid";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
+  LegacyFeatureRule,
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import { FeatureDefinitionWithProject } from "back-end/types/api";
@@ -182,9 +184,12 @@ export function getEnabledEnvironments(
       .filter((e) => settings[e].enabled)
       .filter((e) => {
         if (!ruleFilter) return true;
-        const env = settings[e];
-        if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
+        // Get rules for this environment from top-level rules array
+        const envRules = feature.rules.filter(
+          (rule) => rule.allEnvironments || rule.environments?.includes(e),
+        );
+        if (!envRules.length) return false;
+        return envRules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -354,9 +359,38 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
-  const rules = revision
-    ? (revision.rules?.[environment] ?? settings.rules)
-    : settings.rules;
+  // Get rules for this environment
+  // Revisions now use modern format (top-level array), but may still have legacy format in old data
+  let rules: FeatureRule[];
+  if (revision && revision.rules) {
+    if (Array.isArray(revision.rules)) {
+      // Modern format: filter array by environment
+      rules = revision.rules.filter(
+        (rule) =>
+          rule.allEnvironments || rule.environments?.includes(environment),
+      );
+    } else {
+      // Legacy format: access by environment key (for backward compatibility)
+      const legacyRules =
+        (revision.rules as Record<string, LegacyFeatureRule[]>)[environment] ||
+        [];
+      rules = legacyRules.map(
+        (legacyRule) =>
+          ({
+            ...legacyRule,
+            uid: (legacyRule as unknown as { uid?: string }).uid || uuidv4(),
+            environments: [environment],
+            allEnvironments: false,
+          }) as FeatureRule,
+      );
+    }
+  } else {
+    // Use modern format from feature
+    rules = feature.rules.filter(
+      (rule) =>
+        rule.allEnvironments || rule.environments?.includes(environment),
+    );
+  }
 
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
   // pseudo force rule with a prerequisite condition. The environment being enabled is

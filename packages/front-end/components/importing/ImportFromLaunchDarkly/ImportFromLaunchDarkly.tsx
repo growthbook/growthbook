@@ -82,34 +82,21 @@ interface ImportData {
 }
 
 function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
-  const envSettings1 = existing.environmentSettings || {};
-  const envSettings2 = incoming.environmentSettings || {};
-
-  // Get intersection of environments
-  const envs = Object.keys(envSettings1).filter((e) => e in envSettings2);
-
+  // Compare features directly - extract only the fields we care about for comparison
   return [
     {
       description: existing.description,
       defaultValue: existing.defaultValue,
       tags: existing.tags,
       owner: existing.owner,
-      rules: Object.fromEntries(
-        Object.entries(envSettings1)
-          .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules]),
-      ),
+      rules: existing.rules || [],
     },
     {
       description: incoming.description,
       defaultValue: incoming.defaultValue,
       tags: incoming.tags,
       owner: incoming.owner,
-      rules: Object.fromEntries(
-        Object.entries(envSettings2)
-          .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules]),
-      ),
+      rules: incoming.rules || [],
     },
   ];
 }

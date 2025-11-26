@@ -16,6 +16,7 @@ import track from "@/services/track";
 import {
   genDuplicatedKey,
   getDefaultValue,
+  getRules,
   parseDefaultValue,
   useEnvironments,
 } from "@/services/features";
@@ -69,9 +70,10 @@ const genEnvironmentSettings = ({
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
         defaultEnabled)
       : false;
-    const rules = featureToDuplicate?.environmentSettings?.[e.id]?.rules ?? [];
+    // Get rules for this environment from top-level rules array
+    const _rules = featureToDuplicate ? getRules(featureToDuplicate, e.id) : [];
 
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;

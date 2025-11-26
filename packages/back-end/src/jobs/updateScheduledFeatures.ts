@@ -70,7 +70,7 @@ const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   try {
     // Recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
-      feature.environmentSettings || {},
+      feature,
       context.environments,
     );
 

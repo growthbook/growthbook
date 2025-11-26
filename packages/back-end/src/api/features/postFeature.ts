@@ -164,6 +164,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     archived: !!req.body.archived,
     version: 1,
     environmentSettings: {},
+    rules: [], // Will be populated from environmentSettings if provided in legacy format
     prerequisites: (req.body?.prerequisites || []).map((p) => ({
       id: p,
       condition: `{"value": true}`,
@@ -172,13 +173,15 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     customFields: req.body.customFields,
   };
 
-  const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
-    feature,
-    orgEnvs,
-    req.body.environments ?? {},
-  );
+  const { environmentSettings, rules } =
+    createInterfaceEnvSettingsFromApiEnvSettings(
+      feature,
+      orgEnvs,
+      req.body.environments ?? {},
+    );
 
   feature.environmentSettings = environmentSettings;
+  feature.rules = rules;
 
   const jsonSchema = parseJsonSchemaForEnterprise(
     req.context.org,
@@ -204,7 +207,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     req.context.permissions.throwPermissionError();
   }
 
-  addIdsToRules(feature.environmentSettings, feature.id);
+  addIdsToRules(feature.rules, feature.id);
 
   await createFeature(req.context, feature);
 
