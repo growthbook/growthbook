@@ -26,7 +26,11 @@ export const DataSourceInlineEditIdentityJoins: FC<
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
+    Array.from(
+      Array(dataSource?.settings?.queries?.identityJoins?.length || 0),
+    ).fill(true),
+  );
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -186,6 +190,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
                         language="sql"
                         code={identityJoin.query}
                         containerClassName="mb-0"
+                        expandable
                       />
                     </Box>
                   )}
