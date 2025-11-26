@@ -385,7 +385,7 @@ export async function editSDKConnection(
     );
   }
 
-  // Refresh SDK payload cache if includeCustomFields changed (affects metadata in payloads)
+  // Refresh SDK payload cache if includeCustomFields changed (affects payload metadata.customFields)
   if (
     "includeCustomFields" in otherChanges &&
     !isEqual(otherChanges.includeCustomFields, connection.includeCustomFields)
@@ -405,7 +405,7 @@ export async function editSDKConnection(
     });
   }
 
-  // Refresh SDK payload cache if includeTags changed (affects metadata in payloads)
+  // Refresh SDK payload cache if includeTags changed (affects payload metadata.tags)
   if (
     "includeTags" in otherChanges &&
     !isEqual(otherChanges.includeTags, connection.includeTags)

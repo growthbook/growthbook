@@ -124,8 +124,7 @@ export class ProjectModel extends BaseClass {
     writeOptions?: never,
   ): Promise<void> {
     await super.afterCreate(doc, writeOptions);
-    // Refresh SDK payload cache for all environments that might use this project
-    // (only if includeProjectPublicId is enabled for any connections)
+    // Refresh SDK payload cache for all environments
     const payloadKeys = getPayloadKeysForAllEnvs(
       this.context as ReqContext | ApiReqContext,
       [doc.id],
@@ -148,8 +147,7 @@ export class ProjectModel extends BaseClass {
     writeOptions?: never,
   ): Promise<void> {
     await super.afterUpdate(existing, updates, newDoc, writeOptions);
-    // Refresh SDK payload cache if publicId changed (affects metadata in payloads)
-    // Also refresh on any update to ensure consistency
+    // Refresh SDK payload cache for all environments
     const payloadKeys = getPayloadKeysForAllEnvs(
       this.context as ReqContext | ApiReqContext,
       [newDoc.id],
@@ -170,8 +168,7 @@ export class ProjectModel extends BaseClass {
     writeOptions?: never,
   ): Promise<void> {
     await super.afterDelete(doc, writeOptions);
-    // Refresh SDK payload cache for all environments that used this project
-    // (to remove project metadata from payloads)
+    // Refresh SDK payload cache for all environments
     const payloadKeys = getPayloadKeysForAllEnvs(
       this.context as ReqContext | ApiReqContext,
       [doc.id],
