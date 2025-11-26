@@ -263,6 +263,22 @@ export async function createRevisionFromLegacyDraft(
   return toInterface(doc, context);
 }
 
+async function getLastRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface | null> {
+  const lastRevision = (
+    await FeatureRevisionModel.find({
+      organization: context.org.id,
+      featureId: feature.id,
+    })
+      .sort({ version: -1 })
+      .limit(1)
+  )[0];
+
+  return lastRevision ? toInterface(lastRevision, context) : null;
+}
+
 export async function createRevision({
   context,
   feature,
@@ -287,14 +303,7 @@ export async function createRevision({
   canBypassApprovalChecks?: boolean;
 }) {
   // Get max version number
-  const lastRevision = (
-    await FeatureRevisionModel.find({
-      organization: feature.organization,
-      featureId: feature.id,
-    })
-      .sort({ version: -1 })
-      .limit(1)
-  )[0];
+  const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
   const defaultValue =
