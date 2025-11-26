@@ -837,7 +837,7 @@ export async function addFeatureRule(
   }
 
   const changes = {
-    rules: revision.rules || {},
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
     status: revision.status,
   };
   envs.forEach((env) => {
@@ -869,7 +869,10 @@ export async function editFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
-  const changes = { rules: revision.rules || {}, status: revision.status };
+  const changes = {
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
+    status: revision.status,
+  };
 
   changes.rules[environment] = changes.rules[environment] || [];
   if (!changes.rules[environment][i]) {
@@ -905,7 +908,7 @@ export async function copyFeatureEnvironmentRules(
   resetReview: boolean,
 ) {
   const changes = {
-    rules: revision.rules || {},
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
     status: revision.status,
   };
   changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
