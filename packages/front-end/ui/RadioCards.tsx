@@ -31,7 +31,6 @@ export type Props = {
   labelWeight?: TextProps["weight"];
   descriptionSize?: TextProps["size"];
   descriptionWeight?: TextProps["weight"];
-  truncateDescription?: boolean;
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function RadioCards(
@@ -48,7 +47,6 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     labelWeight = "bold",
     descriptionSize = "2",
     descriptionWeight = "regular",
-    truncateDescription = true,
     ...containerProps
   }: Props,
   ref,
@@ -94,13 +92,8 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                         <Text
                           weight={descriptionWeight}
                           size={descriptionSize}
-                          className={
-                            truncateDescription ? "truncate" : undefined
-                          }
-                          style={{
-                            minWidth: 0,
-                            color: "var(--color-text-mid)",
-                          }}
+                          className="truncate"
+                          style={{ minWidth: 0 }}
                         >
                           {description}
                         </Text>

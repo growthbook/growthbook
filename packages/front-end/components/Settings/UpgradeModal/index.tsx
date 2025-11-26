@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { date } from "shared/dates";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
@@ -689,7 +689,6 @@ export default function UpgradeModal({
         header={null}
         showHeaderCloseButton={false}
         ctaEnabled={permissionsUtil.canManageBilling()}
-        useRadixButton={true}
       >
         <Callout status="info" mr="5" mb="2">
           Your organization is already on GrowthBook&apos;s highest plan.
@@ -780,7 +779,6 @@ export default function UpgradeModal({
           size="md"
           header={null}
           showHeaderCloseButton={false}
-          useRadixButton={true}
         >
           <div>
             <h3 className="pb-2">
@@ -832,12 +830,12 @@ export default function UpgradeModal({
                 : trialAndUpgradePreference === "upgrade"
                   ? "Continue"
                   : "Start Trial"}
+              <PiCaretRight />
             </>
           }
           disabledMessage="Contact your admin to upgrade."
           ctaEnabled={permissionsUtil.canManageBilling()}
           submit={onSubmit}
-          useRadixButton={true}
         >
           <div
             className={clsx(
