@@ -50,10 +50,10 @@ export default function Home(): React.ReactElement {
       !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
     if (!hasFeatureOrExperiment) {
       const useNewOnboarding =
-        gb.isOn("experimentation-focused-onboarding") && isCloud();
-      // If new onboarding is enabled, use the setup flow if the user is only interested in feature flags
-      const useSetupFlow = useNewOnboarding ? !intentToExperiment : true;
-      if (!organization.isVercelIntegration && useSetupFlow) {
+        intentToExperiment &&
+        isCloud() &&
+        gb.isOn("experimentation-focused-onboarding");
+      if (!organization.isVercelIntegration && !useNewOnboarding) {
         router.replace("/setup");
       } else {
         router.replace("/getstarted");
