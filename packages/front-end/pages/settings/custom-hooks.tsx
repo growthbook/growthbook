@@ -264,6 +264,13 @@ function CustomHooksModal({
             placeholder={hookTypeData?.example || ""}
             onCtrlEnter={runTest}
           />
+
+          <Checkbox
+            label="Incremental Changes Only"
+            value={form.watch("incrementalChangesOnly") || false}
+            setValue={(value) => form.setValue("incrementalChangesOnly", value)}
+            description="Ignore this hook if the same error was already present before attempting to save."
+          />
         </div>
         <div style={{ width: "50%" }}>
           <h3>Test Your Hook</h3>
