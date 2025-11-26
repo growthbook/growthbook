@@ -321,6 +321,10 @@ export async function createRevision({
   });
 
   if (!baseVersion) baseVersion = lastRevision?.version;
+  if (!baseVersion) {
+    throw new Error("can not determine base version for new revision");
+  }
+
   const baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision
