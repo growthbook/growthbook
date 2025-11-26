@@ -219,6 +219,9 @@ function DashboardsTab({
         if (dashboardId === "new") {
           setTemporaryDashboard(res.dashboard);
         }
+        if (method === "POST" && dashboardId !== "new") {
+          setDashboardId(res.dashboard.id);
+        }
       } else {
         console.error(res);
       }
