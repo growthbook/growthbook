@@ -188,14 +188,17 @@ const toInterface = (
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
   {
-    project,
+    projects,
     includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {},
+  }: { projects?: string[]; includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (project) {
-    q.project = project;
+  if (projects && projects.length === 1) {
+    q.project = projects[0];
+  } else if (projects && projects.length > 1) {
+    q.project = { $in: projects };
   }
+
   if (!includeArchived) {
     q.archived = { $ne: true };
   }
@@ -340,7 +343,11 @@ export async function createFeature(
   };
 
   // Run any custom hooks for this feature
-  await runValidateFeatureHooks(context, featureToCreate);
+  await runValidateFeatureHooks({
+    context,
+    feature: featureToCreate,
+    original: null,
+  });
 
   const feature = await FeatureModel.create(featureToCreate);
 
@@ -680,7 +687,11 @@ export async function updateFeature(
     });
   }
 
-  await runValidateFeatureHooks(context, updatedFeature);
+  await runValidateFeatureHooks({
+    context,
+    feature: updatedFeature,
+    original: feature,
+  });
 
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
