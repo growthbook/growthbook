@@ -49,6 +49,14 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
   }
 }
 
+// TODO: add support for S3 and GCS
+export function getSDKPayloadCacheLocation(): "mongo" | "none" {
+  const loc = process.env.SDK_PAYLOAD_CACHE;
+  if (loc === "none") return "none";
+  // Default to mongo
+  return "mongo";
+}
+
 export async function getSDKPayload({
   organization,
   environment,
@@ -56,6 +64,11 @@ export async function getSDKPayload({
   organization: string;
   environment: string;
 }): Promise<SDKPayloadInterface | null> {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return null;
+  }
+
   const doc = await SDKPayloadModel.findOne({
     organization,
     environment,
@@ -80,6 +93,11 @@ export async function updateSDKPayload({
   savedGroupsInUse: string[];
   holdoutFeatureDefinitions: Record<string, FeatureDefinitionWithProjects>;
 }) {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return;
+  }
+
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
