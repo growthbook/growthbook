@@ -72,21 +72,14 @@ export type UpdateProps<T extends object> = Partial<
   Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
 >;
 
-export type UpdateRawShape<T extends z.ZodRawShape> = {
-  [k in keyof Omit<
-    T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: z.ZodOptional<T[k]>;
-};
-
-export type UpdateZodObject<T> =
-  T extends z.ZodObject<infer RawShape, infer UnknownKeysParam>
-    ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam>
-    : never;
+export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
+  UpdateProps<z.infer<T>>
+>;
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
+      id: true,
       organization: true,
       dateCreated: true,
       dateUpdated: true,
@@ -534,7 +527,7 @@ export abstract class BaseModel<
       forceCanUpdate?: boolean;
     },
   ) {
-    updates = this.updateValidator.parse(updates) as UpdateProps<z.infer<T>>;
+    updates = this.updateValidator.parse(updates);
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
@@ -866,7 +859,7 @@ export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
       return createValidator;
     }
     getUpdateValidator() {
-      return updateValidator;
+      return updateValidator as UpdateZodObject<T>;
     }
   }
 

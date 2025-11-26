@@ -79,7 +79,7 @@ export function createApiRequestHandler<
           if (!validated.success) {
             allErrors.push(`Request params: ` + validated.errors.join(", "));
           } else {
-            req.params = validated.data as z.output<ParamsSchema>;
+            req.params = validated.data;
           }
         }
         if (querySchema && !(querySchema instanceof ZodNever)) {
