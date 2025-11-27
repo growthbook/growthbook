@@ -331,8 +331,8 @@ export default function UpgradeModal({
     "require-approvals":
       "Reduce errors by requiring approval flows when changing feature flag values",
     "audit-logging": "Easily export historical audit logs",
-    "managed-warehouse":
-      "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
+    "unlimited-managed-warehouse-usage":
+      "Access to all your tracked events in the Managed Warehouse",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
     holdouts: "Measure aggregate impact with Holdouts",
@@ -554,7 +554,8 @@ export default function UpgradeModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {commercialFeature === "managed-warehouse" && (
+                  {commercialFeature ===
+                    "unlimited-managed-warehouse-usage" && (
                     <tr>
                       <td>
                         Managed Warehouse{" "}
