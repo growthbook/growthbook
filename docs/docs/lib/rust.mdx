@@ -1,0 +1,1872 @@
+---
+title: Rust SDK
+description: GrowthBook SDK for Rust Applications
+sidebar_label: Rust
+slug: rust
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+
+# Rust SDK
+
+The official GrowthBook SDK for Rust. This SDK provides a powerful, type-safe way to integrate feature flagging and A/B testing into your Rust applications with automatic feature refreshing, caching, and tracking callbacks.
+
+<SdkResources sdk="rust" />
+
+## Requirements
+
+- **Rust 1.70.0 or higher** (as specified in `rust-toolchain`)
+- Async runtime: Tokio (recommended) or any `async-std` compatible runtime
+
+## Installation
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+growthbook-rust = "0.0.3"
+tokio = { version = "1", features = ["full"] }
+serde_json = "1.0"
+```
+
+Or install via cargo:
+
+```bash
+cargo add growthbook-rust
+```
+
+## Quick Usage
+
+### Step 1: Initialize the Client
+
+```rust
+use growthbook_rust::client::GrowthBookClientBuilder;
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a GrowthBook client with auto-refresh enabled
+    let client = GrowthBookClientBuilder::new()
+        .api_url("https://cdn.growthbook.io".to_string())
+        .client_key("sdk-abc123".to_string())
+        .ttl(Duration::from_secs(60))           // Cache TTL
+        .auto_refresh(true)                     // Enable background updates
+        .refresh_interval(Duration::from_secs(30))
+        .build()
+        .await?;
+
+    Ok(())
+}
+```
+
+### Step 2: Evaluate Feature Flags
+
+```rust
+// Simple boolean check
+if client.is_on("my-feature", None) {
+    println!("Feature is enabled!");
+}
+
+// Get typed feature value
+let result = client.feature_result("button-color", None);
+if let Ok(color) = result.value_as::<String>() {
+    println!("Button color: {}", color);
+}
+
+// With user attributes
+use growthbook_rust::model_public::{GrowthBookAttribute, GrowthBookAttributeValue};
+use std::collections::HashMap;
+
+let mut attrs = Vec::new();
+attrs.push(GrowthBookAttribute::new(
+    "userId".to_string(),
+    GrowthBookAttributeValue::String("user-123".to_string())
+));
+
+if client.is_on("premium-feature", Some(attrs)) {
+    println!("Premium feature enabled for this user!");
+}
+```
+
+## Loading Features and Experiments
+
+The Rust SDK provides multiple ways to load and refresh feature definitions from the GrowthBook API.
+
+### Built-in Fetching and Auto-Refresh
+
+The recommended approach is to use the builder with auto-refresh enabled:
+
+```rust
+use growthbook_rust::client::GrowthBookClientBuilder;
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = GrowthBookClientBuilder::new()
+        .api_url("https://cdn.growthbook.io".to_string())
+        .client_key("sdk-abc123".to_string())
+        // Cache settings
+        .ttl(Duration::from_secs(60))  // How long to cache features
+        // Auto-refresh settings
+        .auto_refresh(true)            // Enable background sync
+        .refresh_interval(Duration::from_secs(30))  // Refresh every 30 seconds
+        .build()
+        .await?;
+
+    // Features are now loaded and will refresh automatically
+    // in the background every 30 seconds
+
+    Ok(())
+}
+```
+
+#### How Auto-Refresh Works
+
+When `auto_refresh` is enabled:
+
+1. Features are fetched immediately during `build()`
+2. A background task spawns that periodically fetches updates
+3. The cache is updated automatically without blocking your application
+4. The refresh task runs until the client is dropped
+
+**Benefits:**
+
+- Always up-to-date features without manual intervention
+- Non-blocking updates in the background
+- Configurable refresh intervals
+- Automatic retry logic on failures
+
+### Manual Refresh
+
+You can manually trigger a feature refresh at any time:
+
+```rust
+// Force a feature refresh
+client.refresh().await;
+
+// Useful for scenarios like:
+// - User login/logout events
+// - Navigation changes
+// - Manual override in admin panels
+```
+
+### Starting with Initial Features
+
+If you want to start with a specific set of features (e.g., from a file or cache) and then enable updates:
+
+```rust
+use serde_json::json;
+
+let initial_features = json!({
+    "my-feature": {
+        "defaultValue": true
+    },
+    "button-color": {
+        "defaultValue": "blue"
+    }
+});
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .features_json(initial_features)?  // Start with these features
+    .auto_refresh(true)                // Still enable auto-refresh
+    .refresh_interval(Duration::from_secs(30))
+    .build()
+    .await?;
+
+// Client starts with initial features and updates them in the background
+```
+
+### Disabling Auto-Refresh
+
+For use cases where you want full control (e.g., testing, edge workers, or custom update logic):
+
+```rust
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .auto_refresh(false)  // Disable background sync
+    .build()
+    .await?;
+
+// Manually control when to refresh
+client.refresh().await;
+```
+
+### Refresh Callback
+
+Get notified when features are refreshed (useful for logging and debugging):
+
+```rust
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .auto_refresh(true)
+    .refresh_interval(Duration::from_secs(30))
+    .add_on_refresh(Box::new(|| {
+        println!("✅ Features refreshed at {}", chrono::Utc::now());
+        // Update metrics, logs, or caches
+    }))
+    .build()
+    .await?;
+```
+
+### Configuration via Environment Variables
+
+The SDK supports configuration through environment variables:
+
+| Variable                 | Description           | Default    |
+| ------------------------ | --------------------- | ---------- |
+| `GB_HTTP_CLIENT_TIMEOUT` | HTTP request timeout  | 10 seconds |
+| `GB_UPDATE_INTERVAL`     | Auto-refresh interval | 60 seconds |
+| `GB_URL`                 | GrowthBook API URL    | -          |
+| `GB_SDK_KEY`             | SDK client key        | -          |
+
+```rust
+// Environment variables will be used if not explicitly set
+let client = GrowthBookClientBuilder::new()
+    // api_url and client_key will be read from GB_URL and GB_SDK_KEY
+    .build()
+    .await?;
+```
+
+## Encrypted Features
+
+For enhanced security, GrowthBook supports encrypted feature payloads. This prevents sensitive feature configurations and PII data from being exposed in transit or in logs.
+
+### Setup
+
+1. **Enable encryption** in your GrowthBook SDK Connection settings
+2. **Copy the decryption key** shown in the GrowthBook dashboard
+3. **Pass the key to the SDK** during initialization
+
+```rust
+use growthbook_rust::client::GrowthBookClientBuilder;
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .decryption_key("your-decryption-key-here".to_string())  // Add this
+    .build()
+    .await?;
+
+// Features are automatically decrypted when loaded
+```
+
+### How It Works
+
+- Feature payloads from the API are encrypted using AES-256
+- The SDK automatically decrypts them using your decryption key
+- Decryption happens transparently - your code doesn't change
+- Invalid keys or corrupted data will cause initialization to fail
+
+### Security Best Practices
+
+```rust
+use std::env;
+
+// ✅ DO: Load from environment variables
+let decryption_key = env::var("GROWTHBOOK_DECRYPTION_KEY")
+    .expect("GROWTHBOOK_DECRYPTION_KEY must be set");
+
+let client = GrowthBookClientBuilder::new()
+    .api_url(env::var("GROWTHBOOK_API_URL").unwrap())
+    .client_key(env::var("GROWTHBOOK_CLIENT_KEY").unwrap())
+    .decryption_key(decryption_key)
+    .build()
+    .await?;
+
+// ❌ DON'T: Hardcode keys in source code
+// let decryption_key = "key-123456789".to_string(); // NEVER DO THIS!
+```
+
+**Recommendations:**
+
+- Use environment variables or secret management systems (AWS Secrets Manager, HashiCorp Vault)
+- Rotate keys regularly
+- Use different keys for different environments (dev, staging, production)
+- Never commit keys to version control
+
+### Error Handling
+
+```rust
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .decryption_key("wrong-key".to_string())
+    .build()
+    .await;
+
+match client {
+    Ok(client) => {
+        println!("Client initialized successfully");
+    },
+    Err(e) => {
+        eprintln!("Failed to initialize client: {}", e);
+        // Could be due to:
+        // - Wrong decryption key
+        // - Network issues
+        // - Invalid client key
+        // Fall back to safe defaults
+    }
+}
+```
+
+## Attributes
+
+Attributes are used for two main purposes:
+
+1. **Feature targeting** - Show different values to different user segments
+2. **Experiment bucketing** - Ensure consistent variation assignment
+
+### Setting Global Attributes
+
+You can set default attributes that apply to all feature evaluations:
+
+```rust
+use std::collections::HashMap;
+use growthbook_rust::model_public::GrowthBookAttributeValue;
+
+// Define global attributes during client creation
+let mut global_attrs = HashMap::new();
+global_attrs.insert(
+    "tenantId".to_string(),
+    GrowthBookAttributeValue::String("acme-corp".to_string())
+);
+global_attrs.insert(
+    "plan".to_string(),
+    GrowthBookAttributeValue::String("enterprise".to_string())
+);
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .attributes(global_attrs)  // Set global attributes
+    .build()
+    .await?;
+```
+
+### Per-Evaluation Attributes
+
+You can override or supplement global attributes on a per-check basis:
+
+```rust
+use growthbook_rust::model_public::{GrowthBookAttribute, GrowthBookAttributeValue};
+
+// Create per-evaluation attributes
+let mut user_attrs = Vec::new();
+user_attrs.push(GrowthBookAttribute::new(
+    "userId".to_string(),
+    GrowthBookAttributeValue::String("user-456".to_string())
+));
+user_attrs.push(GrowthBookAttribute::new(
+    "country".to_string(),
+    GrowthBookAttributeValue::String("US".to_string())
+));
+user_attrs.push(GrowthBookAttribute::new(
+    "isPremium".to_string(),
+    GrowthBookAttributeValue::Bool(true)
+));
+
+// These attributes are merged with global attributes
+if client.is_on("new-dashboard", Some(user_attrs)) {
+    // Show new dashboard
+}
+```
+
+### Attribute Types
+
+The SDK supports all JSON data types as attributes:
+
+```rust
+use growthbook_rust::model_public::GrowthBookAttributeValue;
+use serde_json::json;
+
+let mut attrs = Vec::new();
+
+// String
+attrs.push(GrowthBookAttribute::new(
+    "email".to_string(),
+    GrowthBookAttributeValue::String("user@example.com".to_string())
+));
+
+// Number (integer)
+attrs.push(GrowthBookAttribute::new(
+    "age".to_string(),
+    GrowthBookAttributeValue::Number(serde_json::Number::from(25))
+));
+
+// Boolean
+attrs.push(GrowthBookAttribute::new(
+    "isLoggedIn".to_string(),
+    GrowthBookAttributeValue::Bool(true)
+));
+
+// Array
+attrs.push(GrowthBookAttribute::new(
+    "tags".to_string(),
+    GrowthBookAttributeValue::Array(vec![
+        json!("premium"),
+        json!("beta-tester")
+    ])
+));
+
+// Object
+attrs.push(GrowthBookAttribute::new(
+    "company".to_string(),
+    GrowthBookAttributeValue::Object(json!({
+        "id": "company-123",
+        "name": "Acme Corp"
+    }))
+));
+```
+
+### Common Attribute Patterns
+
+```rust
+// Web application attributes
+let mut web_attrs = Vec::new();
+web_attrs.push(GrowthBookAttribute::new("id".to_string(),
+    GrowthBookAttributeValue::String(user_id)));
+web_attrs.push(GrowthBookAttribute::new("url".to_string(),
+    GrowthBookAttributeValue::String(request.uri().to_string())));
+web_attrs.push(GrowthBookAttribute::new("userAgent".to_string(),
+    GrowthBookAttributeValue::String(user_agent)));
+web_attrs.push(GrowthBookAttribute::new("country".to_string(),
+    GrowthBookAttributeValue::String(geo_ip_country)));
+
+// API attributes
+let mut api_attrs = Vec::new();
+api_attrs.push(GrowthBookAttribute::new("apiKey".to_string(),
+    GrowthBookAttributeValue::String(api_key)));
+api_attrs.push(GrowthBookAttribute::new("requestsToday".to_string(),
+    GrowthBookAttributeValue::Number(serde_json::Number::from(request_count))));
+api_attrs.push(GrowthBookAttribute::new("tier".to_string(),
+    GrowthBookAttributeValue::String("premium".to_string())));
+```
+
+### Attribute Merging Behavior
+
+When you provide per-evaluation attributes:
+
+1. They are **merged** with global attributes
+2. Per-evaluation attributes **take precedence** over global ones
+3. This allows you to set common attributes globally and override them as needed
+
+```rust
+// Global attributes
+let mut global = HashMap::new();
+global.insert("tenantId".to_string(),
+    GrowthBookAttributeValue::String("tenant-1".to_string()));
+global.insert("plan".to_string(),
+    GrowthBookAttributeValue::String("free".to_string()));
+
+let client = GrowthBookClientBuilder::new()
+    // ... other settings ...
+    .attributes(global)
+    .build()
+    .await?;
+
+// Per-evaluation attributes (overrides "plan")
+let mut user_attrs = Vec::new();
+user_attrs.push(GrowthBookAttribute::new(
+    "userId".to_string(),
+    GrowthBookAttributeValue::String("user-123".to_string())
+));
+user_attrs.push(GrowthBookAttribute::new(
+    "plan".to_string(),  // This overrides the global "plan"
+    GrowthBookAttributeValue::String("premium".to_string())
+));
+
+// Final attributes used: { tenantId: "tenant-1", plan: "premium", userId: "user-123" }
+let result = client.is_on("premium-feature", Some(user_attrs));
+```
+
+## Using Features
+
+The SDK provides multiple methods for evaluating features with different levels of detail.
+
+### Basic Feature Checks
+
+#### `is_on()` - Simple Boolean Check
+
+Check if a feature is enabled (evaluates to a truthy value):
+
+```rust
+// Without attributes
+if client.is_on("new-navigation", None) {
+    println!("Show new navigation");
+}
+
+// With attributes
+let mut attrs = Vec::new();
+attrs.push(GrowthBookAttribute::new(
+    "userId".to_string(),
+    GrowthBookAttributeValue::String("user-123".to_string())
+));
+
+if client.is_on("beta-feature", Some(attrs)) {
+    println!("User is in beta program");
+}
+```
+
+#### `is_off()` - Inverse Boolean Check
+
+Check if a feature is disabled (evaluates to a falsy value):
+
+```rust
+if client.is_off("maintenance-mode", None) {
+    // Allow normal operations
+    process_request();
+}
+```
+
+### Getting Feature Values
+
+#### `feature_result()` - Get Detailed Feature Information
+
+Get the full feature result with metadata:
+
+```rust
+let result = client.feature_result("button-color", None);
+
+// Access the raw value
+println!("Value: {:?}", result.value);
+
+// Check if enabled
+if result.on {
+    println!("Feature is on");
+}
+
+// Get typed value with error handling
+match result.value_as::<String>() {
+    Ok(color) => println!("Button color: {}", color),
+    Err(e) => println!("Error getting value: {}", e),
+}
+
+// Understand why this value was assigned
+println!("Source: {:?}", result.source);  // e.g., "experiment", "force", "defaultValue"
+```
+
+### Type-Safe Feature Values
+
+The `value_as::<T>()` method provides type-safe access to feature values:
+
+```rust
+// String values
+let color_result = client.feature_result("button-color", None);
+let color: String = color_result.value_as::<String>()
+    .unwrap_or("blue".to_string());
+
+// Integer values
+let max_items_result = client.feature_result("max-items", None);
+let max_items: i32 = max_items_result.value_as::<i32>()
+    .unwrap_or(10);
+
+// Boolean values
+let enabled_result = client.feature_result("new-feature", None);
+let enabled: bool = enabled_result.value_as::<bool>()
+    .unwrap_or(false);
+
+// Complex types (JSON)
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ThemeConfig {
+    primary_color: String,
+    secondary_color: String,
+    font_size: i32,
+}
+
+let theme_result = client.feature_result("theme-config", None);
+match theme_result.value_as::<ThemeConfig>() {
+    Ok(theme) => {
+        println!("Primary: {}, Font: {}", theme.primary_color, theme.font_size);
+    },
+    Err(_) => {
+        // Use default theme
+        let default_theme = ThemeConfig {
+            primary_color: "blue".to_string(),
+            secondary_color: "gray".to_string(),
+            font_size: 16,
+        };
+    }
+}
+```
+
+### Feature Result Properties
+
+The `FeatureResult` struct contains detailed information about the feature evaluation:
+
+```rust
+let result = client.feature_result("my-feature", None);
+
+// The actual feature value (Option<serde_json::Value>)
+println!("Value: {:?}", result.value);
+
+// Boolean helpers
+if result.on {
+    // Feature value is truthy
+}
+if result.off {
+    // Feature value is falsy
+}
+
+// Why was this value assigned?
+match result.source {
+    FeatureResultSource::DefaultValue => println!("Using default value"),
+    FeatureResultSource::Force => println!("Forced value from targeting rule"),
+    FeatureResultSource::Experiment => println!("Value from A/B test"),
+    FeatureResultSource::UnknownFeature => println!("Feature not found"),
+}
+
+// Experiment information (if from an A/B test)
+if let Some(exp) = &result.experiment {
+    println!("Experiment key: {}", exp.key);
+}
+
+if let Some(exp_result) = &result.experiment_result {
+    println!("Variation ID: {}", exp_result.variation_id);
+    println!("In experiment: {}", exp_result.in_experiment);
+}
+```
+
+### Handling Missing Features
+
+Features that don't exist return `None` as their value:
+
+```rust
+let result = client.feature_result("non-existent-feature", None);
+
+if result.value.is_none() {
+    println!("Feature not found, using default behavior");
+    // Fallback logic
+}
+
+// Or use value_as with a default
+let value = result.value_as::<String>()
+    .unwrap_or("default-value".to_string());
+```
+
+### Feature Flags Usage - Best Practices
+
+```rust
+// ✅ Good: Use descriptive feature keys
+if client.is_on("enable-dark-mode", None) {
+    // ...
+}
+
+// ✅ Good: Provide fallback values
+let timeout = client.feature_result("api-timeout", None)
+    .value_as::<i32>()
+    .unwrap_or(30);
+
+// ✅ Good: Handle errors gracefully
+match client.feature_result("config", None).value_as::<Config>() {
+    Ok(config) => use_config(config),
+    Err(_) => use_default_config(),
+}
+
+// ❌ Bad: Using magic values without fallbacks
+let timeout = client.feature_result("timeout", None)
+    .value_as::<i32>()
+    .unwrap();  // Panics if feature doesn't exist!
+
+// ❌ Bad: Not handling type mismatches
+let value = client.feature_result("my-feature", None).value;
+// Assuming type without checking
+```
+
+## Tracking Callbacks
+
+Tracking callbacks allow you to integrate GrowthBook with your analytics systems (Segment, Mixpanel, Amplitude, etc.) to track when users are exposed to experiments.
+
+### Experiment Viewed Callback
+
+This callback fires when a user is assigned a variation in an A/B test:
+
+```rust
+use growthbook_rust::client::GrowthBookClientBuilder;
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .on_experiment_viewed(Box::new(|experiment_result| {
+        // Track in your analytics system
+        println!("🧪 Experiment Viewed:");
+        println!("  Experiment: {}", experiment_result.key);
+        println!("  Variation: {}", experiment_result.variation_id);
+        println!("  Value: {:?}", experiment_result.value);
+        println!("  In Experiment: {}", experiment_result.in_experiment);
+        println!("  Hash Used: {}", experiment_result.hash_used);
+
+        // Example: Send to Segment
+        // analytics.track("Experiment Viewed", json!({
+        //     "experiment_id": experiment_result.key,
+        //     "variation_id": experiment_result.variation_id,
+        //     "variation_value": experiment_result.value,
+        // }));
+    }))
+    .build()
+    .await?;
+```
+
+#### When is the Callback Triggered?
+
+The `on_experiment_viewed` callback is called when:
+
+- A feature evaluation runs an experiment
+- The user is included in the experiment (passes targeting rules)
+- The user is randomly assigned a variation (not forced)
+
+It is **NOT** called when:
+
+- A feature uses a forced value (no experiment)
+- The user is excluded from the experiment due to targeting
+- The feature doesn't exist
+
+### Feature Usage Callback
+
+Track every feature evaluation, regardless of whether it's part of an experiment:
+
+```rust
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .on_feature_usage(Box::new(|feature_key, result| {
+        // Track feature usage
+        println!("📊 Feature Used:");
+        println!("  Key: {}", feature_key);
+        println!("  Value: {:?}", result.value);
+        println!("  On: {}", result.on);
+        println!("  Source: {:?}", result.source);
+
+        // Example: Send to monitoring system
+        // monitoring.record_metric("feature.used", 1, vec![
+        //     format!("feature:{}", feature_key),
+        //     format!("enabled:{}", result.on),
+        // ]);
+    }))
+    .build()
+    .await?;
+```
+
+**Use Cases for Feature Usage Tracking:**
+
+- Monitor which features are being evaluated
+- Debug feature flag behavior
+- Track adoption of new features
+- Send metrics to monitoring systems (DataDog, New Relic)
+
+### Using Both Callbacks Together
+
+You can use both callbacks for comprehensive tracking:
+
+```rust
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    // Track A/B test exposures for analytics
+    .on_experiment_viewed(Box::new(|exp_result| {
+        // Critical for experiment analysis
+        analytics::track_experiment_viewed(
+            exp_result.key.clone(),
+            exp_result.variation_id,
+            exp_result.value.clone(),
+        );
+    }))
+    // Track all feature usage for monitoring
+    .on_feature_usage(Box::new(|key, result| {
+        // For debugging and monitoring
+        monitoring::record_feature_usage(key, result.on);
+    }))
+    .build()
+    .await?;
+```
+
+### Integration Examples
+
+#### Segment Integration
+
+```rust
+// Assuming you have a Segment client
+use segment::{HttpClient, Message};
+
+let segment_client = HttpClient::default();
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .on_experiment_viewed(Box::new(move |exp_result| {
+        let message = Message::track("user-123", "Experiment Viewed")
+            .properties(json!({
+                "experiment_id": exp_result.key,
+                "variation_id": exp_result.variation_id,
+                "variation_value": exp_result.value,
+            }));
+
+        segment_client.send(message);
+    }))
+    .build()
+    .await?;
+```
+
+#### Custom Analytics System
+
+```rust
+use tokio::spawn;
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .on_experiment_viewed(Box::new(|exp_result| {
+        // Send async without blocking
+        spawn(async move {
+            let event = json!({
+                "event": "experiment_viewed",
+                "experiment_id": exp_result.key,
+                "variation_id": exp_result.variation_id,
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+            });
+
+            // Send to your analytics endpoint
+            if let Err(e) = send_analytics_event(event).await {
+                eprintln!("Failed to send analytics: {}", e);
+            }
+        });
+    }))
+    .build()
+    .await?;
+```
+
+## Context and Caching
+
+### Context
+
+The SDK uses a context object internally to manage state. You typically don't interact with it directly, but it's useful to understand how it works:
+
+```rust
+// The builder pattern creates and manages context for you
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .attributes(global_attributes)  // Context attributes
+    .build()
+    .await?;
+
+// Per-evaluation attributes merge with context attributes
+let result = client.is_on("my-feature", Some(user_specific_attributes));
+```
+
+### Caching
+
+The SDK implements intelligent caching to minimize network requests:
+
+```rust
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .ttl(Duration::from_secs(60))  // Cache features for 60 seconds
+    .build()
+    .await?;
+```
+
+**How Caching Works:**
+
+- Features are cached in memory after the first fetch
+- Cache is automatically refreshed based on TTL
+- Manual refresh with `client.refresh().await` bypasses cache
+- Cache is shared across all evaluations
+- TTL defaults to 60 seconds if not specified
+
+**Cache Behavior:**
+
+```rust
+// First call: fetches from API
+let result1 = client.is_on("my-feature", None);
+
+// Second call within TTL: uses cache (fast)
+let result2 = client.is_on("my-feature", None);
+
+// After TTL expires: fetches from API again
+tokio::time::sleep(Duration::from_secs(61)).await;
+let result3 = client.is_on("my-feature", None);
+```
+
+## Debugging and Logging
+
+### Enable Debug Output
+
+The Rust SDK uses standard Rust logging. Enable it using `env_logger` or `tracing`:
+
+```rust
+// Add to Cargo.toml
+// [dependencies]
+// env_logger = "0.11"
+// log = "0.4"
+
+use log::{info, debug};
+
+fn main() {
+    // Initialize logger
+    env_logger::init();
+
+    // Or with custom format
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
+    // Now SDK operations will log details
+    let client = GrowthBookClientBuilder::new()
+        .api_url("https://cdn.growthbook.io".to_string())
+        .client_key("sdk-abc123".to_string())
+        .build()
+        .await?;
+}
+```
+
+Set the log level via environment variable:
+
+```bash
+RUST_LOG=debug cargo run
+# or
+RUST_LOG=growthbook_rust=debug cargo run
+```
+
+### Common Issues and Solutions
+
+#### Issue: Features not loading
+
+```rust
+// Check initialization
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .build()
+    .await;
+
+match client {
+    Ok(c) => println!("✅ Client initialized"),
+    Err(e) => eprintln!("❌ Initialization failed: {}", e),
+}
+
+// Check if features are loaded
+let result = client.feature_result("test-feature", None);
+if result.value.is_none() {
+    eprintln!("Feature not found - features may not be loaded");
+}
+```
+
+#### Issue: Wrong feature values
+
+```rust
+// Debug feature evaluation
+let result = client.feature_result("my-feature", None);
+
+println!("Feature: my-feature");
+println!("  Value: {:?}", result.value);
+println!("  Source: {:?}", result.source);
+println!("  On: {}", result.on);
+
+// Check attributes being used
+let mut attrs = Vec::new();
+attrs.push(GrowthBookAttribute::new(
+    "userId".to_string(),
+    GrowthBookAttributeValue::String("test-123".to_string())
+));
+
+let result_with_attrs = client.feature_result("my-feature", Some(attrs));
+println!("With attributes: {:?}", result_with_attrs.value);
+```
+
+#### Issue: Auto-refresh not working
+
+```rust
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+let refresh_count = Arc::new(AtomicUsize::new(0));
+let counter = refresh_count.clone();
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .auto_refresh(true)
+    .refresh_interval(Duration::from_secs(10))
+    .add_on_refresh(Box::new(move || {
+        let count = counter.fetch_add(1, Ordering::SeqCst);
+        println!("Refresh #{} at {:?}", count + 1, std::time::SystemTime::now());
+    }))
+    .build()
+    .await?;
+
+// Wait and watch for refreshes
+tokio::time::sleep(Duration::from_secs(35)).await;
+println!("Total refreshes: {}", refresh_count.load(Ordering::SeqCst));
+```
+
+### Testing and QA
+
+#### Testing with Forced Values
+
+```rust
+// In your test environment, use features_json to control values
+use serde_json::json;
+
+let test_features = json!({
+    "feature-under-test": {
+        "defaultValue": true
+    },
+    "config-value": {
+        "defaultValue": "test-mode"
+    }
+});
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("http://localhost:8080".to_string())
+    .client_key("test-key".to_string())
+    .features_json(test_features)?
+    .auto_refresh(false)  // Disable refresh in tests
+    .build()
+    .await?;
+
+// Now you can test with predictable feature values
+assert!(client.is_on("feature-under-test", None));
+```
+
+#### Unit Testing Helpers
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn create_test_client() -> GrowthBookClient {
+        let features = json!({
+            "test-feature": {
+                "defaultValue": true
+            }
+        });
+
+        GrowthBookClientBuilder::new()
+            .api_url("http://test".to_string())
+            .client_key("test".to_string())
+            .features_json(features).unwrap()
+            .auto_refresh(false)
+            .build()
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_feature_enabled() {
+        let client = create_test_client().await;
+        assert!(client.is_on("test-feature", None));
+    }
+
+    #[tokio::test]
+    async fn test_with_attributes() {
+        let client = create_test_client().await;
+
+        let mut attrs = Vec::new();
+        attrs.push(GrowthBookAttribute::new(
+            "userId".to_string(),
+            GrowthBookAttributeValue::String("test-user".to_string())
+        ));
+
+        let result = client.is_on("test-feature", Some(attrs));
+        assert!(result);
+    }
+}
+```
+
+## Integration Examples
+
+This section provides real-world integration examples with popular Rust frameworks.
+
+### Actix Web Integration
+
+A complete example of integrating GrowthBook with Actix Web:
+
+```rust
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use growthbook_rust::client::{GrowthBookClient, GrowthBookClientBuilder};
+use growthbook_rust::model_public::{GrowthBookAttribute, GrowthBookAttributeValue};
+use std::sync::Arc;
+use std::time::Duration;
+
+// Application state
+struct AppState {
+    gb_client: Arc<GrowthBookClient>,
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    env_logger::init();
+
+    // Initialize GrowthBook client (singleton)
+    let gb_client = GrowthBookClientBuilder::new()
+        .api_url("https://cdn.growthbook.io".to_string())
+        .client_key("sdk-abc123".to_string())
+        .auto_refresh(true)
+        .refresh_interval(Duration::from_secs(30))
+        .on_experiment_viewed(Box::new(|exp_result| {
+            log::info!("Experiment viewed: {} -> {}",
+                exp_result.key, exp_result.variation_id);
+        }))
+        .build()
+        .await
+        .expect("Failed to initialize GrowthBook");
+
+    let gb_client = Arc::new(gb_client);
+
+    // Start HTTP server
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(AppState {
+                gb_client: gb_client.clone(),
+            }))
+            .route("/", web::get().to(index))
+            .route("/api/features", web::get().to(get_features))
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
+}
+
+// Handler with per-request attributes
+async fn index(
+    data: web::Data<AppState>,
+    req: HttpRequest,
+) -> HttpResponse {
+    // Extract user attributes from request
+    let user_id = req.headers()
+        .get("X-User-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("anonymous");
+
+    let mut attrs = Vec::new();
+    attrs.push(GrowthBookAttribute::new(
+        "userId".to_string(),
+        GrowthBookAttributeValue::String(user_id.to_string())
+    ));
+    attrs.push(GrowthBookAttribute::new(
+        "url".to_string(),
+        GrowthBookAttributeValue::String(req.uri().to_string())
+    ));
+
+    // Check features with user-specific attributes
+    let show_new_ui = data.gb_client.is_on("new-ui", Some(attrs.clone()));
+    let theme_result = data.gb_client.feature_result("theme", Some(attrs));
+    let theme = theme_result.value_as::<String>()
+        .unwrap_or("light".to_string());
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "new_ui": show_new_ui,
+        "theme": theme,
+        "user_id": user_id,
+    }))
+}
+
+// Handler to inspect all features (useful for debugging)
+async fn get_features(data: web::Data<AppState>) -> HttpResponse {
+    // Return feature flags for debugging
+    HttpResponse::Ok().json(serde_json::json!({
+        "status": "ok",
+        "message": "Features loaded"
+    }))
+}
+```
+
+### Axum Integration
+
+Modern async web framework integration:
+
+```rust
+use axum::{
+    extract::{Extension, Path},
+    http::{Request, StatusCode},
+    response::{IntoResponse, Json},
+    routing::{get, post},
+    Router,
+};
+use growthbook_rust::client::{GrowthBookClient, GrowthBookClientBuilder};
+use growthbook_rust::model_public::{GrowthBookAttribute, GrowthBookAttributeValue};
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
+
+#[derive(Clone)]
+struct AppState {
+    gb_client: Arc<GrowthBookClient>,
+}
+
+#[tokio::main]
+async fn main() {
+    // Initialize tracing
+    tracing_subscriber::fmt::init();
+
+    // Create GrowthBook client
+    let gb_client = GrowthBookClientBuilder::new()
+        .api_url("https://cdn.growthbook.io".to_string())
+        .client_key("sdk-abc123".to_string())
+        .auto_refresh(true)
+        .refresh_interval(Duration::from_secs(30))
+        .build()
+        .await
+        .expect("Failed to create GrowthBook client");
+
+    let state = AppState {
+        gb_client: Arc::new(gb_client),
+    };
+
+    // Build router
+    let app = Router::new()
+        .route("/", get(root))
+        .route("/user/:id", get(user_features))
+        .route("/experiment", post(run_experiment))
+        .layer(Extension(state));
+
+    // Run server
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    tracing::info!("Listening on {}", addr);
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
+}
+
+async fn root(Extension(state): Extension<AppState>) -> impl IntoResponse {
+    let is_maintenance = state.gb_client.is_on("maintenance-mode", None);
+
+    if is_maintenance {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Maintenance mode enabled",
+        ).into_response();
+    }
+
+    (StatusCode::OK, "Service operational").into_response()
+}
+
+#[derive(Debug, Serialize)]
+struct UserFeatures {
+    user_id: String,
+    premium_enabled: bool,
+    theme: String,
+    max_uploads: i32,
+}
+
+async fn user_features(
+    Path(user_id): Path<String>,
+    Extension(state): Extension<AppState>,
+) -> Json<UserFeatures> {
+    // Build user attributes
+    let mut attrs = Vec::new();
+    attrs.push(GrowthBookAttribute::new(
+        "userId".to_string(),
+        GrowthBookAttributeValue::String(user_id.clone())
+    ));
+
+    // Evaluate features for this user
+    let premium_enabled = state.gb_client.is_on("premium-features", Some(attrs.clone()));
+
+    let theme_result = state.gb_client.feature_result("theme", Some(attrs.clone()));
+    let theme = theme_result.value_as::<String>()
+        .unwrap_or("default".to_string());
+
+    let uploads_result = state.gb_client.feature_result("max-uploads", Some(attrs));
+    let max_uploads = uploads_result.value_as::<i32>()
+        .unwrap_or(5);
+
+    Json(UserFeatures {
+        user_id,
+        premium_enabled,
+        theme,
+        max_uploads,
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct ExperimentRequest {
+    user_id: String,
+    feature_key: String,
+}
+
+async fn run_experiment(
+    Extension(state): Extension<AppState>,
+    Json(payload): Json<ExperimentRequest>,
+) -> impl IntoResponse {
+    let mut attrs = Vec::new();
+    attrs.push(GrowthBookAttribute::new(
+        "userId".to_string(),
+        GrowthBookAttributeValue::String(payload.user_id.clone())
+    ));
+
+    let result = state.gb_client.feature_result(&payload.feature_key, Some(attrs));
+
+    Json(serde_json::json!({
+        "feature_key": payload.feature_key,
+        "user_id": payload.user_id,
+        "value": result.value,
+        "on": result.on,
+        "source": format!("{:?}", result.source),
+    }))
+}
+```
+
+### Rocket Integration
+
+```rust
+#[macro_use] extern crate rocket;
+
+use rocket::{State, http::Status};
+use rocket::serde::json::Json;
+use growthbook_rust::client::{GrowthBookClient, GrowthBookClientBuilder};
+use growthbook_rust::model_public::{GrowthBookAttribute, GrowthBookAttributeValue};
+use std::sync::Arc;
+use std::time::Duration;
+
+struct GBState {
+    client: Arc<GrowthBookClient>,
+}
+
+#[get("/")]
+async fn index(state: &State<GBState>) -> Result<String, Status> {
+    if state.client.is_on("maintenance-mode", None) {
+        return Err(Status::ServiceUnavailable);
+    }
+    Ok("Hello, World!".to_string())
+}
+
+#[get("/feature/<user_id>")]
+async fn check_feature(
+    user_id: String,
+    state: &State<GBState>,
+) -> Json<serde_json::Value> {
+    let mut attrs = Vec::new();
+    attrs.push(GrowthBookAttribute::new(
+        "userId".to_string(),
+        GrowthBookAttributeValue::String(user_id.clone())
+    ));
+
+    let enabled = state.client.is_on("beta-feature", Some(attrs));
+
+    Json(serde_json::json!({
+        "user_id": user_id,
+        "beta_enabled": enabled,
+    }))
+}
+
+#[launch]
+async fn rocket() -> _ {
+    let gb_client = GrowthBookClientBuilder::new()
+        .api_url("https://cdn.growthbook.io".to_string())
+        .client_key("sdk-abc123".to_string())
+        .auto_refresh(true)
+        .build()
+        .await
+        .expect("Failed to init GrowthBook");
+
+    rocket::build()
+        .manage(GBState {
+            client: Arc::new(gb_client),
+        })
+        .mount("/", routes![index, check_feature])
+}
+```
+
+### CLI Application Example
+
+Using GrowthBook in a command-line application:
+
+```rust
+use growthbook_rust::client::GrowthBookClientBuilder;
+use growthbook_rust::model_public::{GrowthBookAttribute, GrowthBookAttributeValue};
+use clap::Parser;
+use std::time::Duration;
+
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// User ID
+    #[clap(short, long)]
+    user_id: String,
+
+    /// Command to run
+    #[clap(short, long)]
+    command: String,
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
+    let args = Args::parse();
+
+    // Initialize GrowthBook
+    let client = GrowthBookClientBuilder::new()
+        .api_url("https://cdn.growthbook.io".to_string())
+        .client_key("sdk-abc123".to_string())
+        .auto_refresh(false)  // No auto-refresh for CLI
+        .build()
+        .await?;
+
+    // Create user attributes
+    let mut attrs = Vec::new();
+    attrs.push(GrowthBookAttribute::new(
+        "userId".to_string(),
+        GrowthBookAttributeValue::String(args.user_id.clone())
+    ));
+    attrs.push(GrowthBookAttribute::new(
+        "cli".to_string(),
+        GrowthBookAttributeValue::Bool(true)
+    ));
+
+    // Check feature flags
+    let can_use_beta_commands = client.is_on("cli-beta-commands", Some(attrs.clone()));
+
+    match args.command.as_str() {
+        "beta-feature" if can_use_beta_commands => {
+            println!("✅ Beta feature enabled for user {}", args.user_id);
+            run_beta_feature();
+        }
+        "beta-feature" => {
+            println!("❌ Beta feature not available for user {}", args.user_id);
+        }
+        "standard" => {
+            println!("Running standard command");
+            run_standard_command();
+        }
+        _ => {
+            println!("Unknown command: {}", args.command);
+        }
+    }
+
+    Ok(())
+}
+
+fn run_beta_feature() {
+    println!("Executing beta feature...");
+    // Beta feature logic
+}
+
+fn run_standard_command() {
+    println!("Executing standard command...");
+    // Standard logic
+}
+```
+
+### Background Worker / Job Processor
+
+Using GrowthBook in async background workers:
+
+```rust
+use growthbook_rust::client::{GrowthBookClient, GrowthBookClientBuilder};
+use growthbook_rust::model_public::{GrowthBookAttribute, GrowthBookAttributeValue};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::time::sleep;
+
+struct JobProcessor {
+    gb_client: Arc<GrowthBookClient>,
+}
+
+impl JobProcessor {
+    async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let gb_client = GrowthBookClientBuilder::new()
+            .api_url("https://cdn.growthbook.io".to_string())
+            .client_key("sdk-abc123".to_string())
+            .auto_refresh(true)
+            .refresh_interval(Duration::from_secs(60))
+            .build()
+            .await?;
+
+        Ok(Self {
+            gb_client: Arc::new(gb_client),
+        })
+    }
+
+    async fn process_job(&self, job: Job) {
+        // Create attributes for this job
+        let mut attrs = Vec::new();
+        attrs.push(GrowthBookAttribute::new(
+            "userId".to_string(),
+            GrowthBookAttributeValue::String(job.user_id.clone())
+        ));
+        attrs.push(GrowthBookAttribute::new(
+            "jobType".to_string(),
+            GrowthBookAttributeValue::String(job.job_type.clone())
+        ));
+
+        // Check if new processing algorithm is enabled
+        let use_new_algorithm = self.gb_client.is_on(
+            "new-job-processing",
+            Some(attrs.clone())
+        );
+
+        if use_new_algorithm {
+            log::info!("Using new processing algorithm for job {}", job.id);
+            self.process_with_new_algorithm(&job).await;
+        } else {
+            log::info!("Using standard processing for job {}", job.id);
+            self.process_with_standard_algorithm(&job).await;
+        }
+
+        // Check rate limits from feature flags
+        let rate_limit_result = self.gb_client.feature_result(
+            "job-rate-limit",
+            Some(attrs)
+        );
+
+        if let Ok(rate_limit) = rate_limit_result.value_as::<i32>() {
+            log::info!("Rate limit for this job: {}", rate_limit);
+            // Apply rate limiting
+        }
+    }
+
+    async fn process_with_new_algorithm(&self, job: &Job) {
+        // New algorithm logic
+        log::info!("Processing job {} with new algorithm", job.id);
+    }
+
+    async fn process_with_standard_algorithm(&self, job: &Job) {
+        // Standard logic
+        log::info!("Processing job {} with standard algorithm", job.id);
+    }
+}
+
+#[derive(Debug)]
+struct Job {
+    id: String,
+    user_id: String,
+    job_type: String,
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
+    let processor = JobProcessor::new().await?;
+
+    // Simulate job queue
+    loop {
+        // Fetch job from queue (Redis, RabbitMQ, etc.)
+        let job = Job {
+            id: uuid::Uuid::new_v4().to_string(),
+            user_id: "user-123".to_string(),
+            job_type: "data-processing".to_string(),
+        };
+
+        processor.process_job(job).await;
+
+        sleep(Duration::from_secs(5)).await;
+    }
+}
+```
+
+## Advanced Usage
+
+### Multiple SDK Instances
+
+You can create multiple GrowthBook clients for different environments or projects:
+
+```rust
+use std::collections::HashMap;
+
+struct MultiTenantGrowthBook {
+    clients: HashMap<String, Arc<GrowthBookClient>>,
+}
+
+impl MultiTenantGrowthBook {
+    async fn new(tenants: Vec<(&str, &str, &str)>) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut clients = HashMap::new();
+
+        for (tenant_id, api_url, client_key) in tenants {
+            let client = GrowthBookClientBuilder::new()
+                .api_url(api_url.to_string())
+                .client_key(client_key.to_string())
+                .auto_refresh(true)
+                .build()
+                .await?;
+
+            clients.insert(tenant_id.to_string(), Arc::new(client));
+        }
+
+        Ok(Self { clients })
+    }
+
+    fn get_client(&self, tenant_id: &str) -> Option<&Arc<GrowthBookClient>> {
+        self.clients.get(tenant_id)
+    }
+}
+
+// Usage
+let multi_tenant = MultiTenantGrowthBook::new(vec![
+    ("tenant-a", "https://cdn.growthbook.io", "sdk-key-a"),
+    ("tenant-b", "https://cdn.growthbook.io", "sdk-key-b"),
+]).await?;
+
+if let Some(client) = multi_tenant.get_client("tenant-a") {
+    let enabled = client.is_on("feature", None);
+}
+```
+
+## TypeScript / Rust Interop
+
+If you're building a hybrid application with TypeScript frontend and Rust backend, you can use the same SDK concepts across both:
+
+**Rust Backend:**
+
+```rust
+// backend/src/main.rs
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .build()
+    .await?;
+
+let features_for_frontend = serde_json::json!({
+    "dark_mode": client.is_on("dark-mode", Some(user_attrs)),
+    "theme": client.feature_result("theme", Some(user_attrs)).value,
+});
+
+// Send to frontend
+HttpResponse::Ok().json(features_for_frontend)
+```
+
+**TypeScript Frontend:**
+
+```typescript
+// frontend/src/features.ts
+interface Features {
+  dark_mode: boolean;
+  theme: string;
+}
+
+const features: Features = await fetch('/api/features').then(r => r.json());
+
+if (features.dark_mode) {
+  enableDarkMode();
+}
+```
+
+## Performance Considerations
+
+### Memory Usage
+
+- Each client instance maintains an in-memory cache of features
+- Auto-refresh spawns a background task
+- Features are deserialized from JSON on each fetch
+
+**Optimization Tips:**
+
+```rust
+// ✅ Good: Single client instance, reused across requests
+lazy_static! {
+    static ref GB_CLIENT: Arc<GrowthBookClient> = {
+        // Initialize once at startup
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(async {
+                Arc::new(
+                    GrowthBookClientBuilder::new()
+                        .api_url("https://cdn.growthbook.io".to_string())
+                        .client_key("sdk-abc123".to_string())
+                        .build()
+                        .await
+                        .expect("Failed to create GrowthBook client")
+                )
+            })
+    };
+}
+
+// ❌ Bad: Creating new client on each request
+async fn handler() {
+    let client = GrowthBookClientBuilder::new() // DON'T DO THIS
+        .build()
+        .await
+        .unwrap();
+}
+```
+
+### Network Performance
+
+- Features are cached based on TTL
+- Consider longer refresh intervals for stable features
+
+```rust
+// For frequently changing features
+let client = GrowthBookClientBuilder::new()
+    .refresh_interval(Duration::from_secs(30))  // 30 seconds
+    .build()
+    .await?;
+
+// For stable features
+let client = GrowthBookClientBuilder::new()
+    .refresh_interval(Duration::from_secs(300))  // 5 minutes
+    .build()
+    .await?;
+```
+
+## Troubleshooting
+
+### Common Error Messages
+
+#### "Failed to fetch features"
+
+```rust
+// Possible causes:
+// 1. Wrong API URL or client key
+// 2. Network connectivity issues
+// 3. API is down
+
+// Solution: Check configuration and network
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())  // Verify this
+    .client_key("sdk-abc123".to_string())              // Verify this
+    .build()
+    .await
+    .map_err(|e| {
+        eprintln!("Client creation failed: {}", e);
+        e
+    })?;
+```
+
+#### "Decryption failed"
+
+```rust
+// Cause: Wrong decryption key
+// Solution: Verify the key from GrowthBook dashboard
+let correct_key = env::var("GROWTHBOOK_DECRYPTION_KEY")?;
+let client = GrowthBookClientBuilder::new()
+    .decryption_key(correct_key)
+    .build()
+    .await?;
+```
+
+#### "Feature not found"
+
+```rust
+let result = client.feature_result("my-feature", None);
+if result.value.is_none() {
+    // Feature doesn't exist in your GrowthBook project
+    // Check the feature key spelling
+    eprintln!("Feature 'my-feature' not found");
+}
+```
+
+### Enable Verbose Logging
+
+```bash
+# Maximum verbosity
+RUST_LOG=trace cargo run
+
+# GrowthBook-specific logs
+RUST_LOG=growthbook_rust=debug cargo run
+
+# Filter by module
+RUST_LOG=growthbook_rust::client=debug cargo run
+```
+
+### Health Check Endpoint
+
+```rust
+use axum::{Extension, Json};
+
+async fn health_check(
+    Extension(state): Extension<AppState>,
+) -> Json<serde_json::Value> {
+    // Check if GrowthBook is accessible
+    let test_result = state.gb_client.feature_result("health-check", None);
+
+    Json(serde_json::json!({
+        "status": "ok",
+        "growthbook": {
+            "initialized": true,
+            "features_loaded": !test_result.value.is_none(),
+        }
+    }))
+}
+```
+
+## Migration from Other SDKs
+
+### From Node.js/JavaScript SDK
+
+**JavaScript:**
+
+```javascript
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { userId: "123" }
+});
+
+await gb.init();
+const enabled = gb.isOn("my-feature");
+```
+
+**Rust:**
+
+```rust
+let mut attrs = HashMap::new();
+attrs.insert("userId".to_string(),
+    GrowthBookAttributeValue::String("123".to_string()));
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .attributes(attrs)
+    .build()
+    .await?;
+
+let enabled = client.is_on("my-feature", None);
+```
+
+### From Python SDK
+
+**Python:**
+
+```python
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"userId": "123"}
+)
+gb.load_features()
+enabled = gb.is_on("my-feature")
+```
+
+**Rust:**
+
+```rust
+let mut attrs = HashMap::new();
+attrs.insert("userId".to_string(),
+    GrowthBookAttributeValue::String("123".to_string()));
+
+let client = GrowthBookClientBuilder::new()
+    .api_url("https://cdn.growthbook.io".to_string())
+    .client_key("sdk-abc123".to_string())
+    .attributes(attrs)
+    .build()
+    .await?;
+
+let enabled = client.is_on("my-feature", None);
+```
+
+## Further Reading
+
+- [Rust SDK on crates.io <ExternalLink/>](https://crates.io/crates/growthbook-rust)
+- [API Documentation <ExternalLink/>](https://docs.rs/growthbook-rust)
+- [GitHub Repository <ExternalLink/>](https://github.com/growthbook/growthbook-rust)
+- [Example Application <ExternalLink/>](https://github.com/growthbook/growthbook-rust/tree/main/examples/client)
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="rust" />

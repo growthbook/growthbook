@@ -416,6 +416,46 @@ export default {
       },
     ],
   },
+  rust: {
+    name: "Rust SDK",
+    version: "0.0.3",
+    github: "https://github.com/growthbook/growthbook-rust",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-rust/tree/main/examples/client",
+        name: "Rust example app",
+      },
+    ],
+    packageRepos: [
+      {
+        name: "crates.io",
+        url: "https://crates.io/crates/growthbook-rust",
+      },
+    ],
+    capabilities: [
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        encryption: "≥ v0.0.1",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.1",
+      },
+      {
+        prerequisites: "≥ v0.0.1",
+      },
+      {
+        semverTargeting: "≥ v0.0.1",
+      },
+      {
+        bucketingV2: "≥ v0.0.1",
+      },
+    ],
+  },
   java: {
     name: "Java SDK",
     version: "0.10.2",
@@ -452,6 +492,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        remoteEvaluation: "≥ v0.9.92",
+      },
+      {
         prerequisites: "≥ v0.9.3",
       },
       {
@@ -476,7 +519,7 @@ export default {
   },
   csharp: {
     name: "C# SDK",
-    version: "1.1.2",
+    version: "1.1.3",
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
@@ -496,6 +539,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        remoteEvaluation: "≥ v1.1.3",
       },
       {
         stickyBucketing: "≥ v1.1.0",
