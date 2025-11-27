@@ -42,6 +42,7 @@ const querySchema = new mongoose.Schema({
   externalId: String,
   result: {},
   rawResult: [],
+  hasChunkedResults: Boolean,
   error: String,
   statistics: {},
   dependencies: [String],
@@ -60,10 +61,23 @@ function toInterface(doc: QueryDocument): QueryInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getQueriesByIds(organization: string, ids: string[]) {
+export async function getQueriesByIds(
+  context: ReqContext,
+  ids: string[],
+  includeChunkedResults: boolean = true,
+) {
   if (!ids.length) return [];
-  const docs = await QueryModel.find({ organization, id: { $in: ids } });
-  return docs.map((doc) => toInterface(doc));
+  const docs = await QueryModel.find({
+    organization: context.org.id,
+    id: { $in: ids },
+  });
+  const queries = docs.map((doc) => toInterface(doc));
+
+  if (includeChunkedResults) {
+    await context.models.sqlResultChunks.addResultsToQueries(queries);
+  }
+
+  return queries;
 }
 
 export async function getQueryById(
@@ -102,9 +116,29 @@ export async function countRunningQueries(
 }
 
 export async function updateQuery(
+  context: ReqContext,
   query: QueryInterface,
   changes: Partial<QueryInterface>,
 ): Promise<QueryInterface> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  // If we're setting results, store them in a separate collection
+  // Some legacy queries have processed results that differ from raw results, so skip those
+  if (
+    changes.result &&
+    changes.result === changes.rawResult &&
+    changes.rawResult.length > 0
+  ) {
+    await context.models.sqlResultChunks.createFromResults(
+      query.id,
+      changes.rawResult,
+    );
+    changes = omit(changes, ["result", "rawResult"]);
+    changes.hasChunkedResults = true;
+  }
+
   await QueryModel.updateOne(
     { organization: query.organization, id: query.id },
     { $set: changes },
@@ -246,6 +280,7 @@ export async function createNewQueryFromCached({
     dependencies: dependencies,
     runAtEnd: runAtEnd,
     cachedQueryUsed: existing.id,
+    hasChunkedResults: existing.hasChunkedResults,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
