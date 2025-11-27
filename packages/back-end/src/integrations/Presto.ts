@@ -1,5 +1,4 @@
-/// <reference types="../../typings/presto-client" />
-import { Client, IPrestoClientOptions } from "presto-client";
+import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { prestoCreateTablePartitions } from "shared/enterprise";
@@ -11,6 +10,7 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
 } from "back-end/src/types/Integration";
+import { getKerberosHeader } from "../util/kerberos.util";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -36,7 +36,8 @@ export default class Presto extends SqlIntegration {
     return true;
   }
   runQuery(sql: string): Promise<QueryResponse> {
-    const configOptions: IPrestoClientOptions = {
+    const configOptions: ClientOptions = {
+      engine: this.params.engine,
       host: this.params.host,
       port: this.params.port,
       user: "growthbook",
@@ -55,6 +56,18 @@ export default class Presto extends SqlIntegration {
     if (this.params?.authType === "customAuth") {
       configOptions.custom_auth = this.params.customAuth || "";
     }
+    if (this.params?.authType === "kerberos") {
+      const servicePrincipal = this.params.kerberosServicePrincipal;
+      const clientPrincipal = this.params.kerberosClientPrincipal;
+      if (!servicePrincipal) {
+        throw new Error(
+          "Kerberos service principal is required for Kerberos authentication",
+        );
+      }
+      // Use a function to generate fresh Kerberos tokens for each request
+      configOptions.custom_auth = () =>
+        getKerberosHeader(servicePrincipal, clientPrincipal);
+    }
     if (this.params?.ssl) {
       configOptions.ssl = {
         ca: this.params?.caCert,
@@ -70,7 +83,7 @@ export default class Presto extends SqlIntegration {
       const rows: Row[] = [];
       const statistics: QueryStatistics = {};
 
-      client.execute({
+      const executeOptions: QueryOptions = {
         query: sql,
         catalog: this.params.catalog,
         schema: this.params.schema,
@@ -97,6 +110,7 @@ export default class Presto extends SqlIntegration {
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
             statistics.physicalWrittenBytes = Number(
+              // @ts-expect-error - From our testing this does exist but types are not happy
               stats.physicalWrittenBytes,
             );
           }
@@ -110,7 +124,15 @@ export default class Presto extends SqlIntegration {
             statistics,
           });
         },
-      });
+      };
+
+      // For Kerberos auth we need to explicitly set user
+      // which sets X-Trino-User header and is required by Trino
+      if (this.params?.authType === "kerberos") {
+        executeOptions.user = this.params.kerberosUser || "growthbook";
+      }
+
+      client.execute(executeOptions);
     });
   }
   addTime(
