@@ -460,8 +460,7 @@ const engines: DataSourceType[] = [
 // Output to store queries in
 const testCases: { name: string; engine: string; sql: string }[] = [];
 
-(async () => {
-for (const engine of engines) {
+engines.forEach((engine) => {
   const engineInterface = buildInterface(engine);
   const integration = getSourceIntegrationObject(engineInterface);
   const pipelineEnabled =
@@ -474,7 +473,7 @@ for (const engine of engines) {
   );
   const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
-  for (const experimentConfig of experimentConfigs) {
+  experimentConfigs.forEach((experimentConfig) => {
     const jointMetrics: ExperimentMetricInterface[] = [
       ...analysisMetrics,
       ...analysisFactMetrics,
@@ -538,13 +537,13 @@ for (const engine of engines) {
     // Cribbed from getFactMetricGroups
     // create groups from fact metrics to run alongside individual queries
     const groups: Record<string, FactMetricInterface[]> = {};
-    for (const m of analysisFactMetrics) {
+    analysisFactMetrics.forEach((m) => {
       // Skip grouping metrics with percentile caps if there's not an efficient implementation
       if (
         m.cappingSettings.type === "percentile" &&
         !integration.getSourceProperties().hasEfficientPercentiles
       ) {
-        continue;
+        return;
       }
 
       const group = getFactMetricGroup(m);
@@ -552,7 +551,7 @@ for (const engine of engines) {
         groups[group] = groups[group] || [];
         groups[group].push(m);
       }
-    }
+    });
 
     const snapshotSettings = getSnapshotSettings({
       experiment,
@@ -588,7 +587,7 @@ for (const engine of engines) {
     };
 
     // RUN FACT METRICS GROUPED
-    for (const [groupName, group, i] of Object.entries(groups).map(([k, v], i) => [k, v, i] as const)) {
+    Object.entries(groups).forEach(([groupName, group], i) => {
       const queryParams: ExperimentFactMetricsQueryParams = {
         activationMetric,
         dimensions: dimension ? [dimension] : [],
@@ -616,7 +615,7 @@ for (const engine of engines) {
             useUnitsTable: true,
             unitsTableFullName: unitsQueryFullName,
           });
-          const unitsSql = await integration.getExperimentUnitsTableQuery({
+          const unitsSql = integration.getExperimentUnitsTableQuery({
             ...unitsQueryParams,
             unitsTableFullName: unitsQueryFullName,
           });
@@ -628,10 +627,10 @@ for (const engine of engines) {
           });
         }
       }
-    }
+    });
 
     // RUN FACT AND NON-FACT METRICS AS SINGLES
-    for (const metric of jointMetrics) {
+    jointMetrics.forEach((metric) => {
       if (
         quantileMetricType(metric) &&
         !integration.getSourceProperties().hasEfficientPercentiles
@@ -677,7 +676,7 @@ for (const engine of engines) {
       // pipeline version
       if (pipelineEnabled) {
         const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${metric.id}`;
-        const unitsSql = await integration.getExperimentUnitsTableQuery({
+        const unitsSql = integration.getExperimentUnitsTableQuery({
           ...unitsQueryParams,
           unitsTableFullName: unitsQueryFullName,
         });
@@ -694,11 +693,10 @@ for (const engine of engines) {
           sql: unitsSql.concat(sql),
         });
       }
-    }
-  }
-}
+    });
+  });
+});
 
 console.log(`Writing queries.json to '${OUTPUT_DIR}'...`);
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 fs.writeFileSync(`${OUTPUT_DIR}/queries.json`, JSON.stringify(testCases));
-})();
