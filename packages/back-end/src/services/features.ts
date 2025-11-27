@@ -42,7 +42,11 @@ import {
   FeatureDefinition,
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
+  FeatureMetadata,
+  ExperimentMetadata,
 } from "back-end/types/api";
+import { ProjectInterface } from "back-end/types/project";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   ExperimentRefRule,
   ExperimentRule,
@@ -121,6 +125,9 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  allowedCustomFields = new Set(),
+  allowedTags = new Set(),
+  projectsMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -132,10 +139,13 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
-}): Record<string, FeatureDefinition> {
+  allowedCustomFields?: Set<string>;
+  allowedTags?: Set<string>;
+  projectsMap?: Map<string, ProjectInterface>;
+}): Record<string, FeatureDefinitionWithProject> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
-  const defs: Record<string, FeatureDefinition> = {};
+  const defs: Record<string, FeatureDefinitionWithProject> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
     features,
     environment,
@@ -152,7 +162,43 @@ export function generateFeaturesPayload({
       holdoutsMap,
     });
     if (def) {
-      defs[feature.id] = def;
+      const metadata: FeatureMetadata = {};
+      if (projectsMap) {
+        const project = feature.project
+          ? projectsMap.get(feature.project)
+          : undefined;
+        if (project) {
+          metadata.projects = [project.publicId || project.id];
+        }
+      }
+      if (allowedCustomFields.size > 0 && feature.customFields) {
+        const filteredCustomFields: Record<string, unknown> = {};
+        for (const fieldId in feature.customFields) {
+          if (allowedCustomFields.has(fieldId)) {
+            filteredCustomFields[fieldId] = feature.customFields[fieldId];
+          }
+        }
+        if (Object.keys(filteredCustomFields).length > 0) {
+          metadata.customFields = filteredCustomFields;
+        }
+      }
+      if (allowedTags.size > 0 && feature.tags && feature.tags.length > 0) {
+        const filteredTags: string[] = [];
+        for (const tag of feature.tags) {
+          if (allowedTags.has(tag)) {
+            filteredTags.push(tag);
+          }
+        }
+        if (filteredTags.length > 0) {
+          metadata.tags = filteredTags;
+        }
+      }
+      const defWithMeta: FeatureDefinitionWithProject = {
+        ...def,
+        project: feature.project,
+        ...(Object.keys(metadata).length > 0 && { metadata }),
+      };
+      defs[feature.id] = defWithMeta;
     }
   });
 
@@ -220,6 +266,9 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
+  allowedCustomFields = new Set(),
+  allowedTags = new Set(),
+  projectsMap,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -227,6 +276,9 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
+  allowedCustomFields?: Set<string>;
+  allowedTags?: Set<string>;
+  projectsMap?: Map<string, ProjectInterface>;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -291,6 +343,36 @@ export function generateAutoExperimentsPayload({
           ? data.urlRedirect.id
           : data.visualChangeset.id;
 
+      const metadata: ExperimentMetadata = {};
+      if (projectsMap) {
+        const project = e.project ? projectsMap.get(e.project) : undefined;
+        if (project) {
+          metadata.projects = [project.publicId || project.id];
+        }
+      }
+      if (allowedCustomFields.size > 0 && e.customFields) {
+        const filteredCustomFields: Record<string, unknown> = {};
+        for (const fieldId in e.customFields) {
+          if (allowedCustomFields.has(fieldId)) {
+            filteredCustomFields[fieldId] = e.customFields[fieldId];
+          }
+        }
+        if (Object.keys(filteredCustomFields).length > 0) {
+          metadata.customFields = filteredCustomFields;
+        }
+      }
+      if (allowedTags.size > 0 && e.tags && e.tags.length > 0) {
+        const filteredTags: string[] = [];
+        for (const tag of e.tags) {
+          if (allowedTags.has(tag)) {
+            filteredTags.push(tag);
+          }
+        }
+        if (filteredTags.length > 0) {
+          metadata.tags = filteredTags;
+        }
+      }
+
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
         changeId: sha256(
@@ -299,6 +381,7 @@ export function generateAutoExperimentsPayload({
         ),
         status: e.status,
         project: e.project,
+        ...(Object.keys(metadata).length > 0 && { metadata }),
         variations: e.variations.map((v) => {
           if (data.type === "redirect") {
             const match = data.urlRedirect.destinationURLs.find(
@@ -447,6 +530,8 @@ export function filterUsedSavedGroups(
   );
 }
 
+// Regenerates cached SDK payloads for affected environments.
+// See SDK_PAYLOAD_FLOW.md in this directory for detailed flow diagram.
 export async function refreshSDKPayloadCache(
   baseContext: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
@@ -496,6 +581,11 @@ export async function refreshSDKPayloadCache(
     context,
     experimentMap,
   );
+  const allProjects = (await context.models.projects.getAll()) || [];
+  const projectsMap = new Map<string, ProjectInterface>();
+  allProjects.forEach((project) => projectsMap.set(project.id, project));
+  const allowedCustomFields = await getAllowedCustomFieldsForPayloads(context);
+  const allowedTags = await getAllowedTagsForPayloads(context);
 
   // For each affected environment, generate a new SDK payload and update the cache
   const environments = Array.from(
@@ -519,6 +609,9 @@ export async function refreshSDKPayloadCache(
       prereqStateCache,
       safeRolloutMap,
       holdoutsMap,
+      allowedCustomFields,
+      allowedTags,
+      projectsMap,
     });
 
     const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -532,6 +625,9 @@ export async function refreshSDKPayloadCache(
       features: allFeatures,
       environment,
       prereqStateCache,
+      allowedCustomFields,
+      allowedTags,
+      projectsMap,
     });
 
     const savedGroupsInUse = Object.keys(
@@ -568,6 +664,71 @@ export async function refreshSDKPayloadCache(
   });
 }
 
+// Returns the union of all custom fields enabled across SDK connections
+export async function getAllowedCustomFieldsForPayloads(
+  context: ReqContext | ApiReqContext,
+): Promise<Set<string> | undefined> {
+  const connections = await findSDKConnectionsByOrganization(context);
+  const whitelist = new Set<string>();
+
+  for (const connection of connections) {
+    connection.includeCustomFields?.forEach((fieldId) => {
+      if (fieldId) {
+        whitelist.add(fieldId);
+      }
+    });
+  }
+
+  return whitelist.size > 0 ? whitelist : undefined;
+}
+
+// Returns the union of all tags enabled across SDK connections
+export async function getAllowedTagsForPayloads(
+  context: ReqContext | ApiReqContext,
+): Promise<Set<string> | undefined> {
+  const connections = await findSDKConnectionsByOrganization(context);
+  const whitelist = new Set<string>();
+
+  for (const connection of connections) {
+    connection.includeTags?.forEach((tag) => {
+      if (tag) {
+        whitelist.add(tag);
+      }
+    });
+  }
+
+  return whitelist.size > 0 ? whitelist : undefined;
+}
+
+// Checks if tags or customFields changed and if any SDK connections use them
+// Returns true if a cache refresh is needed for tags/customFields changes
+export async function shouldRefreshForMetadataChanges(
+  context: ReqContext | ApiReqContext,
+  old: Omit<FeatureMetadata, "projects">,
+  newValue: Omit<FeatureMetadata, "projects">,
+): Promise<boolean> {
+  const tagsChanged = !isEqual(old.tags ?? null, newValue.tags ?? null);
+  const customFieldsChanged = !isEqual(
+    old.customFields ?? null,
+    newValue.customFields ?? null,
+  );
+
+  if (!tagsChanged && !customFieldsChanged) {
+    return false;
+  }
+
+  const [allowedCustomFields, allowedTags] = await Promise.all([
+    getAllowedCustomFieldsForPayloads(context),
+    getAllowedTagsForPayloads(context),
+  ]);
+
+  // Only refresh if any SDK connections actually use these fields
+  return !!(
+    (tagsChanged && allowedTags && allowedTags.size > 0) ||
+    (customFieldsChanged && allowedCustomFields && allowedCustomFields.size > 0)
+  );
+}
+
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinitionWithProject>;
   experiments: AutoExperimentWithProject[];
@@ -579,6 +740,9 @@ export type FeatureDefinitionsResponseArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectPublicId?: boolean;
+  includeCustomFields?: string[];
+  includeTags?: string[];
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -598,6 +762,9 @@ export async function getFeatureDefinitionsResponse({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectPublicId,
+  includeCustomFields,
+  includeTags,
   attributes,
   secureAttributeSalt,
   projects,
@@ -647,14 +814,125 @@ export async function getFeatureDefinitionsResponse({
     );
   }
 
-  // Remove `project` from all features/experiments
+  // Add metadata fields, strip temporary top-level project
   features = Object.fromEntries(
-    Object.entries(features).map(([key, feature]) => [
-      key,
-      omit(feature, ["project"]),
-    ]),
+    Object.entries(features).map(([key, feature]) => {
+      const featureWithoutMeta = omit(feature, ["project"]);
+
+      const metadata: FeatureMetadata = {
+        ...(feature.metadata || {}),
+      };
+      if (!includeProjectPublicId) {
+        delete metadata.projects;
+      } else if (metadata.projects && metadata.projects.length === 0) {
+        // Remove empty projects array even if includeProjectPublicId is true
+        delete metadata.projects;
+      }
+      // Handle customFields: only include if whitelist is non-empty
+      if (!includeCustomFields || includeCustomFields.length === 0) {
+        delete metadata.customFields;
+      } else if (metadata.customFields) {
+        const filteredCustomFields: Record<string, unknown> = {};
+        for (const fieldId of includeCustomFields) {
+          if (metadata.customFields[fieldId] !== undefined) {
+            filteredCustomFields[fieldId] = metadata.customFields[fieldId];
+          }
+        }
+        if (Object.keys(filteredCustomFields).length > 0) {
+          metadata.customFields = filteredCustomFields;
+        } else {
+          delete metadata.customFields;
+        }
+      } else {
+        delete metadata.customFields;
+      }
+
+      // Handle tags: only include if whitelist is non-empty
+      if (!includeTags || includeTags.length === 0) {
+        delete metadata.tags;
+      } else if (metadata.tags) {
+        const filteredTags = metadata.tags.filter((tag) =>
+          includeTags.includes(tag),
+        );
+        if (filteredTags.length > 0) {
+          metadata.tags = filteredTags;
+        } else {
+          delete metadata.tags;
+        }
+      } else {
+        delete metadata.tags;
+      }
+
+      // Always apply scrubbed metadata - only include it if it has content
+      const featureWithScrubbedMetadata: FeatureDefinition = {
+        ...featureWithoutMeta,
+        metadata,
+      };
+      if (Object.keys(metadata).length === 0) {
+        delete featureWithScrubbedMetadata.metadata;
+      }
+      return [key, featureWithScrubbedMetadata];
+    }),
   );
-  experiments = experiments.map((exp) => omit(exp, ["project"]));
+
+  // Add metadata fields, strip temporary top-level project
+  experiments = experiments.map((exp) => {
+    const expWithoutMeta = omit(exp, ["project"]);
+
+    const metadata: ExperimentMetadata = {
+      ...(exp.metadata || {}),
+    };
+    if (!includeProjectPublicId) {
+      delete metadata.projects;
+    } else if (metadata.projects && metadata.projects.length === 0) {
+      // Remove empty projects array even if includeProjectPublicId is true
+      delete metadata.projects;
+    }
+    // Handle customFields: only include if whitelist is non-empty
+    if (!includeCustomFields || includeCustomFields.length === 0) {
+      delete metadata.customFields;
+    } else if (metadata.customFields) {
+      const filteredCustomFields: Record<string, unknown> = {};
+      for (const fieldId of includeCustomFields) {
+        if (metadata.customFields[fieldId] !== undefined) {
+          filteredCustomFields[fieldId] = metadata.customFields[fieldId];
+        }
+      }
+      if (Object.keys(filteredCustomFields).length > 0) {
+        metadata.customFields = filteredCustomFields;
+      } else {
+        delete metadata.customFields;
+      }
+    } else {
+      delete metadata.customFields;
+    }
+
+    // Handle tags: only include if whitelist is non-empty
+    if (!includeTags || includeTags.length === 0) {
+      delete metadata.tags;
+    } else if (metadata.tags) {
+      const filteredTags = metadata.tags.filter((tag) =>
+        includeTags.includes(tag),
+      );
+      if (filteredTags.length > 0) {
+        metadata.tags = filteredTags;
+      } else {
+        delete metadata.tags;
+      }
+    } else {
+      delete metadata.tags;
+    }
+
+    // Always apply scrubbed metadata - only include it if it has content
+    const expWithScrubbedMetadata: AutoExperiment = {
+      ...expWithoutMeta,
+      metadata,
+    };
+    if (Object.keys(metadata).length === 0) {
+      delete expWithScrubbedMetadata.metadata;
+    }
+    return expWithScrubbedMetadata;
+  });
 
   const { holdouts: scrubbedHoldouts, features: scrubbedFeatures } =
     scrubHoldouts({
@@ -781,6 +1059,9 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectPublicId?: boolean;
+  includeCustomFields?: string[];
+  includeTags?: string[];
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -806,6 +1087,9 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectPublicId,
+  includeCustomFields,
+  includeTags,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -852,6 +1136,9 @@ export async function getFeatureDefinitions({
         includeExperimentNames,
         includeRedirectExperiments,
         includeRuleIds,
+        includeProjectPublicId,
+        includeCustomFields,
+        includeTags,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -896,6 +1183,11 @@ export async function getFeatureDefinitions({
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =
     await context.models.holdout.getAllPayloadHoldouts(environment);
+  const allowedCustomFields = await getAllowedCustomFieldsForPayloads(context);
+  const allowedTags = await getAllowedTagsForPayloads(context);
+  const allProjects = (await context.models.projects.getAll()) || [];
+  const projectsMap = new Map<string, ProjectInterface>();
+  allProjects.forEach((project) => projectsMap.set(project.id, project));
 
   const prereqStateCache: Record<
     string,
@@ -910,6 +1202,9 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
+    allowedCustomFields,
+    allowedTags,
+    projectsMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -933,6 +1228,9 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
+    allowedCustomFields,
+    allowedTags,
+    projectsMap,
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -972,6 +1270,9 @@ export async function getFeatureDefinitions({
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectPublicId,
+    includeCustomFields,
+    includeTags,
     attributes,
     secureAttributeSalt,
     projects: projects || [],

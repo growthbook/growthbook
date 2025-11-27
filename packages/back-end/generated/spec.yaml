@@ -988,6 +988,9 @@ paths:
               properties:
                 name:
                   type: string
+                publicId:
+                  type: string
+                  description: 'Unique identifier for the project. If not provided, the project ID will be used in payloads.'
                 description:
                   type: string
                 settings:
@@ -1609,6 +1612,16 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectPublicId:
+                  type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
+                includeTags:
+                  type: array
+                  items:
+                    type: string
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1698,6 +1711,16 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectPublicId:
+                  type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
+                includeTags:
+                  type: array
+                  items:
+                    type: string
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -6230,6 +6253,8 @@ components:
           type: string
         name:
           type: string
+        publicId:
+          type: string
         dateCreated:
           type: string
           format: date-time
@@ -6978,6 +7003,16 @@ components:
           type: boolean
         includeRuleIds:
           type: boolean
+        includeProjectPublicId:
+          type: boolean
+        includeCustomFields:
+          type: array
+          items:
+            type: string
+        includeTags:
+          type: array
+          items:
+            type: string
         key:
           type: string
         proxyEnabled:

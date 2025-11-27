@@ -508,6 +508,7 @@ export interface components {
     Project: {
       id: string;
       name: string;
+      publicId?: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -2784,6 +2785,9 @@ export interface components {
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
       includeRuleIds?: boolean;
+      includeProjectPublicId?: boolean;
+      includeCustomFields?: (string)[];
+      includeTags?: (string)[];
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -7973,6 +7977,7 @@ export interface operations {
             projects: ({
                 id: string;
                 name: string;
+                publicId?: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -8000,6 +8005,8 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
+          /** @description Unique identifier for the project. If not provided, the project ID will be used in payloads. */
+          publicId?: string;
           description?: string;
           /** @description Project settings. */
           settings?: {
@@ -8016,6 +8023,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
+              publicId?: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -8045,6 +8053,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
+              publicId?: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -8089,6 +8098,7 @@ export interface operations {
             project: {
               id: string;
               name: string;
+              publicId?: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -8616,6 +8626,9 @@ export interface operations {
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
                 includeRuleIds?: boolean;
+                includeProjectPublicId?: boolean;
+                includeCustomFields?: (string)[];
+                includeTags?: (string)[];
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -8653,6 +8666,9 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectPublicId?: boolean;
+          includeCustomFields?: (string)[];
+          includeTags?: (string)[];
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -8686,6 +8702,9 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectPublicId?: boolean;
+              includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8733,6 +8752,9 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectPublicId?: boolean;
+              includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8769,6 +8791,9 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectPublicId?: boolean;
+          includeCustomFields?: (string)[];
+          includeTags?: (string)[];
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -8802,6 +8827,9 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectPublicId?: boolean;
+              includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8867,6 +8895,9 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectPublicId?: boolean;
+              includeCustomFields?: (string)[];
+              includeTags?: (string)[];
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;

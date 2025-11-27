@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
+import { generateProjectPublicIdFromName } from "shared/util";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -494,8 +495,11 @@ export async function provisionResource(req: Request, res: Response) {
     resourceId,
   } as const;
 
+  const basePublicId =
+    generateProjectPublicIdFromName(payload.name) || "project";
   const project = await context.models.projects.create({
     name: payload.name,
+    publicId: basePublicId,
     managedBy,
   });
 
@@ -509,6 +513,7 @@ export async function provisionResource(req: Request, res: Response) {
     includeRuleIds: true,
     includeRedirectExperiments: false,
     includeExperimentNames: true,
+    includeProjectPublicId: false,
     hashSecureAttributes: false,
     projects: [project.id],
     encryptPayload: false,
