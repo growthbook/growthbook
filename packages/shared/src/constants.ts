@@ -49,8 +49,8 @@ export const GROWTHBOOK_SECURE_ATTRIBUTE_SALT = "eg8amUur5GunJXCfgjwB";
 
 export const OWNER_JOB_TITLES = {
   engineer: "Engineer",
-  dataScientist: "Data Scientist",
-  projectManager: "Project Manager",
+  dataScientist: "Data & Analytics",
+  projectManager: "PM",
   marketer: "Marketer",
   designer: "Designer",
   other: "Other",

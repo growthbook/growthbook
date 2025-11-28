@@ -31,7 +31,7 @@ const TeamPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <Tabs defaultValue="members">
+      <Tabs defaultValue="members" persistInURL>
         <Box mb="5">
           <TabsList>
             <TabsTrigger value="members">Members</TabsTrigger>

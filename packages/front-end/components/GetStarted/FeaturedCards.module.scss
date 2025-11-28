@@ -57,6 +57,23 @@
   }
 }
 
+.datasourceImage {
+  height: 80px;
+  width: 382px;
+
+  background-image: url("/images/get-started/data-source-light.svg");
+  :global(.dark-theme) & {
+    background-image: url("/images/get-started/data-source-dark.svg");
+  }
+
+  .cardLink:hover & {
+    background-image: url("/images/get-started/data-source-light-hover.svg");
+    :global(.dark-theme) & {
+      background-image: url("/images/get-started/data-source-dark-hover.svg");
+    }
+  }
+}
+
 .migrateArrowIcon,
 .chartIcon {
   width: 25px;
