@@ -91,6 +91,9 @@ export default function MetricExplorerBlock({
         axisPointer: {
           type: "shadow",
         },
+        valueFormatter: (value: number) => {
+          return formatter(value);
+        },
       },
       xAxis: {
         type: visualizationType === "timeseries" ? "time" : "category",
