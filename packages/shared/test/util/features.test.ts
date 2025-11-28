@@ -25,7 +25,6 @@ import {
   inferSchemaFields,
   inferSimpleSchemaFromValue,
 } from "../../src/util";
-
 const feature: FeatureInterface = {
   dateCreated: new Date("2020-04-20"),
   dateUpdated: new Date("2020-04-20"),
@@ -1329,6 +1328,7 @@ describe("check enviroments match", () => {
     const reviewSetting = {
       requireReviewOn: true,
       resetReviewOnChange: false,
+      requireReviewOnRevert: false,
       environments: ["prod"],
       projects: [],
     };
@@ -1340,6 +1340,7 @@ describe("check enviroments match", () => {
     const reviewSetting: RequireReview = {
       requireReviewOn: true,
       resetReviewOnChange: false,
+      requireReviewOnRevert: false,
       environments: [],
       projects: [],
     };
@@ -1353,6 +1354,7 @@ describe("check revision needs review", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["prod"],
           projects: [],
         },
@@ -1374,6 +1376,7 @@ describe("check revision needs review", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["dev"],
           projects: [],
         },
@@ -1396,18 +1399,21 @@ describe("check revision needs review", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["dev"],
           projects: ["a"],
         },
         {
           requireReviewOn: false,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: [],
           projects: ["b"],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["prod"],
           projects: [],
         },
@@ -1429,18 +1435,21 @@ describe("check revision needs review", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["dev"],
           projects: [],
         },
         {
           requireReviewOn: false,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: [],
           projects: [],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["staging"],
           projects: [],
         },
@@ -1489,6 +1498,7 @@ describe("reset review on change", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: true,
+          requireReviewOnRevert: false,
           environments: ["prod"],
           projects: [],
         },
@@ -1499,6 +1509,7 @@ describe("reset review on change", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["prod"],
           projects: [],
         },
@@ -1544,12 +1555,14 @@ describe("reset review on change", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: true,
+          requireReviewOnRevert: false,
           environments: ["prod"],
           projects: [],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: true,
+          requireReviewOnRevert: false,
           environments: [],
           projects: [],
         },
@@ -1560,12 +1573,14 @@ describe("reset review on change", () => {
         {
           requireReviewOn: true,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: ["prod"],
           projects: [],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: true,
+          requireReviewOnRevert: false,
           environments: [],
           projects: [],
         },
@@ -1610,12 +1625,14 @@ describe("reset review on change", () => {
         {
           requireReviewOn: false,
           resetReviewOnChange: false,
+          requireReviewOnRevert: false,
           environments: [],
           projects: ["a"],
         },
         {
           requireReviewOn: true,
           resetReviewOnChange: true,
+          requireReviewOnRevert: false,
           environments: [],
           projects: [],
         },

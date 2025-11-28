@@ -1512,6 +1512,86 @@ describe("Organization Migration", () => {
             projects: [],
             requireReviewOn: true,
             resetReviewOnChange: false,
+            requireReviewOnRevert: false,
+          },
+        ],
+      },
+    });
+  });
+});
+
+describe("migrate approval flow settings with requireReviewOnRevert", () => {
+  it("migrate approval flow settings with requireReviewOnRevert missing", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_sktwi1id9l7z9xkjb",
+      name: "Test Org",
+      ownerEmail: "test@test.com",
+      url: "https://test.com",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+            environments: [],
+            projects: [],
+          },
+        ],
+      },
+    };
+    const org = upgradeOrganizationDoc(testOrg);
+    expect(org).toEqual({
+      ...org,
+      settings: {
+        ...org.settings,
+        requireReviews: [
+          {
+            environments: [],
+            projects: [],
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+            requireReviewOnRevert: false,
+          },
+        ],
+      },
+    });
+  });
+
+  it("migrate approval flow settings with requireReviewOnRevert", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_sktwi1id9l7z9xkjb",
+      name: "Test Org",
+      ownerEmail: "test@test.com",
+      url: "https://test.com",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+            requireReviewOnRevert: true,
+            environments: [],
+            projects: [],
+          },
+        ],
+      },
+    };
+    const org = upgradeOrganizationDoc(testOrg);
+    expect(org).toEqual({
+      ...org,
+      settings: {
+        ...org.settings,
+        requireReviews: [
+          {
+            environments: [],
+            projects: [],
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+            requireReviewOnRevert: true,
           },
         ],
       },

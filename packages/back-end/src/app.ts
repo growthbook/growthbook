@@ -790,6 +790,10 @@ app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
 app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
 app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
+app.post(
+  "/feature/:id/:version/request-revert-review",
+  featuresController.requestPostRevertReview,
+);
 app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",

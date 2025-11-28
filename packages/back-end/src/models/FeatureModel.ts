@@ -70,6 +70,7 @@ import {
   getRevision,
   hasDraft,
   markRevisionAsPublished,
+  markRevisionAsReviewRequestedOnRevert,
   updateRevision,
 } from "./FeatureRevisionModel";
 
@@ -1154,6 +1155,20 @@ export async function publishRevision(
   );
 
   return updatedFeature;
+}
+export async function requestReviewOnRevert(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  comment?: string,
+) {
+  await markRevisionAsReviewRequestedOnRevert(
+    context,
+    revision,
+    context.auditUser,
+    comment,
+  );
+  return await updateFeature(context, feature, { hasDrafts: true });
 }
 
 function getLinkedExperiments(

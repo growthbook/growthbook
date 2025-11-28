@@ -495,10 +495,17 @@ export function upgradeOrganizationDoc(
       {
         requireReviewOn: org.settings.requireReviews,
         resetReviewOnChange: false,
+        requireReviewOnRevert: false,
         environments: [],
         projects: [],
       },
     ];
+  } else if (org.settings?.requireReviews !== undefined) {
+    org.settings.requireReviews.forEach((review) => {
+      if (review.requireReviewOnRevert === undefined) {
+        review.requireReviewOnRevert = false;
+      }
+    });
   }
   // Rename legacy roles
   const legacyRoleMap: Record<string, string> = {

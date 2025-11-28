@@ -8495,6 +8495,8 @@ components:
                 type: boolean
               resetReviewOnChange:
                 type: boolean
+              requireReviewOnRevert:
+                type: boolean
               environments:
                 type: array
                 items:

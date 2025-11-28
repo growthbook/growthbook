@@ -8,6 +8,7 @@ import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  checkIfRevisionNeedsReviewOnRevert,
   evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
   mergeResultHasChanges,
@@ -225,7 +226,16 @@ export default function FeaturesOverview({
 
   const baseVersion = revision?.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
+  const liveRevision = revisions.find((r) => r.version === feature.version);
   let requireReviews = false;
+  const requiresReviewOnRevert = liveRevision
+    ? checkIfRevisionNeedsReviewOnRevert({
+        feature,
+        featureRevision: revision,
+        baseRevision: liveRevision,
+        settings,
+      })
+    : false;
   //dont require review when we cant find a base version to compare
   if (baseRevision) {
     requireReviews = checkIfRevisionNeedsReview({
@@ -263,7 +273,12 @@ export default function FeaturesOverview({
         feature,
         getAffectedRevisionEnvs(feature, revision, environments),
       ));
-
+  const isRevert =
+    (revision?.status === "draft" ||
+      revision?.status === "pending-review" ||
+      revision?.status === "changes-requested" ||
+      revision?.status === "approved") &&
+    revision?.datePublished !== null;
   const drafts = revisions.filter(
     (r) =>
       r.status === "draft" ||
@@ -388,7 +403,9 @@ export default function FeaturesOverview({
               setVersion(drafts[0].version);
             }}
           >
-            View active draft
+            {drafts[0].datePublished
+              ? "View active revert"
+              : "View active draft"}
           </Button>,
         );
       }
@@ -402,12 +419,11 @@ export default function FeaturesOverview({
               setConfirmDiscard(true);
             }}
           >
-            Discard draft
+            {isRevert ? "Discard revert" : "Discard draft"}
           </Button>,
         );
-
-        if (mergeResult?.success) {
-          if (requireReviews) {
+        if (mergeResult?.success || requiresReviewOnRevert) {
+          if (requireReviews || requiresReviewOnRevert) {
             // requires a review
             actions.push(
               <Tooltip
@@ -1162,6 +1178,7 @@ export default function FeaturesOverview({
             }
             mutate={mutate}
             setVersion={setVersion}
+            requiresReviewOnRevert={requiresReviewOnRevert}
           />
         )}
         {logModal && revision && (
@@ -1185,6 +1202,7 @@ export default function FeaturesOverview({
             close={() => setReviewModal(false)}
             mutate={mutate}
             experimentsMap={experimentsMap}
+            isRevert={isRevert}
           />
         )}
         {draftModal && revision && (
@@ -1211,7 +1229,7 @@ export default function FeaturesOverview({
             trackingEventModalType=""
             open={true}
             close={() => setConfirmDiscard(false)}
-            header="Discard Draft"
+            header={isRevert ? "Discard Revert" : "Discard Draft"}
             cta={"Discard"}
             submitColor="danger"
             closeCta={"Cancel"}
@@ -1232,8 +1250,8 @@ export default function FeaturesOverview({
             }}
           >
             <p>
-              Are you sure you want to discard this draft? This action cannot be
-              undone.
+              Are you sure you want to discard this{" "}
+              {isRevert ? "revert" : "draft"}? This action cannot be undone.
             </p>
           </Modal>
         )}

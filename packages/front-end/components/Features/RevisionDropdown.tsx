@@ -78,6 +78,15 @@ export default function RevisionDropdown({
                 <Badge label="Locked" radius="full" color="gray" />
               ) : revision?.status === "discarded" ? (
                 <Badge label="Discarded" radius="full" color="red" />
+              ) : revision?.status === "pending-review" &&
+                revision?.datePublished !== null ? (
+                <Badge label="Revert Pending" radius="full" color="yellow" />
+              ) : revision?.status === "pending-review" ? (
+                <Badge label="Pending Review" radius="full" color="yellow" />
+              ) : revision?.status === "changes-requested" ? (
+                <Badge label="Changes Requested" radius="full" color="yellow" />
+              ) : revision?.status === "approved" ? (
+                <Badge label="Approved" radius="full" color="yellow" />
               ) : null}
             </Box>
           </Flex>

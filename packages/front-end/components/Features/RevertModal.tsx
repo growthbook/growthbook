@@ -16,6 +16,7 @@ export interface Props {
   close: () => void;
   mutate: () => void;
   setVersion: (version: number) => void;
+  requiresReviewOnRevert: boolean;
 }
 
 export default function RevertModal({
@@ -24,6 +25,7 @@ export default function RevertModal({
   close,
   mutate,
   setVersion,
+  requiresReviewOnRevert = false,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -65,6 +67,30 @@ export default function RevertModal({
     feature,
     getAffectedRevisionEnvs(feature, revision, environments),
   );
+  const submit = async () => {
+    if (requiresReviewOnRevert) {
+      await apiCall<{ version: number }>(
+        `/feature/${feature.id}/${revision.version}/request-revert-review`,
+        {
+          method: "POST",
+          body: JSON.stringify({ comment }),
+        },
+      );
+      await mutate();
+    } else {
+      const res = await apiCall<{ version: number }>(
+        `/feature/${feature.id}/${revision.version}/revert`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            comment,
+          }),
+        },
+      );
+      await mutate();
+      res && res.version && setVersion(res.version);
+    }
+  };
 
   return (
     <Modal
@@ -74,21 +100,12 @@ export default function RevertModal({
       submit={
         hasPermission
           ? async () => {
-              const res = await apiCall<{ version: number }>(
-                `/feature/${feature.id}/${revision.version}/revert`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    comment,
-                  }),
-                },
-              );
-              await mutate();
-              res && res.version && setVersion(res.version);
+              await submit();
+              close();
             }
           : undefined
       }
-      cta="Revert and Publish"
+      cta={requiresReviewOnRevert ? "Request Review" : "Revert and Publish"}
       close={close}
       closeCta="Cancel"
       size="max"

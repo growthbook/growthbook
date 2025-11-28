@@ -11,6 +11,7 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
+  checkIfRevisionNeedsReviewOnRevert,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -48,6 +49,7 @@ import {
   hasArchivedFeatures,
   migrateDraft,
   publishRevision,
+  requestReviewOnRevert,
   setDefaultValue,
   setJsonSchema,
   toggleFeatureEnvironment,
@@ -75,6 +77,7 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  discardRevisionRevert,
   getMinimalRevisions,
   getRevision,
   getLatestRevisions,
@@ -1041,15 +1044,68 @@ export async function postFeaturePublish(
     status: 200,
   });
 }
-
-export async function postFeatureRevert(
+export async function requestPostRevertReview(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
   const { comment } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+  const baseRevision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!baseRevision) {
+    throw new Error("Could not find base revision");
+  }
+  const revision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  if (!revision) {
+    throw new Error("Could not find revision");
+  }
+
+  const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
+    feature,
+    featureRevision: revision,
+    baseRevision,
+    settings: org.settings,
+  });
+  if (!requiresReviewOnRevert) {
+    throw new Error("review is not required on revert");
+  }
+
+  await requestReviewOnRevert(context, feature, revision, comment);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureRevert(
+  req: AuthRequest<
+    { comment: string; adminOverride?: boolean },
+    { id: string; version: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+  const { comment, adminOverride } = req.body;
 
   const feature = await getFeature(context, id);
 
@@ -1067,18 +1123,41 @@ export async function postFeatureRevert(
     featureId: feature.id,
     version: parseInt(version),
   });
-  if (!revision) {
+  const baseRevision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!revision || !baseRevision) {
     throw new Error("Could not find feature revision");
   }
 
-  if (revision.version === feature.version || revision.status !== "published") {
+  if (revision.version === feature.version || revision.datePublished === null) {
     throw new Error("Can only revert to previously published revisions");
   }
 
   if (!context.permissions.canUpdateFeature(feature, {})) {
     context.permissions.throwPermissionError();
   }
-
+  const requiresReviewOnRevert = checkIfRevisionNeedsReviewOnRevert({
+    feature,
+    featureRevision: revision,
+    baseRevision,
+    settings: org.settings,
+  });
+  if (adminOverride && requiresReviewOnRevert) {
+    if (!context.permissions.canBypassApprovalChecks(feature)) {
+      context.permissions.throwPermissionError();
+    }
+  }
+  if (
+    !adminOverride &&
+    requiresReviewOnRevert &&
+    revision.status !== "approved"
+  ) {
+    throw new Error("needs review before reverting");
+  }
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
@@ -1218,7 +1297,6 @@ export async function postFeatureDiscard(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
@@ -1229,9 +1307,11 @@ export async function postFeatureDiscard(
   ) {
     context.permissions.throwPermissionError();
   }
-
-  await discardRevision(context, revision, res.locals.eventAudit);
-
+  if (revision.datePublished) {
+    await discardRevisionRevert(context, revision, res.locals.eventAudit);
+  } else {
+    await discardRevision(context, revision, res.locals.eventAudit);
+  }
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
 
   if (!hasDrafts) {

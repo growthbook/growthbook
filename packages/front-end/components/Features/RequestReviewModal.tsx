@@ -35,11 +35,13 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  isRevert?: boolean;
 }
 type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
 export default function RequestReviewModal({
   feature,
+  isRevert = false,
   version,
   revisions,
   close,
@@ -73,6 +75,16 @@ export default function RequestReviewModal({
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
   const mergeResult = useMemo(() => {
+    if (isRevert) {
+      return {
+        success: true as const,
+        result: {
+          defaultValue: revision?.defaultValue,
+          rules: revision?.rules,
+        },
+        conflicts: [],
+      };
+    }
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
       liveRevision,
@@ -81,7 +93,7 @@ export default function RequestReviewModal({
       environments.map((e) => e.id),
       {},
     );
-  }, [revision, baseRevision, liveRevision, environments]);
+  }, [revision, baseRevision, liveRevision, environments, isRevert]);
 
   const [comment, setComment] = useState("");
 
@@ -133,6 +145,18 @@ export default function RequestReviewModal({
       }
       await mutate();
       close();
+    } else if (isRevert && approved) {
+      try {
+        await apiCall(`/feature/${feature.id}/${revision?.version}/revert`, {
+          method: "POST",
+          body: JSON.stringify({ comment, adminOverride: adminPublish }),
+        });
+      } catch (e) {
+        mutate();
+        throw e;
+      }
+      await mutate();
+      close();
     } else if (approved) {
       try {
         await apiCall(`/feature/${feature.id}/${revision?.version}/publish`, {
@@ -175,7 +199,7 @@ export default function RequestReviewModal({
     if (result.rules) {
       environments.forEach((env) => {
         const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
+        if (result?.rules && result?.rules[env.id]) {
           diffs.push({
             title: `Rules - ${env.id}`,
             a: JSON.stringify(liveRules, null, 2),
@@ -197,7 +221,9 @@ export default function RequestReviewModal({
 
   const hasChanges = mergeResultHasChanges(mergeResult);
   let ctaCopy = "Request Review";
-  if (approved && !hasNextStep) {
+  if (isRevert && approved) {
+    ctaCopy = "Revert and Publish";
+  } else if (approved && !hasNextStep) {
     ctaCopy = "Publish";
   } else if (canReview || hasNextStep) {
     ctaCopy = "Next";
@@ -221,7 +247,7 @@ export default function RequestReviewModal({
       <Modal
         trackingEventModalType=""
         open={true}
-        header={"Review Draft Changes"}
+        header={isRevert ? "Review Revert Changes" : "Review Draft Changes"}
         cta={ctaCopy}
         ctaEnabled={submitEnabled}
         close={close}
@@ -264,7 +290,7 @@ export default function RequestReviewModal({
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox
-                  label="Bypass approval requirement to publish (optional for Admins only)"
+                  label={`Bypass approval requirement to ${isRevert ? "revert and publish" : "publish"} (optional for Admins only)`}
                   value={adminPublish}
                   setValue={(val) => setAdminPublish(!!val)}
                 />
