@@ -30,14 +30,8 @@ import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validator
 import { CustomHookInterface } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { SavedGroupInterface } from "../types";
+import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
-class PermissionError extends Error {
-  status = 403;
-  constructor(message: string) {
-    super(message);
-    this.name = "PermissionError";
-  }
-}
 
 type NotificationEvent = {
   containsSecrets: boolean;

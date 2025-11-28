@@ -37,6 +37,7 @@ import {
   SQL_ROW_LIMIT,
 } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
+import { MissingDatasourceParamsError } from "shared/util";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -64,7 +65,6 @@ import {
   TestQueryResult,
   InformationSchema,
   RawInformationSchema,
-  MissingDatasourceParamsError,
   ExperimentUnitsQueryParams,
   QueryResponse,
   TrackedEventResponseRow,
