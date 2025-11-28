@@ -1,0 +1,23 @@
+anyOf:
+  - type: object
+    required:
+      - type
+      - hours
+    properties:
+      type:
+        type: string
+        enum:
+          - stale
+      hours:
+        type: number
+  - type: object
+    required:
+      - type
+      - cron
+    properties:
+      type:
+        type: string
+        enum:
+          - cron
+      cron:
+        type: string

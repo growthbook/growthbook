@@ -1,0 +1,17 @@
+allOf:
+  - $ref: "./BaseBlock.yaml"
+  - type: object
+    required:
+      - type
+      - savedQueryId
+    properties:
+      type:
+        type: string
+        enum:
+          - "sql-explorer"
+      savedQueryId:
+        type: string
+      blockConfig:
+        type: array
+        items:
+          type: string

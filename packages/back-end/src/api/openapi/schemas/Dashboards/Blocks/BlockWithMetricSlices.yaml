@@ -1,0 +1,15 @@
+type: object
+required:
+  - pinSource
+  - pinnedMetricSlices
+properties:
+    pinSource:
+      type: string
+      enum:
+        - experiment
+        - custom
+        - none
+    pinnedMetricSlices:
+      type: array
+      items:
+        type: string
