@@ -859,7 +859,7 @@ export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
       return createValidator;
     }
     getUpdateValidator() {
-      return updateValidator as UpdateZodObject<T>;
+      return updateValidator;
     }
   }
 
