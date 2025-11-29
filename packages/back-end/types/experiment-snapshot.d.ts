@@ -1,4 +1,5 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
+import { CovariateImbalanceResult } from "shared/src/enterprise/covariate-imbalance";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
@@ -135,6 +136,7 @@ export interface ExperimentSnapshotAnalysisSettings {
     start: Date;
     end: Date;
   };
+  useCovariateAsResponse?: boolean;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
@@ -236,6 +238,7 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
   power?: MidExperimentPowerCalculationResult;
+  covariateImbalance?: CovariateImbalanceResult;
 }
 
 export interface ExperimentSnapshotTraffic {

@@ -424,6 +424,11 @@ export function getAdditionalExperimentAnalysisSettings(
     ...defaultAnalysisSettings,
     differenceType: "scaled",
   });
+  additionalAnalyses.push({
+    ...defaultAnalysisSettings,
+    differenceType: "absolute",
+    useCovariateAsResponse: true,
+  });
 
   return additionalAnalyses;
 }
