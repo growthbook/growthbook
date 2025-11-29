@@ -197,7 +197,6 @@ class CreateStatistic:
                 post_pre_sum_of_products=post_pre_sum_of_products,
                 theta=None,
             )
-            stat.theta = stat.covariance / stat.pre_statistic.variance
             return stat
         elif self.statistic_type == "regression_adjusted_ratio":
             if self.x is None:
@@ -277,21 +276,29 @@ class CreateRow:
     def __init__(
         self,
         stat: TestStatistic,
-        dimension: str,
         variation: str,
+        dimension_name: str,
+        dimension_value: str,
+        dimension_two_name: Optional[str] = None,
+        dimension_two_value: Optional[str] = None,
     ):
         self.stat = stat
-        self.dimension = dimension
+        self.dimension_name = dimension_name
+        self.dimension_value = dimension_value
+        self.dimension_two_name = dimension_two_name
+        self.dimension_two_value = dimension_two_value
         self.variation = variation
 
     def create_row(self) -> Dict[str, Union[str, int, float]]:
         n = self.stat.n
         d = {
-            "dimension": self.dimension,
+            self.dimension_name: self.dimension_value,
             "variation": self.variation,
             "users": n,
             "count": n,
         }
+        if self.dimension_two_name:
+            d[self.dimension_two_name] = self.dimension_two_value
 
         if isinstance(self.stat, SampleMeanStatistic):
             return d | {

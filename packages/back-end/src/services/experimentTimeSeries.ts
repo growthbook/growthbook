@@ -221,6 +221,8 @@ function getExperimentSettingsHash(
     dimensions: snapshotAnalysisSettings.dimensions,
     statsEngine: snapshotAnalysisSettings.statsEngine,
     regressionAdjusted: snapshotAnalysisSettings.regressionAdjusted,
+    postStratificationEnabled:
+      snapshotAnalysisSettings.postStratificationEnabled,
     sequentialTesting: snapshotAnalysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       snapshotAnalysisSettings.sequentialTestingTuningParameter,
