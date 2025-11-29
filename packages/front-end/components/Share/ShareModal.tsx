@@ -11,7 +11,7 @@ import {
   DragDropContext,
   Droppable,
   Draggable,
-} from "react-beautiful-dnd";
+} from "@hello-pangea/dnd";
 import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
