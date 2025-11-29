@@ -743,6 +743,7 @@ export function DataVisualizationDisplay({
         axisLabel: {
           color: textColor,
         },
+        scale: true,
         type:
           xConfig?.type === "date"
             ? "time"
@@ -751,6 +752,7 @@ export function DataVisualizationDisplay({
               : "category",
       },
       yAxis: {
+        scale: true,
         name:
           yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
