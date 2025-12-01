@@ -414,16 +414,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <Callout status="warning" mt="3">
                       <Flex direction="column" gap="2">
                         <Text>
-                          This rule is using string comparison operators on
-                          version string attributes which can lead to unexpected
-                          behavior. Update the following attributes to use
-                          version-specific operators (e.g. use $vgt instead of
-                          $gt):{" "}
+                          This rule uses string operators on version attributes,
+                          which can have unintended effects. Edit this rule and
+                          change{" "}
                           <strong>
                             {attributesWithVersionStringOperatorMismatches.join(
                               ", ",
                             )}
-                          </strong>
+                          </strong>{" "}
+                          to use version operators ($vgt, $vlt, etc.) instead.
                         </Text>
                       </Flex>
                     </Callout>

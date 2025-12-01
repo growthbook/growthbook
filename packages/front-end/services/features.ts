@@ -72,7 +72,7 @@ export interface AttributeData {
   disableEqualityConditions?: boolean;
 }
 
-export const STRING_FORMAT_OPERATORS_MAP = {
+export const STRING_VERSION_FORMAT_OPERATORS_MAP = {
   $eq: "$veq",
   $ne: "$vne",
   $gt: "$vgt",
@@ -80,9 +80,11 @@ export const STRING_FORMAT_OPERATORS_MAP = {
   $lt: "$vlt",
   $lte: "$vlte",
 };
-export const STRING_OPERATORS = Object.keys(STRING_FORMAT_OPERATORS_MAP);
+export const STRING_OPERATORS = Object.keys(
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
+);
 export const STRING_VERSION_OPERATORS = Object.values(
-  STRING_FORMAT_OPERATORS_MAP,
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
 );
 
 export type NewExperimentRefRule = {
@@ -1368,13 +1370,13 @@ export function getFormatEquivalentOperator(
   }
 
   if (desiredFormat === "version" && !isVersionOperator) {
-    return STRING_FORMAT_OPERATORS_MAP[operator];
+    return STRING_VERSION_FORMAT_OPERATORS_MAP[operator];
   }
 
   if (desiredFormat !== "version" && isVersionOperator) {
     return (
-      Object.keys(STRING_FORMAT_OPERATORS_MAP).find(
-        (key) => STRING_FORMAT_OPERATORS_MAP[key] === operator,
+      Object.keys(STRING_VERSION_FORMAT_OPERATORS_MAP).find(
+        (key) => STRING_VERSION_FORMAT_OPERATORS_MAP[key] === operator,
       ) || null
     );
   }

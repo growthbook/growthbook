@@ -42,55 +42,6 @@ describe("ConditionInput", () => {
     });
   });
 
-  //   it("renders and properly initializes with string attribute using $gt", async () => {
-  //     const condition = stringify({ user_id: { $gt: "321" } });
-
-  //     render(
-  //       <ConditionInput
-  //         defaultValue={condition}
-  //         onChange={mockOnChange}
-  //         project=""
-  //       />,
-  //     );
-
-  //     // Verify it renders the condition
-  //     await waitFor(() => {
-  //       expect(screen.getByText("IF")).toBeInTheDocument();
-  //     });
-
-  //     // Check that onChange was called with the initial value
-  //     expect(mockOnChange).toHaveBeenCalled();
-  //     const lastCall =
-  //       mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1];
-  //     const outputCondition = JSON.parse(lastCall[0]);
-  //     expect(outputCondition).toEqual({ user_id: { $gt: "321" } });
-  //   });
-
-  //   it("renders and properly converts to version operators when initialized with version attribute", async () => {
-  //     // Initialize with a version attribute that should use $vgt
-  //     const condition = stringify({ version: { $vgt: "2.0.0" } });
-
-  //     render(
-  //       <ConditionInput
-  //         defaultValue={condition}
-  //         onChange={mockOnChange}
-  //         project=""
-  //       />,
-  //     );
-
-  //     // Verify it renders
-  //     await waitFor(() => {
-  //       expect(screen.getByText("IF")).toBeInTheDocument();
-  //     });
-
-  //     // Check that onChange maintains the version operator
-  //     expect(mockOnChange).toHaveBeenCalled();
-  //     const lastCall =
-  //       mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1];
-  //     const outputCondition = JSON.parse(lastCall[0]);
-  //     expect(outputCondition).toEqual({ version: { $vgt: "2.0.0" } });
-  //   });
-
   it("properly handles operator update when attribute changes", async () => {
     // Setup
     render(
