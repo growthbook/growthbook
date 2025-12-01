@@ -1,14 +1,11 @@
 export interface PrestoConnectionParams {
-  authType?: "basicAuth" | "none" | "customAuth" | "kerberos";
+  authType?: "basicAuth" | "none" | "customAuth";
   engine: "presto" | "trino";
   host: string;
   port: number;
   username?: string;
   password?: string;
   customAuth?: string;
-  kerberosServicePrincipal?: string;
-  kerberosClientPrincipal?: string;
-  kerberosUser?: string;
   source?: string;
   catalog: string;
   schema: string;
