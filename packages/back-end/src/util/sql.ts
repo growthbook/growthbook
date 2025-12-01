@@ -341,7 +341,7 @@ interface FormatWorkerPoolItem {
 class FormatWorkerPool {
   private pool: FormatWorkerPoolItem[] = [];
   private readonly minSize: number =
-    parseInt(process.env.FORMAT_WORKER_POOL_MIN_SIZE || "") || 1;
+    parseInt(process.env.FORMAT_WORKER_POOL_MIN_SIZE || "") || 0;
   private readonly maxSize: number =
     parseInt(process.env.FORMAT_WORKER_POOL_MIN_SIZE || "") || 2;
   private pendingTasks: Array<{
@@ -350,12 +350,8 @@ class FormatWorkerPool {
     reject: (error: Error) => void;
     onError?: (error: FormatError) => void;
   }> = [];
-  private initialized = false;
 
-  private ensureInitialized(): void {
-    if (this.initialized) return;
-    this.initialized = true;
-
+  constructor() {
     // Initialize with minimum pool size
     for (let i = 0; i < this.minSize; i++) {
       this.createWorker();
@@ -454,8 +450,6 @@ class FormatWorkerPool {
     dialect?: FormatDialect,
     onError?: (error: FormatError) => void,
   ): Promise<string> {
-    this.ensureInitialized();
-
     return new Promise((resolve, reject) => {
       const message: FormatMessage = { sql, dialect };
       const task = { message, resolve, reject, onError };
@@ -471,11 +465,10 @@ class FormatWorkerPool {
   }
 
   public async shutdown(): Promise<void> {
-    if (!this.initialized || this.pool.length === 0) return;
+    if (this.pool.length === 0) return;
     await Promise.all(this.pool.map((item) => item.worker.terminate()));
     this.pool = [];
     this.pendingTasks = [];
-    this.initialized = false;
   }
 }
 
@@ -490,7 +483,6 @@ const cleanup = () => {
 };
 
 process.on("beforeExit", cleanup);
-process.on("exit", cleanup);
 
 /**
  * Shut down the worker pool. This should be called when the application exits

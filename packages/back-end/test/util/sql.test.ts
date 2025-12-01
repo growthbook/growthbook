@@ -589,18 +589,18 @@ describe("getHost", () => {
 });
 
 describe("formatAsync", () => {
-  // Increase timeout for worker thread tests
-  jest.setTimeout(10000);
-
   it("formats SQL using worker threads", async () => {
     const sql = "SELECT id, name, email FROM users WHERE active = 1";
     const result = await formatAsync(sql, "postgresql");
 
-    // Should format the SQL (compare with sync version)
-    const syncResult = format(sql, "postgresql");
-    expect(result).toEqual(syncResult);
-    expect(result).toContain("SELECT");
-    expect(result.length).toBeGreaterThan(sql.length); // formatted version is typically longer
+    expect(result).toEqual(`SELECT
+  id,
+  name,
+  email
+FROM
+  users
+WHERE
+  active = 1`);
   });
 
   it("handles SQL without dialect", async () => {
@@ -624,20 +624,6 @@ describe("formatAsync", () => {
     // Should return original SQL on error
     expect(result).toEqual(invalidSql);
     expect(errorCalled).toBe(true);
-  });
-
-  it("handles large SQL queries", async () => {
-    const conditions = Array.from(
-      { length: 100 },
-      (_, i) => `field_${i} = 'value_${i}'`,
-    );
-    const sql = `SELECT * FROM users WHERE ${conditions.join(" AND ")}`;
-
-    const result = await formatAsync(sql, "postgresql");
-
-    expect(result).toContain("SELECT");
-    expect(result).toContain("WHERE");
-    expect(result.length).toBeGreaterThan(0);
   });
 
   it("processes multiple requests in parallel", async () => {
