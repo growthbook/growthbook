@@ -8,11 +8,13 @@ import { CustomMetricSlice } from "back-end/src/validators/experiments";
 import { FactTableInterface } from "back-end/types/fact-table";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { PiSlidersHorizontal, PiArrowSquareOut } from "react-icons/pi";
+import { PiChartPieSlice, PiArrowSquareOut } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
 import MetricExplorerMetricSliceSelector from "./MetricExplorerMetricSliceSelector";
 
 interface Props {
@@ -59,36 +61,46 @@ export default function MetricSlicesSection({
             <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
               <Flex justify="between" align="center">
                 <Flex align="center" gap="1">
-                  <PiSlidersHorizontal
+                  <PiChartPieSlice
                     style={{
                       color: "var(--violet-11)",
                     }}
                     size={20}
                   />
                   Metric Slices
+                  <Badge
+                    label={
+                      (
+                        (block.analysisSettings.metricAutoSlices?.length || 0) +
+                        (block.analysisSettings.customMetricSlices?.length || 0)
+                      ).toString() || "0"
+                    }
+                    color="violet"
+                    radius="full"
+                    variant="soft"
+                  />
                 </Flex>
-                {/* //MKTODO: Not sure if this should be clearable yet */}
                 <Flex align="center" gap="1">
-                  {/* <Button
-                  variant="ghost"
-                  color="red"
-                  disabled={
-                    block.analysisSettings.numeratorFilters?.length === 0 &&
-                    block.analysisSettings.denominatorFilters?.length === 0
-                  }
-                  onClick={() => {
-                    setBlock({
-                      ...block,
-                      analysisSettings: {
-                        ...block.analysisSettings,
-                        numeratorFilters: [],
-                        denominatorFilters: [],
-                      },
-                    });
-                  }}
-                >
-                  Clear
-                </Button> */}
+                  <Button
+                    variant="ghost"
+                    color="red"
+                    disabled={
+                      block.analysisSettings.metricAutoSlices?.length === 0 &&
+                      block.analysisSettings.customMetricSlices?.length === 0
+                    }
+                    onClick={() => {
+                      setBlock({
+                        ...block,
+                        analysisSettings: {
+                          ...block.analysisSettings,
+                          metricAutoSlices: [],
+                          customMetricSlices: [],
+                        },
+                      });
+                    }}
+                  >
+                    Clear
+                  </Button>
                   <FaAngleRight className="chevron" />
                 </Flex>
               </Flex>
