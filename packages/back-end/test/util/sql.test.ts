@@ -6,6 +6,7 @@ import {
   replaceCountStar,
   determineColumnTypes,
   getHost,
+  formatAsync,
 } from "back-end/src/util/sql";
 
 describe("backend", () => {
@@ -584,5 +585,75 @@ describe("getHost", () => {
   });
   it("tries best if URL is malformed", () => {
     expect(getHost("localhost", 8080)).toEqual("http://localhost:8080");
+  });
+});
+
+describe("formatAsync", () => {
+  // Increase timeout for worker thread tests
+  jest.setTimeout(10000);
+
+  it("formats SQL using worker threads", async () => {
+    const sql = "SELECT id, name, email FROM users WHERE active = 1";
+    const result = await formatAsync(sql, "postgresql");
+
+    // Should format the SQL (compare with sync version)
+    const syncResult = format(sql, "postgresql");
+    expect(result).toEqual(syncResult);
+    expect(result).toContain("SELECT");
+    expect(result.length).toBeGreaterThan(sql.length); // formatted version is typically longer
+  });
+
+  it("handles SQL without dialect", async () => {
+    const sql = "SELECT * FROM users";
+    const result = await formatAsync(sql);
+
+    // Without dialect, should return original SQL
+    expect(result).toEqual(sql);
+  });
+
+  it("handles formatting errors gracefully", async () => {
+    const invalidSql = "SELECT ((( INVALID";
+    let errorCalled = false;
+
+    const result = await formatAsync(invalidSql, "postgresql", (error) => {
+      errorCalled = true;
+      expect(error.error).toBeDefined();
+      expect(error.originalSql).toEqual(invalidSql);
+    });
+
+    // Should return original SQL on error
+    expect(result).toEqual(invalidSql);
+    expect(errorCalled).toBe(true);
+  });
+
+  it("handles large SQL queries", async () => {
+    const conditions = Array.from(
+      { length: 100 },
+      (_, i) => `field_${i} = 'value_${i}'`,
+    );
+    const sql = `SELECT * FROM users WHERE ${conditions.join(" AND ")}`;
+
+    const result = await formatAsync(sql, "postgresql");
+
+    expect(result).toContain("SELECT");
+    expect(result).toContain("WHERE");
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("processes multiple requests in parallel", async () => {
+    const queries = Array.from(
+      { length: 5 },
+      (_, i) => `SELECT id, name FROM table_${i} WHERE status = 'active'`,
+    );
+
+    const results = await Promise.all(
+      queries.map((sql) => formatAsync(sql, "postgresql")),
+    );
+
+    expect(results).toHaveLength(5);
+    results.forEach((result, i) => {
+      expect(result).toContain("SELECT");
+      expect(result).toContain(`table_${i}`);
+    });
   });
 });

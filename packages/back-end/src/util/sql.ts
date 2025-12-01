@@ -350,8 +350,12 @@ class FormatWorkerPool {
     reject: (error: Error) => void;
     onError?: (error: FormatError) => void;
   }> = [];
+  private initialized = false;
 
-  constructor() {
+  private ensureInitialized(): void {
+    if (this.initialized) return;
+    this.initialized = true;
+
     // Initialize with minimum pool size
     for (let i = 0; i < this.minSize; i++) {
       this.createWorker();
@@ -359,7 +363,16 @@ class FormatWorkerPool {
   }
 
   private createWorker(): FormatWorkerPoolItem {
-    const worker = new Worker(path.join(__dirname, "sql-format.worker.js"));
+    // In tests, __dirname points to src/util, in production it points to dist/util
+    // Try to find the worker file in the correct location
+    let workerPath = path.join(__dirname, "sql-format.worker.js");
+
+    // If running from TypeScript source (tests), point to compiled version
+    if (__dirname.includes("/src/")) {
+      workerPath = path.join(__dirname, "../../dist/util/sql-format.worker.js");
+    }
+
+    const worker = new Worker(workerPath);
     const poolItem: FormatWorkerPoolItem = { worker, busy: false };
 
     worker.on("error", () => {
@@ -441,6 +454,8 @@ class FormatWorkerPool {
     dialect?: FormatDialect,
     onError?: (error: FormatError) => void,
   ): Promise<string> {
+    this.ensureInitialized();
+
     return new Promise((resolve, reject) => {
       const message: FormatMessage = { sql, dialect };
       const task = { message, resolve, reject, onError };
@@ -456,19 +471,34 @@ class FormatWorkerPool {
   }
 
   public async shutdown(): Promise<void> {
+    if (!this.initialized || this.pool.length === 0) return;
     await Promise.all(this.pool.map((item) => item.worker.terminate()));
     this.pool = [];
     this.pendingTasks = [];
+    this.initialized = false;
   }
 }
 
 // Global worker pool instance
 const workerPool = new FormatWorkerPool();
 
-// Clean up worker pool on process exit
-process.on("beforeExit", () => {
-  workerPool.shutdown();
-});
+// Clean up worker pool on process exit and test completion
+const cleanup = () => {
+  workerPool.shutdown().catch(() => {
+    /* ignore cleanup errors */
+  });
+};
+
+process.on("beforeExit", cleanup);
+process.on("exit", cleanup);
+
+/**
+ * Shut down the worker pool. This should be called when the application exits
+ * or in test cleanup (afterAll) to ensure worker threads are properly terminated.
+ */
+export async function shutdownFormatWorkerPool(): Promise<void> {
+  await workerPool.shutdown();
+}
 
 /**
  * Format SQL asynchronously using a worker thread pool to avoid blocking the main thread.
