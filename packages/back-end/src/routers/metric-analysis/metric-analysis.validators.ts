@@ -81,34 +81,53 @@ export const metricAnalysisResultValidator = z
           stddev: z.number().optional(),
           numerator: z.number().optional(),
           denominator: z.number().optional(),
-          slice: z.record(z.string(), z.string().nullable()).optional(), // Map of column -> value for slices
+          // Per-slice metrics for this date (supports multi-dimension slices)
+          slices: z
+            .array(
+              z
+                .object({
+                  slice: z.record(z.string(), z.string().nullable()).optional(), // Map of column -> value for slices
+                  units: z.number(),
+                  mean: z.number(),
+                  stddev: z.number().optional(),
+                  numerator: z.number().optional(),
+                  denominator: z.number().optional(),
+                })
+                .strict(),
+            )
+            .optional(),
         }),
       )
       .optional(),
     histogram: metricAnalysisHistogramValidator.optional(),
+    // Overall per-slice aggregates (including their own date series and histogram)
     slices: z
       .array(
-        z.object({
-          slice: z.record(z.string(), z.string().nullable()), // Map of column -> value
-          units: z.number(),
-          mean: z.number(),
-          stddev: z.number().optional(),
-          numerator: z.number().optional(),
-          denominator: z.number().optional(),
-          dates: z
-            .array(
-              z.object({
-                date: z.date(),
-                units: z.number(),
-                mean: z.number(),
-                stddev: z.number().optional(),
-                numerator: z.number().optional(),
-                denominator: z.number().optional(),
-              }),
-            )
-            .optional(),
-          histogram: metricAnalysisHistogramValidator.optional(),
-        }),
+        z
+          .object({
+            slice: z.record(z.string(), z.string().nullable()), // Map of column -> value
+            units: z.number(),
+            mean: z.number(),
+            stddev: z.number().optional(),
+            numerator: z.number().optional(),
+            denominator: z.number().optional(),
+            dates: z
+              .array(
+                z
+                  .object({
+                    date: z.date(),
+                    units: z.number(),
+                    mean: z.number(),
+                    stddev: z.number().optional(),
+                    numerator: z.number().optional(),
+                    denominator: z.number().optional(),
+                  })
+                  .strict(),
+              )
+              .optional(),
+            histogram: metricAnalysisHistogramValidator.optional(),
+          })
+          .strict(),
       )
       .optional(),
   })
