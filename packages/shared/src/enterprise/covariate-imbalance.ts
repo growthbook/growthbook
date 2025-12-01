@@ -111,7 +111,11 @@ function tabulateCovariateImbalanceByGroup(
         const baselineMetric = getMetric(baselineMetrics, metricId);
         const treatmentMetric = getMetric(treatmentMetrics, metricId);
 
-        if (!baselineMetric || !treatmentMetric) {
+        if (
+          !baselineMetric ||
+          !treatmentMetric ||
+          treatmentMetric.errorMessage
+        ) {
           continue;
         }
 

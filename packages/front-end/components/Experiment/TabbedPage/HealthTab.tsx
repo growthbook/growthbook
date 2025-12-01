@@ -58,8 +58,8 @@ export default function HealthTab({
   );
 
   const isEligibleForCovariateImbalanceAnalysis =
-    Boolean(analysisForCovariateImbalance) && (
-      goalMetrics.length > 0 ||
+    Boolean(analysisForCovariateImbalance) &&
+    (goalMetrics.length > 0 ||
       guardrailMetrics.length > 0 ||
       secondaryMetrics.length > 0);
 
@@ -72,9 +72,6 @@ export default function HealthTab({
           secondaryMetrics,
         )
       : null;
-  console.log("tristan experiment", experiment);
-  console.log("yvette _covariateImbalanceResult", _covariateImbalanceResult);
-
   const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -92,6 +89,7 @@ export default function HealthTab({
       permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
     false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
+  console.log("tristan healthIssues", healthIssues);
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -289,7 +287,10 @@ export default function HealthTab({
 
   return (
     <div className="mt-2">
-      <IssueTags issues={healthIssues} />
+      <IssueTags
+        issues={healthIssues}
+        hasCovariateImbalance={_covariateImbalanceResult?.isImbalanced ?? false}
+      />
       <TrafficCard
         traffic={traffic}
         variations={variations}

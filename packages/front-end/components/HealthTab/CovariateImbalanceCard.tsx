@@ -11,6 +11,7 @@ import {
   CovariateImbalanceMetricSummaryTable,
 } from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import Callout from "@/ui/Callout";
 import CovariateImbalanceWarning from "../Experiment/CovariateImbalanceWarning";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
@@ -47,13 +48,17 @@ export default function CovariateImbalanceCard({
     : "healthy";
 
   useEffect(() => {
-    if (covariateImbalanceHealth === "unhealthy") {
-      onNotify &&
-        onNotify({ label: "Covariate Imbalance", value: "balanceCheck" });
+    if (covariateImbalanceHealth === "unhealthy" && onNotify) {
+      onNotify({
+        label: "Covariate Imbalance",
+        value: "covariateBalanceCheck",
+      });
     }
   }, [covariateImbalanceHealth, onNotify]);
 
   const classes = !newDesign ? "appbox container-fluid my-4 pl-3 py-3" : "";
+
+  const numGoalMetricsTested = covariateImbalanceResult?.numGoalMetrics;
 
   return (
     <div
@@ -72,25 +77,39 @@ export default function CovariateImbalanceCard({
           <StatusBadge status={covariateImbalanceHealth} />
         )}
         <p className="mt-1">
-          Pre-experiment metric imbalances across control and treatment groups
-          by metric type.
+          Detects pre-experiment metric imbalances across control and treatment
+          groups.
         </p>
         <hr className="mb-0"></hr>
         <div style={{ paddingTop: "10px" }}>
-          <div className="mb-4">
-            {CovariateImbalanceMetricSummaryTable(covariateImbalanceResult)}
-          </div>
-          <div className="row justify-content-start w-100 overflow-auto">
-            <CovariateImbalanceMetricVariationTable
-              covariateImbalanceResult={covariateImbalanceResult}
-              variations={variations}
-            />
-          </div>
-          <div>
-            {covariateImbalanceHealth === "unhealthy" && (
-              <CovariateImbalanceWarning />
-            )}
-          </div>
+          {numGoalMetricsTested === 0 ? (
+            <div className="ml-2 mr-2 mt-1 w-100">
+              <Callout status="info" contentsAs="div">
+                <b>No Goal Metrics had covariates tested.</b>
+              </Callout>
+            </div>
+          ) : covariateImbalanceHealth === "healthy" ? (
+            <div className="ml-2 mr-2 mt-1 w-100">
+              <Callout status="info" contentsAs="div">
+                <b>Covariate imbalances were not detected.</b>
+              </Callout>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4">
+                {CovariateImbalanceMetricSummaryTable(covariateImbalanceResult)}
+              </div>
+              <div className="row justify-content-start w-100 overflow-auto">
+                <CovariateImbalanceMetricVariationTable
+                  covariateImbalanceResult={covariateImbalanceResult}
+                  variations={variations}
+                />
+              </div>
+              <div>
+                <CovariateImbalanceWarning />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
