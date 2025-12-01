@@ -6730,7 +6730,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         , __filteredNewExposures AS (
           SELECT 
             ${this.castToString(`${baseIdType}`)} AS ${baseIdType}
-            , variation_id AS variation
+            , ${this.castToString(`variation_id`)} AS variation
             , timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
