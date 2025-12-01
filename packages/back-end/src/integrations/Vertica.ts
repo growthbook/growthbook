@@ -69,7 +69,9 @@ export default class Vertica extends SqlIntegration {
     WHERE ${this.getInformationSchemaWhereClause()}
     GROUP BY table_name, table_schema, '${this.getDefaultDatabase()}'`;
 
-    const results = await this.runQuery(await formatAsync(sql, this.getFormatDialect()));
+    const results = await this.runQuery(
+      await formatAsync(sql, this.getFormatDialect()),
+    );
 
     if (!results.rows.length) {
       throw new Error(`No tables found.`);

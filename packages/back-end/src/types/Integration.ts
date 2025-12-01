@@ -847,7 +847,9 @@ export interface SourceIntegrationInterface {
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): Promise<string>;
+  getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+  ): Promise<string>;
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
   ): string;

@@ -138,7 +138,9 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  async getExperimentUnitsTableQuery(_: ExperimentUnitsQueryParams): Promise<string> {
+  async getExperimentUnitsTableQuery(
+    _: ExperimentUnitsQueryParams,
+  ): Promise<string> {
     throw new Error("Method not implemented.");
   }
   runExperimentUnitsQuery(

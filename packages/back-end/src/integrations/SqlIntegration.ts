@@ -36,8 +36,13 @@ import {
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
 } from "shared/sql";
-import { formatAsync } from "back-end/src/util/sql";
 import { FormatDialect } from "shared/src/types";
+import {
+  formatAsync,
+  getBaseIdTypeAndJoins,
+  compileSqlTemplate,
+  replaceCountStar,
+} from "back-end/src/util/sql";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -123,11 +128,6 @@ import {
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
-import {
-  getBaseIdTypeAndJoins,
-  compileSqlTemplate,
-  replaceCountStar,
-} from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import {
   ExperimentSnapshotSettings,
@@ -1929,7 +1929,9 @@ export default abstract class SqlIntegration
     );
   }
 
-  async getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): Promise<string> {
+  async getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+  ): Promise<string> {
     if (!params.unitsTableFullName) {
       throw new Error("Units table full name is required");
     }
