@@ -89,7 +89,6 @@ export default function HealthTab({
       permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
     false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
-  console.log("tristan healthIssues", healthIssues);
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
