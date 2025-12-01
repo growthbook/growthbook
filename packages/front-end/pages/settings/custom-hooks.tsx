@@ -123,6 +123,7 @@ function CustomHooksModal({
       code: current?.code || "",
       projects: current?.projects || [],
       enabled: current?.enabled ?? true,
+      incrementalChangesOnly: current?.incrementalChangesOnly || false,
     },
   });
 
@@ -263,6 +264,13 @@ function CustomHooksModal({
             setValue={(value) => form.setValue("code", value)}
             placeholder={hookTypeData?.example || ""}
             onCtrlEnter={runTest}
+          />
+
+          <Checkbox
+            label="Incremental Changes Only"
+            value={form.watch("incrementalChangesOnly") || false}
+            setValue={(value) => form.setValue("incrementalChangesOnly", value)}
+            description="Ignore this hook if the same error was already present before attempting to save."
           />
         </div>
         <div style={{ width: "50%" }}>
