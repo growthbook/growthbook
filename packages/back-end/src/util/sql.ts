@@ -359,15 +359,13 @@ class FormatWorkerPool {
   }
 
   private createWorker(): FormatWorkerPoolItem {
-    // In tests, __dirname points to src/util, in production it points to dist/util
-    // Try to find the worker file in the correct location
-    let workerPath = path.join(__dirname, "sql-format.worker.js");
-
-    // If running from TypeScript source (tests), point to compiled version
-    if (__dirname.includes("/src/")) {
-      workerPath = path.join(__dirname, "../../dist/util/sql-format.worker.js");
-    }
-
+    const workerPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "scripts",
+      "sql-format.worker.mjs",
+    );
     const worker = new Worker(workerPath);
     const poolItem: FormatWorkerPoolItem = { worker, busy: false };
 
