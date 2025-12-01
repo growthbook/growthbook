@@ -10,7 +10,10 @@ import {
   ratioVarianceFromSums,
   returnZeroIfNotFinite,
 } from "shared/util";
-import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
+import {
+  DEFAULT_METRIC_HISTOGRAM_BINS,
+  MAX_METRICS_IN_METRIC_ANALYSIS_QUERY,
+} from "shared/constants";
 import {
   MetricAnalysisHistogram,
   MetricAnalysisInterface,
@@ -22,7 +25,6 @@ import {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
 } from "back-end/src/types/Integration";
-import { MAX_METRICS_IN_METRIC_ANALYSIS_QUERY } from "../integrations/SqlIntegration";
 import { getMetricWithFiltersApplied } from "../services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 

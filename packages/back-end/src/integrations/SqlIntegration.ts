@@ -31,6 +31,7 @@ import {
   DEFAULT_METRIC_HISTOGRAM_BINS,
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
+  MAX_METRICS_IN_METRIC_ANALYSIS_QUERY,
 } from "shared/constants";
 import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
 import {
@@ -152,7 +153,6 @@ import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
-export const MAX_METRICS_IN_METRIC_ANALYSIS_QUERY = 100;
 export const MAX_METRICS_IN_FACT_METRIC_QUERY = 100;
 export const TEST_QUERY_SQL = "SELECT 1";
 
@@ -1000,8 +1000,6 @@ export default abstract class SqlIntegration
       to: settings.endDate ?? undefined,
       forcedBaseIdType: settings.userIdType,
     });
-
-    // factTable already declared above for slice processing
 
     const metricData = metricsWithIndices.map((metricWithIndex) =>
       this.getMetricData(

@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Flex, Text, Box, Separator } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
@@ -9,12 +9,15 @@ import { FactTableInterface } from "back-end/types/fact-table";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { PiChartPieSlice, PiArrowSquareOut } from "react-icons/pi";
+import { MAX_METRICS_IN_METRIC_ANALYSIS_QUERY } from "shared/constants";
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import { RadixStatusIcon, getRadixColor } from "@/ui/HelperText";
 import MetricExplorerMetricSliceSelector from "./MetricExplorerMetricSliceSelector";
 
 interface Props {
@@ -30,12 +33,50 @@ export default function MetricSlicesSection({
   setBlock,
   factTable,
 }: Props) {
+  const [showMaxSlicesWarning, setShowMaxSlicesWarning] = useState(false);
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
-  const availableSlices =
-    factTable?.columns?.filter(
-      (col) => col.isAutoSliceColumn && !col.deleted,
-    ) || [];
+  const availableSlices = useMemo(() => {
+    return (
+      factTable?.columns?.filter(
+        (col) => col.isAutoSliceColumn && !col.deleted,
+      ) || []
+    );
+  }, [factTable]);
+
+  useEffect(() => {
+    // We start at 1 b/c the main metric is considered a slice
+    let numOfSlices = 1;
+
+    if (
+      block.analysisSettings?.metricAutoSlices?.length &&
+      block.analysisSettings.metricAutoSlices.length > 0
+    ) {
+      block.analysisSettings.metricAutoSlices.forEach((autoSlice) => {
+        const numOfSliceVariants =
+          availableSlices.find((slice) => slice.column === autoSlice)
+            ?.autoSlices?.length || 0;
+        numOfSlices += numOfSliceVariants;
+      });
+    }
+    if (
+      block.analysisSettings?.customMetricSlices?.length &&
+      block.analysisSettings.customMetricSlices.length > 0
+    ) {
+      numOfSlices += block.analysisSettings.customMetricSlices.length;
+    }
+
+    if (numOfSlices > MAX_METRICS_IN_METRIC_ANALYSIS_QUERY) {
+      setShowMaxSlicesWarning(true);
+    } else {
+      setShowMaxSlicesWarning(false);
+    }
+  }, [
+    availableSlices,
+    block.analysisSettings?.customMetricSlices,
+    block.analysisSettings.metricAutoSlices,
+  ]);
+
   return (
     <Flex
       direction="column"
@@ -81,6 +122,11 @@ export default function MetricSlicesSection({
                   />
                 </Flex>
                 <Flex align="center" gap="1">
+                  {showMaxSlicesWarning ? (
+                    <Text color={getRadixColor("warning")}>
+                      <RadixStatusIcon status="warning" size="md" />
+                    </Text>
+                  ) : null}
                   <Button
                     variant="ghost"
                     color="red"
@@ -110,6 +156,13 @@ export default function MetricSlicesSection({
         transitionTime={100}
       >
         <Box p="4" height="fit-content">
+          {showMaxSlicesWarning && (
+            <Callout status="warning" mb="2">
+              You have exceeded the maximum number of slices allowed (
+              {MAX_METRICS_IN_METRIC_ANALYSIS_QUERY}). Any slices beyond the
+              limit will not be analyzed.
+            </Callout>
+          )}
           <Flex direction="column" gap="4">
             <div>
               <label className="font-weight-bold mb-1">
