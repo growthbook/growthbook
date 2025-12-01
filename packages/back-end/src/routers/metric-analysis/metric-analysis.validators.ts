@@ -100,36 +100,6 @@ export const metricAnalysisResultValidator = z
       )
       .optional(),
     histogram: metricAnalysisHistogramValidator.optional(),
-    // Overall per-slice aggregates (including their own date series and histogram)
-    slices: z
-      .array(
-        z
-          .object({
-            slice: z.record(z.string(), z.string().nullable()), // Map of column -> value
-            units: z.number(),
-            mean: z.number(),
-            stddev: z.number().optional(),
-            numerator: z.number().optional(),
-            denominator: z.number().optional(),
-            dates: z
-              .array(
-                z
-                  .object({
-                    date: z.date(),
-                    units: z.number(),
-                    mean: z.number(),
-                    stddev: z.number().optional(),
-                    numerator: z.number().optional(),
-                    denominator: z.number().optional(),
-                  })
-                  .strict(),
-              )
-              .optional(),
-            histogram: metricAnalysisHistogramValidator.optional(),
-          })
-          .strict(),
-      )
-      .optional(),
   })
   .strict();
 

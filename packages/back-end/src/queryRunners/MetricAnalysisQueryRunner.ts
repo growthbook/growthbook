@@ -1,5 +1,9 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { isBinomialMetric, isRatioMetric } from "shared/experiments";
+import {
+  isBinomialMetric,
+  isRatioMetric,
+  parseSliceMetricId,
+} from "shared/experiments";
 import {
   meanVarianceFromSums,
   proportionVarianceFromSums,
@@ -18,6 +22,7 @@ import {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
 } from "back-end/src/types/Integration";
+import { MAX_METRICS_IN_METRIC_ANALYSIS_QUERY } from "../integrations/SqlIntegration";
 import { getMetricWithFiltersApplied } from "../services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -116,84 +121,169 @@ export function processMetricAnalysisQueryResponse(
   metric: FactMetricInterface,
 ): MetricAnalysisResult {
   const ret: MetricAnalysisResult = { units: 0, mean: 0, stddev: 0 };
+  // Index per date for chart-friendly shape including per-slice values
+  const dateIndex = new Map<
+    number,
+    NonNullable<MetricAnalysisResult["dates"]>[0]
+  >();
+
+  const getOrCreateDateEntry = (date: Date) => {
+    const ts = date.getTime();
+    let entry = dateIndex.get(ts);
+    if (!entry) {
+      entry = {
+        date,
+        units: 0,
+        mean: 0,
+      };
+      dateIndex.set(ts, entry);
+    }
+    return entry;
+  };
+
+  // Track slice results for building dates[].slices (no longer building top-level slices array)
 
   rows.forEach((row) => {
-    const {
-      date,
-      data_type,
-      units,
-      main_sum,
-      main_sum_squares,
-      denominator_sum,
-      denominator_sum_squares,
-      main_denominator_sum_product,
-    } = row;
-    let mean: number;
-    let stddev: number;
-    if (isRatioMetric(metric)) {
-      mean = main_sum / (denominator_sum ?? 0);
-      stddev = Math.sqrt(
-        ratioVarianceFromSums({
-          numerator_sum: main_sum,
-          numerator_sum_squares: main_sum_squares,
-          denominator_sum: denominator_sum ?? 0,
-          denominator_sum_squares: denominator_sum_squares ?? 0,
-          numerator_denominator_sum_product: main_denominator_sum_product ?? 0,
-          n: units,
-        }),
-      );
-    } else if (isBinomialMetric(metric)) {
-      mean = main_sum / units;
-      stddev = mean * Math.sqrt(proportionVarianceFromSums(main_sum, units));
-    } else {
-      mean = main_sum / units;
-      stddev = Math.sqrt(
-        meanVarianceFromSums(main_sum, main_sum_squares, units),
-      );
-    }
-    // Row for each date
-    if (data_type === "date") {
-      // remove unmatched dates
-      if (date) {
-        ret.dates = ret.dates || [];
-        ret.dates.push({
-          date: getValidDateOffsetByUTC(date),
-          units,
-          mean: returnZeroIfNotFinite(mean),
-          stddev: returnZeroIfNotFinite(stddev),
-          numerator: main_sum,
-          denominator: denominator_sum,
-        });
-      }
-    }
-    // Overall numbers
-    else {
-      if (row[`bin_width`]) {
-        const histogram: MetricAnalysisHistogram = [
-          ...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys(),
-        ].map((i) => {
-          type RowType = keyof typeof row;
-          const bin_width = row[`bin_width`] ?? 0;
-          const value_min = row["value_min"] ?? 0;
-          const units_bin = row[`units_bin_${i}` as RowType] as number;
-          return {
-            start: (row[`bin_width`] ?? 0) * i + value_min,
-            end: bin_width * (i + 1) + value_min,
-            units: units_bin ?? 0,
-          };
-        });
-        ret.histogram = histogram;
+    const { date, data_type, units } = row;
+
+    for (let i = 0; i < MAX_METRICS_IN_METRIC_ANALYSIS_QUERY; i++) {
+      const prefix = `m${i}_`;
+      const idKey = `${prefix}id`;
+      const metricIdRaw = row[idKey];
+      if (!metricIdRaw) {
+        // Metrics are contiguous from m0_, so we can stop when we hit the first missing id
+        break;
       }
 
-      ret.units = units;
-      ret.mean = returnZeroIfNotFinite(mean);
-      ret.stddev = returnZeroIfNotFinite(stddev);
-      ret.numerator = main_sum;
-      ret.denominator = denominator_sum;
+      const metricId = String(metricIdRaw);
+      const sliceInfo = parseSliceMetricId(metricId);
+
+      // Only operate on metrics that correspond to the requested base metric
+      if (sliceInfo.baseMetricId !== metric.id) {
+        continue;
+      }
+
+      const mainSum = Number(row[`${prefix}main_sum`] ?? 0);
+      const mainSumSquares = Number(row[`${prefix}main_sum_squares`] ?? 0);
+      const denominatorSumRaw = row[`${prefix}denominator_sum`];
+      const denominatorSum =
+        denominatorSumRaw === undefined ? undefined : Number(denominatorSumRaw);
+      const denominatorSumSquaresRaw = row[`${prefix}denominator_sum_squares`];
+      const denominatorSumSquares =
+        denominatorSumSquaresRaw === undefined
+          ? undefined
+          : Number(denominatorSumSquaresRaw);
+      const mainDenominatorSumProductRaw =
+        row[`${prefix}main_denominator_sum_product`];
+      const mainDenominatorSumProduct =
+        mainDenominatorSumProductRaw === undefined
+          ? undefined
+          : Number(mainDenominatorSumProductRaw);
+
+      let mean: number;
+      let stddev: number;
+      if (isRatioMetric(metric)) {
+        const denom = denominatorSum ?? 0;
+        mean = denom === 0 ? 0 : mainSum / denom;
+        stddev = Math.sqrt(
+          ratioVarianceFromSums({
+            numerator_sum: mainSum,
+            numerator_sum_squares: mainSumSquares,
+            denominator_sum: denom,
+            denominator_sum_squares: denominatorSumSquares ?? 0,
+            numerator_denominator_sum_product: mainDenominatorSumProduct ?? 0,
+            n: units,
+          }),
+        );
+      } else if (isBinomialMetric(metric)) {
+        mean = units === 0 ? 0 : mainSum / units;
+        stddev = mean * Math.sqrt(proportionVarianceFromSums(mainSum, units));
+      } else {
+        mean = units === 0 ? 0 : mainSum / units;
+        stddev = Math.sqrt(
+          meanVarianceFromSums(mainSum, mainSumSquares, units),
+        );
+      }
+
+      // Base metric (no slice) uses overall and per-date series
+      if (!sliceInfo.isSliceMetric) {
+        if (data_type === "date") {
+          if (date) {
+            const d = getValidDateOffsetByUTC(date);
+            const dateEntry = getOrCreateDateEntry(d);
+            dateEntry.units = units;
+            dateEntry.mean = returnZeroIfNotFinite(mean);
+            dateEntry.stddev = returnZeroIfNotFinite(stddev);
+            dateEntry.numerator = mainSum;
+            dateEntry.denominator = denominatorSum;
+          }
+        } else {
+          // Overall row (including histogram if present)
+          const binWidthRaw = row[`${prefix}bin_width`];
+          if (binWidthRaw !== undefined) {
+            const binWidth = Number(binWidthRaw) || 0;
+            const valueMin = Number(row[`${prefix}value_min`] ?? 0);
+            const histogram: MetricAnalysisHistogram = [
+              ...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys(),
+            ].map((binIndex) => {
+              const unitsBin = Number(
+                row[`${prefix}units_bin_${binIndex}`] ?? 0,
+              );
+              return {
+                start: binWidth * binIndex + valueMin,
+                end: binWidth * (binIndex + 1) + valueMin,
+                units: unitsBin,
+              };
+            });
+            ret.histogram = histogram;
+          }
+
+          ret.units = units;
+          ret.mean = returnZeroIfNotFinite(mean);
+          ret.stddev = returnZeroIfNotFinite(stddev);
+          ret.numerator = mainSum;
+          ret.denominator = denominatorSum;
+        }
+
+        continue;
+      }
+
+      // Slice metric - only populate dates[].slices (no longer building top-level slices array)
+      if (data_type === "date") {
+        if (date) {
+          const d = getValidDateOffsetByUTC(date);
+          const dateEntry = getOrCreateDateEntry(d);
+          if (!dateEntry.slices) {
+            dateEntry.slices = [];
+          }
+
+          // Build slice identity from sliceInfo
+          const slice: Record<string, string | null> = {};
+          sliceInfo.sliceLevels.forEach((sl) => {
+            slice[sl.column] = sl.levels.length ? sl.levels[0] : null;
+          });
+
+          dateEntry.slices.push({
+            slice,
+            units,
+            mean: returnZeroIfNotFinite(mean),
+            stddev: returnZeroIfNotFinite(stddev),
+            numerator: mainSum,
+            denominator: denominatorSum,
+          });
+        }
+      }
+      // Note: We no longer track slice-level overall aggregates or histograms
+      // since they're not in the validator. If needed in the future, they could
+      // be added back, but for now the chart only needs per-date slice data.
     }
   });
-  if (ret.dates) {
-    ret.dates.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Finalize date series
+  if (dateIndex.size > 0) {
+    ret.dates = Array.from(dateIndex.values()).sort(
+      (a, b) => a.date.getTime() - b.date.getTime(),
+    );
   }
 
   return ret;

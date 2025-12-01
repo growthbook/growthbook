@@ -86,7 +86,6 @@ import {
   BanditMetricData,
   MetricAnalysisParams,
   MetricAnalysisQueryResponse,
-  MetricAnalysisQueryResponseRow,
   TrackedEventData,
   AutoMetricTrackedEvent,
   AutoMetricToCreate,
@@ -1103,7 +1102,7 @@ export default abstract class SqlIntegration
             ${metricData
               .map((m) => {
                 return `
-                , ${this.castToString(`"${m.metric.id}"`)} AS ${m.alias}_id
+                , ${this.castToString(`'${m.metric.id}'`)} AS ${m.alias}_id
                 , ${m.aggFns.partialAggregationFunction(`f.${m.alias}_value`)} AS ${m.alias}_value
                 ${m.ratioMetric && m.denomAggFns ? `, ${m.denomAggFns.partialAggregationFunction(`f.${m.alias}_denominator`)} AS ${m.alias}_denominator` : ""}
                 `;
@@ -1159,7 +1158,7 @@ export default abstract class SqlIntegration
             ${metricData
               .map((m) => {
                 return `
-                , MAX(${this.castToString(`"${m.metric.id}"`)}) AS ${m.alias}_id
+                , MAX(${this.castToString(`'${m.metric.id}'`)}) AS ${m.alias}_id
                 ${this.getMetricAnalysisStatisticClauses(
                   m.capCoalesceMetric,
                   m.capCoalesceDenominator,
@@ -1203,7 +1202,7 @@ export default abstract class SqlIntegration
             ${metricData
               .map((m) => {
                 return `
-              , MAX(${this.castToString(`"${m.metric.id}"`)}) AS ${m.alias}_id
+              , MAX(${this.castToString(`'${m.metric.id}'`)}) AS ${m.alias}_id
               ${this.getMetricAnalysisStatisticClauses(
                 m.capCoalesceMetric,
                 m.capCoalesceDenominator,

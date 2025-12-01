@@ -38,9 +38,10 @@ export default function MetricExplorerBlock({
     );
     const formatter = (value: number) => rawFormatter(value, formatterOptions);
 
-    // Check if we have slices
-    const hasSlices = (metricAnalysis.result?.slices?.length || 0) > 0;
-    const slices = metricAnalysis.result?.slices || [];
+    // Check if we have slices (from dates[].slices)
+    const hasSlices = (metricAnalysis.result?.dates || []).some(
+      (d) => d.slices && d.slices.length > 0,
+    );
 
     // Helper to format slice label
     const formatSliceLabel = (slice: Record<string, string | null>): string => {
@@ -152,63 +153,58 @@ export default function MetricExplorerBlock({
 
       // If we have slices, create multi-series chart
       if (hasSlices) {
-        // Get all unique dates across overall and slices
-        const allDates = new Set<Date>();
-        rows.forEach((r) => allDates.add(r.date));
-        slices.forEach((slice) => {
-          (slice.dates || []).forEach((d) => {
-            allDates.add(getValidDate(d.date));
+        // Build slice series map from dates[].slices
+        const sliceSeriesMap = new Map<
+          string,
+          { date: Date; value: number }[]
+        >();
+
+        rows.forEach((r) => {
+          (r.slices || []).forEach((s) => {
+            const label = formatSliceLabel(s.slice || {});
+            const mean = s.mean ?? 0;
+            const units = s.units ?? 0;
+            const value =
+              valueType === "sum" && factMetric.metricType !== "ratio"
+                ? mean * units
+                : mean;
+
+            if (typeof value === "number" && !isNaN(value) && isFinite(value)) {
+              if (!sliceSeriesMap.has(label)) {
+                sliceSeriesMap.set(label, []);
+              }
+              sliceSeriesMap.get(label)!.push({ date: r.date, value });
+            }
           });
         });
 
+        // Get all unique dates across all slice series
+        const allDates = new Set<Date>();
+        sliceSeriesMap.forEach((points) =>
+          points.forEach((p) => allDates.add(p.date)),
+        );
         const sortedDates = Array.from(allDates).sort(
           (a, b) => a.getTime() - b.getTime(),
         );
 
-        // Build series names first (before building dataset to avoid duplicates)
-        const seriesNames: string[] = [];
-        slices.forEach((slice) => {
-          const sliceLabel = formatSliceLabel(slice.slice);
-          if (!seriesNames.includes(sliceLabel)) {
-            seriesNames.push(sliceLabel);
-          }
-        });
+        // Build series names from the map keys
+        const seriesNames = Array.from(sliceSeriesMap.keys());
 
-        // Build dataset: one row per date with columns for overall and each slice
-        const datasetSource: Record<string, unknown>[] = [];
-
-        sortedDates.forEach((date) => {
+        // Build dataset: one row per date with columns for each slice
+        const datasetSource = sortedDates.map((date) => {
           const row: Record<string, unknown> = { x: date };
-
-          // Add slice values (using pre-built seriesNames to ensure consistency)
-          slices.forEach((slice) => {
-            const sliceLabel = formatSliceLabel(slice.slice);
-
-            const sliceDateRow = (slice.dates || []).find(
-              (d) => getValidDate(d.date).getTime() === date.getTime(),
-            );
-            if (sliceDateRow) {
-              const mean = sliceDateRow.mean ?? 0;
-              const units = sliceDateRow.units ?? 0;
-              const value =
-                valueType === "sum" && factMetric.metricType !== "ratio"
-                  ? mean * units
-                  : mean;
-              // Only add if value is a valid number
-              if (
-                typeof value === "number" &&
-                !isNaN(value) &&
-                isFinite(value)
-              ) {
-                row[sliceLabel] = value;
-              }
+          seriesNames.forEach((name) => {
+            const point = sliceSeriesMap
+              .get(name)!
+              .find((p) => p.date.getTime() === date.getTime());
+            if (point) {
+              row[name] = point.value;
             }
           });
-
-          datasetSource.push(row);
+          return row;
         });
 
-        // Create series for overall and each slice
+        // Create series for each slice
         const series = seriesNames.map((name) => ({
           name,
           type: "line",
