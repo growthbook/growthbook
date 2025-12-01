@@ -14,7 +14,13 @@ import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
+import {
+  getRules,
+  isRuleInactive,
+  useEnvironments,
+  useAttributeMap,
+  getAttributesWithVersionStringMismatches,
+} from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -136,6 +142,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
+
+    const attributeMap = useAttributeMap(feature.project);
+    const attributesWithVersionStringOperatorMismatches =
+      getAttributesWithVersionStringMismatches(
+        rule.condition || "",
+        attributeMap,
+      );
+
     let title: string | ReactElement =
       rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
     if (rule.type !== "rollout") {
@@ -395,6 +409,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 </Flex>
                 <Box>{info.callout}</Box>
+                {attributesWithVersionStringOperatorMismatches &&
+                  attributesWithVersionStringOperatorMismatches.length > 0 && (
+                    <Callout status="warning" mt="3">
+                      <Flex direction="column" gap="2">
+                        <Text>
+                          This rule uses string operators on version attributes,
+                          which can have unintended effects. Edit this rule and
+                          change{" "}
+                          <strong>
+                            {attributesWithVersionStringOperatorMismatches.join(
+                              ", ",
+                            )}
+                          </strong>{" "}
+                          to use version operators ($vgt, $vlt, etc.) instead.
+                        </Text>
+                      </Flex>
+                    </Callout>
+                  )}
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {rule.type === "safe-rollout" && safeRollout ? (
                     <>
