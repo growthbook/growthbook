@@ -12759,7 +12759,7 @@ export interface operations {
           metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12780,7 +12780,7 @@ export interface operations {
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -13131,7 +13131,7 @@ export interface operations {
           metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -13152,7 +13152,7 @@ export interface operations {
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -13480,7 +13480,7 @@ export interface operations {
                 metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
-                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
                   column?: string;
                   /**
                    * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -13501,7 +13501,7 @@ export interface operations {
                 /** @description Only when metricType is 'ratio' */
                 denominator?: {
                   factTableId: string;
-                  /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+                  /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
                   column: string;
                   /**
                    * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
