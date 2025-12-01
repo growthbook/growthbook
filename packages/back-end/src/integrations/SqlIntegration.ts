@@ -979,19 +979,6 @@ export default abstract class SqlIntegration
           };
           metrics.push(sliceMetric);
         });
-
-        // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
-        if (autoSlices.length > 0 || col.datatype === "boolean") {
-          const sliceString = generateSliceString({
-            [col.column]: "",
-          });
-          const otherMetric: FactMetricInterface = {
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${col.name || col.column}: other)`,
-          };
-          metrics.push(otherMetric);
-        }
       });
     }
 
