@@ -123,7 +123,7 @@ export function processMetricAnalysisQueryResponse(
   metric: FactMetricInterface,
 ): MetricAnalysisResult {
   const ret: MetricAnalysisResult = { units: 0, mean: 0, stddev: 0 };
-  // Index per date for chart-friendly shape including per-slice values
+
   const dateIndex = new Map<
     number,
     NonNullable<MetricAnalysisResult["dates"]>[0]
@@ -143,8 +143,6 @@ export function processMetricAnalysisQueryResponse(
     return entry;
   };
 
-  // Track slice results for building dates[].slices (no longer building top-level slices array)
-
   rows.forEach((row) => {
     const { date, data_type, units } = row;
 
@@ -160,7 +158,6 @@ export function processMetricAnalysisQueryResponse(
       const metricId = String(metricIdRaw);
       const sliceInfo = parseSliceMetricId(metricId);
 
-      // Only operate on metrics that correspond to the requested base metric
       if (sliceInfo.baseMetricId !== metric.id) {
         continue;
       }
@@ -250,7 +247,6 @@ export function processMetricAnalysisQueryResponse(
         continue;
       }
 
-      // Slice metric - only populate dates[].slices (no longer building top-level slices array)
       if (data_type === "date") {
         if (date) {
           const d = getValidDateOffsetByUTC(date);
@@ -259,7 +255,6 @@ export function processMetricAnalysisQueryResponse(
             dateEntry.slices = [];
           }
 
-          // Build slice identity from sliceInfo
           const slice: Record<string, string | null> = {};
           sliceInfo.sliceLevels.forEach((sl) => {
             slice[sl.column] = sl.levels.length ? sl.levels[0] : null;
@@ -275,13 +270,9 @@ export function processMetricAnalysisQueryResponse(
           });
         }
       }
-      // Note: We no longer track slice-level overall aggregates or histograms
-      // since they're not in the validator. If needed in the future, they could
-      // be added back, but for now the chart only needs per-date slice data.
     }
   });
 
-  // Finalize date series
   if (dateIndex.size > 0) {
     ret.dates = Array.from(dateIndex.values()).sort(
       (a, b) => a.date.getTime() - b.date.getTime(),

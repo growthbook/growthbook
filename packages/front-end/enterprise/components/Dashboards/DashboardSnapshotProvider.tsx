@@ -522,9 +522,6 @@ export function useDashboardMetricAnalysis(
           block.analysisSettings.additionalNumeratorFilters ?? [],
         additionalDenominatorFilters:
           block.analysisSettings.additionalDenominatorFilters ?? [],
-        // Exclude metricAutoSlices and customMetricSlices from comparison
-        // These are stored in the block but don't trigger metric analysis regeneration
-        //MKTODO: This is temporary until we actually implment building an analysis with slices
         metricAutoSlices: block.analysisSettings.metricAutoSlices ?? [],
         customMetricSlices: block.analysisSettings.customMetricSlices ?? [],
       };
@@ -537,12 +534,10 @@ export function useDashboardMetricAnalysis(
           metricAnalysis.settings.additionalNumeratorFilters ?? [],
         additionalDenominatorFilters:
           metricAnalysis.settings.additionalDenominatorFilters ?? [],
-        // Exclude metricAutoSlices and customMetricSlices from comparison
-        //MKTODO: This is temporary until we actually implment building an analysis with slices
         metricAutoSlices: metricAnalysis.settings.metricAutoSlices ?? [],
         customMetricSlices: metricAnalysis.settings.customMetricSlices ?? [],
       };
-      // Check if analysisSettings match (excluding slices)
+      // Check if analysisSettings match (including slices and filters)
       if (isEqual(blockSettings, metricAnalysisSettings)) {
         return; // Skip refresh if everything matches
       }
