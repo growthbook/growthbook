@@ -98,6 +98,7 @@ export default function MetricExplorerBlock({
       xAxis: {
         type: visualizationType === "timeseries" ? "time" : "category",
         nameLocation: "middle",
+        scale: true,
         nameTextStyle: {
           fontSize: 14,
           fontWeight: "bold",
@@ -112,6 +113,7 @@ export default function MetricExplorerBlock({
       },
       yAxis: {
         type: "value",
+        scale: true,
         nameLocation: "middle",
         nameTextStyle: {
           fontSize: 14,
