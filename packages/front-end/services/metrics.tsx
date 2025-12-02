@@ -236,17 +236,7 @@ export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions,
 ) {
-  let digits = getNumberFormatDigits(value);
-
-  // For very small numbers (< 1), find the first significant digit & show 2 digits after it
-  const absValue = Math.abs(value);
-  if (absValue > 0 && absValue < 1) {
-    // Use Math.log10 to find the position of the first significant digit
-    const log10 = Math.log10(absValue);
-    const decimalPlacesToFirstSig = -Math.floor(log10);
-    // Show 2 digits after the first significant digit
-    digits = Math.min(decimalPlacesToFirstSig + 1, 15);
-  }
+  const digits = getNumberFormatDigits(value, true);
 
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
