@@ -941,32 +941,14 @@ export default abstract class SqlIntegration
 
     const createHistogram = metric.metricType === "mean";
 
-    const finalDailyValueColumn = this.capCoalesceValue({
-      valueCol: this.getValueFromAggregateColumns("value", metric.numerator),
-      metric,
-      capTablePrefix: "cap",
-      capValueCol: "value_capped",
-      columnRef: metric.numerator,
-    });
-    const finalDailyDenominatorColumn = this.capCoalesceValue({
-      valueCol: this.getValueFromAggregateColumns(
-        "denominator",
-        metric.denominator,
-      ),
-      metric,
-      capTablePrefix: "cap",
-      capValueCol: "denominator_capped",
-      columnRef: metric.denominator,
-    });
-
-    const finalOverallValueColumn = this.capCoalesceValue({
+    const finalValueColumn = this.capCoalesceValue({
       valueCol: "value",
       metric,
       capTablePrefix: "cap",
       capValueCol: "value_capped",
       columnRef: metric.numerator,
     });
-    const finalOverallDenominatorColumn = this.capCoalesceValue({
+    const finalDenominatorColumn = this.capCoalesceValue({
       valueCol: "denominator",
       metric,
       capTablePrefix: "cap",
@@ -1088,15 +1070,15 @@ export default abstract class SqlIntegration
               `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
             )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
-              finalDailyValueColumn,
-              finalDailyDenominatorColumn,
+              finalValueColumn,
+              finalDenominatorColumn,
               metricData.ratioMetric,
             )}
             ${
               createHistogram
                 ? `
-            , MIN(${finalDailyValueColumn}) as value_min
-            , MAX(${finalDailyValueColumn}) as value_max
+            , MIN(${finalValueColumn}) as value_min
+            , MAX(${finalValueColumn}) as value_max
             , ${this.ensureFloat("NULL")} AS bin_width
             ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()]
               .map((i) => `, ${this.ensureFloat("NULL")} AS units_bin_${i}`)
@@ -1115,16 +1097,16 @@ export default abstract class SqlIntegration
               `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
             )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
-              finalOverallValueColumn,
-              finalOverallDenominatorColumn,
+              finalValueColumn,
+              finalDenominatorColumn,
               metricData.ratioMetric,
             )}
             ${
               createHistogram
                 ? `
-            , MIN(${finalOverallValueColumn}) as value_min
-            , MAX(${finalOverallValueColumn}) as value_max
-            , (MAX(${finalOverallValueColumn}) - MIN(${finalOverallValueColumn})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as bin_width
+            , MIN(${finalValueColumn}) as value_min
+            , MAX(${finalValueColumn}) as value_max
+            , (MAX(${finalValueColumn}) - MIN(${finalValueColumn})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as bin_width
             `
                 : ""
             }
@@ -6057,20 +6039,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       const aggColumn = `SUM(COALESCE(${valueColumn}, 0))`;
       return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
     }
-  }
-
-  private getValueFromAggregateColumns(
-    col: string,
-    columnRef?: ColumnRef | null,
-  ): string {
-    if (
-      !columnRef?.column.startsWith("$$") &&
-      columnRef?.aggregation === "count distinct"
-    ) {
-      return this.hllCardinality(col);
-    }
-
-    return col;
   }
 
   private getFactMetricColumn(
