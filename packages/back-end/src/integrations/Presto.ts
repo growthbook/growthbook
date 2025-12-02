@@ -37,7 +37,6 @@ export default class Presto extends SqlIntegration {
   }
   runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: ClientOptions = {
-      engine: this.params.engine,
       host: this.params.host,
       port: this.params.port,
       user: "growthbook",
@@ -64,6 +63,15 @@ export default class Presto extends SqlIntegration {
           "Kerberos service principal is required for Kerberos authentication",
         );
       }
+
+      // FIXME: To avoid a breaking change, we are setting the engine only for Kerberos.
+      // But we should figure out a proper impersonation logic for all auth types.
+      // See https://github.com/growthbook/growthbook/pull/4921
+      configOptions.engine = this.params.engine;
+      if (this.params.kerberosUser) {
+        configOptions.user = this.params.kerberosUser;
+      }
+
       // Use a function to generate fresh Kerberos tokens for each request
       configOptions.custom_auth = () =>
         getKerberosHeader(servicePrincipal, clientPrincipal);
@@ -125,12 +133,6 @@ export default class Presto extends SqlIntegration {
           });
         },
       };
-
-      // For Kerberos auth we need to explicitly set user
-      // which sets X-Trino-User header and is required by Trino
-      if (this.params?.authType === "kerberos") {
-        executeOptions.user = this.params.kerberosUser || "growthbook";
-      }
 
       client.execute(executeOptions);
     });

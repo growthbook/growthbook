@@ -159,7 +159,7 @@ const safeRolloutSnapshotSettings = z.object({
   variations: z.array(snapshotSettingsVariationValidator),
   coverage: z.number().optional(),
   phase: z.object({ index: z.string() }).optional(),
-  customFields: z.record(z.unknown()).optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type SafeRolloutSnapshotSettings = z.infer<

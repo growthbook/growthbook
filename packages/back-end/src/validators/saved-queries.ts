@@ -226,7 +226,7 @@ export type BigValueChart = z.infer<typeof bigValueChartValidator>;
 export type BigValueFormat = z.infer<typeof formatEnum>;
 export type PivotTable = z.infer<typeof pivotTableValidator>;
 
-export const testQueryRowSchema = z.record(z.any());
+export const testQueryRowSchema = z.record(z.string(), z.any());
 
 export const queryExecutionResultValidator = z.object({
   results: z.array(testQueryRowSchema),
