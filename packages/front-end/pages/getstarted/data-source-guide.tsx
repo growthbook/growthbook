@@ -1,26 +1,32 @@
-import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
+import { PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { Box, Separator } from "@radix-ui/themes";
+import { Box, Grid, Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
-import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useGetStarted } from "@/services/GetStartedProvider";
+import Frame from "@/ui/Frame";
+import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
+import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 
-const ImportedExperimentGuide = (): React.ReactElement => {
+// Also used for the `Launch Setup Flow` button to keep it aligned
+const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";
+
+const DataSourceGuide = (): React.ReactElement => {
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
-  const { experiments, loading: experimentsLoading, error } = useExperiments();
   const {
     factTables,
     datasources,
     ready: definitionsReady,
     project,
+    factMetrics,
+    error,
   } = useDefinitions();
   const { setStep, clearStep } = useGetStarted();
 
@@ -33,54 +39,69 @@ const ImportedExperimentGuide = (): React.ReactElement => {
     clearStep();
   }, [clearStep]);
 
-  const loading = experimentsLoading && !definitionsReady;
+  const loading = !definitionsReady;
 
   if (loading) {
     return <LoadingOverlay />;
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <div className="alert alert-danger">{error}</div>;
   }
 
-  // Ignore the demo datasource
-  const hasExperiments = project
-    ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project,
+  // Ignore the demo datasource for all checks
+  const hasFactTables = project
+    ? factTables.some(
+        (f) =>
+          (f.projects.includes(project) || f.projects.length === 0) &&
+          !f.projects.includes(demoProjectId),
       )
-    : experiments.some((e) => e.project !== demoProjectId);
-
-  const hasFactTables = factTables.length > 0;
-  // Ignore the demo datasource
-  const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId),
-  );
+    : factTables.some((f) => !f.projects.includes(demoProjectId));
+  const hasFactMetrics = project
+    ? factMetrics.some(
+        (m) =>
+          (m.projects.includes(project) || m.projects.length === 0) &&
+          !m.projects.includes(demoProjectId),
+      )
+    : factMetrics.some((m) => !m.projects.includes(demoProjectId));
+  const hasDatasource = project
+    ? datasources.some(
+        (d) =>
+          (d.projects?.includes(project) || d.projects?.length === 0) &&
+          !d.projects?.includes(demoProjectId),
+      )
+    : datasources.some((d) => !d.projects?.includes(demoProjectId));
 
   return (
     <div className="container pagecontents p-4">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
-          { display: "Analyze Imported Experiments" },
+          { display: "Data & Metrics" },
         ]}
       />
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          source="get-started-experiment-guide"
+          source="get-started-data-source-guide"
           commercialFeature={null}
         />
       )}
-      <h1 className="mb-3">Analyze Imported Experiments</h1>
-      <div className="d-flex align-middle">
-        <span>
-          Want to run a new experiment?{" "}
-          <Link href="/getstarted/experiment-guide">View instructions</Link>{" "}
-          <PiArrowRight />
-        </span>
-      </div>
-      <div className="row mt-4">
-        <div className="col mr-auto" style={{ minWidth: 500 }}>
+      <Grid
+        columns={{
+          initial: "1fr",
+          sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+        }}
+        gapX="4"
+        mt="4"
+      >
+        <Box style={{ minWidth: 500 }}>
+          <h1 className="mb-3 mr-3">Set up Data Source & Metrics</h1>
+          <Frame>
+            <div className="d-flex align-items-center justify-content-center w-100">
+              <DataSourceDiagram />
+            </div>
+          </Frame>
           <div className="appbox p-4">
             <div className="row">
               <div className="col-sm-auto">
@@ -117,17 +138,17 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Connect to Your Data Warehouse",
-                      source: "importedExperimentGuide",
+                      step: "Connect a Data Source",
+                      source: "dataSourceGuide",
                       stepKey: "connectDataWarehouse",
                     })
                   }
                 >
-                  Connect to Your Data Warehouse
+                  Connect a Data Source
                 </Link>
                 <Box mt="2">
-                  Allow GrowthBook to query your warehouse to compute traffic
-                  totals and metric results.
+                  To analyze experiment results, connect an event tracker and
+                  data source.
                 </Box>
                 <Separator size="4" my="4" />
               </div>
@@ -169,17 +190,17 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Define Fact Tables and Metrics",
-                      source: "importedExperimentGuide",
-                      stepKey: "createFactTables",
+                      step: "Create a Fact Table",
+                      source: "dataSourceGuide",
+                      stepKey: "createFactTable",
                     })
                   }
                 >
-                  Define Fact Tables and Metrics
+                  Create a Fact Table
                 </Link>
                 <Box mt="2">
-                  Define fact tables for the main events in your data warehouse
-                  and build metrics based on those events.
+                  Fact Tables are defined by a SQL SELECT statement and serve as
+                  the base on which metrics are built.
                 </Box>
                 <Separator size="4" my="4" />
               </div>
@@ -187,7 +208,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
 
             <div className="row">
               <div className="col-sm-auto">
-                {hasExperiments ? (
+                {hasFactMetrics ? (
                   <PiCheckCircleFill
                     className="mt-1"
                     style={{
@@ -212,43 +233,42 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               </div>
               <div className="col">
                 <Link
-                  href="/experiments?analyzeExisting=true"
+                  href="/fact-tables"
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,
-                    textDecoration: hasExperiments ? "line-through" : "none",
+                    textDecoration: hasFactMetrics ? "line-through" : "none",
                   }}
                   onClick={() =>
                     setStep({
-                      step: `Import Your First Experiment${
-                        project && " in this Project"
-                      } &
-                      View Results`,
-                      source: "importedExperimentGuide",
-                      stepKey: "importExperiment",
+                      step: "Add Metrics",
+                      source: "dataSourceGuide",
+                      stepKey: "addMetric",
                     })
                   }
                 >
-                  Import Your First Experiment{project && " in this Project"} &
-                  View Results
+                  Add Metrics
                 </Link>
                 <Box mt="2">
-                  Navigate to Experiments {">"} Add Experiment. In the popup,
-                  select “Analyze an Existing Experiment”
+                  Add Proportion, Mean, Quantile, or Ratio metrics on top of
+                  Fact Tables.
                 </Box>
               </div>
             </div>
           </div>
-        </div>
-        <div className="col-auto">
+        </Box>
+        <Box>
+          <Box mb="3">
+            <ViewSampleDataButton />
+          </Box>
           <DocumentationSidebar
             setUpgradeModal={setUpgradeModal}
-            type="imports"
+            type="data-source"
           />
-        </div>
-      </div>
+        </Box>
+      </Grid>
     </div>
   );
 };
 
-export default ImportedExperimentGuide;
+export default DataSourceGuide;

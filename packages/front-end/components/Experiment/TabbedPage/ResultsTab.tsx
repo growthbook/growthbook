@@ -17,6 +17,7 @@ import {
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -30,6 +31,7 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import track from "@/services/track";
 import { AnalysisBarSettings } from "@/components/Experiment/AnalysisSettingsBar";
+import Metadata from "@/ui/Metadata";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -200,6 +202,33 @@ export default function ResultsTab({
           {/*todo: docs*/}
         </Callout>
       ) : null}
+
+      <Box>
+        {hasData && (
+          <Flex direction="row" gap="3" mb="4" mt="2">
+            <Metadata
+              label="Engine"
+              value={
+                analysis?.settings?.statsEngine === "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"
+              }
+            />
+            <Metadata
+              label="CUPED"
+              value={
+                analysis?.settings?.regressionAdjusted ? "Enabled" : "Disabled"
+              }
+            />
+            <Metadata
+              label="Sequential"
+              value={
+                analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
+              }
+            />
+          </Flex>
+        )}
+      </Box>
 
       <div className="appbox">
         {analysisSettingsOpen && (
