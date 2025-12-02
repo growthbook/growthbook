@@ -21,6 +21,7 @@ import {
   columnAggregationValidator,
   legacyWindowSettingsValidator,
   jsonColumnFieldsValidator,
+  rowFilterValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
@@ -100,6 +101,13 @@ export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
 export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 
+export type LegacyColumnRef = ColumnRef & {
+  filters?: string[];
+  inlineFilters?: Record<string, string[]>;
+};
+
+export type RowFilter = z.infer<typeof rowFilterValidator>;
+
 export type LegacyFactMetricInterface = Omit<
   FactMetricInterface,
   "windowSettings"
@@ -112,6 +120,9 @@ export type LegacyFactMetricInterface = Omit<
   hasConversionWindow?: boolean;
   conversionWindowValue?: number;
   conversionWindowUnit?: ConversionWindowUnit;
+
+  numerator: LegacyColumnRef;
+  denominator: LegacyColumnRef | null;
 };
 
 export type CreateFactTableProps = z.infer<
