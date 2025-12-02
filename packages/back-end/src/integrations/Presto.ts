@@ -52,6 +52,7 @@ export default class Presto extends SqlIntegration {
         user: this.params.username || "",
         password: this.params.password || "",
       };
+      configOptions.user = this.params.username || "";
     }
     if (this.params?.authType === "customAuth") {
       configOptions.custom_auth = this.params.customAuth || "";
@@ -67,6 +68,10 @@ export default class Presto extends SqlIntegration {
       // Use a function to generate fresh Kerberos tokens for each request
       configOptions.custom_auth = () =>
         getKerberosHeader(servicePrincipal, clientPrincipal);
+
+      if (this.params.kerberosUser) {
+        configOptions.user = this.params.kerberosUser;
+      }
     }
     if (this.params?.ssl) {
       configOptions.ssl = {
@@ -125,12 +130,6 @@ export default class Presto extends SqlIntegration {
           });
         },
       };
-
-      // For Kerberos auth we need to explicitly set user
-      // which sets X-Trino-User header and is required by Trino
-      if (this.params?.authType === "kerberos") {
-        executeOptions.user = this.params.kerberosUser || "growthbook";
-      }
 
       client.execute(executeOptions);
     });
