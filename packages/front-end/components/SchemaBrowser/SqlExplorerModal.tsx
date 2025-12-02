@@ -253,15 +253,6 @@ export default function SqlExplorerModal({
       throw new Error("You must enter a name for your query");
     }
 
-    // Validate that the name only contains letters, numbers, hyphens, and underscores
-    if (!currentName.match(/^[a-zA-Z0-9_.:|\s-]+$/)) {
-      setLoading(false);
-      setIsEditingName(true);
-      throw new Error(
-        "Query name can only contain letters, numbers, hyphens, underscores, and spaces",
-      );
-    }
-
     // If we have an empty object for dataVizConfig, set it to an empty array
     const dataVizConfig = form.watch("dataVizConfig") || [];
 
