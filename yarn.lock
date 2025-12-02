@@ -9905,6 +9905,11 @@
   dependencies:
     "@types/node" "*"
 
+"@types/kerberos@^1.1.5":
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/@types/kerberos/-/kerberos-1.1.5.tgz#2d48bdd948d729db20d664ee3d9275939e9f7135"
+  integrity sha512-eljovuC0f1+6a4R8CSGwlP8P7OGygDoYJ4Yo0PtKYN4NOQEOkLH7tCQ3humCMz3lsGd0hOTyyjxHP+S3N/KtFg==
+
 "@types/keygrip@*":
   version "1.0.2"
   resolved "https://registry.npmjs.org/@types/keygrip/-/keygrip-1.0.2.tgz"
@@ -10146,6 +10151,11 @@
     "@types/node" "*"
     pg-protocol "^1.2.0"
     pg-types "^2.2.0"
+
+"@types/presto-client@^1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@types/presto-client/-/presto-client-1.0.2.tgz#1d33f3d91b6b87d98696365a08c4ea90fade3a94"
+  integrity sha512-1q7QtX+ykoX5zjWTJpntIzxyhr20ZHrEySk2p2PQCOwPI7DJtGsL62KKFZMsTqPjikpjLL71BWtVA0cPMyYdfA==
 
 "@types/prettier@^2.1.5":
   version "2.3.2"
@@ -17726,6 +17736,14 @@ kbar@0.1.0-beta.36:
     fast-equals "^2.0.3"
     react-virtual "^2.8.2"
     tiny-invariant "^1.2.0"
+
+kerberos@^2.1.1:
+  version "2.2.2"
+  resolved "https://registry.yarnpkg.com/kerberos/-/kerberos-2.2.2.tgz#8660fc3f85b4a6e5d065f7a254bf9b5b8ebed772"
+  integrity sha512-42O7+/1Zatsc3MkxaMPpXcIl/ukIrbQaGoArZEAr6GcEi2qhfprOBYOPhj+YvSMJkEkdpTjApUx+2DuWaKwRhg==
+  dependencies:
+    node-addon-api "^6.1.0"
+    prebuild-install "^7.1.2"
 
 kind-of@^6.0.2, kind-of@^6.0.3:
   version "6.0.3"
