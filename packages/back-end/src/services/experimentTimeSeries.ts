@@ -26,6 +26,7 @@ import {
   MetricTimeSeriesVariation,
 } from "back-end/src/validators/metric-time-series";
 import {
+  ColumnRef,
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
@@ -229,6 +230,29 @@ function getExperimentSettingsHash(
   });
 }
 
+export function getFiltersForHash(
+  factTable: FactTableInterface | undefined,
+  columnRef: ColumnRef | null,
+) {
+  if (!factTable || !columnRef) {
+    return undefined;
+  }
+
+  const savedFilterIds = (columnRef.rowFilters || [])
+    .filter((f) => f.operator === "saved_filter")
+    .map((f) => f.values?.[0]);
+
+  // TODO: also include other inline filters
+
+  return factTable.filters
+    .filter((it) => savedFilterIds.includes(it.id))
+    .map((it) => ({
+      id: it.id,
+      name: it.name,
+      value: it.value,
+    }));
+}
+
 function getMetricSettingsHash(
   metricId: string,
   metricSettings?: MetricForSnapshot,
@@ -249,10 +273,6 @@ function getMetricSettingsHash(
       ? factTableMap?.get(denominatorFactTableId)
       : undefined;
 
-    const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
-      factMetric.numerator.filters.includes(it.id),
-    );
-
     return hashObject({
       ...metricSettings,
       metricType: factMetric.metricType,
@@ -263,15 +283,12 @@ function getMetricSettingsHash(
       numeratorFactTable: {
         sql: numeratorFactTable?.sql,
         eventName: numeratorFactTable?.eventName,
-        filters: numeratorFilters?.map((it) => ({
-          id: it.id,
-          name: it.name,
-          value: it.value,
-        })),
+        filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
       },
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,
         eventName: denominatorFactTable?.eventName,
+        // TODO: also include denominator filters?
       },
     });
   }
@@ -315,14 +332,6 @@ export function getMetricSettingsHashForIncrementalRefresh({
     ? factTableMap?.get(denominatorFactTableId)
     : undefined;
 
-  const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
-    factMetric.numerator.filters.includes(it.id),
-  );
-
-  const denominatorFilters = denominatorFactTable?.filters.filter((it) =>
-    factMetric.denominator?.filters.includes(it.id),
-  );
-
   if (metricSettings) {
     const trimmedMetricComputedSettings: Partial<
       MetricForSnapshot["computedSettings"]
@@ -357,22 +366,14 @@ export function getMetricSettingsHashForIncrementalRefresh({
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,
-      filters: numeratorFilters?.map((it) => ({
-        id: it.id,
-        name: it.name,
-        value: it.value,
-      })),
+      filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
     },
     denominatorFactTable: {
       sql: denominatorFactTable?.sql,
       eventName: denominatorFactTable?.eventName,
       // filters should be added here as well in case it is a cross
       // fact table ratio metric
-      filters: denominatorFilters?.map((it) => ({
-        id: it.id,
-        name: it.name,
-        value: it.value,
-      })),
+      filters: getFiltersForHash(denominatorFactTable, factMetric.denominator),
     },
   });
 }

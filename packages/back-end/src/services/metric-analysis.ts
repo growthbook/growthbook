@@ -28,15 +28,21 @@ export function getMetricWithFiltersApplied(
 
   const metricWithFilters = cloneDeep(metric);
   if (settings.additionalNumeratorFilters) {
-    metricWithFilters.numerator.filters = [
-      ...(metricWithFilters.numerator.filters || []),
-      ...settings.additionalNumeratorFilters,
+    metricWithFilters.numerator.rowFilters = [
+      ...(metricWithFilters.numerator.rowFilters || []),
+      ...settings.additionalNumeratorFilters.map((f) => ({
+        operator: "saved_filter" as const,
+        values: [f],
+      })),
     ];
   }
   if (settings.additionalDenominatorFilters && metricWithFilters.denominator) {
-    metricWithFilters.denominator.filters = [
-      ...(metricWithFilters.denominator.filters || []),
-      ...settings.additionalDenominatorFilters,
+    metricWithFilters.denominator.rowFilters = [
+      ...(metricWithFilters.denominator.rowFilters || []),
+      ...settings.additionalDenominatorFilters.map((f) => ({
+        operator: "saved_filter" as const,
+        values: [f],
+      })),
     ];
   }
   return metricWithFilters;
