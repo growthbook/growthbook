@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
@@ -38,7 +39,7 @@ export type BaseSchema = typeof baseSchema;
 
 export type CreateProps<T extends object> = Omit<
   T,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
+  "id" | "uid" | "organization" | "dateCreated" | "dateUpdated"
 > & { id?: string };
 export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
   Omit<z.infer<T>, "organization">
@@ -47,7 +48,7 @@ export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
 export type CreateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
+    "id" | "uid" | "organization" | "dateCreated" | "dateUpdated"
   >]: T[k];
 } & {
   id: z.ZodOptional<z.ZodString>;
@@ -65,6 +66,7 @@ export type CreateZodObject<T> =
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
+      uid: true,
       organization: true,
       dateCreated: true,
       dateUpdated: true,
@@ -73,13 +75,13 @@ export const createSchema = <T extends BaseSchema>(schema: T) =>
     .strict() as unknown as CreateZodObject<T>;
 
 export type UpdateProps<T extends object> = Partial<
-  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
+  Omit<T, "id" | "uid" | "organization" | "dateCreated" | "dateUpdated">
 >;
 
 export type UpdateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
+    "id" | "uid" | "organization" | "dateCreated" | "dateUpdated"
   >]: z.ZodOptional<T[k]>;
 };
 
@@ -91,6 +93,11 @@ export type UpdateZodObject<T> =
   >
     ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
     : never;
+
+type Identifiers = {
+  id: string;
+  uid?: string;
+};
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
   schema
@@ -382,6 +389,9 @@ export abstract class BaseModel<
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
+  protected _generateUid() {
+    return uuidv4().replace(/-/g, "");
+  }
   protected async _find(
     query: ScopedFilterQuery<T> = {},
     {
@@ -492,8 +502,15 @@ export abstract class BaseModel<
       props.owner = this.context.userName || "";
     }
 
-    const doc = {
+    const ids: Identifiers = {
       id: this._generateId(),
+    };
+    if ("uid" in this.config.schema.shape) {
+      ids.uid = this._generateUid();
+    }
+
+    const doc = {
+      ...ids,
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
@@ -800,6 +817,18 @@ export abstract class BaseModel<
           logger.error(
             err,
             `Error creating id unique index for ${this.config.collectionName}`,
+          );
+        });
+    }
+
+    // If schema uses uid, create a globally unique index
+    if ("uid" in this.config.schema.shape) {
+      this._dangerousGetCollection()
+        .createIndex({ uid: 1 }, { unique: true })
+        .catch((err) => {
+          logger.error(
+            err,
+            `Error creating uid unique index for ${this.config.collectionName}`,
           );
         });
     }
