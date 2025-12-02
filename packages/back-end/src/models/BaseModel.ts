@@ -44,19 +44,9 @@ export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
   Omit<z.infer<T>, "organization">
 >;
 
-export type CreateRawShape<T extends z.ZodRawShape> = {
-  [k in keyof Omit<
-    T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: T[k];
-} & {
-  id: z.ZodOptional<z.ZodString>;
-};
-
-export type CreateZodObject<T> =
-  T extends z.ZodObject<infer RawShape, infer UnknownKeysParam>
-    ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam>
-    : never;
+export type CreateZodObject<T extends BaseSchema> = z.ZodType<
+  CreateProps<z.infer<T>>
+>;
 
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
