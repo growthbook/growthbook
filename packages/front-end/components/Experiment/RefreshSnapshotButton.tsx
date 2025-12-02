@@ -22,6 +22,7 @@ const RefreshSnapshotButton: FC<{
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   resetFilters?: () => void;
+  setError: (e: string | undefined) => void;
 }> = ({
   mutate,
   experiment,
@@ -30,6 +31,7 @@ const RefreshSnapshotButton: FC<{
   dimension,
   setAnalysisSettings,
   resetFilters,
+  setError,
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -83,6 +85,7 @@ const RefreshSnapshotButton: FC<{
       )}
       <Button
         color="outline-primary"
+        setErrorText={setError}
         onClick={async () => {
           resetFilters?.();
           setLoading(true);

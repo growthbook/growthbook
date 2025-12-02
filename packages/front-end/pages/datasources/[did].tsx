@@ -404,6 +404,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               />
             </Frame>
 
+            {/* TODO: Add a premium callout here? */}
             {d.properties?.supportsWritingTables && pipelineEnabled ? (
               <Frame>
                 <DataSourcePipeline

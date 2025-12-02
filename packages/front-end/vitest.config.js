@@ -4,7 +4,8 @@ import { defineConfig } from "vite";
 export default defineConfig({
   test: {
     globals: true,
-    environment: "node", // change to "jsdom" if we ever do window / component testing
+    environment: "jsdom",
+    setupFiles: ["./test/setup.ts"],
     coverage: {
       provider: "v8",
     },

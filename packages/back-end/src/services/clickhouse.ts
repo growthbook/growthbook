@@ -772,14 +772,7 @@ export async function updateMaterializedColumns({
         }
       });
 
-      await updateFactTable(
-        context,
-        ft,
-        { columns: newColumns },
-        {
-          bypassManagedByCheck: true,
-        },
-      );
+      await updateFactTable(context, ft, { columns: newColumns });
     }
   } finally {
     await unlockDataSource(context, datasource);

@@ -208,6 +208,11 @@ export function upgradeDatasourceObject(
     ];
   }
 
+  // Sanity check as somehow this ended up with null value in the array
+  if (settings.userIdTypes) {
+    settings.userIdTypes = settings.userIdTypes?.filter((it) => !!it);
+  }
+
   // Upgrade old docs to the new exposure queries format
   if (settings && !settings?.queries?.exposure) {
     const isSQL = !["google_analytics", "mixpanel"].includes(datasource.type);

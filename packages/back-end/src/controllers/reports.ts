@@ -45,6 +45,7 @@ import {
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -394,6 +395,7 @@ export async function refreshReport(
       metricMap,
       factTableMap,
       metricGroups,
+      experimentQueryMetadata: null,
     });
 
     return res.status(200).json({
@@ -573,6 +575,9 @@ export async function putReport(
         metricMap,
         factTableMap,
         metricGroups,
+        experimentQueryMetadata: experiment
+          ? getAdditionalQueryMetadataForExperiment(experiment)
+          : null,
       });
     }
 

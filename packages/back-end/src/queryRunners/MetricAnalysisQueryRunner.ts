@@ -18,6 +18,7 @@ import {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
 } from "back-end/src/types/Integration";
+import { getMetricWithFiltersApplied } from "../services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
@@ -33,12 +34,17 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     );
   }
 
+  // For alternative entrypoints that don't pass the metric in for analysis
+  setMetric(metric: FactMetricInterface) {
+    this.metric = metric;
+  }
+
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
-    this.metric = params.metric;
+    this.metric = getMetricWithFiltersApplied(params);
     return [
       await this.startQuery({
         name: "metricAnalysis",
-        query: this.integration.getMetricAnalysisQuery(params),
+        query: this.integration.getMetricAnalysisQuery(this.metric, params),
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runMetricAnalysisQuery(query, setExternalId),
@@ -83,7 +89,6 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   }): Promise<MetricAnalysisInterface> {
     const updates: Partial<MetricAnalysisInterface> = {
       queries,
-      runStarted,
       error,
       result,
       status:
@@ -93,6 +98,9 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
             ? "error"
             : "success",
     };
+    if (runStarted) {
+      updates.runStarted = runStarted;
+    }
 
     const latest = await this.getLatestModel();
     const updated = await this.context.models.metricAnalysis.update(

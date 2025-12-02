@@ -461,7 +461,10 @@ export function getMetricsAndQueryDataForStatsEngine(
   else {
     queryData.forEach((query, key) => {
       // Multi-metric query
-      if (key.match(/group_/)) {
+      if (
+        key.match(/group_/) ||
+        query.queryType === "experimentIncrementalRefreshStatistics"
+      ) {
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];

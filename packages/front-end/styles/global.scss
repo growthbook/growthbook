@@ -216,7 +216,7 @@ pre {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
 }
-.dark .btn-outline-primary {
+.dark-theme .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple-light,
     #fff,
@@ -943,8 +943,8 @@ main.main {
     }
   }
 }
-.dark .bg-white textarea.form-control,
-.dark .tab-content input.form-control {
+.dark-theme .bg-white textarea.form-control,
+.dark-theme .tab-content input.form-control {
   background-color: var(--black-a3);
 }
 
@@ -1039,7 +1039,7 @@ main.main {
     vertical-align: middle;
   }
 
-  .dark &.decision-criteria-table {
+  .dark-theme &.decision-criteria-table {
     tbody {
       tr {
         background-color: #1b2339;
@@ -1053,7 +1053,7 @@ main.main {
     }
   }
 }
-.dark .gbtable {
+.dark-theme .gbtable {
   thead {
     th {
       background-color: #262d42;
@@ -1072,7 +1072,7 @@ main.main {
   }
 }
 
-.dark .query-table {
+.dark-theme .query-table {
   thead {
     th {
       // hard coded to match slate-a2 on the background color
@@ -1242,7 +1242,7 @@ main.main {
     border-color: var(--border-color-300);
   }
 }
-.dark .buttontabs {
+.dark-theme .buttontabs {
   .nav-button-item {
     &.active {
       color: colors.$highlight-purple-light;
@@ -1257,7 +1257,7 @@ main.main {
   background-color: rgba(255, 255, 255, 1);
   padding: 7px 9px;
 }
-.dark .dropdown-circle {
+.dark-theme .dropdown-circle {
   background-color: rgba(255, 255, 255, 0.1);
 }
 .shiftdown-1 {
@@ -1389,8 +1389,8 @@ main.main {
     }
   }
 }
-.dark .appbox:not(.nobg) .appbox,
-.dark .box:not(.nobg) .appbox {
+.dark-theme .appbox:not(.nobg) .appbox,
+.dark-theme .box:not(.nobg) .appbox {
   background-color: var(--white-a1);
 }
 

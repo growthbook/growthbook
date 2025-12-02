@@ -12,6 +12,7 @@ import {
   GBDatabase,
   GBExperiment,
   GBLibrary,
+  GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
@@ -86,6 +87,13 @@ const navlinks: SidebarLinkProps[] = [
       //   path: /^experiments\/explore/,
       // },
     ],
+  },
+  {
+    name: "Product Analytics",
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
+    Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
   },
   {
     name: "Metrics and Data",
@@ -336,6 +344,13 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("cdn-usage-data"),
       },
       {
+        name: "Custom Hooks",
+        href: "/settings/custom-hooks",
+        path: /^settings\/custom-hooks/,
+        filter: ({ permissionsUtils, isCloud }) =>
+          !isCloud && permissionsUtils.canCreateCustomHook({ projects: [] }),
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
@@ -431,7 +446,10 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
+  let pageTitle = [...breadcrumb]
+    .reverse()
+    .map((b) => b.display)
+    .join(" - ");
 
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {

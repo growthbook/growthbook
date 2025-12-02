@@ -41,6 +41,7 @@ const sendPayloadFormats: WebhookPayloadFormat[] = [
   "standard",
   "sdkPayload",
   "edgeConfig",
+  "edgeConfigUnescaped",
   "vercelNativeIntegration",
 ];
 
@@ -225,6 +226,17 @@ async function runWebhookFetch({
               operation: "upsert",
               key: payloadKey || "gb_payload",
               value: jsonPayload,
+            },
+          ],
+        });
+        break;
+      case "edgeConfigUnescaped":
+        body = JSON.stringify({
+          items: [
+            {
+              operation: "upsert",
+              key: payloadKey || "gb_payload",
+              value: payload,
             },
           ],
         });

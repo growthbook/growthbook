@@ -160,7 +160,7 @@ function ValueRow({
 }) {
   return (
     <TableRow style={{ color: "var(--color-text-high)" }}>
-      <TableCell>
+      <TableCell style={{ whiteSpace: "nowrap" }}>
         <Text weight="medium">{label}</Text>
       </TableCell>
       <TableCell width="100%">

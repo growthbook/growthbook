@@ -8,10 +8,12 @@ import { Flex } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/src/util";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
+import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { analysisUpdate } from "@/components/Experiment/DifferenceTypeChooser";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -44,6 +46,7 @@ export interface Props {
 }
 
 export function getDimensionOptions({
+  incrementalRefresh,
   precomputedDimensions,
   datasource,
   dimensions,
@@ -51,6 +54,7 @@ export function getDimensionOptions({
   exposureQueryId,
   userIdType,
 }: {
+  incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
   datasource: DataSourceInterfaceWithParams | null;
   dimensions: DimensionInterface[];
@@ -85,6 +89,14 @@ export function getDimensionOptions({
         if (precomputedDimensionOptions.some((p) => p.label === d)) {
           return;
         }
+        // skip experiment dimensions that are not in the incremental refresh model
+        if (
+          incrementalRefresh &&
+          !incrementalRefresh.unitsDimensions.includes(d)
+        ) {
+          return;
+        }
+
         filteredDimensions.push({
           label: d,
           value: "exp:" + d,
@@ -162,9 +174,10 @@ export default function DimensionChooser({
 
   const [postLoading, setPostLoading] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
-  const { dimensionless: standardSnapshot } = useSnapshot();
+  const { dimensionless: standardSnapshot, experiment } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
+  const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
   // If activation metric is not selected, don't allow using that dimension
   useEffect(() => {
     if (value === "pre:activation" && !activationMetric) {
@@ -179,6 +192,7 @@ export default function DimensionChooser({
   ]);
 
   const dimensionOptions = getDimensionOptions({
+    incrementalRefresh,
     precomputedDimensions,
     exposureQueryId,
     userIdType,

@@ -9,6 +9,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
@@ -259,6 +260,8 @@ export default function ReportMetaInfo({
   const isBandit = experiment?.type === "multi-armed-bandit";
   const isHoldout = experiment?.type === "holdout";
 
+  const { metricGroups } = useDefinitions();
+
   return (
     <>
       <div className="mb-3">
@@ -382,7 +385,11 @@ export default function ReportMetaInfo({
                   variations={variations}
                   metrics={
                     snapshot?.settings
-                      ? getAllMetricIdsFromExperiment(snapshot.settings, false)
+                      ? getAllMetricIdsFromExperiment(
+                          snapshot.settings,
+                          false,
+                          metricGroups,
+                        )
                       : undefined
                   }
                   trackingKey={report.title}

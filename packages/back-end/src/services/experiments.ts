@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
-import { isEqual, uniqWith } from "lodash";
+import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_METRIC_CAPPING,
@@ -22,7 +22,6 @@ import {
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
-  isString,
   MatchingRule,
   validateCondition,
 } from "shared/util";
@@ -47,14 +46,6 @@ import {
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
-import {
-  blockHasFieldOfType,
-  BlockSnapshotSettings,
-  getBlockAnalysisSettings,
-  getBlockSnapshotAnalysis,
-  getBlockSnapshotSettings,
-  snapshotSatisfiesBlock,
-} from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -91,7 +82,6 @@ import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
-  findSnapshotsByIds,
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -156,14 +146,16 @@ import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
 import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import {
-  getDataSourceById,
-  getDataSourcesByIds,
-} from "back-end/src/models/DataSourceModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
-import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
+import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { ExperimentQueryMetadata } from "back-end/types/query";
+import { getSignedImageUrl } from "back-end/src/services/files";
+import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
@@ -1146,6 +1138,16 @@ export function updateExperimentBanditSettings({
   return changes;
 }
 
+export function getAdditionalQueryMetadataForExperiment(
+  experiment: ExperimentInterface,
+): ExperimentQueryMetadata {
+  return {
+    experimentOwner: experiment.owner || undefined,
+    experimentProject: experiment.project || undefined,
+    experimentTags: experiment.tags.length > 0 ? experiment.tags : undefined,
+  };
+}
+
 export async function createSnapshot({
   experiment,
   context,
@@ -1174,7 +1176,11 @@ export async function createSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   preventStartingAnalysis?: boolean;
-}): Promise<ExperimentResultsQueryRunner> {
+}): Promise<
+  | ExperimentResultsQueryRunner
+  | ExperimentIncrementalRefreshQueryRunner
+  | ExperimentIncrementalRefreshExploratoryQueryRunner
+> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
@@ -1262,24 +1268,115 @@ export async function createSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({ data });
-
   const integration = getSourceIntegrationObject(context, datasource, true);
+  const incrementalRefreshModel =
+    await context.models.incrementalRefresh.getByExperimentId(experiment.id);
+  const fullRefresh = !useCache || !incrementalRefreshModel;
 
-  const queryRunner = new ExperimentResultsQueryRunner(
-    context,
-    snapshot,
-    integration,
-    useCache,
-  );
+  const isIncrementalRefreshEnabledForExperiment =
+    datasource.settings.pipelineSettings?.mode === "incremental" &&
+    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
+      experiment.id,
+    ) &&
+    (datasource.settings.pipelineSettings?.includedExperimentIds ===
+      undefined ||
+      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
+        experiment.id,
+      ));
+
+  let isExperimentCompatibleWithIncrementalRefresh;
+  try {
+    await validateIncrementalPipeline({
+      org: organization,
+      integration,
+      snapshotSettings: data.settings,
+      metricMap,
+      factTableMap,
+      experiment,
+      incrementalRefreshModel,
+      analysisType: fullRefresh
+        ? "main-fullRefresh"
+        : snapshot.type === "standard"
+          ? "main-update"
+          : "exploratory",
+    });
+    isExperimentCompatibleWithIncrementalRefresh = true;
+  } catch (error) {
+    isExperimentCompatibleWithIncrementalRefresh = false;
+    logger.info(
+      `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
+    );
+  }
+
+  let queryRunner:
+    | ExperimentResultsQueryRunner
+    | ExperimentIncrementalRefreshQueryRunner
+    | ExperimentIncrementalRefreshExploratoryQueryRunner;
+
+  if (
+    isIncrementalRefreshEnabledForExperiment &&
+    (experiment.type === undefined || experiment.type === "standard") &&
+    isExperimentCompatibleWithIncrementalRefresh
+  ) {
+    if (snapshot.type === "exploratory") {
+      queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
+      );
+    } else {
+      queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // always ignore cache for incremental refresh queries
+      );
+    }
+  } else {
+    queryRunner = new ExperimentResultsQueryRunner(
+      context,
+      snapshot,
+      integration,
+      useCache,
+    );
+  }
+
   if (!preventStartingAnalysis) {
-    await queryRunner.startAnalysis({
+    const analysisProps = {
       snapshotType: type,
       snapshotSettings: data.settings,
       variationNames: experiment.variations.map((v) => v.name),
       metricMap,
       queryParentId: snapshot.id,
       factTableMap,
-    });
+      experimentQueryMetadata:
+        getAdditionalQueryMetadataForExperiment(experiment),
+    };
+
+    if (
+      queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
+      queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
+    ) {
+      const incrementalRefreshData =
+        await context.models.incrementalRefresh.getByExperimentId(
+          experiment.id,
+        );
+      const hasIncrementalRefreshData = !!incrementalRefreshData;
+
+      const fullRefresh =
+        (!useCache || !hasIncrementalRefreshData) &&
+        snapshot.type === "standard";
+
+      await queryRunner.startAnalysis({
+        ...analysisProps,
+        experimentId: experiment.id,
+        incrementalRefreshStartTime: new Date(),
+        fullRefresh,
+      });
+    } else {
+      await queryRunner.startAnalysis(analysisProps);
+    }
   }
 
   const runningSnapshot = queryRunner.model;
@@ -1584,13 +1681,23 @@ export async function toExperimentApiInterface(
     disableStickyBucketing: experiment.disableStickyBucketing,
     bucketVersion: experiment.bucketVersion,
     minBucketVersion: experiment.minBucketVersion,
-    variations: experiment.variations.map((v) => ({
-      variationId: v.id,
-      key: v.key,
-      name: v.name || "",
-      description: v.description || "",
-      screenshots: v.screenshots.map((s) => s.path),
-    })),
+    variations: await Promise.all(
+      experiment.variations.map(async (v) => ({
+        variationId: v.id,
+        key: v.key,
+        name: v.name || "",
+        description: v.description || "",
+        screenshots: await Promise.all(
+          v.screenshots.map(async (s) => {
+            try {
+              return await getSignedImageUrl(s.path);
+            } catch (e) {
+              return s.path;
+            }
+          }),
+        ),
+      })),
+    ),
     phases: experiment.phases.map((p) => ({
       name: p.name,
       dateStarted: p.dateStarted.toISOString(),
@@ -1684,6 +1791,7 @@ export async function toExperimentApiInterface(
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
+  metricGroups: MetricGroupInterface[],
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
@@ -1708,7 +1816,11 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const metricIds = getAllMetricIdsFromExperiment(experiment);
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
 
   const variationIds = experiment.variations.map((v) => v.id);
 
@@ -2718,6 +2830,7 @@ export function postExperimentApiPayloadToInterface(
     shareLevel: payload.shareLevel,
     pinnedMetricSlices: payload.pinnedMetricSlices || [],
     customMetricSlices: payload.customMetricSlices || [],
+    customFields: payload.customFields,
   };
 
   const { settings } = getScopedSettings({
@@ -2787,6 +2900,7 @@ export function updateExperimentApiPayloadToInterface(
     shareLevel,
     pinnedMetricSlices,
     customMetricSlices,
+    customFields,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2885,6 +2999,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
+    ...(customFields !== undefined ? { customFields } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -2935,12 +3050,13 @@ export async function getSettingsForSnapshotMetrics(
 }> {
   let regressionAdjustmentEnabled = false;
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
-
   const metricMap = await getMetricMap(context);
 
+  const metricGroups = await context.models.metricGroups.getAll();
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
@@ -3426,7 +3542,8 @@ export async function validateExperimentData(
   }
 
   // Validate that specified metrics exist and belong to the organization
-  const metricIds = getAllMetricIdsFromExperiment(data);
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(data, true, allMetricGroups);
   if (metricIds.length) {
     const map = await getMetricMap(context);
     for (let i = 0; i < metricIds.length; i++) {
@@ -3461,144 +3578,4 @@ export async function validateExperimentData(
   }
 
   return { metricIds, datasource };
-}
-
-// To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
-export async function updateExperimentDashboards({
-  context,
-  experiment,
-  mainSnapshot,
-  statsEngine,
-  regressionAdjustmentEnabled,
-  settingsForSnapshotMetrics,
-  metricMap,
-  factTableMap,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  mainSnapshot: ExperimentSnapshotInterface;
-  statsEngine: StatsEngine;
-  regressionAdjustmentEnabled: boolean;
-  settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
-}) {
-  const associatedDashboards = await context.models.dashboards.findByExperiment(
-    experiment.id,
-    {
-      enableAutoUpdates: true,
-    },
-  );
-
-  // Can group and dedupe across dashboards because they won't be modified directly here, instead
-  // the snapshot model will update the blocks' snapshotId field after completion
-  const allBlocks = associatedDashboards.flatMap((dash) => dash.blocks);
-  // Note: blocks for other experiments won't be updated during this flow.
-  // Expected behavior is that dashboards tied to experiments don't include references to other experiments
-  const blocksWithSnapshots = allBlocks
-    .filter((block) => blockHasFieldOfType(block, "snapshotId", isString))
-    .filter((block) => block.experimentId === experiment.id);
-  const blocksNeedingSnapshot = blocksWithSnapshots.filter(
-    (block) =>
-      block.snapshotId.length > 0 &&
-      !snapshotSatisfiesBlock(mainSnapshot, block),
-  );
-  const previousSnapshotIds = [
-    ...new Set(blocksNeedingSnapshot.map((block) => block.snapshotId)),
-  ];
-  const previousSnapshots = await findSnapshotsByIds(
-    context,
-    previousSnapshotIds,
-  );
-  const previousSnapshotMap = new Map(
-    previousSnapshots.map((snap) => [snap.id, snap]),
-  );
-
-  const snapshotAndAnalysisSettingPairs = blocksNeedingSnapshot.map<
-    [BlockSnapshotSettings, ExperimentSnapshotAnalysisSettings]
-  >((block) => {
-    const blockSnapshot = previousSnapshotMap.get(block.snapshotId);
-    if (!blockSnapshot)
-      throw new Error(
-        "Error updating dashboard results, could not find snapshot",
-      );
-    if (!blockSnapshot.analyses[0])
-      throw new Error(
-        "Error updating dashboard results, referenced snapshot missing analysis",
-      );
-    const defaultAnalysis = blockSnapshot.analyses[0];
-    return [
-      getBlockSnapshotSettings(block),
-      getBlockAnalysisSettings(
-        block,
-        (getBlockSnapshotAnalysis(blockSnapshot, block) ?? defaultAnalysis)
-          .settings,
-      ),
-    ];
-  });
-
-  const uniqueSnapshotSettings = uniqWith<BlockSnapshotSettings>(
-    snapshotAndAnalysisSettingPairs.map(
-      ([snapshotSettings]) => snapshotSettings,
-    ),
-    isEqual,
-  );
-
-  for (const snapshotSettings of uniqueSnapshotSettings) {
-    const additionalAnalysisSettings =
-      uniqWith<ExperimentSnapshotAnalysisSettings>(
-        snapshotAndAnalysisSettingPairs
-          .filter(([targetSettings]) =>
-            isEqual(snapshotSettings, targetSettings),
-          )
-          .map(([_, analysisSettings]) => analysisSettings),
-        isEqual,
-      );
-
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
-      statsEngine,
-      experiment,
-      context.org,
-      regressionAdjustmentEnabled,
-      snapshotSettings.dimensionId,
-    );
-
-    const queryRunner = await createSnapshot({
-      experiment,
-      context,
-      phaseIndex: experiment.phases.length - 1,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-      ).concat(additionalAnalysisSettings),
-      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-      metricMap,
-      factTableMap,
-      useCache: true,
-      type: "exploratory",
-      triggeredBy: "update-dashboards",
-    });
-    await queryRunner.waitForResults();
-  }
-
-  const blocksWithSavedQueries = allBlocks.filter((block) =>
-    blockHasFieldOfType(block, "savedQueryId", isString),
-  );
-
-  const savedQueries = await context.models.savedQueries.getByIds(
-    blocksWithSavedQueries.map(({ savedQueryId }) => savedQueryId),
-  );
-  const datasourceIds: string[] = [
-    ...new Set<string>(savedQueries.map(({ datasourceId }) => datasourceId)),
-  ];
-  const datasources = await getDataSourcesByIds(context, datasourceIds);
-  const datasourceMap = new Map(datasources.map((ds) => [ds.id, ds]));
-  await Promise.all(
-    savedQueries.map(async (savedQuery) => {
-      const savedQueryDataSource = datasourceMap.get(savedQuery.datasourceId);
-      if (savedQueryDataSource) {
-        await executeAndSaveQuery(context, savedQuery, savedQueryDataSource);
-      }
-    }),
-  );
 }

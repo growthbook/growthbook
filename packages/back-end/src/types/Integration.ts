@@ -12,7 +12,7 @@ import {
 import { DimensionInterface } from "back-end/types/dimension";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "back-end/types/metric";
-import { QueryStatistics } from "back-end/types/query";
+import { AdditionalQueryMetadata, QueryStatistics } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
 import { TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -47,14 +47,68 @@ export type DataType =
   | "float"
   | "boolean"
   | "date"
-  | "timestamp";
+  | "timestamp"
+  | "hll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
+
+export type FactMetricAggregationType =
+  | "sum"
+  | "count"
+  | "countDistinctHLL"
+  | "max"
+  | "eventQuantile"
+  | "unitQuantileIgnoreZeros"
+  | "unitQuantile"
+  | "binomial"
+  | "binomialAggregateFilter"
+  | "userCountAggregateFilter";
+
+export type FactMetricAggregationMetadata = {
+  // Every metric can be partially aggregated (e.g. per user-date) to `intermediateDataType`
+  // to be stored in the experimenter's warehouse where it can later be re-aggregated
+  // to produce the final metric value.
+  intermediateDataType: DataType;
+
+  // Takes the processed column from the fact table (e.g. 1 for binomial, or `column`
+  // for a selected column) and produces a partially aggregated value that can be
+  // stored at the user-date level as intermediateDataType.
+  partialAggregationFunction: (column: string) => string;
+
+  // Takes the partially aggregated value and re-aggregates it to the user level
+  // for producing the final metric value. This should produce a value of type
+  // `finalDataType`, but is returned directly to the back-end, not stored in
+  // the experimenter's warehouse.
+  reAggregationFunction: (column: string, quantileColumn?: string) => string;
+
+  // Data type of the final value produced by the fullAggregationFunction and reAggregationFunction
+  finalDataType: DataType;
+
+  // Takes the processed column from the fact table and produces the final metric value
+  // directly and is only used for CUPED metrics in the incremental refresh pipeline.
+  fullAggregationFunction: (column: string) => string;
+};
+
+// "exposure" builds a window before the first exposure date for the user
+// "phaseStart" builds a window before the phase start date for all users
+export type CovariateWindowType = "firstExposure" | "phaseStart";
+
+export type CovariatePhaseStartSettings = {
+  covariateStartDate: Date;
+  covariateEndDate: Date;
+};
+
+export type CovariateFirstExposureSettings = {
+  hours: number;
+  minDelay: number;
+  alias: string;
+};
 
 export type FactMetricData = {
   alias: string;
   id: string;
   metric: FactMetricInterface;
+  metricIndex: number;
   ratioMetric: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
@@ -70,14 +124,42 @@ export type FactMetricData = {
   capCoalesceCovariate: string;
   capCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
-  raMetricSettings: {
-    hours: number;
-    minDelay: number;
-    alias: string;
-  };
+  raMetricFirstExposureSettings: CovariateFirstExposureSettings;
+  raMetricPhaseStartSettings: CovariatePhaseStartSettings;
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
+};
+
+export type FactMetricSourceData = {
+  factTable: FactTableInterface;
+  index: number;
+  metricData: FactMetricData[];
+  percentileData: FactMetricPercentileData[];
+  eventQuantileData: FactMetricQuantileData[];
+  regressionAdjustedMetrics: FactMetricData[];
+  minCovariateStartDate: Date;
+  maxCovariateEndDate: Date;
+  metricStart: Date;
+  metricEnd: Date;
+  maxHoursToConvert: number;
+  activationMetric: ExperimentMetricInterface | null;
+  bindingLastMaxTimestamp: boolean;
+};
+
+export type FactMetricQuantileData = {
+  alias: string;
+  valueCol: string;
+  outputCol: string;
+  metricQuantileSettings: MetricQuantileSettings;
+};
+
+export type FactMetricPercentileData = {
+  valueCol: string;
+  outputCol: string;
+  percentile: number;
+  ignoreZeros: boolean;
+  sourceIndex: number;
 };
 
 export type BanditMetricData = Pick<
@@ -193,6 +275,86 @@ interface ExperimentBaseQueryParams {
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
+}
+
+export interface CreateExperimentIncrementalUnitsQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  dimensions: Dimension[];
+  factTableMap: FactTableMap;
+  unitsTableFullName: string;
+}
+
+export interface UpdateExperimentIncrementalUnitsQueryParams
+  extends CreateExperimentIncrementalUnitsQueryParams {
+  segment: SegmentInterface | null;
+  incrementalRefreshStartTime: Date;
+  lastMaxTimestamp: Date | null;
+  unitsTempTableFullName: string;
+}
+
+export interface DropOldIncrementalUnitsQueryParams {
+  unitsTableFullName: string;
+}
+
+export interface AlterNewIncrementalUnitsQueryParams {
+  unitsTableName: string;
+  unitsTempTableFullName: string;
+}
+
+export interface MaxTimestampIncrementalUnitsQueryParams {
+  unitsTableFullName: string;
+  lastMaxTimestamp: Date | null;
+}
+
+export interface MaxTimestampMetricSourceQueryParams {
+  metricSourceTableFullName: string;
+  lastMaxTimestamp: Date | null;
+}
+
+export interface CreateMetricSourceTableQueryParams {
+  settings: ExperimentSnapshotSettings;
+  metrics: FactMetricInterface[];
+  factTableMap: FactTableMap;
+  metricSourceTableFullName: string;
+}
+
+export interface InsertMetricSourceDataQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  metricSourceTableFullName: string;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+  lastMaxTimestamp: Date | null;
+}
+
+export interface CreateMetricSourceCovariateTableQueryParams {
+  settings: ExperimentSnapshotSettings;
+  metrics: FactMetricInterface[];
+  metricSourceCovariateTableFullName: string;
+}
+
+export interface InsertMetricSourceCovariateDataQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  metricSourceCovariateTableFullName: string;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+  lastCovariateSuccessfulMaxTimestamp: Date | null;
+}
+
+export interface IncrementalRefreshStatisticsQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  dimensions: Dimension[];
+  factTableMap: FactTableMap;
+  metricSourceTableFullName: string;
+  metricSourceCovariateTableFullName: string | null;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+  lastMaxTimestamp: Date | null;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
@@ -442,6 +604,10 @@ export type DimensionSlicesQueryResponseRows = {
   total_units: number;
 }[];
 
+export type MaxTimestampQueryResponseRow = {
+  max_timestamp: string;
+};
+
 export type UserExperimentExposuresQueryResponseRows = {
   timestamp: string;
   experiment_id: string;
@@ -478,6 +644,11 @@ export type ExperimentAggregateUnitsQueryResponse =
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
+export type IncrementalWithNoOutputQueryResponse = QueryResponse;
+export type MaxTimestampQueryResponse = QueryResponse<
+  MaxTimestampQueryResponseRow[]
+>;
+
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
 >;
@@ -614,9 +785,13 @@ export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
+  additionalQueryMetadata?: AdditionalQueryMetadata;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
+  setAdditionalQueryMetadata?(
+    additionalQueryMetadata: AdditionalQueryMetadata,
+  ): void;
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
@@ -650,7 +825,10 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[],
   ): Promise<TestQueryResult>;
-  getMetricAnalysisQuery(params: MetricAnalysisParams): string;
+  getMetricAnalysisQuery(
+    metric: FactMetricInterface,
+    params: Omit<MetricAnalysisParams, "metric">,
+  ): string;
   runMetricAnalysisQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -673,6 +851,54 @@ export interface SourceIntegrationInterface {
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
+  getCreateExperimentIncrementalUnitsQuery(
+    params: CreateExperimentIncrementalUnitsQueryParams,
+  ): string;
+  getUpdateExperimentIncrementalUnitsQuery(
+    params: UpdateExperimentIncrementalUnitsQueryParams,
+  ): string;
+  getDropOldIncrementalUnitsQuery(
+    params: DropOldIncrementalUnitsQueryParams,
+  ): string;
+  getAlterNewIncrementalUnitsQuery(
+    params: AlterNewIncrementalUnitsQueryParams,
+  ): string;
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string;
+  getMaxTimestampMetricSourceQuery(
+    params: MaxTimestampMetricSourceQueryParams,
+  ): string;
+  getCreateMetricSourceTableQuery(
+    params: CreateMetricSourceTableQueryParams,
+  ): string;
+  getInsertMetricSourceDataQuery(
+    params: InsertMetricSourceDataQueryParams,
+  ): string;
+  getCreateMetricSourceCovariateTableQuery(
+    params: CreateMetricSourceCovariateTableQueryParams,
+  ): string;
+  getInsertMetricSourceCovariateDataQuery(
+    params: InsertMetricSourceCovariateDataQueryParams,
+  ): string;
+  getIncrementalRefreshStatisticsQuery(
+    params: IncrementalRefreshStatisticsQueryParams,
+  ): string;
+  runIncrementalWithNoOutputQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse>;
+  runMaxTimestampQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<MaxTimestampQueryResponse>;
+  runIncrementalRefreshStatisticsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentFactMetricsQueryResponse>;
+  // Pipeline validation helpers
+  getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
+  getCurrentTimestamp(): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getUserExperimentExposuresQuery(
     params: UserExperimentExposuresQueryParams,

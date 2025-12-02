@@ -828,7 +828,8 @@ export class GrowthBook<
 
       // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
       if (
-        result?.inExperiment &&
+        result &&
+        result.inExperiment &&
         getAutoExperimentChangeType(exp) === "redirect"
       ) {
         break;

@@ -14,6 +14,7 @@ const payloadFormatValidator = z.enum([
   "standard-no-payload",
   "sdkPayload",
   "edgeConfig",
+  "edgeConfigUnescaped",
   "vercelNativeIntegration",
   "none",
 ]);

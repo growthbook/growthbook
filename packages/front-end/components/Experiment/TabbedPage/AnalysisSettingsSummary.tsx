@@ -12,6 +12,7 @@ import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import clsx from "clsx";
+import { Box, Text } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -43,7 +44,9 @@ import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDashboards } from "@/hooks/useDashboards";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
+import Callout from "@/ui/Callout";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -79,6 +82,7 @@ export default function AnalysisSettingsSummary({
     metricGroups,
     factMetrics,
     metrics,
+    mutateDefinitions,
   } = useDefinitions();
 
   const datasourceSettings = experiment.datasource
@@ -108,7 +112,7 @@ export default function AnalysisSettingsSummary({
     phase,
   } = useSnapshot();
 
-  const { mutateDashboards } = useDashboards(experiment.id);
+  const { mutateDashboards } = useExperimentDashboards(experiment.id);
 
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
     experiment,
@@ -137,10 +141,39 @@ export default function AnalysisSettingsSummary({
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
+
+  const handleDisableIncrementalRefresh = async () => {
+    if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;
+
+    await apiCall(`/datasource/${datasource.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: {
+          ...datasource.settings,
+          pipelineSettings: {
+            ...datasource.settings.pipelineSettings,
+            excludedExperimentIds: [
+              ...(datasource.settings?.pipelineSettings
+                ?.excludedExperimentIds ?? []),
+              experiment.id,
+            ],
+          },
+        },
+      }),
+    });
+    setRefreshError("");
+    mutateDefinitions();
+  };
+
   const allExpandedMetrics = Array.from(
     new Set(
       expandMetricGroups(
-        getAllMetricIdsFromExperiment(experiment, false),
+        getAllMetricIdsFromExperiment(experiment, false, metricGroups),
         metricGroups,
       ),
     ),
@@ -481,6 +514,7 @@ export default function AnalysisSettingsSummary({
                       experiment={experiment}
                       lastAnalysis={analysis}
                       dimension={dimension}
+                      setError={(error) => setRefreshError(error ?? "")}
                       setAnalysisSettings={setAnalysisSettings}
                       resetFilters={() => {
                         if (baselineRow !== 0) {
@@ -569,9 +603,11 @@ export default function AnalysisSettingsSummary({
                             );
                             mutateSnapshot();
                             mutate();
+                            setRefreshError("");
                           })
                           .catch((e) => {
                             console.error(e);
+                            setRefreshError(e.message);
                           });
                       }
                     : undefined
@@ -633,9 +669,23 @@ export default function AnalysisSettingsSummary({
         </div>
       </div>
       {refreshError && (
-        <div className="alert alert-danger mt-2">
-          <strong>Error updating data: </strong> {refreshError}
-        </div>
+        <>
+          <Callout status="error" mt="2">
+            <strong>Error updating data: </strong> {refreshError}
+          </Callout>
+          {isExperimentIncludedInIncrementalRefresh && (
+            <Box mt="2" mb="2" style={{ color: "var(--color-text-low)" }}>
+              <Text size="1">
+                If this error persists, you can try disabling Incremental
+                Refresh for this experiment by{" "}
+                <Link onClick={handleDisableIncrementalRefresh}>
+                  clicking here
+                </Link>
+                .
+              </Text>
+            </Box>
+          )}
+        </>
       )}
     </div>
   );

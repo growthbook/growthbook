@@ -82,6 +82,7 @@ export default function ResultsTab({
     getMetricById,
     getProjectById,
     metrics,
+    metricGroups,
     datasources,
   } = useDefinitions();
 
@@ -115,6 +116,7 @@ export default function ResultsTab({
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m),

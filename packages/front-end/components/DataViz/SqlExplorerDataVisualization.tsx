@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
@@ -7,14 +7,17 @@ import {
   dataVizConfigValidator,
   xAxisDateAggregationUnit,
   yAxisAggregationType,
+  dimensionAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
+import { supportsDimension } from "@/services/dataVizTypeGuards";
+import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
 import DataVizConfigPanel from "./DataVizConfigPanel";
+import PivotTable from "./PivotTable";
 
 // We need to use any here because the rows are defined only in runtime
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,67 +285,120 @@ export function DataVisualizationDisplay({
     });
   }, [dataVizConfig.filters, rows]);
 
-  // TODO: Support multiple y-axis and dimension fields
-  const xConfig = requiresXAxis(dataVizConfig)
-    ? dataVizConfig.xAxis
-    : undefined;
+  // TODO: Support multiple y-axis fields
+  const xAxisConfigs = getXAxisConfig(dataVizConfig);
+  const xConfig = xAxisConfigs[0];
   const xField = xConfig?.fieldName;
   const yConfig = dataVizConfig.yAxis?.[0];
   const yField = yConfig?.fieldName;
   const aggregation = yConfig?.aggregation || "sum";
-  const dimensionConfig = supportsDimension(dataVizConfig)
-    ? dataVizConfig.dimension?.[0]
-    : undefined;
-  const dimensionField = dimensionConfig?.fieldName;
+  // Get all dimension configurations
+  const dimensionConfigs: dimensionAxisConfiguration[] = useMemo(
+    () =>
+      supportsDimension(dataVizConfig)
+        ? (dataVizConfig.dimension ?? [])
+        : ([] as dimensionAxisConfiguration[]),
+    [dataVizConfig],
+  );
+  const dimensionFields = dimensionConfigs.map((d) => d.fieldName);
 
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
-  // If using a dimension, get top X dimension values
-  const { dimensionValues, hasOtherDimension } = useMemo(() => {
-    if (!dimensionField) {
-      return { dimensionValues: [], hasOtherDimension: false };
+  // Helper: Generate all combinations of dimension values across all dimensions
+  const generateAllDimensionCombinations = useCallback(
+    (
+      dimensionValuesByField: Map<
+        string,
+        { values: string[]; hasOther: boolean; maxValues: number }
+      >,
+    ): string[][] => {
+      if (dimensionFields.length === 0) return [];
+
+      let combinations: string[][] = [[]];
+
+      dimensionFields.forEach((field) => {
+        const fieldInfo = dimensionValuesByField.get(field);
+        if (!fieldInfo) return;
+
+        const valuesToUse = [...fieldInfo.values];
+        if (fieldInfo.hasOther) {
+          valuesToUse.push("(other)");
+        }
+
+        const newCombinations: string[][] = [];
+        combinations.forEach((combination) => {
+          valuesToUse.forEach((value) => {
+            newCombinations.push([...combination, value]);
+          });
+        });
+
+        combinations = newCombinations;
+      });
+
+      return combinations;
+    },
+    [dimensionFields],
+  );
+
+  // If using dimensions, get top X dimension values for each dimension
+  const dimensionValuesByField = useMemo(() => {
+    const result: Map<
+      string,
+      { values: string[]; hasOther: boolean; maxValues: number }
+    > = new Map();
+
+    if (dimensionFields.length === 0) {
+      return result;
     }
 
-    // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
-    const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
-    filteredRows.forEach((row) => {
-      const dimensionValue = row[dimensionField] + "";
-      const yValue = parseYValue(row, yField, yConfig?.type || "number");
-      if (yValue !== undefined) {
-        dimensionValueCounts.set(dimensionValue, [
-          ...(dimensionValueCounts.get(dimensionValue) || []),
-          yValue,
-        ]);
+    dimensionConfigs.forEach((config) => {
+      const dimensionField = config.fieldName;
+      const maxValues = config.maxValues || 5;
+
+      // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
+      const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
+      filteredRows.forEach((row) => {
+        const dimensionValue = row[dimensionField] + "";
+        const yValue = parseYValue(row, yField, yConfig?.type || "number");
+        if (yValue !== undefined) {
+          dimensionValueCounts.set(dimensionValue, [
+            ...(dimensionValueCounts.get(dimensionValue) || []),
+            yValue,
+          ]);
+        }
+      });
+
+      // Sort the dimension values by their aggregate y-value descending
+      const sortedDimensionValues = Array.from(dimensionValueCounts.entries())
+        .map(([dimensionValue, values]) => ({
+          dimensionValue,
+          value: aggregate(values, aggregation),
+        }))
+        .sort((a, b) => b.value - a.value)
+        .map(({ dimensionValue }) => dimensionValue);
+
+      // If there are at least 2 overflow values, add an "(other)" group
+      if (sortedDimensionValues.length > maxValues + 1) {
+        result.set(dimensionField, {
+          values: sortedDimensionValues.slice(0, maxValues),
+          hasOther: true,
+          maxValues,
+        });
+      } else {
+        result.set(dimensionField, {
+          values: sortedDimensionValues,
+          hasOther: false,
+          maxValues,
+        });
       }
     });
 
-    // Sort the dimension values by their aggregate y-value descending
-    const dimensionValues = Array.from(dimensionValueCounts.entries())
-      .map(([dimensionValue, values]) => ({
-        dimensionValue,
-        value: aggregate(values, aggregation),
-      }))
-      .sort((a, b) => b.value - a.value)
-      .map(({ dimensionValue }) => dimensionValue);
-
-    const maxValues = dimensionConfig?.maxValues || 5;
-    // If there are at least 2 overflow values, add an "(other)" group
-    if (dimensionValues.length > maxValues + 1) {
-      return {
-        dimensionValues: dimensionValues.slice(0, maxValues),
-        hasOtherDimension: true,
-      };
-    }
-
-    return {
-      dimensionValues,
-      hasOtherDimension: false,
-    };
+    return result;
   }, [
-    dimensionField,
+    dimensionFields,
+    dimensionConfigs,
     filteredRows,
-    dimensionConfig?.maxValues,
     yConfig?.type,
     yField,
     aggregation,
@@ -356,6 +412,7 @@ export function DataVisualizationDisplay({
 
     const yType = yConfig?.type || "number";
 
+    // Parse each filtered row into a standardized format
     const parsedRows = filteredRows.map((row) => {
       const newRow: {
         x?: number | Date | string;
@@ -383,16 +440,21 @@ export function DataVisualizationDisplay({
       // Parse yField value based on yType
       newRow.y = parseYValue(row, yField, yType);
 
-      if (dimensionField) {
-        const dimensionValue = row[dimensionField] + "";
-        newRow.dimensions = {
-          [dimensionField]: dimensionValues.includes(dimensionValue)
-            ? dimensionValue
-            : "(other)",
-        };
+      // Handle all dimensions
+      if (dimensionFields.length > 0) {
+        newRow.dimensions = {};
+        dimensionFields.forEach((dimensionField) => {
+          const dimensionValue = row[dimensionField] + "";
+          const fieldInfo = dimensionValuesByField.get(dimensionField);
+          if (fieldInfo) {
+            newRow.dimensions![dimensionField] = fieldInfo.values.includes(
+              dimensionValue,
+            )
+              ? dimensionValue
+              : "(other)";
+          }
+        });
       }
-
-      // TODO: support multiple y-axis and dimension fields
 
       return newRow;
     });
@@ -406,9 +468,12 @@ export function DataVisualizationDisplay({
         y: (string | number)[];
       }
     > = {};
+
+    // Group rows by x-value and collect dimension values
     parsedRows.forEach((row, i) => {
       if (row.x == null || row.y == null) return;
 
+      // Create a unique key for this x-value
       const keyData: unknown[] = [];
       if (aggregation === "none") {
         keyData.push(i);
@@ -419,6 +484,8 @@ export function DataVisualizationDisplay({
       }
 
       const key = JSON.stringify(keyData);
+
+      // Initialize group if it doesn't exist
       if (!groupedRows[key]) {
         groupedRows[key] = {
           x:
@@ -430,16 +497,52 @@ export function DataVisualizationDisplay({
         };
       }
 
-      // Add value to top-level
+      // Add value to top-level y aggregation
       groupedRows[key].y.push(row.y);
 
-      // Add value to dimension
-      Object.entries(row.dimensions || {}).forEach(([k, v]) => {
-        const dimensionKey = k + ": " + v;
+      // Group by dimension combination if dimensions exist
+      if (row.dimensions && Object.keys(row.dimensions).length > 0) {
+        const dimensionKey = dimensionFields
+          .map((field) => row.dimensions![field])
+          .join(", ");
+
         if (!groupedRows[key].dimensions[dimensionKey]) {
           groupedRows[key].dimensions[dimensionKey] = [];
         }
         groupedRows[key].dimensions[dimensionKey].push(row.y || 0);
+      }
+    });
+
+    // Generate all possible dimension combinations for this dataset
+    const dimensionCombinations = generateAllDimensionCombinations(
+      dimensionValuesByField,
+    );
+
+    // Sort dimension combinations directly (they ARE the paths we need!)
+    // No need to build a tree - just sort and use them
+    const sortedDimensionPaths = [...dimensionCombinations].sort((a, b) => {
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const aVal = a[i] || "";
+        const bVal = b[i] || "";
+        const cmp = aVal.localeCompare(bVal);
+        if (cmp !== 0) return cmp;
+      }
+      return 0;
+    });
+
+    // Pre-calculate rowSpans for each path depth
+    // RowSpan = how many leaf paths share this prefix at this depth
+    const rowSpans = new Map<string, number>();
+    sortedDimensionPaths.forEach((path) => {
+      path.forEach((_, depth) => {
+        const key = path.slice(0, depth + 1).join("/");
+        if (!rowSpans.has(key)) {
+          // Count how many paths share this prefix
+          const matchingPaths = sortedDimensionPaths.filter((p) =>
+            p.slice(0, depth + 1).every((val, idx) => val === path[idx]),
+          );
+          rowSpans.set(key, matchingPaths.length);
+        }
       });
     });
 
@@ -448,27 +551,43 @@ export function DataVisualizationDisplay({
       const row: Record<string, unknown> = {
         x: group.x,
         y: aggregate(group.y, aggregation || "sum"),
+        _dimensionFields: dimensionFields,
+        _xAxisFields: xField ? [xField] : [],
       };
 
-      if (dimensionField) {
-        dimensionValues.forEach((value) => {
-          const dimensionKey = dimensionField + ": " + value;
+      if (dimensionFields.length > 0) {
+        // For each combination of dimension values, add a column
+        const dimensionValuesByCombo: Record<
+          string,
+          Record<string, string>
+        > = {};
+
+        dimensionCombinations.forEach((combination) => {
+          const dimensionKey = combination.join(", ");
           row[dimensionKey] =
             dimensionKey in group.dimensions
               ? aggregate(group.dimensions[dimensionKey], aggregation)
-              : 0;
+              : undefined;
+
+          // Store structured dimension values for this combo
+          dimensionValuesByCombo[dimensionKey] = {};
+          dimensionFields.forEach((field, idx) => {
+            dimensionValuesByCombo[dimensionKey][field] = combination[idx];
+          });
         });
-        if (hasOtherDimension) {
-          const otherKey = dimensionField + ": (other)";
-          row[otherKey] =
-            otherKey in group.dimensions
-              ? aggregate(group.dimensions[otherKey], aggregation)
-              : 0;
-        }
+
+        row._dimensionValuesByCombo = dimensionValuesByCombo;
       }
 
       return row;
     });
+
+    // Add pivot-table-specific metadata (only if dimensions exist)
+    if (dimensionFields.length > 0 && aggregatedRows.length > 0) {
+      aggregatedRows[0]._pivotDimensionPaths = sortedDimensionPaths;
+      aggregatedRows[0]._pivotRowSpans = Object.fromEntries(rowSpans);
+      aggregatedRows[0]._pivotDimensionFields = dimensionFields;
+    }
 
     if (
       xConfig?.type === "string" &&
@@ -477,13 +596,13 @@ export function DataVisualizationDisplay({
     ) {
       // Sort by x value if specified
       aggregatedRows.sort((a, b) => {
-        if (xConfig.sort === "asc") {
+        if (xConfig?.sort === "asc") {
           return (a.x + "").localeCompare(b.x + "");
-        } else if (xConfig.sort === "desc") {
+        } else if (xConfig?.sort === "desc") {
           return (b.x + "").localeCompare(a.x + "");
-        } else if (xConfig.sort === "valueAsc") {
+        } else if (xConfig?.sort === "valueAsc") {
           return (a.y as number) - (b.y as number);
-        } else if (xConfig.sort === "valueDesc") {
+        } else if (xConfig?.sort === "valueDesc") {
           return (b.y as number) - (a.y as number);
         } else {
           return 0;
@@ -492,7 +611,7 @@ export function DataVisualizationDisplay({
     } else if (xConfig?.type === "number" || xConfig?.type === "date") {
       // Always sort in ascending order
       aggregatedRows.sort((a, b) => {
-        if (xConfig.type === "date") {
+        if (xConfig?.type === "date") {
           return (
             getValidDate(a.x as string).getTime() -
             getValidDate(b.x as string).getTime()
@@ -512,10 +631,10 @@ export function DataVisualizationDisplay({
     aggregation,
     yField,
     yConfig?.type,
-    dimensionField,
-    dimensionValues,
-    hasOtherDimension,
+    dimensionFields,
+    dimensionValuesByField,
     filteredRows,
+    generateAllDimensionCombinations,
   ]);
 
   const dataset = useMemo(() => {
@@ -527,7 +646,7 @@ export function DataVisualizationDisplay({
   }, [aggregatedRows]);
 
   const series = useMemo(() => {
-    if (!dimensionField || dimensionValues.length === 0) {
+    if (dimensionFields.length === 0) {
       return [
         {
           name: xField,
@@ -544,42 +663,35 @@ export function DataVisualizationDisplay({
       ];
     }
 
-    const dimensionSeries = dimensionValues.map((value) => {
+    // Generate all combinations of dimension values for series
+    const dimensionCombinations = generateAllDimensionCombinations(
+      dimensionValuesByField,
+    );
+
+    // Use the first dimension's display setting for stacking
+    const shouldStack = dimensionConfigs[0]?.display === "stacked";
+
+    return dimensionCombinations.map((combination) => {
+      const dimensionKey = combination.join(", ");
       return {
-        name: value,
+        name: dimensionKey,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
-        stack: dimensionConfig?.display === "stacked" ? "stack" : undefined,
+        stack: shouldStack ? "stack" : undefined,
         encode: {
           x: "x",
-          y: `${dimensionField}: ${value}`,
+          y: dimensionKey,
         },
       };
     });
-
-    if (hasOtherDimension) {
-      dimensionSeries.push({
-        name: "(other)",
-        type:
-          dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
-        ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
-        stack: dimensionConfig?.display === "stacked" ? "stack" : undefined,
-        encode: {
-          x: "x",
-          y: `${dimensionField}: (other)`,
-        },
-      });
-    }
-
-    return dimensionSeries;
   }, [
     dataVizConfig.chartType,
     xField,
-    dimensionField,
-    dimensionValues,
-    dimensionConfig?.display,
-    hasOtherDimension,
+    dimensionFields,
+    dimensionValuesByField,
+    dimensionConfigs,
+    generateAllDimensionCombinations,
   ]);
 
   const option = useMemo(() => {
@@ -605,7 +717,7 @@ export function DataVisualizationDisplay({
             },
           }
         : {}),
-      ...(dimensionField
+      ...(dimensionFields.length > 0
         ? {
             legend: {
               textStyle: {
@@ -619,7 +731,7 @@ export function DataVisualizationDisplay({
       xAxis: {
         name:
           xConfig?.type === "date" && xConfig?.dateAggregationUnit !== "none"
-            ? `${xConfig.dateAggregationUnit} (${xField})`
+            ? `${xConfig?.dateAggregationUnit} (${xField})`
             : xField,
         nameLocation: "middle",
         nameTextStyle: {
@@ -664,7 +776,7 @@ export function DataVisualizationDisplay({
     xConfig?.type,
     xConfig?.dateAggregationUnit,
     yConfig?.aggregation,
-    dimensionField,
+    dimensionFields,
     dataVizConfig.title,
     textColor,
   ]);
@@ -683,6 +795,32 @@ export function DataVisualizationDisplay({
         value={value}
         label={dataVizConfig.title}
         format={format}
+      />
+    );
+  }
+
+  if (dataVizConfig.chartType === "pivot-table") {
+    if (!dataVizConfig.xAxes || !dataVizConfig.yAxis) {
+      return (
+        <Flex justify="center" align="center" height="100%">
+          Select rows, columns, and a measure value on the side panel to
+          visualize your data.
+        </Flex>
+      );
+    }
+
+    if (!aggregatedRows.length) {
+      return (
+        <Flex justify="center" align="center" height="100%">
+          No data to visualize.
+        </Flex>
+      );
+    }
+
+    return (
+      <PivotTable
+        aggregatedRows={aggregatedRows}
+        dataVizConfig={dataVizConfig}
       />
     );
   }

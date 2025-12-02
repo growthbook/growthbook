@@ -138,6 +138,7 @@ export interface DataSourceProperties {
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasIncrementalRefresh?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {
@@ -182,7 +183,7 @@ export type DataSourceEvents = {
   extraUserIdProperty?: string;
 };
 
-export type DataSourcePipelineMode = "ephemeral";
+export type DataSourcePipelineMode = "ephemeral" | "incremental";
 
 export type DataSourcePipelineSettings = {
   /**
@@ -212,6 +213,16 @@ export type DataSourcePipelineSettings = {
    * Controls if we drop the units table when the analysis finishes.
    */
   unitsTableDeletion?: boolean;
+  /**
+   * If specified, we will use the configured pipeline mode only for these experiment IDs.
+   * If not specified, we will use the configured pipeline mode for all experiments.
+   */
+  includedExperimentIds?: string[];
+  /**
+   * If specified, these experiment IDs will NOT use incremental refresh
+   * even when mode is "incremental". They will fall back to standard queries.
+   */
+  excludedExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";

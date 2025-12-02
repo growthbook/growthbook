@@ -15,6 +15,7 @@ import { ApiFactMetric } from "back-end/types/openapi";
 import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { UpdateProps } from "back-end/types/models";
+import { promiseAllChunks } from "../util/promise";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -216,6 +217,20 @@ export class FactMetricModel extends BaseClass {
       }
     }
 
+    // validate column
+    const metricSupportsDistinctDates =
+      data.metricType === "mean" ||
+      data.metricType === "ratio" ||
+      (data.metricType === "quantile" &&
+        data.quantileSettings?.type === "unit");
+    if (data.numerator.column === "$$distinctDates") {
+      if (!metricSupportsDistinctDates) {
+        throw new Error(
+          "$$distinctDates is only supported for mean, ratio, and quantile metrics",
+        );
+      }
+    }
+
     // validate user filter
     if (
       data.numerator.aggregateFilterColumn ||
@@ -267,7 +282,8 @@ export class FactMetricModel extends BaseClass {
     }
     if (
       data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics")
+      !this.context.hasPremiumFeature("retention-metrics") &&
+      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
@@ -282,6 +298,18 @@ export class FactMetricModel extends BaseClass {
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
       );
     }
+  }
+
+  public async deleteAllFactMetricsForAProject(projectId: string) {
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    await promiseAllChunks(
+      factMetrics.map(
+        (factMetric) => async () => await this.delete(factMetric),
+      ),
+      5,
+    );
   }
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {

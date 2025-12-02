@@ -131,9 +131,12 @@ export function scaleImpactAndSetMissingExperiments({
 
       const fitsDateFilter =
         (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
-      const hasMetric = getAllMetricIdsFromExperiment(e, false).includes(
-        metric,
-      );
+      const { metricGroups } = useDefinitions();
+      const hasMetric = getAllMetricIdsFromExperiment(
+        e,
+        false,
+        metricGroups,
+      ).includes(metric);
       const inSelectedProject =
         selectedProjects.includes(e.project ?? "") || !selectedProjects.length;
 

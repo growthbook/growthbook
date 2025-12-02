@@ -64,6 +64,10 @@ const DimensionForm: FC<{
           requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
+          sqlObjectInfo={{
+            objectType: "Dimension",
+            objectName: form.watch("name"),
+          }}
         />
       )}
       <Modal

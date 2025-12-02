@@ -41,14 +41,27 @@ const yAxisConfigurationValidator = z.object({
 export type yAxisConfiguration = z.infer<typeof yAxisConfigurationValidator>;
 export type yAxisAggregationType = z.infer<typeof aggregationEnum>;
 
-const dimensionAxisConfigurationValidator = z.object({
+const baseDimensionAxisConfigurationValidator = z.object({
   fieldName: z.string(),
-  display: z.enum(["grouped", "stacked"]),
+  display: z.enum(["grouped"]),
   maxValues: z.number().optional(),
 });
-export type dimensionAxisConfiguration = z.infer<
-  typeof dimensionAxisConfigurationValidator
+export type baseDimensionAxisConfiguration = z.infer<
+  typeof baseDimensionAxisConfigurationValidator
 >;
+
+const extendedDimensionAxisConfigurationValidator =
+  baseDimensionAxisConfigurationValidator.extend({
+    display: z.enum(["stacked", "grouped"]),
+  });
+export type extendedDimensionAxisConfiguration = z.infer<
+  typeof extendedDimensionAxisConfigurationValidator
+>;
+
+// Union type for all dimension axis configurations
+export type dimensionAxisConfiguration =
+  | baseDimensionAxisConfiguration
+  | extendedDimensionAxisConfiguration;
 
 const filterConfigurationValidator = z.union([
   // Date filters
@@ -132,6 +145,7 @@ const formatEnum = z.enum([
 
 // Base chart components for composition
 const baseChartConfig = z.object({
+  id: z.string().optional(), // UUID for referencing in blockConfig - optional as this was added after the initial release
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   filters: z.array(filterConfigurationValidator).optional(),
@@ -141,8 +155,22 @@ const withXAxis = z.object({
   xAxis: xAxisConfigurationValidator,
 });
 
-const withDimensions = z.object({
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+const withXAxes = z.object({
+  xAxes: z.array(xAxisConfigurationValidator).nonempty(),
+});
+
+const withBaseDimensions = z.object({
+  dimension: z
+    .array(baseDimensionAxisConfigurationValidator)
+    .nonempty()
+    .optional(),
+});
+
+const withExtendedDimensions = z.object({
+  dimension: z
+    .array(extendedDimensionAxisConfigurationValidator)
+    .nonempty()
+    .optional(),
 });
 
 const withFormat = z.object({
@@ -153,26 +181,31 @@ const withFormat = z.object({
 const barChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("bar") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withExtendedDimensions);
 
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withBaseDimensions);
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withExtendedDimensions);
 
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withBaseDimensions);
 
 const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))
   .merge(withFormat);
+
+const pivotTableValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("pivot-table") }))
+  .merge(withXAxes)
+  .merge(withBaseDimensions);
 
 // Union of all chart type validators
 export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
@@ -181,6 +214,7 @@ export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
   areaChartValidator,
   scatterChartValidator,
   bigValueChartValidator,
+  pivotTableValidator,
 ]);
 
 // Type helpers for better TypeScript inference
@@ -190,6 +224,7 @@ export type AreaChart = z.infer<typeof areaChartValidator>;
 export type ScatterChart = z.infer<typeof scatterChartValidator>;
 export type BigValueChart = z.infer<typeof bigValueChartValidator>;
 export type BigValueFormat = z.infer<typeof formatEnum>;
+export type PivotTable = z.infer<typeof pivotTableValidator>;
 
 export const testQueryRowSchema = z.record(z.string(), z.any());
 

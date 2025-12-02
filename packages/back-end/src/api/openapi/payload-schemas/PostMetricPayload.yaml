@@ -9,11 +9,10 @@ properties:
     description: ID for the [DataSource](#tag/DataSource_model)
   managedBy:
     type: string
-    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy.
+    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only.
     enum:
       - ""
       - api
-      - admin
   owner:
     type: string
     description: Name of the person who owns this metric

@@ -51,7 +51,7 @@
     "patch-package": "^8.0.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.3.3",
+    "typescript": "^5.7.3",
     "zod": "^4.1.12"
   },
   "browserslist": {

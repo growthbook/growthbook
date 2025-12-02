@@ -1,5 +1,6 @@
 import React, {
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -21,6 +22,12 @@ import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
+import {
+  CreateMetricAnalysisProps,
+  MetricAnalysisInterface,
+} from "back-end/types/metric-analysis";
+import { getValidDate } from "shared/dates";
+import { isEqual } from "lodash";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -32,6 +39,7 @@ export const DashboardSnapshotContext = React.createContext<{
   dimensionless?: ExperimentSnapshotInterface;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
   savedQueriesMap: Map<string, SavedQuery>;
+  metricAnalysesMap: Map<string, MetricAnalysisInterface>;
   loading?: boolean;
   error?: Error;
   refreshStatus: QueryStatus;
@@ -45,6 +53,7 @@ export const DashboardSnapshotContext = React.createContext<{
   refreshStatus: "succeeded",
   snapshotsMap: new Map(),
   savedQueriesMap: new Map(),
+  metricAnalysesMap: new Map(),
   allQueries: [],
   mutateSnapshot: async () => {},
   mutateSnapshotsMap: async () => {},
@@ -57,7 +66,7 @@ export default function DashboardSnapshotProvider({
   mutateDefinitions,
   children,
 }: {
-  experiment: ExperimentInterfaceStringDates;
+  experiment?: ExperimentInterfaceStringDates;
   dashboard?: DashboardInterface;
   mutateDefinitions: () => void;
   children: ReactNode;
@@ -71,7 +80,12 @@ export default function DashboardSnapshotProvider({
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
     dimensionless: ExperimentSnapshotInterface;
-  }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
+  }>(
+    `/experiment/${experiment?.id}/snapshot/${(experiment?.phases.length ?? 0) - 1}`,
+    {
+      shouldRun: () => !!experiment?.id,
+    },
+  );
   const [refreshError, setRefreshError] = useState<string | undefined>(
     undefined,
   );
@@ -84,38 +98,65 @@ export default function DashboardSnapshotProvider({
   } = useApi<{
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
+    metricAnalyses: MetricAnalysisInterface[];
   }>(`/dashboards/${dashboard?.id}/snapshots`, {
-    shouldRun: () => !!dashboard?.id,
+    shouldRun: () => !!dashboard?.id && dashboard.id !== "new",
   });
 
   const { mutate: mutateSavedQueries } = useApi(`/saved-queries/`);
 
-  const [allSnapshots, allSavedQueries] = useMemo(
-    () => [
-      allSnapshotsData?.snapshots || [],
-      allSnapshotsData?.savedQueries || [],
-    ],
-    [allSnapshotsData],
-  );
-
-  const savedQueriesMap = useMemo(
-    () =>
-      new Map(allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery])),
-    [allSavedQueries],
-  );
-
-  const { status, snapshotsMap, allQueries, snapshotError } = useMemo(() => {
-    const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
-    const allQueries = allSnapshots.flatMap(
-      (snapshot) => snapshot.queries || [],
+  const {
+    savedQueriesMap,
+    metricAnalysesMap,
+    runningMetricAnalyses,
+    status,
+    snapshotsMap,
+    allQueries,
+    snapshotError,
+  } = useMemo(() => {
+    const allSnapshots = allSnapshotsData?.snapshots || [];
+    const allSavedQueries = allSnapshotsData?.savedQueries || [];
+    const allMetricAnalyses = allSnapshotsData?.metricAnalyses || [];
+    const savedQueriesMap = new Map(
+      allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery]),
     );
+    const metricAnalysesMap = new Map(
+      allMetricAnalyses.map((metricAnalysis) => [
+        metricAnalysis.id,
+        metricAnalysis,
+      ]),
+    );
+    const runningMetricAnalyses = allMetricAnalyses.filter((metricAnalysis) =>
+      ["running", "queued"].includes(metricAnalysis.status),
+    );
+    const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
+    const allQueries = allSnapshots
+      .filter(
+        (snap) =>
+          !dashboard ||
+          dashboard.blocks.some((block) => block.snapshotId === snap.id),
+      )
+      .flatMap((snapshot) => snapshot.queries || [])
+      .concat(
+        allMetricAnalyses.flatMap(
+          (metricAnalysis) => metricAnalysis.queries || [],
+        ),
+      );
     const snapshotError = allSnapshots.find(
       (snapshot) => snapshot.error,
     )?.error;
     const { status } = getQueryStatus(allQueries, snapshotError);
 
-    return { status, snapshotsMap, allQueries, snapshotError };
-  }, [allSnapshots]);
+    return {
+      savedQueriesMap,
+      metricAnalysesMap,
+      runningMetricAnalyses,
+      status,
+      snapshotsMap,
+      allQueries,
+      snapshotError,
+    };
+  }, [allSnapshotsData, dashboard]);
 
   useEffect(() => {
     const dashboardSnapshotIds = [
@@ -132,7 +173,15 @@ export default function DashboardSnapshotProvider({
 
   // Periodically check for the status of all snapshots
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const intervalId = setInterval(async () => {
+      if (runningMetricAnalyses.length > 0) {
+        // Refresh the query status of all analyses before mutating
+        for (const m of runningMetricAnalyses) {
+          await apiCall(`/metric-analysis/${m.id}/refreshStatus`, {
+            method: "POST",
+          });
+        }
+      }
       if (status === "running") {
         mutateAllSnapshots();
       } else {
@@ -142,10 +191,10 @@ export default function DashboardSnapshotProvider({
     return () => {
       clearInterval(intervalId);
     };
-  }, [mutateAllSnapshots, status]);
+  }, [mutateAllSnapshots, status, runningMetricAnalyses, apiCall]);
 
   const updateAllSnapshots = async () => {
-    if (!dashboard) return;
+    if (!dashboard || dashboard.id === "new") return;
     setRefreshError(undefined);
     try {
       await apiCall(`/dashboards/${dashboard.id}/refresh`, {
@@ -165,11 +214,14 @@ export default function DashboardSnapshotProvider({
     <DashboardSnapshotContext.Provider
       value={{
         experiment,
-        projects: experiment?.project ? [experiment.project] : undefined,
+        projects:
+          dashboard?.projects ??
+          (experiment?.project ? [experiment.project] : undefined),
         defaultSnapshot: snapshotData?.snapshot,
         dimensionless: snapshotData?.dimensionless,
         snapshotsMap,
         savedQueriesMap,
+        metricAnalysesMap,
         error: singleSnapshotError || allSnapshotsError,
         loading: snapshotLoading || allSnapshotsLoading,
         refreshStatus: status,
@@ -318,5 +370,190 @@ export function useDashboardSnapshot(
       snapshot?.status === "running",
     error: snapshotsError,
     mutateSnapshot,
+  };
+}
+
+export function useDashboardMetricAnalysis(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  setBlock:
+    | undefined
+    | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>,
+) {
+  const {
+    loading: contextLoading,
+    error: contextError,
+    mutateSnapshotsMap: mutateAnalysesMap,
+    metricAnalysesMap,
+  } = useContext(DashboardSnapshotContext);
+  const { apiCall } = useAuth();
+  const [postError, setPostError] = useState<string | undefined>(undefined);
+  const [postLoading, setPostLoading] = useState(false);
+
+  const blockHasMetricAnalysis = blockHasFieldOfType(
+    block,
+    "metricAnalysisId",
+    isString,
+  );
+
+  const metricAnalysisFromMap = useMemo(
+    () =>
+      blockHasMetricAnalysis
+        ? metricAnalysesMap.get(block.metricAnalysisId)
+        : undefined,
+    [blockHasMetricAnalysis, block, metricAnalysesMap],
+  );
+
+  const shouldFetchMetricAnalysis = useCallback(
+    () =>
+      blockHasMetricAnalysis &&
+      block.metricAnalysisId.length > 0 &&
+      !metricAnalysisFromMap,
+    [metricAnalysisFromMap, blockHasMetricAnalysis, block],
+  );
+  const {
+    data: existingMetricAnalysisData,
+    error: existingMetricAnalysisError,
+    isLoading: getMetricAnalysisLoading,
+    mutate: mutateSingleAnalysis,
+  } = useApi<{
+    status: number;
+    metricAnalysis: MetricAnalysisInterface;
+  }>(
+    `/metric-analysis/${blockHasMetricAnalysis ? block.metricAnalysisId : ""}`,
+    {
+      shouldRun: shouldFetchMetricAnalysis,
+    },
+  );
+
+  const metricAnalysis = useMemo(
+    () => metricAnalysisFromMap ?? existingMetricAnalysisData?.metricAnalysis,
+    [metricAnalysisFromMap, existingMetricAnalysisData],
+  );
+
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      if (
+        // If using manually fetched analysis & it's still running, update it on an interval
+        shouldFetchMetricAnalysis() &&
+        metricAnalysis &&
+        ["running", "queued"].includes(
+          getQueryStatus(metricAnalysis.queries, metricAnalysis.error).status,
+        )
+      ) {
+        await apiCall(`/metric-analysis/${metricAnalysis.id}/refreshStatus`, {
+          method: "POST",
+        });
+        mutateSingleAnalysis();
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 2000);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [
+    metricAnalysis,
+    mutateSingleAnalysis,
+    shouldFetchMetricAnalysis,
+    apiCall,
+  ]);
+
+  // Create a hook for refreshing, either due to settings changes or based on manual interaction
+  const refreshAnalysis = useCallback(async () => {
+    if (!setBlock) return;
+    if (
+      !blockHasMetricAnalysis ||
+      !block.factMetricId ||
+      !block.analysisSettings.userIdType
+    )
+      return;
+    const body: CreateMetricAnalysisProps = {
+      id: block.factMetricId,
+      userIdType: block.analysisSettings.userIdType,
+      lookbackDays: block.analysisSettings.lookbackDays,
+      startDate: getValidDate(block.analysisSettings.startDate).toISOString(),
+      endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
+      populationType: block.analysisSettings.populationType,
+      populationId: block.analysisSettings.populationId || null,
+      source: "metric",
+      additionalNumeratorFilters:
+        block.analysisSettings.additionalNumeratorFilters,
+      additionalDenominatorFilters:
+        block.analysisSettings.additionalDenominatorFilters,
+    };
+
+    setPostLoading(true);
+    setPostError(undefined);
+    try {
+      const response = await apiCall<{
+        metricAnalysis: MetricAnalysisInterface;
+      }>(`/metric-analysis`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      setBlock({ ...block, metricAnalysisId: response.metricAnalysis.id });
+      mutateAnalysesMap();
+    } catch (e) {
+      setPostError(e.message);
+    } finally {
+      setPostLoading(false);
+    }
+  }, [setBlock, blockHasMetricAnalysis, block, apiCall, mutateAnalysesMap]);
+
+  useEffect(() => {
+    if (
+      !blockHasMetricAnalysis ||
+      postLoading ||
+      getMetricAnalysisLoading ||
+      ["queued", "running"].includes(metricAnalysis?.status ?? "")
+    )
+      return;
+
+    if (metricAnalysis) {
+      const blockSettings = {
+        ...block.analysisSettings,
+        startDate: getValidDate(block.analysisSettings.startDate),
+        endDate: getValidDate(block.analysisSettings.endDate),
+        populationId: block.analysisSettings.populationId || "",
+        additionalNumeratorFilters:
+          block.analysisSettings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          block.analysisSettings.additionalDenominatorFilters ?? [],
+      };
+      const metricAnalysisSettings = {
+        ...metricAnalysis.settings,
+        startDate: getValidDate(metricAnalysis.settings.startDate),
+        endDate: getValidDate(metricAnalysis.settings.endDate),
+        populationId: metricAnalysis.settings.populationId || "",
+        additionalNumeratorFilters:
+          metricAnalysis.settings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          metricAnalysis.settings.additionalDenominatorFilters ?? [],
+      };
+      // Check if analysisSettings match (including filters)
+      if (isEqual(blockSettings, metricAnalysisSettings)) {
+        return; // Skip refresh if everything matches
+      }
+    }
+
+    refreshAnalysis();
+  }, [
+    block,
+    blockHasMetricAnalysis,
+    metricAnalysis,
+    postLoading,
+    getMetricAnalysisLoading,
+    refreshAnalysis,
+  ]);
+
+  return {
+    metricAnalysis,
+    refreshAnalysis,
+    loading: getMetricAnalysisLoading || contextLoading || postLoading,
+    error: contextError || existingMetricAnalysisError || postError,
+    mutate: shouldFetchMetricAnalysis()
+      ? mutateSingleAnalysis
+      : mutateAnalysesMap,
   };
 }

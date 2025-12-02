@@ -30,7 +30,7 @@ JSON encoded and then set to the environment variable `SSO_CONFIG`.
 - **SSO_CONFIG** - A JSON-encoded string that configures SSO (using OpenID Connect). It should be an object with the following keys:
 - `clientId` (string)
 - `clientSecret` (string)
-- `emailDomain` (string, optional) - Allow [auto-joining](/account/user-permissions#self-registering-and-automatic-approvals) from a specified email domain.
+- `emailDomains` (array of strings, optional) - Allow [auto-joining](/account/user-permissions#self-registering-and-automatic-approvals) from a specified email domain.
 - `metadata` (object)
 - `issuer` (string)
 - `authorization_endpoint` (string)
@@ -62,7 +62,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "additionalScope": "offline_access",
     "metadata": {
         "issuer": "BASE_URL",
@@ -128,7 +128,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "metadata": {
         "issuer": "https://accounts.google.com",
         "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
@@ -154,7 +154,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "additionalScope": "offline_access",
     "metadata": {
         "issuer": "https://TENANT.auth0.com/",
@@ -187,7 +187,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
 {
   "clientId": "CLIENT_ID",
   "clientSecret": "CLIENT_SECRET",
-  "emailDomain": "EMAIL_DOMAIN",
+  "emailDomains": ["EMAIL_DOMAIN"],
   "additionalScope": "offline_access",
   "metadata": {
     "token_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/token",
