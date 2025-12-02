@@ -34,28 +34,44 @@ const MAX_FETCH_RESP_SIZE = parseEnvInt(
 );
 
 // Export wrapped calls for each hook type
-export async function runValidateFeatureHooks(
-  context: ReqContextClass,
-  feature: FeatureInterface,
-): Promise<void> {
+export async function runValidateFeatureHooks({
+  context,
+  feature,
+  original,
+}: {
+  context: ReqContextClass;
+  feature: FeatureInterface;
+  original: FeatureInterface | null;
+}): Promise<void> {
   return _runCustomHooks(
     context,
     "validateFeature",
     { feature },
     feature.project,
+    original ? { feature: original } : undefined,
   );
 }
 
-export async function runValidateFeatureRevisionHooks(
-  context: ReqContextClass,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-): Promise<void> {
+export async function runValidateFeatureRevisionHooks({
+  context,
+  feature,
+  revision,
+  original,
+}: {
+  context: ReqContextClass;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  original: FeatureRevisionInterface;
+}): Promise<void> {
   return _runCustomHooks(
     context,
     "validateFeatureRevision",
     { feature, revision },
     feature.project,
+    {
+      feature,
+      revision: original,
+    },
   );
 }
 
@@ -72,6 +88,7 @@ async function _runCustomHooks(
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
   project: string = "",
+  originalFunctionArgs?: Record<string, unknown>,
 ) {
   // Skip on cloud
   // The V8 Isolates approach we are using is too big of a risk in a multi-tenant environment
@@ -92,7 +109,12 @@ async function _runCustomHooks(
     project,
   );
   for (const hook of hooks) {
-    const res = await _runCustomHook(adminContext, hook, functionArgs);
+    const res = await _runCustomHook(
+      adminContext,
+      hook,
+      functionArgs,
+      originalFunctionArgs,
+    );
     if (!res.ok) {
       const message =
         (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
@@ -105,6 +127,7 @@ async function _runCustomHook(
   context: ReqContextClass,
   hook: CustomHookInterface,
   functionArgs: Record<string, unknown>,
+  originalFunctionArgs?: Record<string, unknown>,
 ) {
   const res = await sandboxEval(hook.code, functionArgs);
 
@@ -112,6 +135,18 @@ async function _runCustomHook(
     context.models.customHooks.logSuccess(hook);
   } else {
     context.models.customHooks.logFailure(hook);
+
+    // Try the original args if provided
+    if (originalFunctionArgs && hook.incrementalChangesOnly) {
+      const originalRes = await sandboxEval(hook.code, originalFunctionArgs);
+      if (!originalRes.ok && originalRes.error === res.error) {
+        // If it was also failing before this change, then ignore this hook
+        return {
+          ...res,
+          ok: true,
+        };
+      }
+    }
   }
 
   return res;

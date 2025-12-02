@@ -263,6 +263,22 @@ export async function createRevisionFromLegacyDraft(
   return toInterface(doc, context);
 }
 
+async function getLastRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface | null> {
+  const lastRevision = (
+    await FeatureRevisionModel.find({
+      organization: context.org.id,
+      featureId: feature.id,
+    })
+      .sort({ version: -1 })
+      .limit(1)
+  )[0];
+
+  return lastRevision ? toInterface(lastRevision, context) : null;
+}
+
 export async function createRevision({
   context,
   feature,
@@ -287,14 +303,7 @@ export async function createRevision({
   canBypassApprovalChecks?: boolean;
 }) {
   // Get max version number
-  const lastRevision = (
-    await FeatureRevisionModel.find({
-      organization: feature.organization,
-      featureId: feature.id,
-    })
-      .sort({ version: -1 })
-      .limit(1)
-  )[0];
+  const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
   const defaultValue =
@@ -312,6 +321,10 @@ export async function createRevision({
   });
 
   if (!baseVersion) baseVersion = lastRevision?.version;
+  if (!baseVersion) {
+    throw new Error("can not determine base version for new revision");
+  }
+
   const baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision
@@ -356,7 +369,12 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(context, feature, revision);
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision,
+    original: baseRevision,
+  });
 
   const doc = await FeatureRevisionModel.create(revision);
 
@@ -418,10 +436,15 @@ export async function updateRevision(
     status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(context, feature, {
-    ...revision,
-    ...changes,
-    status,
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: {
+      ...revision,
+      ...changes,
+      status,
+    },
+    original: revision,
   });
 
   await FeatureRevisionModel.updateOne(
@@ -466,9 +489,14 @@ export async function markRevisionAsPublished(
     comment: revisionComment,
   };
 
-  await runValidateFeatureRevisionHooks(context, feature, {
-    ...revision,
-    ...changes,
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: {
+      ...revision,
+      ...changes,
+    },
+    original: revision,
   });
 
   await FeatureRevisionModel.updateOne(
