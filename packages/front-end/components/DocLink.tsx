@@ -103,6 +103,7 @@ const docSections = {
   holdouts: "/app/holdouts",
   autoSlices: "/app/metrics#auto-slices",
   customSlices: "/app/metrics#custom-slices",
+  metricSlices: "/app/metrics#metric-slices",
 };
 
 export type DocSection = keyof typeof docSections;

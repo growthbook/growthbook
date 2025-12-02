@@ -12,12 +12,12 @@ import { PiChartPieSlice, PiArrowSquareOut } from "react-icons/pi";
 import { MAX_METRICS_IN_METRIC_ANALYSIS_QUERY } from "shared/constants";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { RadixStatusIcon, getRadixColor } from "@/ui/HelperText";
+import PremiumCallout from "@/ui/PremiumCallout";
 import MetricExplorerMetricSliceSelector from "./MetricExplorerMetricSliceSelector";
 
 interface Props {
@@ -77,6 +77,37 @@ export default function MetricSlicesSection({
     block.analysisSettings.metricAutoSlices,
   ]);
 
+  const hasAnySlices = useMemo(() => {
+    if (
+      !block.analysisSettings?.metricAutoSlices ||
+      !block.analysisSettings?.customMetricSlices
+    ) {
+      return false;
+    }
+    return (
+      block.analysisSettings.metricAutoSlices.length > 0 ||
+      block.analysisSettings.customMetricSlices.length > 0
+    );
+  }, [
+    block.analysisSettings?.metricAutoSlices,
+    block.analysisSettings?.customMetricSlices,
+  ]);
+
+  const setCustomMetricSlices = useCallback(
+    (slices: CustomMetricSlice[]) => {
+      setBlock({
+        ...block,
+        analysisSettings: {
+          ...block.analysisSettings,
+          customMetricSlices: slices,
+        } as typeof block.analysisSettings & {
+          customMetricSlices?: CustomMetricSlice[];
+        },
+      });
+    },
+    [block, setBlock],
+  );
+
   return (
     <Flex
       direction="column"
@@ -130,10 +161,7 @@ export default function MetricSlicesSection({
                   <Button
                     variant="ghost"
                     color="red"
-                    disabled={
-                      block.analysisSettings.metricAutoSlices?.length === 0 &&
-                      block.analysisSettings.customMetricSlices?.length === 0
-                    }
+                    disabled={!hasAnySlices}
                     onClick={() => {
                       setBlock({
                         ...block,
@@ -156,129 +184,112 @@ export default function MetricSlicesSection({
         transitionTime={100}
       >
         <Box p="4" height="fit-content">
-          {showMaxSlicesWarning && (
-            <Callout status="warning" mb="2">
-              You have exceeded the maximum number of slices allowed (
-              {MAX_METRICS_IN_METRIC_ANALYSIS_QUERY}). Any slices beyond the
-              limit will not be analyzed.
-            </Callout>
-          )}
-          <Flex direction="column" gap="4">
-            <div>
-              <label className="font-weight-bold mb-1">
-                <span style={{ opacity: hasMetricSlicesFeature ? 1 : 0.5 }}>
-                  Auto Slices
-                </span>
-                <PaidFeatureBadge
-                  commercialFeature="metric-slices"
-                  premiumText="Creating and applying auto slices on a dashboard is an Enterprise feature"
-                  variant="outline"
-                  ml="2"
-                />
-              </label>
-              <Text
-                as="p"
-                className="mb-2"
-                style={{
-                  color: "var(--color-text-mid)",
-                  opacity: hasMetricSlicesFeature ? 1 : 0.5,
-                }}
+          <>
+            {showMaxSlicesWarning && (
+              <Callout status="warning" mb="2">
+                You have exceeded the maximum number of slices allowed (
+                {MAX_METRICS_IN_METRIC_ANALYSIS_QUERY}). Any slices beyond the
+                limit will not be analyzed.
+              </Callout>
+            )}
+            {!hasMetricSlicesFeature ? (
+              <PremiumCallout
+                commercialFeature="metric-slices"
+                id="metric-explorer-metric-slices-promo"
               >
-                Choose metric breakdowns to automatically analyze in your
-                experiments.{" "}
+                Metric slices allow you to easily split your metrics during
+                analysis.{" "}
+                <DocLink docSection="metricSlices">
+                  Learn More <PiArrowSquareOut />
+                </DocLink>
+              </PremiumCallout>
+            ) : !availableSlices.length ? (
+              <Text
+                as="span"
+                style={{
+                  color: "var(--color-text-low)",
+                  fontStyle: "italic",
+                }}
+                size="1"
+              >
+                There are no slices defined on the fact table this metric is
+                built on. Update the fact table to enable auto slices.{" "}
                 <DocLink docSection="autoSlices">
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </Text>
-              <div>
-                {availableSlices.length > 0 ? (
-                  <MultiSelectField
-                    value={block.analysisSettings.metricAutoSlices || []}
-                    disabled={!hasMetricSlicesFeature}
-                    onChange={(metricAutoSlices) => {
-                      setBlock({
-                        ...block,
-                        analysisSettings: {
-                          ...block.analysisSettings,
-                          metricAutoSlices,
-                        },
-                      });
-                    }}
-                    options={availableSlices.map((col) => ({
-                      label: col.name || col.column,
-                      value: col.column,
-                    }))}
-                    placeholder="Select auto slice columns..."
-                  />
-                ) : (
+            ) : (
+              <Flex direction="column" gap="4">
+                <div>
+                  <label className="font-weight-bold mb-1">Auto Slices</label>
                   <Text
-                    as="span"
+                    as="p"
+                    className="mb-2"
                     style={{
-                      color: "var(--color-text-low)",
-                      fontStyle: "italic",
+                      color: "var(--color-text-mid)",
+                      opacity: hasMetricSlicesFeature ? 1 : 0.5,
                     }}
-                    size="1"
                   >
-                    {hasMetricSlicesFeature
-                      ? "No slices available. Configure your fact table to enable auto slices."
-                      : "You need to upgrade to the Enterprise plan to use auto slices."}
+                    Select metric slices to automatically analyze in your
+                    dashboard.{" "}
+                    <DocLink docSection="autoSlices">
+                      Learn More <PiArrowSquareOut />
+                    </DocLink>
                   </Text>
-                )}
-              </div>
-            </div>
-            <Separator size="4" my="2" />
-            <div>
-              <label className="font-weight-bold mb-1">
-                <span style={{ opacity: hasMetricSlicesFeature ? 1 : 0.5 }}>
-                  Custom Slices
-                </span>
-                <PaidFeatureBadge
-                  commercialFeature="metric-slices"
-                  premiumText="Creating and applying custom slices on a dashboard is an Enterprise feature"
-                  variant="outline"
-                  ml="2"
-                />
-              </label>
-              <Text
-                as="p"
-                className="mb-2"
-                style={{
-                  color: "var(--color-text-mid)",
-                  opacity: hasMetricSlicesFeature ? 1 : 0.5,
-                }}
-              >
-                Define custom slices to power deeper analysis of your metrics.{" "}
-                <DocLink docSection="customSlices">
-                  Learn More <PiArrowSquareOut />
-                </DocLink>
-              </Text>
-              <MetricExplorerMetricSliceSelector
-                factMetricId={block.factMetricId}
-                customMetricSlices={
-                  (
-                    block.analysisSettings as typeof block.analysisSettings & {
-                      customMetricSlices?: CustomMetricSlice[];
+                  <div>
+                    <MultiSelectField
+                      value={block.analysisSettings.metricAutoSlices || []}
+                      disabled={!hasMetricSlicesFeature}
+                      onChange={(metricAutoSlices) => {
+                        setBlock({
+                          ...block,
+                          analysisSettings: {
+                            ...block.analysisSettings,
+                            metricAutoSlices,
+                          },
+                        });
+                      }}
+                      options={availableSlices.map((col) => ({
+                        label: col.name || col.column,
+                        value: col.column,
+                      }))}
+                      placeholder="Select auto slice columns..."
+                    />
+                  </div>
+                </div>
+                <Separator size="4" my="2" />
+                <div>
+                  <label className="font-weight-bold mb-1">Custom Slices</label>
+                  <Text
+                    as="p"
+                    className="mb-2"
+                    style={{
+                      color: "var(--color-text-mid)",
+                      opacity: hasMetricSlicesFeature ? 1 : 0.5,
+                    }}
+                  >
+                    Define custom slices to power deeper analysis of your
+                    metrics.{" "}
+                    <DocLink docSection="customSlices">
+                      Learn More <PiArrowSquareOut />
+                    </DocLink>
+                  </Text>
+                  <MetricExplorerMetricSliceSelector
+                    factMetricId={block.factMetricId}
+                    customMetricSlices={
+                      (
+                        block.analysisSettings as typeof block.analysisSettings & {
+                          customMetricSlices?: CustomMetricSlice[];
+                        }
+                      ).customMetricSlices || []
                     }
-                  ).customMetricSlices || []
-                }
-                setCustomMetricSlices={useCallback(
-                  (slices: CustomMetricSlice[]) => {
-                    setBlock({
-                      ...block,
-                      analysisSettings: {
-                        ...block.analysisSettings,
-                        customMetricSlices: slices,
-                      } as typeof block.analysisSettings & {
-                        customMetricSlices?: CustomMetricSlice[];
-                      },
-                    });
-                  },
-                  [block, setBlock],
-                )}
-                disabled={!hasMetricSlicesFeature}
-              />
-            </div>
-          </Flex>
+                    setCustomMetricSlices={setCustomMetricSlices}
+                    disabled={!hasMetricSlicesFeature}
+                  />
+                </div>
+              </Flex>
+            )}
+          </>
         </Box>
       </Collapsible>
     </Flex>
