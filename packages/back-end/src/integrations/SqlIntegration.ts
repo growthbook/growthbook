@@ -37,6 +37,12 @@ import {
   SQL_ROW_LIMIT,
 } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
+import {
+  formatAsync,
+  getBaseIdTypeAndJoins,
+  compileSqlTemplate,
+  replaceCountStar,
+} from "back-end/src/util/sql";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -122,11 +128,6 @@ import {
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
-import {
-  getBaseIdTypeAndJoins,
-  compileSqlTemplate,
-  replaceCountStar,
-} from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import {
   ExperimentSnapshotSettings,
@@ -1905,11 +1906,11 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  getExperimentUnitsTableQueryFromCte(
+  async getExperimentUnitsTableQueryFromCte(
     unitsTableFullName: string,
     cteSql: string,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       CREATE OR REPLACE TABLE ${unitsTableFullName}
       ${this.createUnitsTableOptions()}
@@ -1923,14 +1924,16 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+  async getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+  ): Promise<string> {
     if (!params.unitsTableFullName) {
       throw new Error("Units table full name is required");
     }
 
     const cteSql = this.getExperimentUnitsQuery(params);
 
-    return this.getExperimentUnitsTableQueryFromCte(
+    return await this.getExperimentUnitsTableQueryFromCte(
       params.unitsTableFullName,
       cteSql,
     );
@@ -6822,10 +6825,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
-  getMaxTimestampIncrementalUnitsQuery(
+  async getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
       `,
@@ -6885,10 +6888,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
-  getMaxTimestampMetricSourceQuery(
+  async getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
       `,

@@ -59,14 +59,14 @@ export function snowflakeCreateTableOptions(
   )}`;
 }
 
-export function getPipelineValidationCreateTableQuery({
+export async function getPipelineValidationCreateTableQuery({
   tableFullName,
   integration,
 }: {
   tableFullName: string;
   integration: SqlIntegration;
-}): string {
-  return integration.getExperimentUnitsTableQueryFromCte(
+}): Promise<string> {
+  return await integration.getExperimentUnitsTableQueryFromCte(
     tableFullName,
     integration.getSampleUnitsCTE(),
   );

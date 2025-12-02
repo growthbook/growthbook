@@ -850,7 +850,9 @@ export interface SourceIntegrationInterface {
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
+  getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+  ): Promise<string>;
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
   ): string;
@@ -865,10 +867,10 @@ export interface SourceIntegrationInterface {
   ): string;
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string;
+  ): Promise<string>;
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string;
+  ): Promise<string>;
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string;
