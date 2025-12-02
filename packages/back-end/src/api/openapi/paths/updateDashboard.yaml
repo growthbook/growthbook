@@ -1,0 +1,63 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - dashboards
+summary: Partially update a single dashboard
+operationId: updateDashboard
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/dashboards/dash_123abc \
+        -d '{ "title": "Renamed", "shareLevel": "published" }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required: []
+        properties:
+          title:
+            type: string
+            description: The display name of the Dashboard
+          editLevel:
+            type: string
+            description: Dashboards that are "published" are editable by organization members with appropriate permissions
+            enum:
+              - published
+              - private
+          shareLevel:
+            type: string
+            description: General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions
+            enum:
+              - published
+              - private
+          enableAutoUpdates:
+            description: If enabled for a General Dashboard, also requires an updateSchedule
+            type: boolean
+          updateSchedule:
+            description: General Dashboards only. Experiment Dashboards update based on the parent experiment instead
+            $ref: "../schemas/Dashboards/DashboardUpdateSchedule.yaml"
+          projects:
+            description: General Dashboards only, Experiment Dashboards use the experiment's projects
+            type: array
+            items:
+              type: string
+          blocks:
+            type: array
+            items:
+              anyOf:
+                - $ref: "../schemas/Dashboards/DashboardBlock.yaml"
+                - $ref: "../schemas/Dashboards/CreateDashboardBlock.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - dashboard
+          properties:
+            dashboard:
+              $ref: "../schemas/Dashboard.yaml"
