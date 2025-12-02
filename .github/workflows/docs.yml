@@ -37,9 +37,13 @@ jobs:
       - name: Produce generated files
         run: |
           yarn
-          cd packages/back-end
+          cd packages/shared
           yarn
-          cd ../../docs
+          cd ../../packages/back-end
+          yarn
+          cd ../../
+          yarn build:deps
+          cd docs
           yarn
           yarn gen
 
