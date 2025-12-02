@@ -396,10 +396,10 @@ describe("BaseModel", () => {
     expect(model.create({ id: "aabb" })).rejects.toMatchObject({
       issues: [
         {
-          code: "invalid_type",
           expected: "string",
+          code: "invalid_type",
           path: ["name"],
-          message: "Required",
+          message: "Invalid input: expected string, received undefined",
         },
       ],
     });
