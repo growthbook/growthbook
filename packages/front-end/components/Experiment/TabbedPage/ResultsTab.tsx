@@ -86,6 +86,7 @@ export default function ResultsTab({
     metrics,
     metricGroups,
     datasources,
+    getSegmentById,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -113,6 +114,12 @@ export default function ResultsTab({
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
+  );
+
+  const segment = getSegmentById(experiment.segment || "");
+
+  const activationMetric = getExperimentMetricById(
+    experiment.activationMetric || "",
   );
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
@@ -226,6 +233,13 @@ export default function ResultsTab({
                 analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
               }
             />
+            {segment ? <Metadata label="Segment" value={segment.name} /> : null}
+            {activationMetric ? (
+              <Metadata
+                label="Activation Metric"
+                value={activationMetric.name}
+              />
+            ) : null}
           </Flex>
         )}
       </Box>
