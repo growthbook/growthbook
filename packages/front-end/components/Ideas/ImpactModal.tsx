@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";

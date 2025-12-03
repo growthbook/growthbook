@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 
 const ssoConnectionSchema = new mongoose.Schema({
   id: {

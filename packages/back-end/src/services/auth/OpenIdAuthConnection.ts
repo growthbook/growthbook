@@ -11,12 +11,12 @@ import {
 import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "shared/enterprise";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { MemoryCache } from "back-end/src/services/cache";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
-} from "back-end/types/sso-connection";
+} from "shared/types/sso-connection";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { MemoryCache } from "back-end/src/services/cache";
 import {
   AuthChecksCookie,
   SSOConnectionIdCookie,

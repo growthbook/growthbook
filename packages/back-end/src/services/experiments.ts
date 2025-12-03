@@ -46,6 +46,7 @@ import {
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -131,7 +132,6 @@ import {
   putMetricValidator,
   updateExperimentValidator,
 } from "back-end/src/validators/openapi";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";

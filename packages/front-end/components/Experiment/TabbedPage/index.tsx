@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";

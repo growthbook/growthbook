@@ -3,7 +3,7 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import React, { useState } from "react";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
