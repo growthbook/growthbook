@@ -10,7 +10,7 @@
     "start:with-datadog": "next start",
     "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
-    "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
+    "unused-export-check": "knip --directory ../.. --workspace packages/front-end",
     "test": "vitest run",
     "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
   },

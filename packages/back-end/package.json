@@ -18,7 +18,7 @@
     "repl": "node --require ts-node/register/transpile-only --experimental-repl-await repl",
     "test": "DISABLE_PYTHON_MONITOR=true GB_STATS_ENGINE_MIN_POOL_SIZE=0 NODE_OPTIONS='--no-node-snapshot' jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
-    "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber",
+    "unused-export-check": "knip --directory ../.. --workspace packages/back-end",
     "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
     "watch-compile": "swc src -w --out-dir dist",

@@ -15,6 +15,7 @@
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "clean": "rimraf node_modules",
     "type-check": "tsc --pretty --noEmit",
+    "unused-export-check": "knip --directory ../.. --workspace packages/shared",
     "generate-sdk-report": "node -r @swc-node/register ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md"
   },
   "dependencies": {
