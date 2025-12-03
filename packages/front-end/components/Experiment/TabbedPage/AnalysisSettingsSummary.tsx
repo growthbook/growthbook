@@ -136,8 +136,8 @@ export default function AnalysisSettingsSummary({
     }
     // Fallback to using results for total units if health units not available
     let totalUsers = 0;
-    analysis?.results?.[0]?.variations?.forEach((v) => {
-      totalUsers += v.users;
+    analysis?.results?.forEach((result) => {
+      result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
     });
     return totalUsers;
   }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
