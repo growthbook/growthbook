@@ -1,10 +1,10 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
+import { PhaseSQLVar } from "shared/types/sql";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
 } from "back-end/src/services/stats";
-import { PhaseSQLVar } from "back-end/types/sql";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import {

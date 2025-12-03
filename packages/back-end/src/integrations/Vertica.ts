@@ -1,4 +1,4 @@
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";

@@ -1,6 +1,6 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";

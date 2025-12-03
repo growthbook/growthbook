@@ -1,5 +1,6 @@
 import { format as sqlFormat } from "sql-formatter";
-import { FormatDialect, FormatError } from "./types";
+import { FormatDialect } from "../types/sql";
+import { FormatError } from "../types/error";
 
 export const SQL_ROW_LIMIT = 1000;
 

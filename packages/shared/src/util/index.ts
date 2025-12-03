@@ -22,7 +22,7 @@ import {
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { SavedGroupInterface } from "../types";
+import { SavedGroupInterface } from "../../types/groups";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";

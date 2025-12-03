@@ -7,7 +7,7 @@ import {
   scrubSavedGroups,
 } from "../src/sdk-versioning";
 import { getSavedGroupsValuesFromInterfaces } from "../util";
-import { SavedGroupInterface } from "../src/types";
+import { SavedGroupInterface } from "../types/groups";
 
 const baseConnection: SDKConnectionInterface = {
   id: "sdk-123",
