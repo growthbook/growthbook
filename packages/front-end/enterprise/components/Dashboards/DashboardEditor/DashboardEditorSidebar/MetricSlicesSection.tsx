@@ -268,8 +268,8 @@ export default function MetricSlicesSection({
                       opacity: hasMetricSlicesFeature ? 1 : 0.5,
                     }}
                   >
-                    Define custom slices to power deeper analysis of your
-                    metrics.{" "}
+                    Create custom combinations of auto slices to power deeper
+                    analysis of your metrics.{" "}
                     <DocLink docSection="customSlices">
                       Learn More <PiArrowSquareOut />
                     </DocLink>
