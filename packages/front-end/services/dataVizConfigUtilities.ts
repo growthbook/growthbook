@@ -130,28 +130,19 @@ export function normalizeDimensionsForChartType(
   }
 }
 
-// Most distinct colors first - these are prioritized when we have fewer dimensions
-// to avoid similar colors like blue/cyan or indigo/purple appearing together
-const DISTINCT_PALETTE = [
+const PALETTE = [
   blue.blue8,
   teal.teal10,
   orange.orange10,
   pink.pink10,
   amber.amber10,
   red.red10,
-];
-
-// Similar/fallback colors - only used when we need more than 6 dimensions
-const FALLBACK_PALETTE = [
   indigo.indigo10,
   purple.purple10,
   cyan.cyan10,
   mint.mint10,
   lime.lime11,
 ];
-
-// Full palette for when we have more than 6 dimensions
-const FULL_PALETTE = [...DISTINCT_PALETTE, ...FALLBACK_PALETTE];
 
 function hashStringToInt(str: string): number {
   let hash = 0;
@@ -163,24 +154,19 @@ function hashStringToInt(str: string): number {
 }
 
 /**
- * Assigns unique colors to dimension/slice keys, prioritizing distinct colors
- * when there are fewer items to avoid similar colors appearing together.
+ * Assigns unique colors to dimension/slice keys.
  *
  * Uses a hybrid approach:
  * - Each key's hash determines its preferred color (ensures consistency across charts)
  * - If hash collision occurs, falls back to next available color (ensures uniqueness)
+ * - Always uses the full palette to ensure the same key gets the same color across charts
  */
 export function assignColorsToKeys(keys: string[]): Map<string, string> {
   const colorMap = new Map<string, string>();
-  const totalKeys = keys.length;
 
-  if (totalKeys === 0) {
+  if (keys.length === 0) {
     return colorMap;
   }
-
-  // Choose which palette to use based on number of keys
-  const palette =
-    totalKeys <= DISTINCT_PALETTE.length ? DISTINCT_PALETTE : FULL_PALETTE;
 
   // Track which color indices have been used to ensure uniqueness
   const usedIndices = new Set<number>();
@@ -190,13 +176,13 @@ export function assignColorsToKeys(keys: string[]): Map<string, string> {
 
   sortedKeys.forEach((key) => {
     // Start with the key's preferred color based on its hash
-    let colorIndex = hashStringToInt(key) % palette.length;
+    let colorIndex = hashStringToInt(key) % PALETTE.length;
     const startIndex = colorIndex; // Track where we started to detect full cycle
 
     // If preferred color is already taken, find next available color
     // This ensures uniqueness while maintaining consistency when possible
     while (usedIndices.has(colorIndex)) {
-      colorIndex = (colorIndex + 1) % palette.length;
+      colorIndex = (colorIndex + 1) % PALETTE.length;
 
       // If we've cycled back to start, palette is exhausted - colors will repeat
       if (colorIndex === startIndex) {
@@ -205,7 +191,7 @@ export function assignColorsToKeys(keys: string[]): Map<string, string> {
     }
 
     usedIndices.add(colorIndex);
-    colorMap.set(key, palette[colorIndex]);
+    colorMap.set(key, PALETTE[colorIndex]);
   });
 
   return colorMap;
