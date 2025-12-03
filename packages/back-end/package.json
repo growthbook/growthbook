@@ -10,8 +10,8 @@
     "build:clean": "rimraf -rf dist",
     "build:typescript": "tsc",
     "clean": "rimraf node_modules",
-    "dev": "yarn build:clean && concurrently \"yarn watch-compile\" \"yarn watch-dev | yarn pino-pretty\"",
-    "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
+    "dev": "pnpm build:clean && concurrently \"pnpm watch-compile\" \"pnpm watch-dev | pnpm pino-pretty\"",
+    "build": "pnpm build:clean && pnpm build:typescript && pnpm build:emails",
     "start": "node dist/server.js",
     "start:with-tracing": "node --require ./dist/tracing.opentelemetry.js dist/server.js",
     "start:with-datadog": "node --require ./dist/tracing.datadog.js dist/server.js",
@@ -25,7 +25,7 @@
     "watch-dev": "delay 1 && nodemon --exec 'node --enable-source-maps --no-node-snapshot' --watch dist --watch '../shared/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "GB_STATS_ENGINE_MIN_POOL_SIZE=0 CRON_ENABLED=false ./src/scripts/migrate-encryption-key.sh",
     "generate-api-models": "node src/scripts/generate-doc-models-for-openapi-schemas.mjs",
-    "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
+    "generate-api-types": "pnpm generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-athena": "^3.564.0",
