@@ -28,7 +28,12 @@ export type ExperimentResultsType = (typeof experimentResultsType)[number];
 export const singleVariationResult = z.object({
   users: z.number().optional(),
   cr: z.number().optional(),
-  ci: z.tuple([z.number(), z.number()]).optional(),
+  ci: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
 });
 
 export const banditResult = z.object({
