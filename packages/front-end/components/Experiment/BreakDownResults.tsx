@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -15,8 +15,6 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { FaAngleRight, FaUsers } from "react-icons/fa";
-import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -26,11 +24,8 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
-import UsersTable from "./UsersTable";
 
-const numberFormatter = Intl.NumberFormat();
 export const includeVariation = (
   d: ExperimentReportResultDimension,
   dimensionValuesFilter?: string[],
@@ -135,24 +130,11 @@ const BreakDownResults: FC<{
 
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
-  const _settings = useOrgSettings();
-  const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
-
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
     getDimensionById(dimensionId)?.name ||
     dimensionId?.split(":")?.[1] ||
     "Dimension";
-
-  const totalUsers = useMemo(() => {
-    let totalUsers = 0;
-    results?.forEach((result) => {
-      if (includeVariation(result, dimensionValuesFilter)) {
-        result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
-      }
-    });
-    return totalUsers;
-  }, [results, dimensionValuesFilter]);
 
   const { tables, allMetricTags } = useExperimentDimensionRows({
     results,
@@ -190,28 +172,6 @@ const BreakDownResults: FC<{
             <strong>{activationMetricObj?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
-          </div>
-        )}
-        {!isBandit && (
-          <div className="users">
-            <Collapsible
-              trigger={
-                <div className="d-inline-flex mx-3 align-items-center">
-                  <FaUsers size={16} className="mr-1" />
-                  {numberFormatter.format(totalUsers)} total units
-                  <FaAngleRight className="chevron ml-1" />
-                </div>
-              }
-              transitionTime={100}
-            >
-              <UsersTable
-                dimension={dimension}
-                dimensionValuesFilter={dimensionValuesFilter}
-                results={results}
-                variations={variations}
-                settings={settings}
-              />
-            </Collapsible>
           </div>
         )}
       </div>
