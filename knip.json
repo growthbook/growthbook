@@ -29,8 +29,7 @@
         "src/scripts/**/*.{ts,mjs}",
         "src/init/**/*.ts",
         "jest.config.js",
-        "test/**/*.ts",
-        "src/controllers/**/*.ts"
+        "test/**/*.ts"
       ],
       "paths": { "back-end/*": ["./*"] },
       "ignore": ["src/controllers/**/*.ts", "src/templates/**/*.js"],
