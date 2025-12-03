@@ -34,8 +34,18 @@ export const safeRolloutSnapshotMetricObject = z.object({
   cr: z.number(),
   users: z.number(),
   denominator: z.number().optional(),
-  ci: z.tuple([z.number(), z.number()]).optional(),
-  ciAdjusted: z.tuple([z.number(), z.number()]).optional(),
+  ci: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
+  ciAdjusted: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
   expected: z.number().optional(),
   risk: z.tuple([z.number(), z.number()]).optional(),
   riskType: z.enum(["relative", "absolute"]).optional(),
