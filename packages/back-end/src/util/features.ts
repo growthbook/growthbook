@@ -5,7 +5,7 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
-import { GroupMap } from "shared/src/types";
+import { GroupMap } from "shared/types/groups";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
 import {

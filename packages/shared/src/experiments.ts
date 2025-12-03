@@ -38,7 +38,7 @@ import {
 } from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
-import { TemplateVariables } from "./types";
+import { TemplateVariables } from "../types/sql";
 import { stringToBoolean } from "./util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,

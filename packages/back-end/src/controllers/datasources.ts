@@ -9,7 +9,7 @@ import {
   getPipelineValidationInsertQuery,
   type PipelineValidationResults,
 } from "shared/enterprise";
-import { TemplateVariables } from "shared/types";
+import { TemplateVariables } from "shared/types/sql";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {

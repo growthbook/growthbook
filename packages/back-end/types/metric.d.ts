@@ -1,4 +1,4 @@
-import { TemplateVariables } from "shared/types";
+import { TemplateVariables } from "shared/types/sql";
 import {
   CappingType,
   LegacyMetricWindowSettings,

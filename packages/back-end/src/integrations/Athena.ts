@@ -1,4 +1,4 @@
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   cancelAthenaQuery,

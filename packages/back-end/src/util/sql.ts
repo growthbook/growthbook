@@ -1,5 +1,5 @@
 import Handlebars from "handlebars";
-import { SQLVars } from "shared/types";
+import { SQLVars } from "shared/types/sql";
 import {
   FactTableColumnType,
   JSONColumnFields,

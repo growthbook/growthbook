@@ -1,7 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { FormatDialect } from "shared/src/types";
-import { TemplateVariables } from "shared/types";
+import { TemplateVariables, FormatDialect } from "shared/types/sql";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { ReqContext } from "back-end/types/organization";
 import {

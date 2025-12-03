@@ -34,7 +34,7 @@ import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
-} from "shared/src/types";
+} from "shared/types/groups";
 import { clone } from "lodash";
 import {
   ApiReqContext,

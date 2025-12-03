@@ -34,7 +34,7 @@ import {
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";

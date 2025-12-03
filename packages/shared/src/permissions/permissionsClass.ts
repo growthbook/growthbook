@@ -29,7 +29,7 @@ import { SegmentInterface } from "back-end/types/segment";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { CustomHookInterface } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { SavedGroupInterface } from "../types";
+import { SavedGroupInterface } from "../../types/groups";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   status = 403;

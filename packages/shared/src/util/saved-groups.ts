@@ -4,7 +4,11 @@ import {
   SDKAttribute,
 } from "back-end/types/organization";
 import { AttributeMap } from "back-end/src/services/features";
-import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
+import {
+  GroupMap,
+  SavedGroupsValues,
+  SavedGroupInterface,
+} from "../../types/groups";
 
 export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const SMALL_GROUP_SIZE_LIMIT = 100;

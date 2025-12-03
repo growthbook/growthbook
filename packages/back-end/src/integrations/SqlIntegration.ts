@@ -36,8 +36,12 @@ import {
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
 } from "shared/sql";
-import { FormatDialect } from "shared/src/types";
-import { PhaseSQLVar, SQLVars, TemplateVariables } from "shared/types";
+import {
+  PhaseSQLVar,
+  SQLVars,
+  TemplateVariables,
+  FormatDialect,
+} from "shared/types/sql";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
