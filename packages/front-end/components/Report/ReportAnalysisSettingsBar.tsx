@@ -2,8 +2,9 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
-import React, { RefObject, useEffect, useState } from "react";
+import React, { RefObject, useEffect, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
+import { Box, Text } from "@radix-ui/themes";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -14,6 +15,8 @@ import Button from "@/ui/Button";
 import { DropdownMenu } from "@/ui/DropdownMenu";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+
+const numberFormatter = Intl.NumberFormat();
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -54,6 +57,20 @@ export default function ReportAnalysisSettingsBar({
   const analysis = snapshot
     ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
+
+  const totalUnits = useMemo(() => {
+    const healthVariationUnits =
+      snapshot?.health?.traffic?.overall?.variationUnits;
+    if (healthVariationUnits && healthVariationUnits.length > 0) {
+      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+    }
+    // Fallback to using results for total units if health units not available
+    let totalUsers = 0;
+    analysis?.results?.forEach((result) => {
+      result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
+    });
+    return totalUsers;
+  }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasMetrics =
@@ -151,21 +168,23 @@ export default function ReportAnalysisSettingsBar({
             </div>
           </div>
         </div>
-        <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end">
+        <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
+          <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
+            <Metadata
+              label="Units"
+              value={numberFormatter.format(totalUnits ?? 0)}
+            />
+          </div>
           <div className="col-auto px-0">
             {hasData && snapshot.runStarted ? (
-              <div
-                className="text-muted text-right"
-                style={{ width: 130, fontSize: "0.8em" }}
-                title={datetime(snapshot.runStarted)}
-              >
-                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                  last updated
-                </div>
-                <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                  {ago(snapshot.runStarted)}
-                </div>
-              </div>
+              <Box style={{ lineHeight: 1.2, fontSize: "12px" }}>
+                <Text
+                  weight="medium"
+                  style={{ color: "var(--color-text-mid)" }}
+                >
+                  Updated {ago(snapshot.runStarted ?? "")}
+                </Text>
+              </Box>
             ) : null}
           </div>
           {canUpdateReport && mutateReport && mutateSnapshot ? (
