@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import z from "zod";
+import { z } from "zod";
 import { isEqual } from "lodash";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";

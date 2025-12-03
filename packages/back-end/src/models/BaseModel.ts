@@ -44,23 +44,9 @@ export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
   Omit<z.infer<T>, "organization">
 >;
 
-export type CreateRawShape<T extends z.ZodRawShape> = {
-  [k in keyof Omit<
-    T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: T[k];
-} & {
-  id: z.ZodOptional<z.ZodString>;
-};
-
-export type CreateZodObject<T> =
-  T extends z.ZodObject<
-    infer RawShape,
-    infer UnknownKeysParam,
-    infer ZodTypeAny
-  >
-    ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
-    : never;
+export type CreateZodObject<T extends BaseSchema> = z.ZodType<
+  CreateProps<z.infer<T>>
+>;
 
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
@@ -76,25 +62,14 @@ export type UpdateProps<T extends object> = Partial<
   Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
 >;
 
-export type UpdateRawShape<T extends z.ZodRawShape> = {
-  [k in keyof Omit<
-    T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: z.ZodOptional<T[k]>;
-};
-
-export type UpdateZodObject<T> =
-  T extends z.ZodObject<
-    infer RawShape,
-    infer UnknownKeysParam,
-    infer ZodTypeAny
-  >
-    ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
-    : never;
+export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
+  UpdateProps<z.infer<T>>
+>;
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
+      id: true,
       organization: true,
       dateCreated: true,
       dateUpdated: true,

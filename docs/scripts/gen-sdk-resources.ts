@@ -221,6 +221,32 @@ const baseSDKInfo = {
       ),
     ],
   },
+  rust: {
+    name: "Rust SDK",
+    version: "0.0.3",
+    github: "https://github.com/growthbook/growthbook-rust",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-rust/tree/main/examples/client",
+        name: "Rust example app",
+      },
+    ],
+    packageRepos: [
+      {
+        name: "crates.io",
+        url: "https://crates.io/crates/growthbook-rust",
+      },
+    ],
+    capabilities: [
+      ...defaultCapabilities,
+      {
+        encryption: "≥ v0.0.1",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.1",
+      },
+    ],
+  },
   java: {
     name: "Java SDK",
     version: getLatestSDKVersion("java"),
