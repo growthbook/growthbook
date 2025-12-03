@@ -37,6 +37,7 @@ import {
   SQL_ROW_LIMIT,
 } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
+import { PhaseSQLVar, SQLVars, TemplateVariables } from "shared/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -133,7 +134,6 @@ import {
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "back-end/types/experiment-snapshot";
-import { PhaseSQLVar, SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import {

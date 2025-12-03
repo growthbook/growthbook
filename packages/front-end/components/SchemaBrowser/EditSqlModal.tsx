@@ -5,7 +5,7 @@ import {
   InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "back-end/src/types/Integration";
-import { TemplateVariables } from "back-end/types/sql";
+import { TemplateVariables } from "shared/types";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { SQL_ROW_LIMIT } from "shared/sql";
