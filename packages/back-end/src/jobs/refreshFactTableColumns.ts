@@ -114,7 +114,6 @@ export function populateAutoSlices(
   return autoSlices;
 }
 
-
 export async function runRefreshColumnsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,

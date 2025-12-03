@@ -619,10 +619,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                       form.setValue("autoSlices", values);
                     }}
                     options={autoSliceOptions.map((opt) => {
-                      const isPinned =
-                        (form.watch("pinnedAutoSlices") || []).includes(
-                          opt.value,
-                        );
+                      const isPinned = (
+                        form.watch("pinnedAutoSlices") || []
+                      ).includes(opt.value);
                       return {
                         ...opt,
                         label: isPinned ? `${opt.label} 📌` : opt.label,
@@ -630,7 +629,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     })}
                     creatable={true}
                   />
-                  {form.watch("autoSlices")?.length > 0 && (
+                  {!!form.watch("autoSlices")?.length && (
                     <div className="mt-2">
                       <label className="form-label mb-1">
                         Pinned Slices (protected from auto-updates)
