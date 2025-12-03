@@ -233,6 +233,75 @@ def reduce_dimensionality(
     return pd.DataFrame(newrows)
 
 
+def get_stats_for_configured_test(
+    row: pd.Series,
+    test_index: int,
+    analysis: AnalysisSettingsForStatsEngine,
+    metric: MetricSettingsForStatsEngine,
+) -> Tuple[TestStatistic, TestStatistic]:
+    stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
+    stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
+
+    stat_empty = SampleMeanStatistic(
+        n=int(0),
+        sum=0.0,
+        sum_squares=0.0,
+    )
+    pre_stat_a = stat_empty
+    pre_stat_b = stat_empty
+
+    if analysis.use_covariate_as_response:
+        if (
+            isinstance(stat_a, RegressionAdjustedStatistic)
+            and isinstance(stat_b, RegressionAdjustedStatistic)
+            and isinstance(stat_a.pre_statistic, SampleMeanStatistic)
+            and isinstance(stat_b.pre_statistic, SampleMeanStatistic)
+        ):
+            pre_stat_a = SampleMeanStatistic(
+                n=stat_a.n,
+                sum=stat_a.pre_statistic.sum,
+                sum_squares=stat_a.pre_statistic.sum_squares,
+            )
+            pre_stat_b = SampleMeanStatistic(
+                n=stat_b.n,
+                sum=stat_b.pre_statistic.sum,
+                sum_squares=stat_b.pre_statistic.sum_squares,
+            )
+        elif (
+            isinstance(stat_a, RegressionAdjustedStatistic)
+            and isinstance(stat_b, RegressionAdjustedStatistic)
+            and isinstance(stat_a.pre_statistic, ProportionStatistic)
+            and isinstance(stat_b.pre_statistic, ProportionStatistic)
+        ):
+            pre_stat_a = ProportionStatistic(
+                n=stat_a.n,
+                sum=stat_a.pre_statistic.sum,
+            )
+            pre_stat_b = ProportionStatistic(
+                n=stat_b.n,
+                sum=stat_b.pre_statistic.sum,
+            )
+        elif isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
+            stat_b, RegressionAdjustedRatioStatistic
+        ):
+            pre_stat_a = RatioStatistic(
+                n=stat_a.n,
+                m_statistic=stat_a.m_statistic_pre,
+                d_statistic=stat_a.d_statistic_pre,
+                m_d_sum_of_products=stat_a.m_pre_d_pre_sum_of_products,
+            )
+            pre_stat_b = RatioStatistic(
+                n=stat_b.n,
+                m_statistic=stat_b.m_statistic_pre,
+                d_statistic=stat_b.d_statistic_pre,
+                m_d_sum_of_products=stat_b.m_pre_d_pre_sum_of_products,
+            )
+    if analysis.use_covariate_as_response:
+        return pre_stat_a, pre_stat_b
+    else:
+        return stat_a, stat_b
+
+
 def get_configured_test(
     row: pd.Series,
     test_index: int,
@@ -247,21 +316,25 @@ def get_configured_test(
     SequentialOneSidedTreatmentLesserTTest,
     SequentialOneSidedTreatmentGreaterTTest,
 ]:
-
-    stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
-    stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
-
+    stat_a, stat_b = get_stats_for_configured_test(row, test_index, analysis, metric)
     base_config = {
         "total_users": row["total_users"],
         "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
     }
+    if analysis.use_covariate_as_response:
+        num_variations = len(analysis.var_names)
+        # if there are no goal metrics, just use 1 as the number of tests
+        num_tests = max(1, (num_variations - 1) * analysis.num_goal_metrics)
+        alpha = analysis.alpha / num_tests
+    else:
+        alpha = analysis.alpha
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
             sequential_config = SequentialConfig(
                 **base_config,
-                alpha=analysis.alpha,
+                alpha=alpha,
                 sequential_tuning_parameter=analysis.sequential_tuning_parameter,
             )
             if analysis.one_sided_intervals:
@@ -278,7 +351,7 @@ def get_configured_test(
         else:
             config = FrequentistConfig(
                 **base_config,
-                alpha=analysis.alpha,
+                alpha=alpha,
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
@@ -289,11 +362,18 @@ def get_configured_test(
                 return TwoSidedTTest([(stat_a, stat_b)], config)
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
-        prior = GaussianPrior(
-            mean=metric.prior_mean,
-            variance=pow(metric.prior_stddev, 2),
-            proper=metric.prior_proper,
-        )
+        if analysis.use_covariate_as_response:
+            prior = GaussianPrior(
+                mean=0,
+                variance=100,
+                proper=False,
+            )
+        else:
+            prior = GaussianPrior(
+                mean=metric.prior_mean,
+                variance=pow(metric.prior_stddev, 2),
+                proper=metric.prior_proper,
+            )
         return EffectBayesianABTest(
             [(stat_a, stat_b)],
             EffectBayesianConfig(
@@ -301,6 +381,7 @@ def get_configured_test(
                 inverse=metric.inverse,
                 prior_effect=prior,
                 prior_type="relative",
+                alpha=alpha,
             ),
         )
 

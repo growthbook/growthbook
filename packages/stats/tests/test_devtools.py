@@ -128,7 +128,6 @@ class TestCreateRows(TestCase):
         difference_type = "absolute"
 
         config = FrequentistConfig(difference_type=difference_type)
-        print(["tristan", stat_a_1, stat_b_1])
 
         self.res_1 = TwoSidedTTest([(stat_a_1, stat_b_1)], config).compute_result()
         self.res_2 = TwoSidedTTest([(stat_a_2, stat_b_2)], config).compute_result()
