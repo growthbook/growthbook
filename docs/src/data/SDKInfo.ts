@@ -452,6 +452,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        remoteEvaluation: "≥ v0.9.92",
+      },
+      {
         prerequisites: "≥ v0.9.3",
       },
       {
@@ -476,7 +479,7 @@ export default {
   },
   csharp: {
     name: "C# SDK",
-    version: "1.1.2",
+    version: "1.1.3",
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
@@ -496,6 +499,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        remoteEvaluation: "≥ v1.1.3",
       },
       {
         stickyBucketing: "≥ v1.1.0",
