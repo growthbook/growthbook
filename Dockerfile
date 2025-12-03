@@ -43,9 +43,20 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
+RUN pnpm build
+
+# Inject Sentry debug IDs into build artifacts (if enabled)
+# Note: This only injects debug IDs locally, doesn't upload to Sentry
+ARG INJECT_SENTRY_DEBUG_INFO=""
+RUN if [ "$INJECT_SENTRY_DEBUG_INFO" = "true" ]; then \
+  yarn global add @sentry/cli@latest && \
+  sentry-cli sourcemaps inject ./packages/front-end/.next && \
+  sentry-cli sourcemaps inject ./packages/back-end/dist; \
+fi
+
+# Clean up and install production dependencies
 RUN \
-  pnpm build \
-  && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
+  test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
   && rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
