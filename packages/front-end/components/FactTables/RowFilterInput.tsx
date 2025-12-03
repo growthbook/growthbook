@@ -37,6 +37,7 @@ export function RowFilterInput({
 
   return (
     <Flex direction="column" gap="2">
+      <strong>Row Filters</strong>
       {value.map((filter, i) => {
         const firstSelectOptions: SingleValue[] = [];
 
@@ -134,41 +135,10 @@ export function RowFilterInput({
 
           const allowedOperators: RowFilter["operator"][] = [];
 
-          const { datatype, topValues } = (() => {
-            if (!filter.column) {
-              return { datatype: "" as const, topValues: [] as string[] };
-            }
-
-            // First, look for exact match
-            const column = factTable.columns.find(
-              (c) => c.column === filter.column,
-            );
-            if (column) {
-              return {
-                datatype: column.datatype,
-                topValues: column.topValues || [],
-              };
-            }
-
-            // Next, look for JSON field match
-            const [baseColumnName, jsonField] = filter.column.split(".", 2);
-            const baseColumn = factTable.columns.find(
-              (c) => c.column === baseColumnName,
-            );
-            if (
-              baseColumn &&
-              baseColumn.jsonFields &&
-              jsonField &&
-              baseColumn.jsonFields[jsonField]
-            ) {
-              return {
-                datatype: baseColumn.jsonFields[jsonField].datatype,
-                topValues: [],
-              };
-            }
-
-            return { datatype: "" as const, topValues: [] as string[] };
-          })();
+          const { datatype, topValues } = getColumnInfo(
+            factTable,
+            filter.column,
+          );
 
           if (topValues) {
             valueOptions.push(
@@ -377,4 +347,41 @@ export function RowFilterInput({
       </Button>
     </Flex>
   );
+}
+
+function getColumnInfo(
+  factTable: Pick<FactTableInterface, "columns">,
+  column: string | undefined,
+) {
+  if (!column) {
+    return { datatype: "" as const, topValues: [] as string[] };
+  }
+
+  // First, look for exact match
+  const exactMatch = factTable.columns.find((c) => c.column === column);
+  if (exactMatch) {
+    return {
+      datatype: exactMatch.datatype,
+      topValues: exactMatch.topValues || [],
+    };
+  }
+
+  // Next, look for JSON field match
+  const [baseColumnName, jsonField] = column.split(".", 2);
+  const baseColumnMatch = factTable.columns.find(
+    (c) => c.column === baseColumnName,
+  );
+  if (
+    baseColumnMatch &&
+    baseColumnMatch.jsonFields &&
+    jsonField &&
+    baseColumnMatch.jsonFields[jsonField]
+  ) {
+    return {
+      datatype: baseColumnMatch.jsonFields[jsonField].datatype,
+      topValues: [],
+    };
+  }
+
+  return { datatype: "" as const, topValues: [] as string[] };
 }
