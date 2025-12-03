@@ -2,7 +2,6 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
-import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
@@ -19,6 +18,7 @@ import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { getRowFilterSQL } from "shared/src/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -76,30 +76,6 @@ function FactTableLink({ id }: { id?: string }) {
     <Link href={`/fact-tables/${factTable.id}`}>
       {factTable.name} <FaExternalLinkAlt />
     </Link>
-  );
-}
-
-function FilterBadges({
-  ids,
-  factTable,
-}: {
-  ids: string[] | null | undefined;
-  factTable?: FactTableInterface | null;
-}) {
-  if (!factTable || !ids) return null;
-
-  return (
-    <>
-      {ids.map((id) => {
-        const filter = factTable.filters.find((f) => f.id === id);
-        if (!filter) return null;
-        return (
-          <span className="badge badge-secondary mr-2" key={filter.id}>
-            {filter.name}
-          </span>
-        );
-      })}
-    </>
   );
 }
 
@@ -255,28 +231,18 @@ export default function FactMetricPage() {
       label: `Fact Table`,
       value: <FactTableLink id={factMetric.numerator.factTableId} />,
     },
-    ...Object.entries(factMetric.numerator.inlineFilters || {})
-      .filter(([, v]) => v.some((v) => !!v))
-      .map(([k, v]) => {
-        const columnName =
-          factTable?.columns.find((c) => c.column === k)?.name || k;
-        return {
-          label: columnName,
-          value: v.join(" OR "),
-        };
-      }),
-    {
-      label: `Row Filter`,
-      value:
-        factMetric.numerator.filters.length > 0 ? (
-          <FilterBadges
-            factTable={factTable}
-            ids={factMetric.numerator.filters}
-          />
-        ) : (
-          <em>None</em>
-        ),
-    },
+    ...(factMetric.numerator.rowFilters || []).map((rf) => {
+      return {
+        label: "Row Filter",
+        value: getRowFilterSQL({
+          rowFilter: rf,
+          factTable,
+          escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
+          evalBoolean: (col, value) => `${col} = ${value}`,
+          jsonExtract: (col, path) => `${col}.${path}`,
+        }),
+      };
+    }),
     ...(!isBinomialMetric(factMetric)
       ? [
           {
@@ -338,29 +304,19 @@ export default function FactMetricPage() {
             label: `Fact Table`,
             value: <FactTableLink id={factMetric.denominator.factTableId} />,
           },
-          ...Object.entries(factMetric.denominator.inlineFilters || {})
-            .filter(([, v]) => v.some((v) => !!v))
-            .map(([k, v]) => {
-              const columnName =
-                denominatorFactTable?.columns.find((c) => c.column === k)
-                  ?.name || k;
-              return {
-                label: columnName,
-                value: v.join(" OR "),
-              };
-            }),
-          {
-            label: `Row Filter`,
-            value:
-              factMetric.denominator.filters.length > 0 ? (
-                <FilterBadges
-                  factTable={denominatorFactTable}
-                  ids={factMetric.denominator.filters}
-                />
-              ) : (
-                <em>None</em>
-              ),
-          },
+
+          ...(factMetric.denominator.rowFilters || []).map((rf) => {
+            return {
+              label: "Row Filter",
+              value: getRowFilterSQL({
+                rowFilter: rf,
+                factTable: denominatorFactTable,
+                escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
+                evalBoolean: (col, value) => `${col} = ${value}`,
+                jsonExtract: (col, path) => `${col}.${path}`,
+              }),
+            };
+          }),
           {
             label: `Value`,
             value:

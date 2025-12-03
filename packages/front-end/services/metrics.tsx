@@ -5,6 +5,7 @@ import {
   FactTableInterface,
   CreateFactMetricProps,
   FactMetricInterface,
+  RowFilter,
 } from "back-end/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -34,19 +35,23 @@ import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewE
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
-  existingInlineFilters?: Record<string, string[]>,
+  existingRowFilters?: RowFilter[],
 ) {
-  const inlineFilters = { ...existingInlineFilters };
+  const rowFilters = [...(existingRowFilters || [])];
   factTable.columns
     .filter(
       (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
     )
     .forEach((c) => {
-      if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
-        inlineFilters[c.column] = [""];
+      if (!rowFilters.some((rf) => rf.column === c.column)) {
+        rowFilters.push({
+          column: c.column,
+          operator: "=",
+          values: [""],
+        });
       }
     });
-  return inlineFilters;
+  return rowFilters;
 }
 
 export function getDefaultFactMetricProps({
@@ -75,8 +80,7 @@ export function getDefaultFactMetricProps({
     numerator: existing?.numerator || {
       factTableId: initialFactTable?.id || "",
       column: "$$count",
-      filters: [],
-      inlineFilters: initialFactTable
+      rowFilters: initialFactTable
         ? getInitialInlineFilters(initialFactTable)
         : {},
     },
