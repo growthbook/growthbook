@@ -31,17 +31,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "yarn"
-          cache-dependency-path: "docs/yarn.lock"
+          cache: "pnpm"
+          cache-dependency-path: "docs/pnpm-lock.yaml"
 
       - name: Produce generated files
         run: |
-          yarn
+          pnpm install
           cd packages/back-end
-          yarn
+          pnpm install
           cd ../../docs
-          yarn
-          yarn gen
+          pnpm install
+          pnpm gen
 
       - name: Deploy to Vercel
         if: ${{ github.repository == 'growthbook/growthbook' }}
@@ -66,11 +66,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "yarn"
-          cache-dependency-path: "docs/yarn.lock"
+          cache: "pnpm"
+          cache-dependency-path: "docs/pnpm-lock.yaml"
 
       - name: Install dependencies and type-check
         run: |
           cd docs
-          yarn
-          yarn typecheck
+          pnpm install
+          pnpm typecheck

@@ -22,29 +22,29 @@ RUN apt-get update && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
   apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) && \
+  npm install -g pnpm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
-COPY yarn.lock ./yarn.lock
+COPY pnpm-lock.yaml ./pnpm-lock.yaml
+COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY packages/front-end/package.json ./packages/front-end/package.json
 COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY patches ./patches
-# Yarn install with dev dependencies (will be cached as long as dependencies don't change)
-RUN yarn install --frozen-lockfile
-# Apply patches this is not ideal since this should run at the end of yarn install but since node 20 it is not
-RUN yarn postinstall
+# pnpm install with dev dependencies (will be cached as long as dependencies don't change)
+RUN pnpm install --frozen-lockfile
+# Apply patches
+RUN pnpm postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
-  yarn build \
+  pnpm build \
   && rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
@@ -52,8 +52,8 @@ RUN \
   && rm -rf packages/shared/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && yarn install --frozen-lockfile --production=true --ignore-optional
-RUN yarn postinstall
+  && pnpm install --frozen-lockfile --prod
+RUN pnpm postinstall
 
 
 # Package the full app together
@@ -65,10 +65,9 @@ RUN apt-get update && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
   apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) && \
+  npm install -g pnpm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
@@ -93,4 +92,4 @@ EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
 # Start both front-end and back-end at once
-CMD ["yarn","start"]
+CMD ["pnpm","start"]

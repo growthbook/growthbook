@@ -8,7 +8,7 @@
     "lint:ci": ". $(poetry env info --path)/bin/activate && black gbstats tests --check && flake8 && pyright gbstats",
     "setup": "poetry install",
     "build:export": "poetry export -f requirements.txt --output requirements.txt && poetry export --with dev -f requirements.txt --output dev-requirements.txt",
-    "build": "poetry build && yarn build:export",
+    "build": "poetry build && pnpm build:export",
     "notebook": ". $(poetry env info --path)/bin/activate && jupyter notebook"
   }
 }
