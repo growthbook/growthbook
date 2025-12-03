@@ -408,7 +408,7 @@ export function RowFilterInput({
   setValue: (value: RowFilter[]) => void;
   columns: Pick<
     ColumnInterface,
-    "column" | "name" | "datatype" | "topValues" | "jsonFields"
+    "column" | "name" | "datatype" | "topValues" | "jsonFields" | "deleted"
   >[];
 }) {
   if (!value.length) {
@@ -436,6 +436,10 @@ export function RowFilterInput({
         const firstSelectOptions: SingleValue[] = [];
 
         columns.forEach((col) => {
+          if (col.datatype === "date") return;
+          // TODO: skip identifier columns
+          if (col.deleted) return;
+
           firstSelectOptions.push({
             label: col.name || col.column,
             value: col.column,
@@ -473,6 +477,8 @@ export function RowFilterInput({
           filter.operator !== "sql_expr" && filter.operator !== "saved_filter";
 
         const operatorOptions: SingleValue[] = [];
+        const valueOptions: SingleValue[] = [];
+
         if (operatorInputRequired) {
           const operatorLabelMap: Record<RowFilter["operator"], string> = {
             "=": "=",
@@ -497,10 +503,59 @@ export function RowFilterInput({
 
           const allowedOperators: RowFilter["operator"][] = [];
 
-          const column = columns.find((c) => c.column === filter.column);
-          if (column?.datatype === "boolean") {
+          const { datatype, topValues } = (() => {
+            if (!filter.column) {
+              return { datatype: "" as const, topValues: [] as string[] };
+            }
+
+            // First, look for exact match
+            const column = columns.find((c) => c.column === filter.column);
+            if (column) {
+              return {
+                datatype: column.datatype,
+                topValues: column.topValues || [],
+              };
+            }
+
+            // Next, look for JSON field match
+            const [baseColumnName, jsonField] = filter.column.split(".", 2);
+            const baseColumn = columns.find((c) => c.column === baseColumnName);
+
+            if (
+              baseColumn &&
+              baseColumn.jsonFields &&
+              jsonField &&
+              baseColumn.jsonFields[jsonField]
+            ) {
+              return {
+                datatype: baseColumn.jsonFields[jsonField].datatype,
+                topValues: [],
+              };
+            }
+
+            return { datatype: "" as const, topValues: [] as string[] };
+          })();
+
+          if (topValues) {
+            valueOptions.push(
+              ...topValues.map((v) => ({
+                label: v,
+                value: v,
+              })),
+            );
+            filter.values?.forEach((v) => {
+              if (!valueOptions.find((o) => o.value === v)) {
+                valueOptions.push({
+                  label: v,
+                  value: v,
+                });
+              }
+            });
+          }
+
+          if (datatype === "boolean") {
             allowedOperators.push("is_true", "is_false", "is_null", "not_null");
-          } else if (column?.datatype === "number") {
+          } else if (datatype === "number") {
             allowedOperators.push(
               "=",
               "!=",
@@ -513,7 +568,7 @@ export function RowFilterInput({
               "is_null",
               "not_null",
             );
-          } else if (column?.datatype === "string") {
+          } else if (datatype === "string") {
             allowedOperators.push(
               "=",
               "!=",
@@ -557,6 +612,10 @@ export function RowFilterInput({
         ].includes(filter.operator);
 
         const multiValueInput = ["in", "not_in"].includes(filter.operator);
+
+        const useValueOptions =
+          valueOptions.length > 0 &&
+          ["in", "not_in", "=", "!="].includes(filter.operator);
 
         const updateRowFilter = (updates: Partial<RowFilter>) => {
           const newFilters = [...value];
@@ -608,7 +667,18 @@ export function RowFilterInput({
             )}
             {valueInputRequired && (
               <>
-                {multiValueInput ? (
+                {multiValueInput && useValueOptions ? (
+                  <MultiSelectField
+                    value={filter.values || []}
+                    onChange={(v) => {
+                      updateRowFilter({
+                        values: v,
+                      });
+                    }}
+                    options={valueOptions}
+                    creatable
+                  />
+                ) : multiValueInput ? (
                   <StringArrayField
                     value={filter.values || []}
                     onChange={(v) => {
@@ -617,6 +687,17 @@ export function RowFilterInput({
                       });
                     }}
                     delimiters={["Enter", "Tab"]}
+                  />
+                ) : useValueOptions ? (
+                  <SelectField
+                    value={filter.values?.[0] || ""}
+                    onChange={(v) => {
+                      updateRowFilter({
+                        values: [v],
+                      });
+                    }}
+                    options={valueOptions}
+                    createable
                   />
                 ) : (
                   <Field

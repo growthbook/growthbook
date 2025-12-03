@@ -4941,6 +4941,7 @@ paths:
                               - is_true
                               - is_false
                               - contains
+                              - not_contains
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -5016,6 +5017,7 @@ paths:
                               - is_true
                               - is_false
                               - contains
+                              - not_contains
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -5317,6 +5319,7 @@ paths:
                               - is_true
                               - is_false
                               - contains
+                              - not_contains
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -5392,6 +5395,7 @@ paths:
                               - is_true
                               - is_false
                               - contains
+                              - not_contains
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -8198,6 +8202,7 @@ components:
                       - is_true
                       - is_false
                       - contains
+                      - not_contains
                       - starts_with
                       - ends_with
                       - sql_expr
@@ -8264,6 +8269,7 @@ components:
                       - is_true
                       - is_false
                       - contains
+                      - not_contains
                       - starts_with
                       - ends_with
                       - sql_expr

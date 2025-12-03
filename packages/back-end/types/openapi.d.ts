@@ -3541,7 +3541,7 @@ export interface components {
         /** @description Filters to apply to the rows of the fact table before aggregation. */
         rowFilters?: ({
             /** @enum {string} */
-            operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+            operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
             /** @description Not required for is_null, not_null, is_true, is_false operators. */
             values?: (string)[];
             /** @description Required for all operators except sql_expr and saved_filter. */
@@ -3570,7 +3570,7 @@ export interface components {
         /** @description Filters to apply to the rows of the fact table before aggregation. */
         rowFilters?: ({
             /** @enum {string} */
-            operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+            operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
             /** @description Not required for is_null, not_null, is_true, is_false operators. */
             values?: (string)[];
             /** @description Required for all operators except sql_expr and saved_filter. */
@@ -12692,7 +12692,7 @@ export interface operations {
                   /** @description Filters to apply to the rows of the fact table before aggregation. */
                   rowFilters?: ({
                       /** @enum {string} */
-                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                       /** @description Not required for is_null, not_null, is_true, is_false operators. */
                       values?: (string)[];
                       /** @description Required for all operators except sql_expr and saved_filter. */
@@ -12721,7 +12721,7 @@ export interface operations {
                   /** @description Filters to apply to the rows of the fact table before aggregation. */
                   rowFilters?: ({
                       /** @enum {string} */
-                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                       /** @description Not required for is_null, not_null, is_true, is_false operators. */
                       values?: (string)[];
                       /** @description Required for all operators except sql_expr and saved_filter. */
@@ -12841,7 +12841,7 @@ export interface operations {
             /** @description Filters to apply to the rows of the fact table before aggregation. */
             rowFilters?: ({
                 /** @enum {string} */
-                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                 /** @description Not required for is_null, not_null, is_true, is_false operators. */
                 values?: (string)[];
                 /** @description Required for all operators except sql_expr and saved_filter. */
@@ -12877,7 +12877,7 @@ export interface operations {
             /** @description Filters to apply to the rows of the fact table before aggregation. */
             rowFilters?: ({
                 /** @enum {string} */
-                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                 /** @description Not required for is_null, not_null, is_true, is_false operators. */
                 values?: (string)[];
                 /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13007,7 +13007,7 @@ export interface operations {
                 /** @description Filters to apply to the rows of the fact table before aggregation. */
                 rowFilters?: ({
                     /** @enum {string} */
-                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                     /** @description Not required for is_null, not_null, is_true, is_false operators. */
                     values?: (string)[];
                     /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13036,7 +13036,7 @@ export interface operations {
                 /** @description Filters to apply to the rows of the fact table before aggregation. */
                 rowFilters?: ({
                     /** @enum {string} */
-                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                     /** @description Not required for is_null, not_null, is_true, is_false operators. */
                     values?: (string)[];
                     /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13155,7 +13155,7 @@ export interface operations {
                 /** @description Filters to apply to the rows of the fact table before aggregation. */
                 rowFilters?: ({
                     /** @enum {string} */
-                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                     /** @description Not required for is_null, not_null, is_true, is_false operators. */
                     values?: (string)[];
                     /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13184,7 +13184,7 @@ export interface operations {
                 /** @description Filters to apply to the rows of the fact table before aggregation. */
                 rowFilters?: ({
                     /** @enum {string} */
-                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                     /** @description Not required for is_null, not_null, is_true, is_false operators. */
                     values?: (string)[];
                     /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13303,7 +13303,7 @@ export interface operations {
             /** @description Filters to apply to the rows of the fact table before aggregation. */
             rowFilters?: ({
                 /** @enum {string} */
-                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                 /** @description Not required for is_null, not_null, is_true, is_false operators. */
                 values?: (string)[];
                 /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13339,7 +13339,7 @@ export interface operations {
             /** @description Filters to apply to the rows of the fact table before aggregation. */
             rowFilters?: ({
                 /** @enum {string} */
-                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                 /** @description Not required for is_null, not_null, is_true, is_false operators. */
                 values?: (string)[];
                 /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13458,7 +13458,7 @@ export interface operations {
                 /** @description Filters to apply to the rows of the fact table before aggregation. */
                 rowFilters?: ({
                     /** @enum {string} */
-                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                     /** @description Not required for is_null, not_null, is_true, is_false operators. */
                     values?: (string)[];
                     /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13487,7 +13487,7 @@ export interface operations {
                 /** @description Filters to apply to the rows of the fact table before aggregation. */
                 rowFilters?: ({
                     /** @enum {string} */
-                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                     /** @description Not required for is_null, not_null, is_true, is_false operators. */
                     values?: (string)[];
                     /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13712,7 +13712,7 @@ export interface operations {
                   /** @description Filters to apply to the rows of the fact table before aggregation. */
                   rowFilters?: ({
                       /** @enum {string} */
-                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                       /** @description Not required for is_null, not_null, is_true, is_false operators. */
                       values?: (string)[];
                       /** @description Required for all operators except sql_expr and saved_filter. */
@@ -13748,7 +13748,7 @@ export interface operations {
                   /** @description Filters to apply to the rows of the fact table before aggregation. */
                   rowFilters?: ({
                       /** @enum {string} */
-                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
                       /** @description Not required for is_null, not_null, is_true, is_false operators. */
                       values?: (string)[];
                       /** @description Required for all operators except sql_expr and saved_filter. */

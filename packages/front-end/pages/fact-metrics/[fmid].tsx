@@ -234,13 +234,15 @@ export default function FactMetricPage() {
     ...(factMetric.numerator.rowFilters || []).map((rf) => {
       return {
         label: "Row Filter",
-        value: getRowFilterSQL({
-          rowFilter: rf,
-          factTable,
-          escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
-          evalBoolean: (col, value) => `${col} = ${value}`,
-          jsonExtract: (col, path) => `${col}.${path}`,
-        }),
+        value: factTable
+          ? getRowFilterSQL({
+              rowFilter: rf,
+              factTable,
+              escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
+              evalBoolean: (col, value) => `${col} = ${value}`,
+              jsonExtract: (col, path) => `${col}.${path}`,
+            })
+          : `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`,
       };
     }),
     ...(!isBinomialMetric(factMetric)

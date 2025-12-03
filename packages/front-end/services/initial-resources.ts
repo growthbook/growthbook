@@ -582,7 +582,6 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$distinctUsers",
-              filters: [],
               rowFilters: [
                 {
                   column: "event_name",
@@ -762,7 +761,11 @@ export async function createInitialResources({
           if (metric.numerator?.rowFilters?.length) {
             metric.numerator.rowFilters = metric.numerator.rowFilters.map(
               (rf) => {
-                if (rf.operator === "saved_filter") {
+                if (
+                  rf.operator === "saved_filter" &&
+                  rf.values &&
+                  rf.values[0]
+                ) {
                   const filterId = filterMap[rf.values[0]];
                   if (!filterId) {
                     throw new Error("Required filters not created");
@@ -779,7 +782,11 @@ export async function createInitialResources({
           if (metric.denominator?.rowFilters?.length) {
             metric.denominator.rowFilters = metric.denominator.rowFilters.map(
               (rf) => {
-                if (rf.operator === "saved_filter") {
+                if (
+                  rf.operator === "saved_filter" &&
+                  rf.values &&
+                  rf.values[0]
+                ) {
                   const filterId = filterMap[rf.values[0]];
                   if (!filterId) {
                     throw new Error("Required filters not created");
