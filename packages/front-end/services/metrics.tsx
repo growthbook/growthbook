@@ -36,7 +36,7 @@ import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewE
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
   existingRowFilters?: RowFilter[],
-) {
+): RowFilter[] {
   const rowFilters = [...(existingRowFilters || [])];
   factTable.columns
     .filter(
@@ -70,7 +70,7 @@ export function getDefaultFactMetricProps({
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
   managedBy?: "" | "api" | "admin";
-}): CreateFactMetricProps {
+}): CreateFactMetricProps & { targetMDE: number } {
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
@@ -82,7 +82,7 @@ export function getDefaultFactMetricProps({
       column: "$$count",
       rowFilters: initialFactTable
         ? getInitialInlineFilters(initialFactTable)
-        : {},
+        : [],
     },
     projects: existing?.projects || [],
     denominator: existing?.denominator || null,

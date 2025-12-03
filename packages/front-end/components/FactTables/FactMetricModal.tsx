@@ -2,7 +2,6 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
-import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -21,6 +20,7 @@ import {
   ColumnInterface,
   ColumnAggregation,
   FactTableColumnType,
+  RowFilter,
 } from "back-end/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -28,7 +28,7 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
-import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
+import { PiArrowSquareOut, PiPlus, PiX } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -68,8 +68,8 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import Button from "@/ui/Button";
 import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
 import { DocLink } from "../DocLink";
 
@@ -399,6 +399,271 @@ function RetentionWindowSelector({
   );
 }
 
+export function RowFilterInput({
+  value,
+  setValue,
+  columns,
+}: {
+  value: RowFilter[];
+  setValue: (value: RowFilter[]) => void;
+  columns: Pick<
+    ColumnInterface,
+    "column" | "name" | "datatype" | "topValues" | "jsonFields"
+  >[];
+}) {
+  if (!value.length) {
+    return (
+      <Button
+        variant="soft"
+        onClick={() => {
+          setValue([
+            {
+              operator: "=",
+              column: "",
+              values: [],
+            },
+          ]);
+        }}
+      >
+        Filter Rows
+      </Button>
+    );
+  }
+
+  return (
+    <Flex direction="column" gap="2">
+      {value.map((filter, i) => {
+        const firstSelectOptions: SingleValue[] = [];
+
+        columns.forEach((col) => {
+          firstSelectOptions.push({
+            label: col.name || col.column,
+            value: col.column,
+          });
+
+          // Add JSON fields as separate options
+          if (col.jsonFields) {
+            Object.keys(col.jsonFields).forEach((field) => {
+              firstSelectOptions.push({
+                label: `${col.name || col.column}.${field}`,
+                value: `${col.column}.${field}`,
+              });
+            });
+          }
+        });
+        if (
+          filter.column &&
+          !firstSelectOptions.find((o) => o.value === filter.column)
+        ) {
+          firstSelectOptions.push({
+            label: filter.column,
+            value: filter.column,
+          });
+        }
+        firstSelectOptions.push({
+          label: "SQL Expression",
+          value: "$$sql_expr",
+        });
+        firstSelectOptions.push({
+          label: "Saved Filter",
+          value: "$$saved_filter",
+        });
+
+        const operatorInputRequired =
+          filter.operator !== "sql_expr" && filter.operator !== "saved_filter";
+
+        const operatorOptions: SingleValue[] = [];
+        if (operatorInputRequired) {
+          const operatorLabelMap: Record<RowFilter["operator"], string> = {
+            "=": "=",
+            "!=": "!=",
+            "<": "<",
+            "<=": "<=",
+            ">": ">",
+            ">=": ">=",
+            in: "in",
+            not_in: "not in",
+            is_true: "is true",
+            is_false: "is false",
+            is_null: "is null",
+            not_null: "is not null",
+            sql_expr: "SQL Expression",
+            saved_filter: "Saved Filter",
+            contains: "contains",
+            not_contains: "not contains",
+            starts_with: "starts with",
+            ends_with: "ends with",
+          };
+
+          const allowedOperators: RowFilter["operator"][] = [];
+
+          const column = columns.find((c) => c.column === filter.column);
+          if (column?.datatype === "boolean") {
+            allowedOperators.push("is_true", "is_false", "is_null", "not_null");
+          } else if (column?.datatype === "number") {
+            allowedOperators.push(
+              "=",
+              "!=",
+              "<",
+              "<=",
+              ">",
+              ">=",
+              "in",
+              "not_in",
+              "is_null",
+              "not_null",
+            );
+          } else if (column?.datatype === "string") {
+            allowedOperators.push(
+              "=",
+              "!=",
+              "in",
+              "not_in",
+              "starts_with",
+              "ends_with",
+              "contains",
+              "not_contains",
+              "is_null",
+              "not_null",
+            );
+          } else {
+            allowedOperators.push(
+              "=",
+              "!=",
+              "in",
+              "not_in",
+              "is_null",
+              "not_null",
+            );
+          }
+
+          if (!allowedOperators.includes(filter.operator)) {
+            allowedOperators.push(filter.operator);
+          }
+
+          operatorOptions.push(
+            ...allowedOperators.map((op) => ({
+              label: operatorLabelMap[op],
+              value: op,
+            })),
+          );
+        }
+
+        const valueInputRequired = ![
+          "is_true",
+          "is_false",
+          "is_null",
+          "not_null",
+        ].includes(filter.operator);
+
+        const multiValueInput = ["in", "not_in"].includes(filter.operator);
+
+        const updateRowFilter = (updates: Partial<RowFilter>) => {
+          const newFilters = [...value];
+          newFilters[i] = {
+            ...filter,
+            ...updates,
+          };
+          setValue(newFilters);
+        };
+
+        return (
+          <Flex direction="row" gap="2" key={i} align="center">
+            <SelectField
+              value={
+                filter.operator === "sql_expr"
+                  ? "$$sql_expr"
+                  : filter.operator === "saved_filter"
+                    ? "$$saved_filter"
+                    : filter.column || ""
+              }
+              onChange={(v) => {
+                if (v === "$$sql_expr") {
+                  updateRowFilter({
+                    operator: "sql_expr",
+                  });
+                } else if (v === "$$saved_filter") {
+                  updateRowFilter({
+                    operator: "saved_filter",
+                  });
+                } else {
+                  updateRowFilter({
+                    column: v,
+                  });
+                }
+              }}
+              options={firstSelectOptions}
+              autoFocus={i === value.length - 1}
+            />
+            {operatorInputRequired && (
+              <SelectField
+                value={filter.operator}
+                onChange={(v: RowFilter["operator"]) => {
+                  updateRowFilter({
+                    operator: v,
+                  });
+                }}
+                options={operatorOptions}
+              />
+            )}
+            {valueInputRequired && (
+              <>
+                {multiValueInput ? (
+                  <StringArrayField
+                    value={filter.values || []}
+                    onChange={(v) => {
+                      updateRowFilter({
+                        values: v,
+                      });
+                    }}
+                    delimiters={["Enter", "Tab"]}
+                  />
+                ) : (
+                  <Field
+                    value={filter.values?.[0] || ""}
+                    onChange={(e) => {
+                      updateRowFilter({
+                        values: [e.target.value],
+                      });
+                    }}
+                    textarea={filter.operator === "sql_expr"}
+                    minRows={1}
+                  />
+                )}
+              </>
+            )}
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => {
+                const newFilters = [...value];
+                newFilters.splice(i, 1);
+                setValue(newFilters);
+              }}
+            >
+              <PiX />
+            </Button>
+          </Flex>
+        );
+      })}
+      <Button
+        variant="soft"
+        onClick={() => {
+          const newFilters = [...value];
+          newFilters.push({
+            column: "",
+            operator: "=",
+            values: [""],
+          });
+          setValue(newFilters);
+        }}
+      >
+        <PiPlus /> Row Filter
+      </Button>
+    </Flex>
+  );
+}
+
 function ColumnRefSelector({
   value,
   setValue,
@@ -449,59 +714,7 @@ function ColumnRefSelector({
   });
 
   const aggregationOptions = getAggregationOptions(selectedColumnDatatype);
-
-  const [addRowFilter, setAddRowFilter] = useState(false);
   const [addUserFilter, setAddUserFilter] = useState(false);
-
-  const addFilterOptions: GroupedValue[] = [];
-
-  const eligibleFilters = factTable?.filters || [];
-  const unusedFilters = eligibleFilters.filter(
-    (f) => !value.filters.includes(f.id),
-  );
-  if (unusedFilters.length > 0) {
-    addFilterOptions.push({
-      label: "Saved Filters",
-      options: unusedFilters.map((f) => ({
-        label: f.name,
-        value: f.id,
-      })),
-    });
-  }
-
-  const eligibleColumns = getColumnOptions({
-    factTable,
-    datasource,
-    includeCount: false,
-    includeCountDistinct: false,
-    includeNumericColumns: false,
-    includeStringColumns: true,
-    includeBooleanColumns: true,
-    includeJSONFields: true,
-    showColumnsAsSums: false,
-    excludeColumns: new Set([...(factTable?.userIdTypes || [])]),
-  })
-    .flatMap((group) => group.options)
-    .filter((option) =>
-      factTable ? canInlineFilterColumn(factTable, option.value) : false,
-    );
-
-  const unfilteredEligibleColumns = eligibleColumns.filter(
-    (c) => !value.inlineFilters?.[c.value]?.length,
-  );
-
-  if (unfilteredEligibleColumns.length > 0) {
-    addFilterOptions.push({
-      label: "Filter by Column",
-      options: unfilteredEligibleColumns.map((o) => ({
-        label: o.label,
-        value: `col::${o.value}`,
-      })),
-    });
-  }
-
-  const canFilterRows =
-    eligibleFilters.length > 0 || eligibleColumns.length > 0;
 
   return (
     <div className="appbox px-3 pt-3 bg-light">
@@ -515,9 +728,9 @@ function ColumnRefSelector({
               const newFactTable = getFactTableById(factTableId);
               if (!newFactTable) return;
 
-              const inlineFilters = getInitialInlineFilters(
+              const rowFilters = getInitialInlineFilters(
                 newFactTable,
-                value.inlineFilters,
+                value.rowFilters,
               );
 
               // If switching between fact tables, wipe out inline and aggregate filters
@@ -534,8 +747,7 @@ function ColumnRefSelector({
                 setValue({
                   factTableId,
                   column: newColumn,
-                  inlineFilters,
-                  filters: [],
+                  rowFilters,
                 });
               }
               // If selecting a fact table for the first time, keep the existing inline/aggregate filters
@@ -543,8 +755,7 @@ function ColumnRefSelector({
                 setValue({
                   ...value,
                   factTableId,
-                  inlineFilters,
-                  filters: [],
+                  rowFilters,
                 });
               }
 
@@ -578,221 +789,6 @@ function ColumnRefSelector({
             required
           />
         </div>
-        {factTable && canFilterRows ? (
-          <div className="col-auto">
-            <div className="form-group">
-              <label>
-                Row Filter{" "}
-                <Tooltip body="Filter individual rows.  Only rows that satisfy ALL selected filters will be included" />
-              </label>
-              <div className="d-flex flex-wrap align-items-top">
-                {value.filters.map((f) => {
-                  const filter = factTable.filters.find((ff) => ff.id === f);
-                  if (!filter) return null;
-                  return (
-                    <div
-                      className="border rounded py-2 px-2 mr-1 d-flex align-items-center bg-white"
-                      key={f}
-                    >
-                      <Tooltip
-                        body={
-                          <InlineCode
-                            language="sql"
-                            code={filter.value}
-                            inTooltip
-                          />
-                        }
-                      >
-                        <span className="cursor-default">{filter.name}</span>
-                      </Tooltip>
-                      <OfficialBadge
-                        managedBy={filter.managedBy}
-                        type="filter"
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-link p-0 ml-1 text-muted"
-                        onClick={() =>
-                          setValue({
-                            ...value,
-                            filters: value.filters.filter((ff) => ff !== f),
-                          })
-                        }
-                      >
-                        <FaTimes />
-                      </button>
-                    </div>
-                  );
-                })}
-                {Object.entries(value.inlineFilters || {}).map(([k, v]) => {
-                  if (!v.length) return null;
-                  v = v.filter((v) => !!v);
-                  const col = factTable.columns.find((c) => c.column === k);
-
-                  const onValuesChange = (v: string[]) => {
-                    v = [...new Set(v.filter((v) => !!v))];
-
-                    setValue({
-                      ...value,
-                      inlineFilters: { ...value.inlineFilters, [k]: v },
-                    });
-                  };
-
-                  const colAlert = !canInlineFilterColumn(factTable, k) ? (
-                    <Tooltip
-                      body={`This column cannot be filtered on or no longer exists`}
-                    >
-                      <FaTriangleExclamation className="text-danger ml-1" />
-                    </Tooltip>
-                  ) : null;
-
-                  const options = new Set(col?.topValues || []);
-                  v.forEach((v) => options.add(v));
-
-                  return (
-                    <div
-                      className="border rounded mr-1 d-flex align-items-center bg-white"
-                      key={k}
-                    >
-                      {colAlert && unfilteredEligibleColumns.length > 0 ? (
-                        <SelectField
-                          value={k}
-                          options={[
-                            { label: col?.name || k, value: k },
-                            ...unfilteredEligibleColumns,
-                          ]}
-                          onChange={(newKey) => {
-                            if (k === newKey || !value.inlineFilters) return;
-                            setValue({
-                              ...value,
-                              inlineFilters: {
-                                ...omit(value.inlineFilters || {}, k),
-                                [newKey]: value.inlineFilters[k],
-                              },
-                            });
-                          }}
-                          formatOptionLabel={({ value, label }) => {
-                            return value === k ? (
-                              <>
-                                {label}
-                                {colAlert}
-                              </>
-                            ) : (
-                              label
-                            );
-                          }}
-                        />
-                      ) : (
-                        <span className="px-2">
-                          {col?.name || k}
-                          {colAlert}
-                        </span>
-                      )}
-                      {col?.datatype === "boolean" ? (
-                        <SelectField
-                          value={v?.[0] + ""}
-                          onChange={(val) => onValuesChange(val ? [val] : [])}
-                          options={[
-                            { label: "Remove", value: "" },
-                            { label: "Is True", value: "true" },
-                            { label: "Is False", value: "false" },
-                          ]}
-                          sort={false}
-                          autoFocus
-                        />
-                      ) : col?.topValues?.length ? (
-                        <MultiSelectField
-                          value={v}
-                          onChange={onValuesChange}
-                          options={[...options].map((o) => ({
-                            label: o,
-                            value: o,
-                          }))}
-                          initialOption="Any"
-                          formatOptionLabel={({ value, label }) =>
-                            value ? (
-                              label
-                            ) : (
-                              <em className="text-muted">{label}</em>
-                            )
-                          }
-                          autoFocus
-                          creatable
-                          sort={false}
-                        />
-                      ) : (
-                        <StringArrayField
-                          value={v}
-                          onChange={onValuesChange}
-                          placeholder="Any"
-                          delimiters={["Enter", "Tab"]}
-                          autoFocus
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-
-                {addFilterOptions.length > 0 ? (
-                  addRowFilter ? (
-                    <>
-                      <SelectField
-                        value=""
-                        onChange={(v) => {
-                          if (v) {
-                            if (v.startsWith("col::")) {
-                              const column = v.replace("col::", "");
-                              const dataType = getSelectedColumnDatatype({
-                                factTable,
-                                column,
-                              });
-
-                              setValue({
-                                ...value,
-                                inlineFilters: {
-                                  ...value.inlineFilters,
-                                  [column]: [
-                                    dataType === "boolean" ? "true" : "",
-                                  ],
-                                },
-                              });
-                            } else {
-                              setValue({
-                                ...value,
-                                filters: [...value.filters, v],
-                              });
-                            }
-                          }
-                          setAddRowFilter(false);
-                        }}
-                        options={addFilterOptions}
-                        onBlur={() => setAddRowFilter(false)}
-                        sort={false}
-                        autoFocus
-                      />
-                    </>
-                  ) : (
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setAddRowFilter(true);
-                      }}
-                      className="py-2"
-                    >
-                      <PiPlus />{" "}
-                      {Object.values(value.inlineFilters || {}).some(
-                        (v) => v.length > 0,
-                      ) || value.filters.length > 0
-                        ? "Row Filter"
-                        : "Add"}
-                    </a>
-                  )
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
         {includeColumn && (
           <div className="col-auto">
             <SelectField
@@ -842,7 +838,26 @@ function ColumnRefSelector({
               />
             </div>
           )}
-        {supportsAggregatedFilter && factTable && (
+        {extraField && <>{extraField}</>}
+      </div>
+
+      {factTable && (
+        <div>
+          <RowFilterInput
+            columns={factTable.columns}
+            value={value.rowFilters || []}
+            setValue={(rowFilters) =>
+              setValue({
+                ...value,
+                rowFilters,
+              })
+            }
+          />
+        </div>
+      )}
+
+      {supportsAggregatedFilter && factTable && (
+        <div className="row">
           <div className="col-auto d-flex align-items-top">
             <div className="form-group">
               <label>
@@ -912,9 +927,8 @@ function ColumnRefSelector({
               )}
             </div>
           </div>
-        )}
-        {extraField && <>{extraField}</>}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1265,14 +1279,18 @@ function FieldMappingModal({
   ) {
     numericColumns.add(numerator.aggregateFilterColumn);
   }
-  if (numerator.inlineFilters) {
-    Object.keys(numerator.inlineFilters).forEach((k) => {
-      stringColumns.add(k);
+  if (numerator.rowFilters) {
+    numerator.rowFilters.forEach((k) => {
+      if (k.column) {
+        stringColumns.add(k.column);
+      }
     });
   }
-  if (denominator?.inlineFilters) {
-    Object.keys(denominator.inlineFilters).forEach((k) => {
-      stringColumns.add(k);
+  if (denominator?.rowFilters) {
+    denominator.rowFilters.forEach((k) => {
+      if (k.column) {
+        stringColumns.add(k.column);
+      }
     });
   }
 
@@ -1328,16 +1346,15 @@ function FieldMappingModal({
           (data.numerator as ColumnRef).aggregateFilterColumn =
             numericColumnMap[numerator.aggregateFilterColumn];
         }
-        if (numerator.inlineFilters) {
-          const newInlineFilters: Record<string, string[]> = {};
-          Object.entries(numerator.inlineFilters).forEach(([k, v]) => {
-            if (k in stringColumnMap) {
-              newInlineFilters[stringColumnMap[k]] = v;
-            } else {
-              newInlineFilters[k] = v;
-            }
+        if (numerator.rowFilters) {
+          const newRowFilters: RowFilter[] = [];
+          numerator.rowFilters.forEach((filter) => {
+            newRowFilters.push({
+              ...filter,
+              column: stringColumnMap[filter.column ?? ""] ?? filter.column,
+            });
           });
-          (data.numerator as ColumnRef).inlineFilters = newInlineFilters;
+          (data.numerator as ColumnRef).rowFilters = newRowFilters;
         }
 
         if (denominator) {
@@ -1348,16 +1365,16 @@ function FieldMappingModal({
             (data.denominator as ColumnRef).column =
               stringColumnMap[denominator.column];
           }
-          if (denominator.inlineFilters) {
-            const newInlineFilters: Record<string, string[]> = {};
-            Object.entries(denominator.inlineFilters).forEach(([k, v]) => {
-              if (k in stringColumnMap) {
-                newInlineFilters[stringColumnMap[k]] = v;
-              } else {
-                newInlineFilters[k] = v;
-              }
+
+          if (denominator.rowFilters) {
+            const newRowFilters: RowFilter[] = [];
+            denominator.rowFilters.forEach((filter) => {
+              newRowFilters.push({
+                ...filter,
+                column: stringColumnMap[filter.column ?? ""] ?? filter.column,
+              });
             });
-            (data.denominator as ColumnRef).inlineFilters = newInlineFilters;
+            (data.denominator as ColumnRef).rowFilters = newRowFilters;
           }
         }
 
@@ -1795,7 +1812,9 @@ export default function FactMetricModal({
         values.loseRisk = values.loseRisk / 100;
         values.minPercentChange = values.minPercentChange / 100;
         values.maxPercentChange = values.maxPercentChange / 100;
-        values.targetMDE = values.targetMDE / 100;
+        if (values.targetMDE) {
+          values.targetMDE = values.targetMDE / 100;
+        }
 
         // Anonymized telemetry props
         // Will help us measure which settings are being used so we can optimize the UI
@@ -1814,7 +1833,7 @@ export default function FactMetricModal({
                 : values.numerator.column === "$$distinctDates"
                   ? "distinct_dates"
                   : values.numerator.aggregation || "sum",
-          numerator_filters: values.numerator.filters.length,
+          numerator_filters: values.numerator.rowFilters?.length || 0,
           denominator_agg:
             values.denominator?.column === "$$count"
               ? "count"
@@ -1825,7 +1844,7 @@ export default function FactMetricModal({
                   : values.denominator?.column
                     ? values.denominator?.aggregation || "sum"
                     : "none",
-          denominator_filters: values.denominator?.filters?.length || 0,
+          denominator_filters: values.denominator?.rowFilters?.length || 0,
           ratio_same_fact_table:
             values.metricType === "ratio" &&
             values.numerator.factTableId === values.denominator?.factTableId,
@@ -1915,12 +1934,10 @@ export default function FactMetricModal({
                 form.setValue("numerator", {
                   factTableId: "",
                   column: "",
-                  filters: [],
                 });
                 form.setValue("denominator", {
                   factTableId: "",
                   column: "",
-                  filters: [],
                 });
               }}
               options={validDatasources.map((d) => {
@@ -2041,7 +2058,6 @@ export default function FactMetricModal({
                       factTableId:
                         numerator.factTableId || initialFactTable || "",
                       column: "$$count",
-                      filters: [],
                     });
                   }
 
@@ -2298,7 +2314,6 @@ export default function FactMetricModal({
                         denominator || {
                           column: "$$count",
                           factTableId: "",
-                          filters: [],
                         }
                       }
                       setValue={(denominator) =>
