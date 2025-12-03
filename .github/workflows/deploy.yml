@@ -9,7 +9,7 @@ on:
       - ".github/workflows/deploy.yml"
       - "packages/**"
       - "!**.md"
-      - "yarn.lock"
+      - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
 jobs:
