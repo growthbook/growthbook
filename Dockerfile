@@ -41,11 +41,22 @@ COPY patches ./patches
 RUN yarn install --frozen-lockfile
 # Apply patches this is not ideal since this should run at the end of yarn install but since node 20 it is not
 RUN yarn postinstall
-# Build the app and do a clean install with only production dependencies
+# Build the app
 COPY packages ./packages
+RUN yarn build
+
+# Inject Sentry debug IDs into build artifacts (if enabled)
+# Note: This only injects debug IDs locally, doesn't upload to Sentry
+ARG INJECT_SENTRY_DEBUG_INFO=""
+RUN if [ "$INJECT_SENTRY_DEBUG_INFO" = "true" ]; then \
+  yarn global add @sentry/cli@latest && \
+  sentry-cli sourcemaps inject ./packages/front-end/.next && \
+  sentry-cli sourcemaps inject ./packages/back-end/dist; \
+fi
+
+# Clean up and install production dependencies
 RUN \
-  yarn build \
-  && rm -rf node_modules \
+  rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
