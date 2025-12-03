@@ -117,6 +117,7 @@ export const rowFilterOperators = [
   "in",
   "not_in",
   "contains",
+  "not_contains",
   "starts_with",
   "ends_with",
   "is_null",

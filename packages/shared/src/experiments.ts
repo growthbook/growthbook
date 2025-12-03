@@ -322,6 +322,8 @@ export function getRowFilterSQL({
       return `(${columnExpr} LIKE '%${likeEscapedValue}')`;
     case "contains":
       return `(${columnExpr} LIKE '%${likeEscapedValue}%')`;
+    case "not_contains":
+      return `(${columnExpr} NOT LIKE '%${likeEscapedValue}%')`;
 
     // IMPORTANT: no default to ensure missing cases are caught by the compiler
   }

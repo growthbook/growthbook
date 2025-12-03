@@ -706,6 +706,21 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${column.column} LIKE '%foo%')`);
         });
+        it("handles not_contains operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "not_contains",
+                values: ["foo"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+            }),
+          ).toStrictEqual(`(${column.column} NOT LIKE '%foo%')`);
+        });
         it("escapes strings in LIKE clauses", () => {
           expect(
             getRowFilterSQL({
