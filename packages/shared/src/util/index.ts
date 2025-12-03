@@ -369,10 +369,20 @@ export function truncateString(s: string, numChars: number) {
   return s;
 }
 
-export function getNumberFormatDigits(value: number) {
+export function getNumberFormatDigits(
+  value: number,
+  highPrecision: boolean = false,
+) {
   const absValue = Math.abs(value);
-  const digits =
-    absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  let digits = absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  // For very small numbers (< 1), find the first significant digit & show 2 digits after it
+  if (highPrecision && absValue > 0 && absValue < 1) {
+    // Use Math.log10 to find the position of the first significant digit
+    const log10 = Math.log10(absValue);
+    const decimalPlacesToFirstSig = -Math.floor(log10);
+    // Show 2 digits after the first significant digit
+    digits = Math.min(decimalPlacesToFirstSig + 1, 15);
+  }
   return digits;
 }
 
