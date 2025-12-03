@@ -5,6 +5,7 @@ import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
+import { startCase } from "lodash";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -15,6 +16,7 @@ import Button from "@/ui/Button";
 import { DropdownMenu } from "@/ui/DropdownMenu";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -58,6 +60,16 @@ export default function ReportAnalysisSettingsBar({
     ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
 
+  const { getDatasourceById } = useDefinitions();
+
+  const datasourceSettings = report.experimentAnalysisSettings.datasource
+    ? getDatasourceById(report.experimentAnalysisSettings.datasource)?.settings
+    : undefined;
+
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
+  )?.userIdType;
+
   const totalUnits = useMemo(() => {
     const healthVariationUnits =
       snapshot?.health?.traffic?.overall?.variationUnits;
@@ -71,6 +83,11 @@ export default function ReportAnalysisSettingsBar({
     });
     return totalUsers;
   }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
+
+  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
+  const unitDisplayName = userIdType
+    ? startCase(userIdType.split("_").join(" ")) + "s"
+    : "Units";
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasMetrics =
@@ -171,7 +188,7 @@ export default function ReportAnalysisSettingsBar({
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
           <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
             <Metadata
-              label="Units"
+              label={unitDisplayName}
               value={numberFormatter.format(totalUnits ?? 0)}
             />
           </div>

@@ -16,8 +16,8 @@ import {
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { startCase } from "lodash";
+import { PiPencilSimpleFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { GBEdit } from "@/components/Icons";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { trackSnapshot } from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -296,7 +296,7 @@ export default function AnalysisSettingsSummary({
                     }}
                   >
                     <span className="text-dark">Analysis Settings</span>
-                    <GBEdit className="ml-2" />
+                    <PiPencilSimpleFill className="ml-2" />
                   </Link>
                 </div>
               ) : (
