@@ -12,7 +12,10 @@ import {
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
-import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
+import {
+  assignColorsToKeys,
+  getXAxisConfig,
+} from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
@@ -679,14 +682,27 @@ export function DataVisualizationDisplay({
     // Use the first dimension's display setting for stacking
     const shouldStack = dimensionConfigs[0]?.display === "stacked";
 
+    // Assign unique colors to all dimension combinations
+    const dimensionKeys = dimensionCombinations.map((c) => c.join(", "));
+    const colorMap = assignColorsToKeys(dimensionKeys);
+
     return dimensionCombinations.map((combination) => {
       const dimensionKey = combination.join(", ");
+      const color = colorMap.get(dimensionKey);
       return {
         name: dimensionKey,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
         stack: shouldStack ? "stack" : undefined,
+        // Only set color if it exists - otherwise let eCharts set colors
+        // Shouldn't happen since we limit dimension combinations to 11 (10 + 1 for "(other)")
+        // But adding as a safeguard
+        ...(color && {
+          itemStyle: {
+            color,
+          },
+        }),
         encode: {
           x: "x",
           y: dimensionKey,

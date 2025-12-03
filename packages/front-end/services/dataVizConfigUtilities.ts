@@ -7,6 +7,19 @@ import {
   dimensionAxisConfiguration,
   xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
+import {
+  blue,
+  teal,
+  orange,
+  pink,
+  amber,
+  mint,
+  lime,
+  cyan,
+  red,
+  indigo,
+  purple,
+} from "@radix-ui/colors";
 import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
 
 export function getXAxisConfig(
@@ -115,4 +128,62 @@ export function normalizeDimensionsForChartType(
       dimension: undefined,
     } as Partial<DataVizConfig>;
   }
+}
+
+// Most distinct colors first - these are prioritized when we have fewer dimensions
+// to avoid similar colors like green/lime or indigo/purple appearing together
+const distinctPalette = [
+  blue.blue8,
+  teal.teal10,
+  orange.orange10,
+  pink.pink10,
+  amber.amber10,
+  red.red10,
+];
+
+// Similar/fallback colors - only used when we need more than 6 dimensions
+const fallbackPalette = [
+  indigo.indigo10,
+  purple.purple10,
+  cyan.cyan10,
+  mint.mint10,
+  lime.lime11,
+];
+
+// Full palette for when we have more than 6 dimensions
+const fullPalette = [...distinctPalette, ...fallbackPalette];
+
+function hashStringToInt(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0; // convert to 32-bit
+  }
+  return Math.abs(hash);
+}
+
+//  Assigns unique colors to dimension/slice keys, prioritizing distinct colors
+//  when there are fewer items to avoid similar colors appearing together.
+export function assignColorsToKeys(keys: string[]): Map<string, string> {
+  const colorMap = new Map<string, string>();
+  const totalKeys = keys.length;
+
+  // Sort keys deterministically to ensure consistent color assignment
+  const sortedKeys = [...keys].sort();
+
+  // Choose which palette to use based on number of keys
+  const palette =
+    totalKeys <= distinctPalette.length ? distinctPalette : fullPalette;
+
+  // Use hash of first key to determine starting offset for deterministic but varied assignment
+  const startOffset =
+    sortedKeys.length > 0 ? hashStringToInt(sortedKeys[0]) % palette.length : 0;
+
+  // Assign colors sequentially from the offset, ensuring uniqueness
+  sortedKeys.forEach((key, index) => {
+    const colorIndex = (startOffset + index) % palette.length;
+    colorMap.set(key, palette[colorIndex]);
+  });
+
+  return colorMap;
 }
