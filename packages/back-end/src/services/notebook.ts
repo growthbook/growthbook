@@ -28,12 +28,12 @@ import {
 } from "./stats";
 
 async function getQueryData(
+  context: ReqContext,
   queries: Queries,
-  organization: string,
   map?: QueryMap,
 ): Promise<QueryMap> {
   const docs = await getQueriesByIds(
-    organization,
+    context,
     queries.map((q) => q.query),
   );
 
@@ -182,7 +182,7 @@ export async function generateNotebook({
   }
 
   // Get queries
-  const queries = await getQueryData(queryPointers, context.org.id);
+  const queries = await getQueryData(context, queryPointers);
 
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();
