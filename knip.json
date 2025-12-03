@@ -2,8 +2,21 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     "packages/front-end": {
-      "entry": ["pages/**/*.{ts,tsx}", "vitest.config.js"],
-      "project": ["**/*.{ts,tsx}", "**/*.js"]
+      "entry": ["pages/**/*.{ts,tsx}", "vitest.config.js", "test/**/*.ts"],
+      "ignoreDependencies": [
+        "@radix-ui/colors",
+        "@dnd-kit/utilities",
+        "@radix-ui/react-popover",
+        "classnames",
+        "@visx/group",
+        "@visx/text",
+        "d3-scale",
+        "@growthbook/growthbook",
+        "@sentry/react",
+        "jsdom",
+        "@vitest/coverage-v8",
+        "vite"
+      ]
     },
     "packages/back-end": {
       "entry": [
@@ -16,15 +29,21 @@
         "src/scripts/**/*.{ts,mjs}",
         "src/init/**/*.ts",
         "jest.config.js",
-        "test/**/*.ts"
-      ],
-      "project": [
-        "repl.ts",
-        "src/**/*.ts",
-        "types/**/*.d.ts",
-        "typings/**/*.d.ts",
         "test/**/*.ts",
-        "**/*.mjs"
+        "src/controllers/**/*.ts"
+      ],
+      "paths": { "back-end/*": ["./*"] },
+      "ignore": ["src/controllers/**/*.ts", "src/templates/**/*.js"],
+      "ignoreDependencies": [
+        "bluebird",
+        "jose",
+        "scim2-parse-filter",
+        "generic-pool",
+        "@opentelemetry/sdk-node",
+        "@opentelemetry/sdk-logs",
+        "@opentelemetry/resources",
+        "@opentelemetry/semantic-conventions",
+        "date-fns-tz"
       ],
       "ignoreBinaries": [
         "concurrently",
@@ -35,8 +54,9 @@
       ]
     },
     "packages/shared": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts", "**/*.d.ts"]
+      "ignore": ["*.d.ts", "*.js"],
+      "paths": { "back-end/*": ["../back-end/*"] },
+      "ignoreDependencies": ["back-end"]
     }
   },
   "includeEntryExports": true,
@@ -45,5 +65,7 @@
     "packages/sdk-js",
     "packages/sdk-react",
     "packages/stats"
-  ]
+  ],
+  "ignoreBinaries": ["gen", "typecheck", "rimraf", "poetry", "wait"],
+  "ignoreExportsUsedInFile": true
 }

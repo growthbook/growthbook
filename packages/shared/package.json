@@ -4,6 +4,64 @@
   "private": true,
   "main": "dist/index.js",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./ai": {
+      "types": "./src/ai.ts",
+      "default": "./dist/ai.js"
+    },
+    "./constants": {
+      "types": "./src/constants.ts",
+      "default": "./dist/constants.js"
+    },
+    "./dates": {
+      "types": "./src/dates.ts",
+      "default": "./dist/dates.js"
+    },
+    "./experiments": {
+      "types": "./src/experiments.ts",
+      "default": "./dist/experiments.js"
+    },
+    "./enterprise": {
+      "types": "./src/enterprise/index.ts",
+      "default": "./dist/enterprise/index.js"
+    },
+    "./health": {
+      "types": "./src/health/index.ts",
+      "default": "./dist/health/index.js"
+    },
+    "./permissions": {
+      "types": "./src/permissions/index.ts",
+      "default": "./dist/permissions/index.js"
+    },
+    "./power": {
+      "types": "./src/power/index.ts",
+      "default": "./dist/power/index.js"
+    },
+    "./sdk-versioning": {
+      "types": "./src/sdk-versioning/index.ts",
+      "default": "./dist/sdk-versioning/index.js"
+    },
+    "./settings": {
+      "types": "./src/settings/index.ts",
+      "default": "./dist/settings/index.js"
+    },
+    "./sql": {
+      "types": "./src/sql.ts",
+      "default": "./dist/sql.js"
+    },
+    "./util": {
+      "types": "./src/util/index.ts",
+      "default": "./dist/util/index.js"
+    },
+    "./demo-datasource": {
+      "types": "./src/demo-datasource/index.ts",
+      "default": "./dist/demo-datasource/index.js"
+    }
+  },
   "engines": {
     "node": ">=16"
   },
