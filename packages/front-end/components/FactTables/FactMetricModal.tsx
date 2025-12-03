@@ -402,14 +402,11 @@ function RetentionWindowSelector({
 export function RowFilterInput({
   value,
   setValue,
-  columns,
+  factTable,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
-  columns: Pick<
-    ColumnInterface,
-    "column" | "name" | "datatype" | "topValues" | "jsonFields" | "deleted"
-  >[];
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
 }) {
   if (!value.length) {
     return (
@@ -435,7 +432,7 @@ export function RowFilterInput({
       {value.map((filter, i) => {
         const firstSelectOptions: SingleValue[] = [];
 
-        columns.forEach((col) => {
+        factTable.columns.forEach((col) => {
           if (col.datatype === "date") return;
           // TODO: skip identifier columns
           if (col.deleted) return;
@@ -468,16 +465,42 @@ export function RowFilterInput({
           label: "SQL Expression",
           value: "$$sql_expr",
         });
-        firstSelectOptions.push({
-          label: "Saved Filter",
-          value: "$$saved_filter",
-        });
+        if (
+          factTable.filters.length > 0 ||
+          filter.operator === "saved_filter"
+        ) {
+          firstSelectOptions.push({
+            label: "Saved Filter",
+            value: "$$saved_filter",
+          });
+        }
 
         const operatorInputRequired =
           filter.operator !== "sql_expr" && filter.operator !== "saved_filter";
 
         const operatorOptions: SingleValue[] = [];
         const valueOptions: SingleValue[] = [];
+        let allowCreatingNewOptions = true;
+
+        if (filter.operator === "saved_filter") {
+          allowCreatingNewOptions = false;
+          valueOptions.push(
+            ...factTable.filters.map((f) => ({
+              label: f.name,
+              value: f.id,
+            })),
+          );
+          if (
+            filter.values &&
+            filter.values[0] &&
+            !factTable.filters.find((f) => f.id === filter.values?.[0])
+          ) {
+            valueOptions.push({
+              label: `${filter.values[0]} (Deleted)`,
+              value: filter.values[0],
+            });
+          }
+        }
 
         if (operatorInputRequired) {
           const operatorLabelMap: Record<RowFilter["operator"], string> = {
@@ -509,7 +532,9 @@ export function RowFilterInput({
             }
 
             // First, look for exact match
-            const column = columns.find((c) => c.column === filter.column);
+            const column = factTable.columns.find(
+              (c) => c.column === filter.column,
+            );
             if (column) {
               return {
                 datatype: column.datatype,
@@ -519,8 +544,9 @@ export function RowFilterInput({
 
             // Next, look for JSON field match
             const [baseColumnName, jsonField] = filter.column.split(".", 2);
-            const baseColumn = columns.find((c) => c.column === baseColumnName);
-
+            const baseColumn = factTable.columns.find(
+              (c) => c.column === baseColumnName,
+            );
             if (
               baseColumn &&
               baseColumn.jsonFields &&
@@ -614,8 +640,8 @@ export function RowFilterInput({
         const multiValueInput = ["in", "not_in"].includes(filter.operator);
 
         const useValueOptions =
-          valueOptions.length > 0 &&
-          ["in", "not_in", "=", "!="].includes(filter.operator);
+          (valueOptions.length > 0 || !allowCreatingNewOptions) &&
+          ["in", "not_in", "=", "!=", "saved_filter"].includes(filter.operator);
 
         const updateRowFilter = (updates: Partial<RowFilter>) => {
           const newFilters = [...value];
@@ -676,7 +702,7 @@ export function RowFilterInput({
                       });
                     }}
                     options={valueOptions}
-                    creatable
+                    creatable={allowCreatingNewOptions}
                   />
                 ) : multiValueInput ? (
                   <StringArrayField
@@ -697,7 +723,7 @@ export function RowFilterInput({
                       });
                     }}
                     options={valueOptions}
-                    createable
+                    createable={allowCreatingNewOptions}
                   />
                 ) : (
                   <Field
@@ -925,7 +951,7 @@ function ColumnRefSelector({
       {factTable && (
         <div>
           <RowFilterInput
-            columns={factTable.columns}
+            factTable={factTable}
             value={value.rowFilters || []}
             setValue={(rowFilters) =>
               setValue({
