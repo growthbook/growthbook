@@ -11,7 +11,7 @@ import { SavedGroupInterface } from "shared/src/types";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
 } from "back-end/types/report";
@@ -673,7 +673,7 @@ export function migrateExperimentReport(
     ...otherArgs
   } = args || {};
 
-  const newArgs: ExperimentReportArgs = {
+  const newArgs: LegacyExperimentReportArgs = {
     secondaryMetrics: [],
     ...otherArgs,
     attributionModel:
