@@ -2,6 +2,7 @@ import { Response } from "express";
 import { isFactMetricId } from "shared/experiments";
 import { daysBetween } from "shared/dates";
 import { isDefined } from "shared/util";
+import { IdeaInterface } from "shared/types/idea";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -29,7 +30,6 @@ import {
   getMetricsByDatasource,
   generateMetricEmbeddings,
 } from "back-end/src/models/MetricModel";
-import { IdeaInterface } from "back-end/types/idea";
 
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getIdeasByQuery } from "back-end/src/services/ideas";

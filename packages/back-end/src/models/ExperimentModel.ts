@@ -5,6 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { VisualChange } from "shared/types/visual-changeset";
 import {
   Changeset,
   ExperimentInterface,
@@ -13,7 +14,6 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { ReqContext } from "back-end/types/organization";
-import { VisualChange } from "back-end/types/visual-changeset";
 import {
   determineNextDate,
   toExperimentApiInterface,
