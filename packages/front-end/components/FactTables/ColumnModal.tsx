@@ -101,6 +101,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
       isAutoSliceColumn: existing?.isAutoSliceColumn || false,
       autoSlices: existing?.autoSlices || [],
+      pinnedAutoSlices: existing?.pinnedAutoSlices || [],
     },
   });
 
@@ -230,6 +231,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
+    pinnedAutoSlices: form.watch("pinnedAutoSlices"),
     deleted: false,
   };
 
@@ -252,6 +254,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             alwaysInlineFilter: value.alwaysInlineFilter,
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
+            pinnedAutoSlices: value.pinnedAutoSlices,
           };
 
           if (existing.autoSlices !== value.autoSlices) {
@@ -615,9 +618,65 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                       }
                       form.setValue("autoSlices", values);
                     }}
-                    options={autoSliceOptions}
+                    options={autoSliceOptions.map((opt) => {
+                      const isPinned =
+                        (form.watch("pinnedAutoSlices") || []).includes(
+                          opt.value,
+                        );
+                      return {
+                        ...opt,
+                        label: isPinned ? `${opt.label} 📌` : opt.label,
+                      };
+                    })}
                     creatable={true}
                   />
+                  {form.watch("autoSlices")?.length > 0 && (
+                    <div className="mt-2">
+                      <label className="form-label mb-1">
+                        Pinned Slices (protected from auto-updates)
+                      </label>
+                      <div className="d-flex flex-wrap gap-1">
+                        {(form.watch("autoSlices") || []).map((slice) => {
+                          const isPinned = (
+                            form.watch("pinnedAutoSlices") || []
+                          ).includes(slice);
+                          return (
+                            <button
+                              key={slice}
+                              type="button"
+                              className={`btn btn-sm ${
+                                isPinned
+                                  ? "btn-primary"
+                                  : "btn-outline-secondary"
+                              }`}
+                              onClick={() => {
+                                const currentPinned =
+                                  form.watch("pinnedAutoSlices") || [];
+                                if (isPinned) {
+                                  form.setValue(
+                                    "pinnedAutoSlices",
+                                    currentPinned.filter((s) => s !== slice),
+                                  );
+                                } else {
+                                  form.setValue("pinnedAutoSlices", [
+                                    ...currentPinned,
+                                    slice,
+                                  ]);
+                                }
+                              }}
+                              title={
+                                isPinned
+                                  ? "Click to unpin"
+                                  : "Click to pin (protect from auto-updates)"
+                              }
+                            >
+                              {slice} {isPinned ? "📌" : ""}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
           </div>

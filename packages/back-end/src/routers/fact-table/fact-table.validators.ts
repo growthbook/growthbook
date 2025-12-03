@@ -49,6 +49,7 @@ export const createColumnPropsValidator = z
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
+    pinnedAutoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -64,6 +65,7 @@ export const updateColumnPropsValidator = z
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
+    pinnedAutoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -81,6 +83,7 @@ export const createFactTablePropsValidator = z
     eventName: z.string(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
+    autoSliceUpdatesEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -98,6 +101,7 @@ export const updateFactTablePropsValidator = z
     managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
+    autoSliceUpdatesEnabled: z.boolean().optional(),
   })
   .strict();
 

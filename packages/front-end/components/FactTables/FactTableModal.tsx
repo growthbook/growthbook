@@ -68,6 +68,7 @@ export default function FactTableModal({
       eventName: existing?.eventName || "",
       managedBy: existing?.managedBy || "",
       projects: existing?.projects || [],
+      autoSliceUpdatesEnabled: existing?.autoSliceUpdatesEnabled ?? false,
     },
   });
 
@@ -143,6 +144,7 @@ export default function FactTableModal({
               eventName: value.eventName,
               managedBy: value.managedBy,
               projects: value.projects,
+              autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
             };
             await apiCall(`/fact-tables/${existing.id}`, {
               method: "PUT",
@@ -290,6 +292,19 @@ export default function FactTableModal({
             />
           </div>
         ) : null}
+
+        {hasCommercialFeature("metric-slices") && (
+          <div className="mt-2">
+            <Checkbox
+              label="Enable Auto-Slice Updates"
+              description="Automatically update auto-slice levels daily based on top column values from the past 14 days. Pinned levels will always be preserved."
+              value={form.watch("autoSliceUpdatesEnabled") ?? false}
+              setValue={(value) => {
+                form.setValue("autoSliceUpdatesEnabled", value);
+              }}
+            />
+          </div>
+        )}
       </Modal>
     </>
   );
