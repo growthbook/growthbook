@@ -191,11 +191,17 @@ export function assignColorsToKeys(keys: string[]): Map<string, string> {
   sortedKeys.forEach((key) => {
     // Start with the key's preferred color based on its hash
     let colorIndex = hashStringToInt(key) % palette.length;
+    const startIndex = colorIndex; // Track where we started to detect full cycle
 
     // If preferred color is already taken, find next available color
     // This ensures uniqueness while maintaining consistency when possible
     while (usedIndices.has(colorIndex)) {
       colorIndex = (colorIndex + 1) % palette.length;
+
+      // If we've cycled back to start, palette is exhausted - colors will repeat
+      if (colorIndex === startIndex) {
+        break; // Exit loop - we'll assign a duplicate color
+      }
     }
 
     usedIndices.add(colorIndex);
