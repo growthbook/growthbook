@@ -131,8 +131,8 @@ export function normalizeDimensionsForChartType(
 }
 
 // Most distinct colors first - these are prioritized when we have fewer dimensions
-// to avoid similar colors like green/lime or indigo/purple appearing together
-const distinctPalette = [
+// to avoid similar colors like blue/cyan or indigo/purple appearing together
+const DISTINCT_PALETTE = [
   blue.blue8,
   teal.teal10,
   orange.orange10,
@@ -142,7 +142,7 @@ const distinctPalette = [
 ];
 
 // Similar/fallback colors - only used when we need more than 6 dimensions
-const fallbackPalette = [
+const FALLBACK_PALETTE = [
   indigo.indigo10,
   purple.purple10,
   cyan.cyan10,
@@ -151,7 +151,7 @@ const fallbackPalette = [
 ];
 
 // Full palette for when we have more than 6 dimensions
-const fullPalette = [...distinctPalette, ...fallbackPalette];
+const FULL_PALETTE = [...DISTINCT_PALETTE, ...FALLBACK_PALETTE];
 
 function hashStringToInt(str: string): number {
   let hash = 0;
@@ -162,26 +162,43 @@ function hashStringToInt(str: string): number {
   return Math.abs(hash);
 }
 
-//  Assigns unique colors to dimension/slice keys, prioritizing distinct colors
-//  when there are fewer items to avoid similar colors appearing together.
+/**
+ * Assigns unique colors to dimension/slice keys, prioritizing distinct colors
+ * when there are fewer items to avoid similar colors appearing together.
+ *
+ * Uses a hybrid approach:
+ * - Each key's hash determines its preferred color (ensures consistency across charts)
+ * - If hash collision occurs, falls back to next available color (ensures uniqueness)
+ */
 export function assignColorsToKeys(keys: string[]): Map<string, string> {
   const colorMap = new Map<string, string>();
   const totalKeys = keys.length;
 
-  // Sort keys deterministically to ensure consistent color assignment
-  const sortedKeys = [...keys].sort();
+  if (totalKeys === 0) {
+    return colorMap;
+  }
 
   // Choose which palette to use based on number of keys
   const palette =
-    totalKeys <= distinctPalette.length ? distinctPalette : fullPalette;
+    totalKeys <= DISTINCT_PALETTE.length ? DISTINCT_PALETTE : FULL_PALETTE;
 
-  // Use hash of first key to determine starting offset for deterministic but varied assignment
-  const startOffset =
-    sortedKeys.length > 0 ? hashStringToInt(sortedKeys[0]) % palette.length : 0;
+  // Track which color indices have been used to ensure uniqueness
+  const usedIndices = new Set<number>();
 
-  // Assign colors sequentially from the offset, ensuring uniqueness
-  sortedKeys.forEach((key, index) => {
-    const colorIndex = (startOffset + index) % palette.length;
+  // Sort keys deterministically for consistent collision resolution order
+  const sortedKeys = [...keys].sort();
+
+  sortedKeys.forEach((key) => {
+    // Start with the key's preferred color based on its hash
+    let colorIndex = hashStringToInt(key) % palette.length;
+
+    // If preferred color is already taken, find next available color
+    // This ensures uniqueness while maintaining consistency when possible
+    while (usedIndices.has(colorIndex)) {
+      colorIndex = (colorIndex + 1) % palette.length;
+    }
+
+    usedIndices.add(colorIndex);
     colorMap.set(key, palette[colorIndex]);
   });
 
