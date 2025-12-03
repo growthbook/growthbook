@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { useState } from "react";
 import { Heading, Text } from "@radix-ui/themes";

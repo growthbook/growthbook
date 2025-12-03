@@ -6,7 +6,7 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import uniq from "lodash/uniq";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";

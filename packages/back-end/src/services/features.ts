@@ -36,6 +36,8 @@ import {
   SavedGroupInterface,
 } from "shared/types/groups";
 import { clone } from "lodash";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -94,12 +96,10 @@ import {
   ExperimentInterface,
   ExperimentPhase,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
-import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
