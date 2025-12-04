@@ -5,7 +5,7 @@ from pydantic.dataclasses import dataclass
 
 import numpy as np
 import operator
-from functools import reduce
+from functools import reduce, cached_property
 from gbstats.utils import multinomial_covariance
 
 
@@ -1136,11 +1136,11 @@ class PostStratificationSummary:
         )
         self.relative = relative
 
-    @property
+    @cached_property
     def n(self) -> np.ndarray:
         return np.array([stat.n for stat in self.strata_results])
 
-    @property
+    @cached_property
     def n_total(self) -> int:
         return int(np.sum(self.n).item())
 
@@ -1152,22 +1152,22 @@ class PostStratificationSummary:
     def num_cells(self) -> int:
         return len(self.strata_results)
 
-    @property
+    @cached_property
     def alpha_matrix(self) -> np.ndarray:
         alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
         for i, stat in enumerate(self.strata_results):
             alpha_matrix[:, i] = [stat.effect, stat.control_mean]
         return alpha_matrix
 
-    @property
+    @cached_property
     def mean(self) -> np.ndarray:
         return self.alpha_matrix.dot(self.nu_hat)
 
-    @property
+    @cached_property
     def covariance_nu(self) -> np.ndarray:
         return multinomial_covariance(self.nu_hat) / self.n_total
 
-    @property
+    @cached_property
     def covariance_part_1(self) -> np.ndarray:
         return self.alpha_matrix.dot(self.covariance_nu).dot(self.alpha_matrix.T)
 
@@ -1214,31 +1214,39 @@ class PostStratificationSummary:
         else:
             raise ValueError("Invalid combination of indices")
 
-    @property
+    @cached_property
     def third_moments_matrix(self) -> np.ndarray:
         """
         Calculate and normalize theoretical third moments matrix for a multinomial distribution.
 
-        Args:
-            n: Array of counts
-
         Returns:
             Normalized matrix of third moments
         """
-        # Initialize matrix for theoretical moments
-        moments_theoretical_y = np.empty((self.num_cells, self.num_cells))
+        n = self.n_total
+        nu = self.nu_hat
+        coef = n * (n - 1) * (n - 2)
+        coef_same_1 = 3 * n * (n - 1)
+        coef_same_2 = n
+        coef_one_diff = n * (n - 1)
 
-        # Calculate third moments for each cell combination
-        for i in range(self.num_cells):
-            for j in range(self.num_cells):
-                moments_theoretical_y[i, j] = self.multinomial_third_moments(
-                    self.nu_hat, i, j, j, self.n_total
-                )
+        # Vectorized: E(x[i] * x[j] * x[j]) for all i, j
+        # Diagonal case (i == j): coef * nu³ + coef_same_1 * nu² + coef_same_2 * nu
+        # Off-diagonal (i != j): coef * nu[i]² * nu[j] + coef_one_diff * nu[i] * nu[j] + coef_same_2 * nu[j]
 
-        # Normalize by n_total^3
-        nu_mat = moments_theoretical_y / (self.n_total**3)
+        nu_col = nu.reshape(-1, 1)  # (num_cells, 1)
+        nu_row = nu.reshape(1, -1)  # (1, num_cells)
 
-        return nu_mat
+        # Off-diagonal formula
+        moments = (
+            coef * (nu_col**2) * nu_row
+            + coef_one_diff * nu_col * nu_row
+            + coef_same_2 * nu_row
+        )
+
+        # Diagonal correction
+        np.fill_diagonal(moments, coef * nu**3 + coef_same_1 * nu**2 + coef_same_2 * nu)
+
+        return moments / (n**3)
 
     @staticmethod
     def cell_covariance_count(stat: StrataResultCount) -> np.ndarray:
@@ -1249,7 +1257,7 @@ class PostStratificationSummary:
             ]
         )
 
-    @property
+    @cached_property
     def v_full(self) -> np.ndarray:
         v_full = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
         for cell in range(self.num_cells):
@@ -1257,7 +1265,7 @@ class PostStratificationSummary:
             v_full[cell] = v / self.nu_hat[cell]
         return v_full
 
-    @property
+    @cached_property
     def covariance_part_2(self) -> np.ndarray:
         covariance_2 = np.zeros((self.len_alpha, self.len_alpha))
         for row in range(self.len_alpha):
@@ -1267,11 +1275,11 @@ class PostStratificationSummary:
                 )
         return covariance_2 / self.n_total
 
-    @property
+    @cached_property
     def covariance(self) -> np.ndarray:
         return self.covariance_part_1 + self.covariance_part_2
 
-    @property
+    @cached_property
     def nabla(self) -> np.ndarray:
         if self.relative:
             if self.mean[0] == 0:
@@ -1281,7 +1289,7 @@ class PostStratificationSummary:
         else:
             return np.array([0, 1])
 
-    @property
+    @cached_property
     def point_estimate(self) -> float:
         if self.relative:
             if self.mean[0] == 0:
@@ -1291,11 +1299,11 @@ class PostStratificationSummary:
         else:
             return self.mean[1]
 
-    @property
+    @cached_property
     def estimated_variance(self) -> float:
         return float(self.nabla.T.dot(self.covariance).dot(self.nabla))
 
-    @property
+    @cached_property
     def unadjusted_baseline_mean(self) -> float:
         return self.mean[0]
 
@@ -1382,7 +1390,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             ]
         )
 
-    @property
+    @cached_property
     def v_full(self) -> np.ndarray:
         v_full = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
         for cell in range(self.num_cells):
@@ -1390,7 +1398,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             v_full[cell] = v / self.nu_hat[cell]
         return v_full
 
-    @property
+    @cached_property
     def alpha_matrix(self) -> np.ndarray:
         alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
         for i, stat in enumerate(self.strata_results):
@@ -1402,7 +1410,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             ]
         return alpha_matrix
 
-    @property
+    @cached_property
     def nabla(self) -> np.ndarray:
         if self.mean[2] == 0 or self.mean[3] == 0:
             return np.zeros((self.len_alpha,))
@@ -1434,15 +1442,15 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             nabla[2] = nabla[3] + self.mean[0] / self.mean[2] ** 2
         return nabla
 
-    @property
+    @cached_property
     def point_estimate_rel_numerator(self) -> float:
         return self.mean[2] * (self.mean[0] + self.mean[1])
 
-    @property
+    @cached_property
     def point_estimate_rel_denominator(self) -> float:
         return self.mean[0] * (self.mean[2] + self.mean[3])
 
-    @property
+    @cached_property
     def point_estimate(self) -> float:
         if self.relative:
             if self.point_estimate_rel_denominator == 0:
@@ -1463,7 +1471,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             else:
                 return mn_trt_num / mn_trt_den - mn_ctrl_num / mn_ctrl_den
 
-    @property
+    @cached_property
     def unadjusted_baseline_mean(self) -> float:
         if self.mean[2] == 0:
             return 0
