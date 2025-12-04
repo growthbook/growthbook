@@ -2,7 +2,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   SavedQuery,
   savedQueryValidator,
-} from "back-end/src/validators/saved-queries";
+} from "shared/src/validators/saved-queries";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

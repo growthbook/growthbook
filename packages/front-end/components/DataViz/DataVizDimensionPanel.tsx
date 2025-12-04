@@ -5,7 +5,7 @@ import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import {
   DataVizConfig,
   dimensionAxisConfiguration,
-} from "back-end/src/validators/saved-queries";
+} from "shared/src/validators/saved-queries";
 import { Select, SelectItem } from "@/ui/Select";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import Badge from "@/ui/Badge";

@@ -6,7 +6,7 @@ import {
   ScatterChart,
   dimensionAxisConfiguration,
   xAxisConfiguration,
-} from "back-end/src/validators/saved-queries";
+} from "shared/src/validators/saved-queries";
 import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
 
 export function getXAxisConfig(

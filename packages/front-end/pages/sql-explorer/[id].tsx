@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { ago, datetime } from "shared/dates";
 import Link from "next/link";
