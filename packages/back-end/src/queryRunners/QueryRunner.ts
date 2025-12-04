@@ -278,7 +278,7 @@ export abstract class QueryRunner<
     for (const query of queuedQueries) {
       // If the query already has a timeout set, we don't need to queue it up again.
       if (this.queuedQueryTimers[query.id]) {
-        return;
+        continue;
       }
       // check if all dependencies are finished
       // assumes all dependencies are within the model; if any are not, query will hang
@@ -291,7 +291,7 @@ export abstract class QueryRunner<
       const dependencyIds: string[] = query.dependencies ?? [];
       dependencyIds.forEach((dependencyId) => {
         const dependencyQuery = this.model.queries.find(
-          (q) => q.query == dependencyId,
+          (q) => q.query === dependencyId,
         );
         if (dependencyQuery === undefined) {
           throw new Error(`Dependency ${dependencyId} not found in model`);
@@ -314,11 +314,11 @@ export abstract class QueryRunner<
           )}`,
         });
         this.onQueryFinish();
-        return;
+        continue;
       }
       if (pendingDependencies.length) {
         logger.debug(`${query.id}: Dependencies pending...`);
-        return;
+        continue;
       }
 
       // if `runAtEnd = true` run if all queries that are not marked

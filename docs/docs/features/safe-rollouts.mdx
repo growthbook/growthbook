@@ -40,14 +40,23 @@ When adding a new rule to your feature, select **Safe Rollout** from the list of
 
 - **Rollout Value:** Add or select the value to serve during the rollout. This is compared against the Control (default value).
 - **Split Attribute:** Choose the attribute for assigning users to the Control and Rollout groups (for example, `id` or `organization_id`).
+- **Auto Rollback:** Toggle this option to automatically disable the rollout rule if any guardrail metric fails significantly.
 
-### 3. Define Metrics and monitoring
+### 3. Define Metrics and Monitoring
 
 - **Data Source and Assignment Table:** Confirm your data source and the experiment assignment table for exposure tracking.
 - **Guardrail Metrics:** Select one or more metrics to monitor for regressions during the rollout.
 - **Monitoring Duration:** Set how many days to collect data before making a decision.
 
-### 4. Monitor the Rollout
+### 4. Ramp Up Schedule
+
+Safe Rollouts automatically manage traffic exposure to ensure safety. The rollout follows a gradual ramp-up schedule:
+
+**10% → 25% → 50% → 75% → 100%**
+
+This ramp-up occurs over the first 25% of the monitoring duration. For example, if your duration is set to 4 days, the traffic will ramp from 10% to 100% during the first day. The remaining time is used to monitor the fully rolled-out feature for failing guardrail metrics.
+
+### 5. Monitor the Rollout
 
 <MaxWidthImage border>
 ![Safe rollout rollback now warning message](/images/features/safe-rollout-rollback-now.webp)
@@ -85,19 +94,24 @@ This is the threshold for when a metric is considered to be failing. It is alway
 
 At the end of the monitoring period (or sooner if issues arise), you can:
 
-- Release the feature to 100% of users.
+- Release the feature to 100% of users (if not already there).
 - Revert the feature to the control value.
 - Continue to monitor.
 
+If **Auto Rollback** is enabled and a regression is detected, GrowthBook will automatically disable the rollout rule to protect your users.
+
 ## FAQs
 
-### Why is the rollout capped at 50%?
+### How does the traffic ramp up work?
 
-Safe Rollouts rely on a control group to detect regressions. Limiting the rollout group to 50% ensures there is always a reliable baseline for comparison. _Automatic increases in traffic and more customizable rollout percentages are scheduled soon._
+Safe Rollouts use a fixed ramp-up schedule (10% → 25% → 50% → 75% → 100%) that completes within the first 25% of your configured duration. This ensures you start with a small blast radius and quickly scale up if no immediate issues are found.
 
 ### What happens if a guardrail metric degrades?
 
-If a guardrail metric crosses a significance threshold indicating a regression, the rollout status will reflect the issue. The feature is not automatically rolled back—you retain control over whether to stop or revert the rollout. (But automatic rollback is planned! Get in touch for more details.)
+If a guardrail metric crosses a significance threshold indicating a regression, the rollout status will reflect the issue.
+
+- If Automatic Rollback is enabled, the feature will be automatically disabled to prevent further harm.
+- If Automatic Rollback is disabled, you retain control and can choose to manually stop or revert the rollout.
 
 ### What should I use as my guardrail metrics?
 

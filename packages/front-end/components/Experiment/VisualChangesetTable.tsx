@@ -7,7 +7,7 @@ import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
-} from "back-end/types/visual-changeset";
+} from "shared/types/visual-changeset";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";

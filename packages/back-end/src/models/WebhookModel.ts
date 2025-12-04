@@ -3,10 +3,10 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
 import { z } from "zod";
+import { managedByValidator } from "shared/validators";
 import { ReqContext } from "back-end/types/organization";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
 import { WebhookInterface } from "back-end/types/webhook";
-import { managedByValidator } from "back-end/src/validators/managed-by";
 
 const payloadFormatValidator = z.enum([
   "standard",

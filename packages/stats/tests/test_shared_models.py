@@ -5,7 +5,7 @@
 from unittest import TestCase, main as unittest_main
 import copy
 import numpy as np
-
+from dataclasses import asdict
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.models.statistics import (
     ProportionStatistic,
@@ -16,10 +16,11 @@ from gbstats.models.statistics import (
     compute_theta,
 )
 
+from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
+
 from gbstats.models.tests import (
     EffectMoments,
     EffectMomentsConfig,
-    EffectMomentsResult,
     sum_stats,
 )
 
@@ -113,7 +114,10 @@ class TestRegressionAdjustedStatistic(TestCase):
         self.assertEqual(ra_stat.mean, expected_unadjusted_mean)
         self.assertEqual(ra_stat.variance, ra_stat.post_statistic.variance)
 
-        ra_stat.theta = 0.23
+        ra_stat_temp = {k: v for k, v in asdict(ra_stat).items() if k != "theta"}
+        ra_stat_temp["theta"] = 0.23
+        ra_stat = RegressionAdjustedStatistic(**ra_stat_temp)
+
         self.assertNotEqual(ra_stat.unadjusted_mean, ra_stat.mean)
         self.assertNotEqual(ra_stat.variance, ra_stat.post_statistic.variance)
         self.assertEqual(ra_stat.unadjusted_mean, expected_unadjusted_mean)
@@ -166,10 +170,23 @@ class TestComputeTheta(TestCase):
             theta=999,
         )
         self.assertEqual(round(compute_theta(ra_stat_a, ra_stat_b), 5), 0.01864)
-        pre_stat_a.sum = 0
-        pre_stat_a.sum_squares = 0
-        pre_stat_b.sum = 0
-        pre_stat_b.sum_squares = 0
+
+        pre_stat_a = SampleMeanStatistic(n=N, sum=0, sum_squares=0)
+        pre_stat_b = SampleMeanStatistic(n=N, sum=0, sum_squares=0)
+        ra_stat_a = RegressionAdjustedStatistic(
+            post_statistic=post_stat_a,
+            pre_statistic=pre_stat_a,
+            n=N,
+            post_pre_sum_of_products=0,
+            theta=999,
+        )
+        ra_stat_b = RegressionAdjustedStatistic(
+            post_statistic=post_stat_b,
+            pre_statistic=pre_stat_b,
+            n=N,
+            post_pre_sum_of_products=0,
+            theta=999,
+        )
         self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
 
 
@@ -256,23 +273,24 @@ RASTAT_B = RegressionAdjustedStatistic(
 
 
 class TestEffectMomentsResult(TestCase):
-    def test_initialize_theta(self):
-        stat_a = RASTAT_A
-        stat_b = RASTAT_B
-        moments = EffectMoments(
-            [(stat_a, stat_b)], config=EffectMomentsConfig(difference_type="absolute")
-        )
-        self.assertEqual(moments.stat_a.theta, 0.8333333333333334)  # type: ignore
-        self.assertEqual(moments.stat_b.theta, 0.8333333333333334)  # type: ignore
-
     def test_negative_variance(self):
-        stat_a = copy.deepcopy(RASTAT_A)
+        stat_a_init = {
+            k: v for k, v in asdict(RASTAT_A).items() if k != "post_statistic"
+        }
         stat_b = RASTAT_B
-        stat_a.post_statistic.sum = -7
-        moments = EffectMoments(
-            [(stat_a, stat_b)], config=EffectMomentsConfig(difference_type="absolute")
+        post_statistic = ProportionStatistic(n=RASTAT_A.n, sum=-7)
+        stat_a = RegressionAdjustedStatistic(
+            **stat_a_init, post_statistic=post_statistic
         )
-        self.assertEqual(moments.variance, -1.2010673868312758)
+        test = TwoSidedTTest(
+            stats=[(stat_a, stat_b)],
+            config=FrequentistConfig(difference_type="absolute"),
+        )
+        moments = EffectMoments(
+            [(test.stat_a, test.stat_b)],
+            config=EffectMomentsConfig(difference_type="absolute"),
+        )
+        self.assertEqual(moments.variance, -1.1023019547325101)
         self.assertEqual(
             moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
         )

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual, omit } from "lodash";
+import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
@@ -2166,7 +2166,7 @@ export async function postFeatureMoveRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
   const rules = changes.rules[environment];
   if (!rules || !rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
@@ -2244,7 +2244,7 @@ export async function deleteFeatureRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
   const rules = changes.rules[environment];
   if (!rules || !rules[i]) {
     throw new Error("Invalid rule index");

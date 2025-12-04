@@ -19,7 +19,7 @@ import type {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useRouter } from "next/router";
 import {
   createContext,

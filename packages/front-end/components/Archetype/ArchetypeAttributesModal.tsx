@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
 import { useAuth } from "@/services/auth";

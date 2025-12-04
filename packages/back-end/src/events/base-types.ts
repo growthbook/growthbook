@@ -214,7 +214,7 @@ export const notificationEventPayloadData = <
 ) => {
   const data = notificationEvents[resource][event] as WebhookEntry;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const schema = data.schema as z.ZodObject<any, any, any>;
+  const schema = data.schema as z.ZodObject<any>;
 
   const ret = z.object({
     object: schema,

@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { GroupMap, SavedGroupInterface } from "shared/src/types";
+import { GroupMap, SavedGroupInterface } from "shared/types/groups";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,

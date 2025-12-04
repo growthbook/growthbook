@@ -19,7 +19,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
 import { DecisionCriteriaInterface } from "back-end/types/experiment";

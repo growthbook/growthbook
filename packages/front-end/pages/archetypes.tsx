@@ -1,4 +1,4 @@
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
