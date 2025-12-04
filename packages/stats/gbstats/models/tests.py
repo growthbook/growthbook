@@ -6,7 +6,7 @@ from pydantic.dataclasses import dataclass
 import numpy as np
 import operator
 from functools import reduce, cached_property
-from gbstats.utils import multinomial_covariance
+from gbstats.utils import multinomial_covariance, third_moments_matrix_vectorized
 
 
 from gbstats.messages import (
@@ -1172,83 +1172,6 @@ class PostStratificationSummary:
         return self.alpha_matrix.dot(self.covariance_nu).dot(self.alpha_matrix.T)
 
     @staticmethod
-    def multinomial_third_moments(
-        nu: np.ndarray, index_0: int, index_1: int, index_2: int, n_total: int
-    ) -> float:
-        """
-        Third moments from multinomial distribution, e.g., E(x[index_0] * x[index_1] * x[index_2])
-        from Quiment 2020 https://arxiv.org/pdf/2006.09059 Equation 3.3
-
-        Args:
-            nu: Array of probabilities that sum to 1
-            index_0, index_1, index_2: Indices for the third moment calculation
-            n_total: Total number of trials
-
-        Returns:
-            The third moment value
-        """
-        coef = n_total * (n_total - 1) * (n_total - 2)
-        coef_same_1 = 3 * n_total * (n_total - 1)
-        coef_same_2 = n_total
-        coef_one_diff = n_total * (n_total - 1)
-
-        if index_0 == index_1 and index_0 == index_2:
-            return (
-                coef * nu[index_0] ** 3
-                + coef_same_1 * nu[index_0] ** 2
-                + coef_same_2 * nu[index_0]
-            )
-        elif index_0 == index_1 and index_0 != index_2:
-            # case where i == j, but i != l
-            return (
-                coef * nu[index_0] ** 2 * nu[index_2]
-                + coef_one_diff * nu[index_0] * nu[index_2]
-                + coef_same_2 * nu[index_0]
-            )
-        elif index_1 == index_2 and index_0 != index_2:
-            return (
-                coef * nu[index_0] ** 2 * nu[index_1]
-                + coef_one_diff * nu[index_0] * nu[index_1]
-                + coef_same_2 * nu[index_1]
-            )
-        else:
-            raise ValueError("Invalid combination of indices")
-
-    @cached_property
-    def third_moments_matrix(self) -> np.ndarray:
-        """
-        Calculate and normalize theoretical third moments matrix for a multinomial distribution.
-
-        Returns:
-            Normalized matrix of third moments
-        """
-        n = self.n_total
-        nu = self.nu_hat
-        coef = n * (n - 1) * (n - 2)
-        coef_same_1 = 3 * n * (n - 1)
-        coef_same_2 = n
-        coef_one_diff = n * (n - 1)
-
-        # Vectorized: E(x[i] * x[j] * x[j]) for all i, j
-        # Diagonal case (i == j): coef * nu³ + coef_same_1 * nu² + coef_same_2 * nu
-        # Off-diagonal (i != j): coef * nu[i]² * nu[j] + coef_one_diff * nu[i] * nu[j] + coef_same_2 * nu[j]
-
-        nu_col = nu.reshape(-1, 1)  # (num_cells, 1)
-        nu_row = nu.reshape(1, -1)  # (1, num_cells)
-
-        # Off-diagonal formula
-        moments = (
-            coef * (nu_col**2) * nu_row
-            + coef_one_diff * nu_col * nu_row
-            + coef_same_2 * nu_row
-        )
-
-        # Diagonal correction
-        np.fill_diagonal(moments, coef * nu**3 + coef_same_1 * nu**2 + coef_same_2 * nu)
-
-        return moments / (n**3)
-
-    @staticmethod
     def cell_covariance_count(stat: StrataResultCount) -> np.ndarray:
         return np.array(
             [
@@ -1268,10 +1191,13 @@ class PostStratificationSummary:
     @cached_property
     def covariance_part_2(self) -> np.ndarray:
         covariance_2 = np.zeros((self.len_alpha, self.len_alpha))
+        third_moments_matrix = third_moments_matrix_vectorized(
+            self.n_total, self.nu_hat
+        )
         for row in range(self.len_alpha):
             for col in range(self.len_alpha):
                 covariance_2[row, col] = np.sum(
-                    np.diag(self.v_full[:, row, col]).dot(self.third_moments_matrix)
+                    np.diag(self.v_full[:, row, col]).dot(third_moments_matrix)
                 )
         return covariance_2 / self.n_total
 

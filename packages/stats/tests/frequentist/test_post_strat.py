@@ -254,14 +254,14 @@ class TestPostStratification(TestCase):
         self.point_estimate_ratio_reg_rel = 0.13929489348145818
         self.point_estimate_ratio_reg_abs = 0.10399412678969455
 
-        self.standard_error_count_rel = 0.01224418556792039
-        self.standard_error_count_abs = 0.3769153078989124
-        self.standard_error_count_reg_rel = 0.0022103200530259534
-        self.standard_error_count_reg_abs = 0.07401168371016856
-        self.standard_error_ratio_rel = 0.007141416587299529
-        self.standard_error_ratio_abs = 0.0050779658636993154
-        self.standard_error_ratio_reg_rel = 0.0012337665987066867
-        self.standard_error_ratio_reg_abs = 0.0012278145208316127
+        self.standard_error_count_rel = 0.01216
+        self.standard_error_count_abs = 0.37391
+        self.standard_error_count_reg_rel = 0.0024
+        self.standard_error_count_reg_abs = 0.07918
+        self.standard_error_ratio_rel = 0.0069
+        self.standard_error_ratio_abs = 0.00491
+        self.standard_error_ratio_reg_rel = 0.00131
+        self.standard_error_ratio_reg_abs = 0.00127
 
         self.stats_count_strata = [
             (
@@ -1356,7 +1356,7 @@ class TestPostStratification(TestCase):
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_count_rel,
-            ci=[0.0859177257922717, 0.133973971246475],
+            ci=[0.08609, 0.13381],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_rel,
@@ -1368,7 +1368,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_count_abs,
-            ci=[2.8084316845652717, 4.2877570714079],
+            ci=[2.81433, 4.28186],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_abs,
@@ -1393,7 +1393,7 @@ class TestPostStratification(TestCase):
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_ratio_rel,
-            ci=[0.11969832381222022, 0.14772767184829982],
+            ci=[0.12017, 0.14726],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_rel,
@@ -1405,7 +1405,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_ratio_abs,
-            ci=[0.0901237793260779, 0.11005428901824271],
+            ci=[0.09046, 0.10972],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_abs,
@@ -1430,7 +1430,7 @@ class TestPostStratification(TestCase):
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_count_reg_rel,
-            ci=[0.11095792049593042, 0.11963303264702688],
+            ci=[0.11058, 0.12001],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_reg_rel,
@@ -1442,7 +1442,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_count_reg_abs,
-            ci=[3.566444475201323, 3.856939254963956],
+            ci=[3.5563, 3.86709],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_reg_abs,
@@ -1468,7 +1468,7 @@ class TestPostStratification(TestCase):
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_ratio_reg_rel,
-            ci=[0.13687368804104674, 0.1417160989218492],
+            ci=[0.13673, 0.14186],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_reg_rel,
@@ -1480,7 +1480,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_ratio_reg_abs,
-            ci=[0.10158460200524244, 0.10640365157413423],
+            ci=[0.10150, 0.10649],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_reg_abs,
