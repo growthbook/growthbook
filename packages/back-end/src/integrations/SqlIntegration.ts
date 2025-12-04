@@ -4,7 +4,7 @@ import { getValidDate } from "shared/dates";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
 import {
-  getConversionWindowHours,
+  getMetricWindowHours,
   getUserIdTypes,
   isFactMetric,
   isFunnelMetric,
@@ -967,12 +967,16 @@ export default abstract class SqlIntegration
       segment: params.segment,
     });
 
+    // TODO: ignore conversion windows in aggregation function?
     const numeratorAggFns = this.getAggregationMetadata({
       metric,
+      useDenominator: false,
+      overrideConversionWindows: true,
     });
     const denominatorAggFns = this.getAggregationMetadata({
       metric,
       useDenominator: true,
+      overrideConversionWindows: true,
     });
 
     // TODO check if query broken if segment has template variables
@@ -1730,7 +1734,7 @@ export default abstract class SqlIntegration
     endDate: Date,
     overrideConversionWindows: boolean,
   ): string {
-    let windowHours = getConversionWindowHours(metric.windowSettings);
+    let windowHours = getMetricWindowHours(metric.windowSettings);
     const delayHours = getDelayWindowHours(metric.windowSettings);
 
     // all metrics have to be after the base timestamp +- delay hours
@@ -1810,7 +1814,7 @@ export default abstract class SqlIntegration
       if (m.windowSettings.type === "conversion") {
         const hours =
           runningHours +
-          getConversionWindowHours(m.windowSettings) +
+          getMetricWindowHours(m.windowSettings) +
           getDelayWindowHours(m.windowSettings);
         if (hours > maxHours) maxHours = hours;
         runningHours = hours;
@@ -1837,7 +1841,7 @@ export default abstract class SqlIntegration
       if (m.windowSettings.type === "conversion") {
         const metricHours =
           getDelayWindowHours(m.windowSettings) +
-          getConversionWindowHours(m.windowSettings);
+          getMetricWindowHours(m.windowSettings);
         if (funnelMetric) {
           // funnel metric windows can cascade, so sum each metric hours to get max
           neededHoursForConversion += metricHours;
@@ -1853,7 +1857,7 @@ export default abstract class SqlIntegration
     ) {
       neededHoursForConversion +=
         getDelayWindowHours(activationMetric.windowSettings) +
-        getConversionWindowHours(activationMetric.windowSettings);
+        getMetricWindowHours(activationMetric.windowSettings);
     }
     return neededHoursForConversion;
   }
@@ -3295,10 +3299,12 @@ export default abstract class SqlIntegration
               const aggTransformationFn = this.getAggregationMetadata({
                 metric: data.metric,
                 useDenominator: false,
+                overrideConversionWindows: data.overrideConversionWindows,
               }).aggregationTransformationFunction;
               const denomAggTransformationFn = this.getAggregationMetadata({
                 metric: data.metric,
                 useDenominator: true,
+                overrideConversionWindows: data.overrideConversionWindows,
               }).aggregationTransformationFunction;
 
               return `${
@@ -6286,12 +6292,55 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     `;
   }
 
+  computeParticipationDenominator({
+    initialTimestampColumn,
+    analysisEndDate,
+    metric,
+    overrideConversionWindows,
+  }: {
+    initialTimestampColumn: string;
+    analysisEndDate: Date;
+    metric: FactMetricInterface;
+    overrideConversionWindows: boolean;
+  }): string {
+    // get start date of metric analysis window
+    const delayHours = getDelayWindowHours(metric.windowSettings);
+    const windowHours = getMetricWindowHours(metric.windowSettings);
+
+    let startDateString = this.castToTimestamp(initialTimestampColumn);
+    if (delayHours > 0) {
+      startDateString = this.addHours(startDateString, delayHours);
+    }
+
+    let endDateString = this.castToTimestamp(
+      `"${analysisEndDate.toISOString()}"`,
+    );
+
+    if (metric.windowSettings.type === "lookback") {
+      const lookbackStartDate = new Date(analysisEndDate);
+      lookbackStartDate.setHours(lookbackStartDate.getHours() - windowHours);
+      // Only override start date for lookback
+      startDateString = `GREATEST(${startDateString}, ${this.castToTimestamp(`"${lookbackStartDate.toISOString()}"`)})`;
+    } else if (
+      metric.windowSettings.type === "conversion" &&
+      !overrideConversionWindows
+    ) {
+      endDateString = this.addHours(startDateString, windowHours);
+    }
+
+    return this.ensureFloat(
+      `(${this.dateDiff(startDateString, endDateString)} + 1)`,
+    );
+  }
+
   getAggregationMetadata({
     metric,
     useDenominator,
+    overrideConversionWindows,
   }: {
     metric: FactMetricInterface;
-    useDenominator?: boolean;
+    useDenominator: boolean;
+    overrideConversionWindows: boolean;
   }): FactMetricAggregationMetadata {
     const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
@@ -6394,19 +6443,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           ? (
               column: string,
               // first exposure/activation timestamp column
-              additionalColumn: string,
-              endDate?: Date,
-            ) =>
-              `
-        ${this.ensureFloat(column)} / 
-        ${this.ensureFloat(
-          `(${this.dateDiff(
-            this.castToTimestamp(additionalColumn),
-            endDate
-              ? this.castToTimestamp(`"${endDate.toISOString()}"`)
-              : this.getCurrentTimestamp(),
-          )} + 1)`,
-        )}`
+              initialTimestampColumn: string,
+              analysisEndDate: Date,
+            ) => {
+              return `
+                ${this.ensureFloat(column)} / 
+                ${this.computeParticipationDenominator({
+                  initialTimestampColumn,
+                  analysisEndDate,
+                  metric,
+                  overrideConversionWindows,
+                })}
+                `;
+            }
           : noTransformationFunction;
 
       return {
@@ -7049,10 +7098,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 // aggregating only once to the user level for CUPED data
                 const aggfunction = this.getAggregationMetadata({
                   metric: m.metric,
+                  useDenominator: false,
+                  overrideConversionWindows: true,
                 }).fullAggregationFunction;
                 const denomAggFunction = this.getAggregationMetadata({
                   metric: m.metric,
                   useDenominator: true,
+                  overrideConversionWindows: true,
                 })?.fullAggregationFunction;
                 return `
                 ${
@@ -7163,7 +7215,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     schema.set(baseIdType, this.getDataType("string"));
 
     metrics.forEach((metric) => {
-      const numeratorMetadata = this.getAggregationMetadata({ metric });
+      const numeratorMetadata = this.getAggregationMetadata({
+        metric,
+        useDenominator: false,
+        overrideConversionWindows: false,
+      });
       schema.set(
         `${this.encodeMetricIdForColumnName(metric.id)}_value`,
         this.getDataType(numeratorMetadata.intermediateDataType),
@@ -7173,6 +7229,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         const denominatorMetadata = this.getAggregationMetadata({
           metric,
           useDenominator: true,
+          overrideConversionWindows: false,
         });
         schema.set(
           `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
@@ -7215,7 +7272,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     schema.set(baseIdType, this.getDataType("string"));
 
     metrics.forEach((metric) => {
-      const numeratorMetadata = this.getAggregationMetadata({ metric });
+      const numeratorMetadata = this.getAggregationMetadata({
+        metric,
+        useDenominator: false,
+        overrideConversionWindows: true,
+      });
       schema.set(
         `${this.encodeMetricIdForColumnName(metric.id)}_value`,
         this.getDataType(numeratorMetadata.finalDataType),
@@ -7225,6 +7286,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         const denominatorMetadata = this.getAggregationMetadata({
           metric,
           useDenominator: true,
+          overrideConversionWindows: true,
         });
         schema.set(
           `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
@@ -7394,10 +7456,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 // aggregating at the user-date level, not the user level
                 const aggfunction = this.getAggregationMetadata({
                   metric: m.metric,
+                  useDenominator: false,
+                  overrideConversionWindows: m.overrideConversionWindows,
                 }).partialAggregationFunction;
                 const denomAggFunction = this.getAggregationMetadata({
                   metric: m.metric,
                   useDenominator: true,
+                  overrideConversionWindows: m.overrideConversionWindows,
                 })?.partialAggregationFunction;
                 return `
                 , ${aggfunction(`${m.alias}_value`)} AS ${this.encodeMetricIdForColumnName(m.id)}_value
@@ -7565,10 +7630,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .map((data) => {
               const reAggFunction = this.getAggregationMetadata({
                 metric: data.metric,
+                useDenominator: false,
+                overrideConversionWindows: data.overrideConversionWindows,
               }).reAggregationFunction;
               const denomReAggFunction = this.getAggregationMetadata({
                 metric: data.metric,
                 useDenominator: true,
+                overrideConversionWindows: data.overrideConversionWindows,
               })?.reAggregationFunction;
               return `, ${reAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_value
                 ${
@@ -7593,10 +7661,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               .map((data) => {
                 const aggTransformationFn = this.getAggregationMetadata({
                   metric: data.metric,
+                  useDenominator: false,
+                  overrideConversionWindows: data.overrideConversionWindows,
                 }).aggregationTransformationFunction;
                 const denomAggTransformationFn = this.getAggregationMetadata({
                   metric: data.metric,
                   useDenominator: true,
+                  overrideConversionWindows: true,
                 }).aggregationTransformationFunction;
                 return `, ${aggTransformationFn(
                   `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
