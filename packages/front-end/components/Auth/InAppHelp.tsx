@@ -11,7 +11,13 @@ export default function InAppHelp() {
   const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const { name, email, hasCommercialFeature, commercialFeatures } = useUser();
+  const {
+    name,
+    email,
+    pylonHmacHash,
+    hasCommercialFeature,
+    commercialFeatures,
+  } = useUser();
   const showUpgradeModal = !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
@@ -25,6 +31,7 @@ export default function InAppHelp() {
       window["pylon"] = {
         chat_settings: {
           app_id: config.app_id,
+          email_hash: pylonHmacHash,
           email,
           name,
         },

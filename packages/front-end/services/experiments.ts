@@ -426,6 +426,7 @@ export function useExperimentSearch({
     getProjectById,
     getDatasourceById,
     getSavedGroupById,
+    metricGroups,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
@@ -540,7 +541,7 @@ export function useExperimentSearch({
       datasource: (item) => item.datasource,
       metric: (item) => [
         ...(item.metricNames ?? []),
-        ...getAllMetricIdsFromExperiment(item),
+        ...getAllMetricIdsFromExperiment(item, true, metricGroups),
       ],
       savedgroup: (item) => item.savedGroups || [],
       goal: (item) => [...(item.metricNames ?? []), ...item.goalMetrics],

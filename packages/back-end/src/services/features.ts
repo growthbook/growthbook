@@ -34,8 +34,10 @@ import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
-} from "shared/src/types";
+} from "shared/types/groups";
 import { clone } from "lodash";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -79,6 +81,7 @@ import {
 } from "back-end/types/organization";
 import {
   getSDKPayload,
+  getSDKPayloadCacheLocation,
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
 import { logger } from "back-end/src/util/logger";
@@ -93,12 +96,10 @@ import {
   ExperimentInterface,
   ExperimentPhase,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
-import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
@@ -864,6 +865,11 @@ export async function getFeatureDefinitions({
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
 
+  // By default, we fetch ALL features/experiments/etc since we cache the result
+  // and re-use it across multiple SDK connections with different settings.
+  // If we're not caching the result, we can just fetch what we need right now.
+  const filterByProjects = getSDKPayloadCacheLocation() === "none";
+
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
@@ -873,12 +879,19 @@ export async function getFeatureDefinitions({
     secureAttributeSalt = context.org.settings?.secureAttributeSalt;
     attributes = context.org.settings?.attributeSchema;
   }
+  // TODO: filter by projects
   const savedGroups = await getAllSavedGroups(context.org.id);
 
   // Generate the feature definitions
-  const features = await getAllFeatures(context);
+  const features = await getAllFeatures(context, {
+    projects: filterByProjects && projects ? projects : undefined,
+  });
   const groupMap = await getSavedGroupMap(context.org, savedGroups);
-  const experimentMap = await getAllPayloadExperiments(context);
+  const experimentMap = await getAllPayloadExperiments(
+    context,
+    filterByProjects && projects ? projects : undefined,
+  );
+  // TODO: filter by projects
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =
@@ -1282,6 +1295,7 @@ export async function encrypt(
     throw new Error("Unable to encrypt the feature list.");
   }
   const bufToBase64 = (x: ArrayBuffer) => Buffer.from(x).toString("base64");
+
   const key = await crypto.subtle.importKey(
     "raw",
     Buffer.from(keyString, "base64"),
@@ -1301,7 +1315,13 @@ export async function encrypt(
     key,
     new TextEncoder().encode(plainText),
   );
-  return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
+  return (
+    // FIXME: This cast was added when we upgraded to TS 5.7, and we wanted to avoid changing runtime behavior.
+    // We might want to investigate a more robust solution in the future.
+    bufToBase64(iv as unknown as ArrayBuffer) +
+    "." +
+    bufToBase64(encryptedBuffer)
+  );
 }
 
 export function getApiFeatureObj({

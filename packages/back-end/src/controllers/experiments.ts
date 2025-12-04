@@ -17,6 +17,8 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { IdeaInterface } from "shared/types/idea";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
@@ -93,7 +95,6 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
-import { IdeaInterface } from "back-end/types/idea";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
@@ -108,7 +109,6 @@ import {
   SnapshotTriggeredBy,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -240,10 +240,9 @@ export async function postAIExperimentAnalysis(
 
   const allMetricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment, false),
+    getAllMetricIdsFromExperiment(experiment, false, allMetricGroups),
     allMetricGroups,
   );
-
   const allOrgMetrics = await getMetricMap(context);
   const experimentMetrics = experimentMetricIds
     .map((id) => allOrgMetrics.get(id))
@@ -1347,10 +1346,17 @@ export async function postExperiment(
     }
   }
   // Validate that specified metrics exist and belong to the organization
-  const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
-  const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
-    (m) => !oldMetricIds.includes(m),
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const oldMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    allMetricGroups,
   );
+  const newMetricIds = getAllMetricIdsFromExperiment(
+    data,
+    false,
+    allMetricGroups,
+  ).filter((m) => !oldMetricIds.includes(m));
 
   const metricMap = await getMetricMap(context);
 

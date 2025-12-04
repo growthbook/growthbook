@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { v4 as uuidv4 } from "uuid";
+import uniqid from "uniqid";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -13,11 +15,11 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import { LegacyDashboardBlockInterface } from "../validators/dashboard-block";
 import {
-  toInterface as blockToInterface,
-  migrate as migrateBlock,
-} from "./DashboardBlockModel";
+  CreateDashboardBlockInterface,
+  DashboardBlockInterface,
+  LegacyDashboardBlockInterface,
+} from "../validators/dashboard-block";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -232,7 +234,8 @@ export class DashboardModel extends BaseClass {
       blocks: orig.blocks.map(migrateBlock),
       editLevel:
         orig.editLevel === "organization" ? "published" : orig.editLevel,
-      shareLevel: orig.shareLevel ?? "private",
+      shareLevel: orig.shareLevel || "private",
+      updateSchedule: orig.updateSchedule || undefined,
     });
   }
 
@@ -287,4 +290,99 @@ function getSavedQueryIds(doc: DashboardDocument): Set<string> {
     }
   });
   return queryIdSet;
+}
+
+export const blockToInterface: ToInterface<DashboardBlockInterface> = (doc) => {
+  return removeMongooseFields<DashboardBlockInterface>(doc);
+};
+
+export function generateDashboardBlockIds(
+  organization: string,
+  initialValue: CreateDashboardBlockInterface,
+): DashboardBlockInterface {
+  const block = {
+    ...initialValue,
+    organization,
+    id: uniqid("dshblk_"),
+    uid: uuidv4().replace(/-/g, ""),
+  };
+
+  return blockToInterface(block);
+}
+
+export function migrateBlock(
+  doc:
+    | LegacyDashboardBlockInterface
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  switch (doc.type) {
+    case "experiment-metric":
+      return {
+        ...doc,
+        metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
+      };
+    case "experiment-dimension":
+      return {
+        ...doc,
+        metricSelector: doc.metricSelector || "custom",
+      };
+    case "experiment-time-series":
+      return {
+        ...doc,
+        metricIds: doc.metricId ? [doc.metricId] : (doc.metricIds ?? undefined),
+        metricId: undefined,
+        metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
+      };
+    case "experiment-description":
+      return {
+        ...doc,
+        type: "experiment-metadata",
+        showDescription: true,
+        showHypothesis: false,
+        showVariationImages: false,
+      };
+    case "experiment-hypothesis":
+      return {
+        ...doc,
+        type: "experiment-metadata",
+        showDescription: false,
+        showHypothesis: true,
+        showVariationImages: false,
+      };
+    case "experiment-variation-image":
+      return {
+        ...doc,
+        type: "experiment-metadata",
+        showDescription: false,
+        showHypothesis: false,
+        showVariationImages: true,
+      };
+    case "experiment-traffic-graph":
+      return {
+        ...doc,
+        type: "experiment-traffic",
+        showTable: false,
+        showTimeseries: true,
+      };
+    case "experiment-traffic-table":
+      return {
+        ...doc,
+        type: "experiment-traffic",
+        showTable: true,
+        showTimeseries: false,
+      };
+    case "sql-explorer": {
+      return {
+        ...doc,
+        blockConfig: doc.blockConfig ?? [],
+      };
+    }
+    default:
+      return doc;
+  }
 }

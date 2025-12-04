@@ -18,11 +18,12 @@ import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
-import { isPersistedDashboardBlock } from "shared/enterprise";
+import { dashboardBlockHasIds, getBlockData } from "shared/enterprise";
 import {
   DashboardEditLevel,
   DashboardInterface,
   DashboardShareLevel,
+  DashboardUpdateSchedule,
 } from "back-end/src/enterprise/validators/dashboard";
 import Button from "@/ui/Button";
 import {
@@ -215,6 +216,7 @@ interface Props {
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
+  updateSchedule: DashboardUpdateSchedule | undefined;
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -241,6 +243,7 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
+  updateSchedule,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -271,10 +274,6 @@ function DashboardEditor({
   const [editDashboard, setEditDashboard] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
-  const [shareLevel, setShareLevel] =
-    useState<DashboardShareLevel>(initialShareLevel);
-  const [editLevel, setEditLevel] =
-    useState<DashboardEditLevel>(initialEditLevel);
   const { apiCall } = useAuth();
   const { userId, getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -294,7 +293,7 @@ function DashboardEditor({
   });
   const canManageSharingAndEditLevels = canEdit && (isOwner || isAdmin);
 
-  if (editLevel === "private" && !isOwner && !isAdmin) {
+  if (initialEditLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
   const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
@@ -409,6 +408,7 @@ function DashboardEditor({
             title: title,
             editLevel: initialEditLevel,
             enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
             shareLevel: initialShareLevel,
             projects: projects,
             userId: ownerId,
@@ -431,9 +431,11 @@ function DashboardEditor({
             title: `Copy of ${title}`,
             editLevel: initialEditLevel,
             enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
             shareLevel: initialShareLevel,
-            projects: projects,
+            projects,
             userId: ownerId,
+            blocks,
           }}
           close={() => setDuplicateDashboard(false)}
           submit={async (data) => {
@@ -450,8 +452,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
-                blocks: data.blocks || [],
-                // userId: userId || "",
+                blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
             if (res.status === 200) {
@@ -475,13 +476,11 @@ function DashboardEditor({
               editLevel: data.editLevel,
             }),
           });
-          setShareLevel(data.shareLevel);
-          setEditLevel(data.editLevel);
-          mutate?.();
+          await mutate();
         }}
         initialValues={{
-          shareLevel,
-          editLevel,
+          shareLevel: initialShareLevel,
+          editLevel: initialEditLevel,
         }}
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
@@ -505,17 +504,17 @@ function DashboardEditor({
             >
               <Flex align="center" gap="2">
                 {title}
-                {isGeneralDashboard && (
-                  <ShareStatusBadge
-                    shareLevel={
-                      shareLevel === "published" ? "organization" : "private"
-                    }
-                    editLevel={
-                      editLevel === "private" ? "private" : "organization"
-                    }
-                    isOwner={dashboardOwnerId === userId}
-                  />
-                )}
+                <ShareStatusBadge
+                  shareLevel={
+                    initialShareLevel === "published"
+                      ? "organization"
+                      : "private"
+                  }
+                  editLevel={
+                    initialEditLevel === "private" ? "private" : "organization"
+                  }
+                  isOwner={dashboardOwnerId === userId}
+                />
               </Flex>
             </Text>
           )}
@@ -681,7 +680,7 @@ function DashboardEditor({
             blocks.map((block, i) =>
               renderSingleBlock({
                 i,
-                key: isPersistedDashboardBlock(block)
+                key: dashboardBlockHasIds(block)
                   ? block.id
                   : `${block.type}-${i}`,
                 block: block,

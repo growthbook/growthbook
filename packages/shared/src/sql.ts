@@ -1,13 +1,23 @@
 import { format as sqlFormat } from "sql-formatter";
-import { FormatDialect, FormatError } from "./types";
+import { FormatDialect } from "../types/sql";
+import { FormatError } from "../types/error";
 
 export const SQL_ROW_LIMIT = 1000;
+
+export const MAX_SQL_LENGTH_TO_FORMAT = parseInt(
+  process.env.MAX_SQL_LENGTH_TO_FORMAT || "15000",
+);
 
 export function format(
   sql: string,
   dialect?: FormatDialect,
   onError?: (error: FormatError) => void,
 ): string {
+  // sqlFormat is slow, consuming a lot of CPU and blocking other operations.
+  // To avoid performance issues, skip formatting for very large queries.
+  if (MAX_SQL_LENGTH_TO_FORMAT && sql.length > MAX_SQL_LENGTH_TO_FORMAT) {
+    return sql;
+  }
   if (!dialect) return sql;
 
   try {

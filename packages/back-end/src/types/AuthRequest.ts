@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -6,7 +7,6 @@ import {
   ProjectScopedPermission,
 } from "back-end/types/organization";
 import { AuditInterface } from "back-end/types/audit";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { TeamInterface } from "back-end/types/team";
 import { UserInterface } from "back-end/types/user";
 

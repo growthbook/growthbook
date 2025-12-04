@@ -1,5 +1,7 @@
 import { Response } from "express";
 import { FilterQuery } from "mongoose";
+import { IdeaInterface } from "shared/types/idea";
+import { Vote } from "shared/types/vote";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getIdeasByOrganization,
@@ -8,9 +10,7 @@ import {
   deleteIdeaById,
   getIdeasByQuery,
 } from "back-end/src/services/ideas";
-import { IdeaInterface } from "back-end/types/idea";
 import { addTagsDiff } from "back-end/src/models/TagModel";
-import { Vote } from "back-end/types/vote";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getImpactEstimate,

@@ -14,11 +14,11 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { TiktokenModel } from "@dqbd/tiktoken";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { TeamInterface } from "back-end/types/team";
 import { AgreementType } from "back-end/src/validators/agreements";
 import { AttributionModel, ImplementationType } from "./experiment";
@@ -259,6 +259,7 @@ export interface OrganizationSettings {
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
+  postStratificationDisabled?: boolean;
 }
 
 export interface OrganizationConnections {

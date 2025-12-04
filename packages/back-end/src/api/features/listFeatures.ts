@@ -18,13 +18,13 @@ import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
     const features = await getAllFeatures(req.context, {
-      project: req.query.projectId,
+      projects: req.query.projectId ? [req.query.projectId] : undefined,
       includeArchived: true,
     });
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
       req.context,
-      req.query.projectId,
+      req.query.projectId ? [req.query.projectId] : undefined,
     );
 
     // If SDK clientKey is provided, get the SDK connection and use its projects/environment

@@ -88,6 +88,11 @@ const sidebars = {
           id: "features/approval-flows",
           label: "Approval Flows",
         },
+        {
+          type: "doc",
+          id: "features/custom-hooks",
+          label: "Custom Hooks",
+        },
       ],
     },
     {
@@ -485,6 +490,12 @@ const sidebars = {
       label: "Insights",
     },
     {
+      type: "doc",
+      id: "product-analytics",
+      label: "Product Analytics",
+      className: "pill-new",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -519,6 +530,12 @@ const sidebars = {
               label: "C#",
             },
             { type: "doc", id: "lib/go", label: "Go" },
+            {
+              type: "doc",
+              id: "lib/rust",
+              label: "Rust",
+              className: "pill-new",
+            },
             {
               type: "doc",
               id: "lib/elixir",
@@ -707,7 +724,6 @@ const sidebars = {
     {
       type: "category",
       label: "Security",
-      collapsed: false,
       items: [
         {
           type: "doc",

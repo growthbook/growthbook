@@ -1,3 +1,4 @@
+import { Stripe } from "stripe";
 export interface PaymentMethod {
   id: string;
   brand: string;
@@ -8,3 +9,7 @@ export interface PaymentMethod {
   expYear?: number;
   wallet?: string;
 }
+
+export type TaxIdType = Stripe.CustomerCreateTaxIdParams.Type;
+
+export type StripeAddress = Stripe.Address;

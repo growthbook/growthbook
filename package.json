@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "4.1.0",
+  "version": "4.2.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -22,7 +22,7 @@
     "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
     "start:with-datadog": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-datadog",
     "update-stats-deps": ". $(cd packages/stats && poetry env info --path)/bin/activate && (cd packages/stats && poetry install)",
-    "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
+    "setup": "yarn build:deps & wsrun -p 'stats' -c setup & (cd docs && yarn) & wait",
     "prepare": "husky install",
     "plop": "plop",
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
@@ -59,7 +59,7 @@
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
     "prettier": "^3.6.2",
-    "typescript": "5.6.3"
+    "typescript": "5.7.3"
   },
   "lint-staged": {
     "./**/*.{json,css,scss,md,mdx}": [
@@ -73,7 +73,9 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.6.2"
+    "@growthbook/growthbook": "1.6.2",
+    "vite": "^6.0.0",
+    "execa": "^5.0.0"
   },
   "prettier": {
     "overrides": [

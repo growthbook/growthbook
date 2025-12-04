@@ -66,6 +66,9 @@ export default function NewDashboardPage() {
               experimentId: "",
               projects: dashboard.projects || [],
               blocks: args.data.blocks || dashboard.blocks,
+              updateSchedule:
+                args.data.updateSchedule || dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);
@@ -83,6 +86,9 @@ export default function NewDashboardPage() {
               editLevel: args.data.editLevel ?? dashboard.editLevel,
               enableAutoUpdates:
                 args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
+              updateSchedule:
+                args.data.updateSchedule ?? dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);

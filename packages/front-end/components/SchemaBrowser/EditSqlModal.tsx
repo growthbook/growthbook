@@ -5,7 +5,7 @@ import {
   InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "back-end/src/types/Integration";
-import { TemplateVariables } from "back-end/types/sql";
+import { TemplateVariables } from "shared/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { SQL_ROW_LIMIT } from "shared/sql";
@@ -59,6 +59,16 @@ export interface Props {
     eventName?: string;
     valueColumn?: string;
   };
+  sqlObjectInfo: {
+    objectType:
+      | "Dimension"
+      | "Fact Table"
+      | "Identity Join"
+      | "Experiment Assignment Query"
+      | "Metric"
+      | "Segment";
+    objectName?: string;
+  };
 }
 
 export default function EditSqlModal({
@@ -71,6 +81,7 @@ export default function EditSqlModal({
   validateResponseOverride,
   templateVariables,
   setTemplateVariables,
+  sqlObjectInfo: modalInfo,
 }: Props) {
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
@@ -250,7 +261,17 @@ export default function EditSqlModal({
     <Modal
       trackingEventModalType=""
       open
-      header="Edit SQL"
+      header={
+        <span>
+          Edit SQL for {modalInfo.objectType}
+          {modalInfo.objectName && (
+            <>
+              {" "}
+              <i>{modalInfo.objectName}</i>
+            </>
+          )}
+        </span>
+      }
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
           let res: TestQueryResults;

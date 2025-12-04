@@ -47,7 +47,7 @@ export function getBlockData<T extends DashboardBlockInterface>(
   return { ...block, organization: undefined, id: undefined, uid: undefined };
 }
 
-export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
+export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
   data: DashboardBlockInterfaceOrData<T>,
 ): data is T {
   const block = data as T;
@@ -232,7 +232,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     savedQueryId: "",
-    blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
+    blockConfig: [],
     ...(initialValues || {}),
   }),
   "metric-explorer": ({ initialValues }) => ({
@@ -247,6 +247,8 @@ export const CREATE_BLOCK_TYPE: {
       populationId: "",
       populationType: "factTable",
       userIdType: "",
+      additionalNumeratorFilters: undefined,
+      additionalDenominatorFilters: undefined,
     },
     visualizationType: "timeseries",
     valueType: "avg",

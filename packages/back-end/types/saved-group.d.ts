@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
+import { SavedGroupInterface, SavedGroupType } from "shared/types/groups";
 import {
   postSavedGroupBodyValidator,
   putSavedGroupBodyValidator,

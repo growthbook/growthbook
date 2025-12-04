@@ -129,6 +129,10 @@ const SegmentForm: FC<{
       {sqlOpen && datasource && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
+          sqlObjectInfo={{
+            objectType: "Segment",
+            objectName: form.watch("name"),
+          }}
           datasourceId={datasource.id || ""}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
           requiredColumns={requiredColumns}
