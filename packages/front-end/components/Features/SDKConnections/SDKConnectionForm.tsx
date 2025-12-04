@@ -2,7 +2,7 @@ import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
