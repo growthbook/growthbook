@@ -2,6 +2,7 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -11,7 +12,6 @@ import {
   findSDKConnectionsByOrganization,
   setProxyError,
 } from "back-end/src/models/SdkConnectionModel";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";

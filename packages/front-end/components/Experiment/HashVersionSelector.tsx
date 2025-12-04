@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";

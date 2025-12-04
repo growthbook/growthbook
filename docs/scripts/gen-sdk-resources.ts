@@ -7,7 +7,7 @@ import {
   getSDKCapabilityVersion,
   SDKCapability,
 } from "shared/src/sdk-versioning";
-import type { SDKLanguage } from "back-end/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 
 function defineSDKCapabilityVersion(sdk: string, capabilities: string[]) {
   return capabilities.map((c) => {

@@ -1,4 +1,4 @@
-import { ManagedBy } from "back-end/src/validators/managed-by";
+import { ManagedBy } from "shared/validators";
 
 // GrowthBook Proxy
 export interface ProxyConnection {
@@ -50,7 +50,7 @@ export type CreateSDKConnectionParams = {
   managedBy?: ManagedBy;
 };
 
-import { sdkLanguages } from "back-end/src/util/constants";
+import { sdkLanguages } from "shared/constants";
 
 export type SDKLanguage = (typeof sdkLanguages)[number];
 

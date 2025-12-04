@@ -22,11 +22,11 @@ import {
 } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { SegmentInterface } from "back-end/types/segment";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { CustomHookInterface } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/groups";

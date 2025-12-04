@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import clsx from "clsx";
 import { BsLightningFill } from "react-icons/bs";
 import { FaLock } from "react-icons/fa";
