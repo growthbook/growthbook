@@ -2,7 +2,7 @@ import { omit } from "lodash";
 import {
   WebhookSecretFrontEndInterface,
   webhookSecretSchema,
-} from "back-end/src/validators/webhook-secrets";
+} from "shared/src/validators/webhook-secrets";
 import { secretsReplacer } from "back-end/src/util/secrets";
 import { MakeModelClass } from "./BaseModel";
 
