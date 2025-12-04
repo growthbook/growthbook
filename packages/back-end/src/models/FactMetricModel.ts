@@ -221,12 +221,13 @@ export class FactMetricModel extends BaseClass {
     const metricSupportsDistinctDates =
       data.metricType === "mean" ||
       data.metricType === "ratio" ||
+      data.metricType === "dailyParticipation" ||
       (data.metricType === "quantile" &&
         data.quantileSettings?.type === "unit");
     if (data.numerator.column === "$$distinctDates") {
       if (!metricSupportsDistinctDates) {
         throw new Error(
-          "$$distinctDates is only supported for mean, ratio, and quantile metrics",
+          "$$distinctDates is only supported for mean, ratio, daily participation, and quantile metrics",
         );
       }
     }

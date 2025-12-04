@@ -1020,10 +1020,20 @@ export default abstract class SqlIntegration
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
-            , ${numeratorAggFns.reAggregationFunction("value_for_reaggregation")} AS value
+            , ${numeratorAggFns.aggregationTransformationFunction(
+              numeratorAggFns.reAggregationFunction("value_for_reaggregation"),
+              `"${settings.startDate.toISOString()}"`,
+              settings.endDate,
+            )} AS value
             ${
               metricData.ratioMetric
-                ? `, ${denominatorAggFns.reAggregationFunction("denominator_for_reaggregation")} AS denominator`
+                ? `, ${denominatorAggFns.aggregationTransformationFunction(
+                    denominatorAggFns.reAggregationFunction(
+                      "denominator_for_reaggregation",
+                    ),
+                    `"${settings.startDate.toISOString()}"`,
+                    settings.endDate,
+                  )} AS denominator`
                 : ""
             }
           FROM
@@ -2808,6 +2818,7 @@ export default abstract class SqlIntegration
   }): string {
     const suffix = `${sourceIndex === 0 ? "" : sourceIndex}`;
 
+    // TODO rescaling here? Or just let it ride with the count of days....
     return `
       SELECT 
         d.variation AS variation
@@ -3204,6 +3215,7 @@ export default abstract class SqlIntegration
         , __userMetricJoin${f.index === 0 ? "" : f.index} as (
           SELECT
             d.variation AS variation
+            , d.timestamp AS timestamp
             ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
             ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
             , d.${baseIdType} AS ${baseIdType}
@@ -3279,29 +3291,45 @@ export default abstract class SqlIntegration
           ${banditDates?.length ? `, umj.bandit_period` : ""}
           , umj.${baseIdType}
           ${metricData
-            .map(
-              (data) =>
-                `${
-                  data.numeratorSourceIndex === f.index
-                    ? `, ${this.getAggregateMetricColumn({
+            .map((data) => {
+              const aggTransformationFn = this.getAggregationMetadata({
+                metric: data.metric,
+                useDenominator: false,
+              }).aggregationTransformationFunction;
+              const denomAggTransformationFn = this.getAggregationMetadata({
+                metric: data.metric,
+                useDenominator: true,
+              }).aggregationTransformationFunction;
+
+              return `${
+                data.numeratorSourceIndex === f.index
+                  ? `, ${aggTransformationFn(
+                      this.getAggregateMetricColumn({
                         metric: data.metric,
                         useDenominator: false,
                         valueColumn: `umj.${data.alias}_value`,
                         quantileColumn: `qm.${data.alias}_quantile`,
-                      })} AS ${data.alias}_value`
-                    : ""
-                }
+                      }),
+                      "MIN(umj.timestamp)",
+                      params.settings.endDate,
+                    )} AS ${data.alias}_value`
+                  : ""
+              }
                 ${
                   data.ratioMetric && data.denominatorSourceIndex === f.index
-                    ? `, ${this.getAggregateMetricColumn({
-                        metric: data.metric,
-                        useDenominator: true,
-                        valueColumn: `umj.${data.alias}_denominator`,
-                        quantileColumn: `qm.${data.alias}_quantile`,
-                      })} AS ${data.alias}_denominator`
+                    ? `, ${denomAggTransformationFn(
+                        this.getAggregateMetricColumn({
+                          metric: data.metric,
+                          useDenominator: true,
+                          valueColumn: `umj.${data.alias}_denominator`,
+                          quantileColumn: `qm.${data.alias}_quantile`,
+                        }),
+                        "MIN(umj.timestamp)",
+                        params.settings.endDate,
+                      )} AS ${data.alias}_denominator`
                     : ""
-                }`,
-            )
+                }`;
+            })
             .join("\n")}
           ${eventQuantileData
             .map(
@@ -6292,6 +6320,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
     }
 
+    const noTransformationFunction = (column: string) => column;
+
     // Binomial or distinct user count without an aggregate filter
     // TODO: get mapping of when distinct users is possible for understanding
     if (
@@ -6307,6 +6337,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           `COALESCE(MAX(${column}), 0)`,
         fullAggregationFunction: (column: string) =>
           `COALESCE(MAX(${column}), 0)`,
+        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6326,6 +6357,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           `SUM(COALESCE((${column}), 0))`,
         fullAggregationFunction: (column: string) =>
           `SUM(COALESCE((${column}), 0))`,
+        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6344,6 +6376,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
+        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6355,12 +6388,34 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       const fullAggregationFunction = nullIfZero
         ? (column: string) => `NULLIF(COUNT(DISTINCT ${column}), 0)`
         : (column: string) => `COUNT(DISTINCT ${column})`;
+
+      const aggregationTransformationFunction =
+        metric.metricType === "dailyParticipation"
+          ? (
+              column: string,
+              // first exposure/activation timestamp column
+              additionalColumn: string,
+              endDate?: Date,
+            ) =>
+              `
+        ${this.ensureFloat(column)} / 
+        ${this.ensureFloat(
+          `(${this.dateDiff(
+            this.castToTimestamp(additionalColumn),
+            endDate
+              ? this.castToTimestamp(`"${endDate.toISOString()}"`)
+              : this.getCurrentTimestamp(),
+          )} + 1)`,
+        )}`
+          : noTransformationFunction;
+
       return {
         intermediateDataType: "date",
         partialAggregationFunction: (column: string) => `MAX(${column})`,
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
+        aggregationTransformationFunction,
       };
     }
 
@@ -6385,6 +6440,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
+        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6401,6 +6457,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "float",
         fullAggregationFunction: (column: string) =>
           `COALESCE(MAX(${column}), 0)`,
+        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6418,6 +6475,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       finalDataType: "float",
       reAggregationFunction,
       fullAggregationFunction,
+      aggregationTransformationFunction: noTransformationFunction,
     };
   }
 
@@ -7532,14 +7590,28 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${metricData
               // TODO(incremental-refresh): here is where we need to nullif 0 for
               // quantiles with ignore zeros. Otherwise the coalesce seems fine.
-              .map(
-                (data) =>
-                  `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0) AS ${data.alias}_value ${
-                    data.ratioMetric
-                      ? `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0) AS ${data.alias}_denominator`
-                      : ""
-                  }`,
-              )
+              .map((data) => {
+                const aggTransformationFn = this.getAggregationMetadata({
+                  metric: data.metric,
+                }).aggregationTransformationFunction;
+                const denomAggTransformationFn = this.getAggregationMetadata({
+                  metric: data.metric,
+                  useDenominator: true,
+                }).aggregationTransformationFunction;
+                return `, ${aggTransformationFn(
+                  `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
+                  "u.first_exposure_timestamp",
+                  params.settings.endDate,
+                )} AS ${data.alias}_value ${
+                  data.ratioMetric
+                    ? `, ${denomAggTransformationFn(
+                        `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        "u.first_exposure_timestamp",
+                        params.settings.endDate,
+                      )} AS ${data.alias}_denominator`
+                    : ""
+                }`;
+              })
               .join("\n")}
           FROM __experimentUnits u
           LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
@@ -7564,6 +7636,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${regressionAdjustedMetrics
               .map(
                 (data) =>
+                  // TODO transformation here
                   `, MAX(${this.encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_value
                 ${data.ratioMetric ? `\n, MAX(${this.encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_denominator` : ""}`,
               )
