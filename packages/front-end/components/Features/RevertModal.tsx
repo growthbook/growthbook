@@ -1,12 +1,15 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import isEqual from "lodash/isEqual";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExpandableDiff } from "./DraftModal";
 
@@ -35,31 +38,10 @@ export default function RevertModal({
     revision.comment || `Revert from #${feature.version}`,
   );
 
-  const diffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
-
-    if (revision.defaultValue !== feature.defaultValue) {
-      diffs.push({
-        title: "Default Value",
-        a: feature.defaultValue,
-        b: revision.defaultValue,
-      });
-    }
-    environments.forEach((env) => {
-      const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-      const draftRules = revision.rules?.[env.id] || [];
-
-      if (!isEqual(liveRules, draftRules)) {
-        diffs.push({
-          title: `Rules - ${env.id}`,
-          a: JSON.stringify(liveRules, null, 2),
-          b: JSON.stringify(draftRules, null, 2),
-        });
-      }
-    });
-
-    return diffs;
-  }, [feature, revision, environments]);
+  const diffs = useFeatureRevisionDiff({
+    current: featureToFeatureRevisionDiffInput(feature),
+    draft: revision,
+  });
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
