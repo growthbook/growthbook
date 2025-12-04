@@ -226,6 +226,22 @@ export type SqlExplorerBlockInterface = z.infer<
   typeof sqlExplorerBlockInterface
 >;
 
+const seriesOverridesValidator = z
+  .object({
+    seriesId: z.string(),
+    hidden: z.boolean().optional(),
+    // Name - this would update the legend
+    // Color - this would update the color of the series
+  })
+  .strict();
+
+const displaySettingsValidator = z
+  .object({
+    seriesOverrides: z.array(seriesOverridesValidator).optional(),
+    // title: z.string().optional(),
+  })
+  .strict();
+
 const metricExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-explorer"),
@@ -237,6 +253,7 @@ const metricExplorerBlockInterface = baseBlockInterface
     visualizationType: z.enum(["histogram", "bigNumber", "timeseries"]),
     valueType: z.enum(["avg", "sum"]),
     metricAnalysisId: z.string(),
+    displaySettings: displaySettingsValidator.optional(),
   })
   .strict();
 

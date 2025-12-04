@@ -30,6 +30,16 @@ export default function MetricExplorerBlock({
     [displayCurrency],
   );
 
+  const hiddenSeriesIds = useMemo(() => {
+    const hidden = new Set<string>();
+    block.displaySettings?.seriesOverrides?.forEach((override) => {
+      if (override.hidden === true) {
+        hidden.add(override.seriesId);
+      }
+    });
+    return hidden;
+  }, [block.displaySettings?.seriesOverrides]);
+
   const chartData = useMemo(() => {
     const rawFormatter = getExperimentMetricFormatter(
       factMetric,
@@ -187,8 +197,10 @@ export default function MetricExplorerBlock({
           (a, b) => a.getTime() - b.getTime(),
         );
 
-        // Build series names from the map keys
-        const seriesNames = Array.from(sliceSeriesMap.keys());
+        // Build series names from the map keys, filtering out hidden series
+        const seriesNames = Array.from(sliceSeriesMap.keys()).filter(
+          (name) => !hiddenSeriesIds.has(name),
+        );
 
         // Build dataset: one row per date with columns for each slice
         const datasetSource = sortedDates.map((date) => {
@@ -397,6 +409,7 @@ export default function MetricExplorerBlock({
     textColor,
     formatterOptions,
     getFactTableById,
+    hiddenSeriesIds,
   ]);
 
   console.log("chartData", chartData);

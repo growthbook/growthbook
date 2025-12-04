@@ -12,19 +12,19 @@ import {
   MetricWithStringColumns,
 } from "@/components/Experiment/MetricSliceEditingInterface";
 
-export interface MetricExplorerMetricSliceSelectorProps {
+export interface MetricExplorerCustomSliceSelectorProps {
   factMetricId: string;
   customMetricSlices: CustomMetricSlice[];
   setCustomMetricSlices: (slices: CustomMetricSlice[]) => void;
   disabled?: boolean;
 }
 
-export default function MetricExplorerMetricSliceSelector({
+export default function MetricExplorerCustomSliceSelector({
   factMetricId,
   customMetricSlices,
   setCustomMetricSlices,
   disabled = false,
-}: MetricExplorerMetricSliceSelectorProps) {
+}: MetricExplorerCustomSliceSelectorProps) {
   const [editState, setEditState] = useState<"adding" | "editing" | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingSliceLevels, setEditingSliceLevels] = useState<

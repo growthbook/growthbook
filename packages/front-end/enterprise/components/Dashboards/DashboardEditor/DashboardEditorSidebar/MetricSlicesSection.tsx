@@ -18,7 +18,7 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { RadixStatusIcon, getRadixColor } from "@/ui/HelperText";
 import PremiumCallout from "@/ui/PremiumCallout";
-import MetricExplorerMetricSliceSelector from "./MetricExplorerMetricSliceSelector";
+import MetricExplorerCustomSliceSelector from "./MetricExplorerCustomSliceSelector";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -78,15 +78,9 @@ export default function MetricSlicesSection({
   ]);
 
   const hasAnySlices = useMemo(() => {
-    if (
-      !block.analysisSettings?.metricAutoSlices ||
-      !block.analysisSettings?.customMetricSlices
-    ) {
-      return false;
-    }
     return (
-      block.analysisSettings.metricAutoSlices.length > 0 ||
-      block.analysisSettings.customMetricSlices.length > 0
+      (block.analysisSettings?.metricAutoSlices?.length ?? 0) > 0 ||
+      (block.analysisSettings?.customMetricSlices?.length ?? 0) > 0
     );
   }, [
     block.analysisSettings?.metricAutoSlices,
@@ -170,6 +164,10 @@ export default function MetricSlicesSection({
                           metricAutoSlices: [],
                           customMetricSlices: [],
                         },
+                        displaySettings: {
+                          ...block.displaySettings,
+                          seriesOverrides: undefined,
+                        },
                       });
                     }}
                   >
@@ -247,6 +245,25 @@ export default function MetricSlicesSection({
                             ...block.analysisSettings,
                             metricAutoSlices,
                           },
+                          // Clean up series overrides for removed auto slices
+                          // Keep overrides for base metric (empty seriesId), custom slices, and remaining auto slices
+                          displaySettings: {
+                            ...block.displaySettings,
+                            seriesOverrides:
+                              block.displaySettings?.seriesOverrides?.filter(
+                                (override) => {
+                                  // Keep base metric (empty seriesId)
+                                  if (override.seriesId === "") return true;
+                                  // Keep custom slices (they don't start with column:)
+                                  // Custom slices use slice strings, not column:level format
+                                  if (!override.seriesId.includes(":"))
+                                    return true;
+                                  // For auto slices (format: column:level), check if column is still selected
+                                  const [column] = override.seriesId.split(":");
+                                  return metricAutoSlices.includes(column);
+                                },
+                              ),
+                          },
                         });
                       }}
                       options={availableSlices.map((col) => ({
@@ -274,7 +291,7 @@ export default function MetricSlicesSection({
                       Learn More <PiArrowSquareOut />
                     </DocLink>
                   </Text>
-                  <MetricExplorerMetricSliceSelector
+                  <MetricExplorerCustomSliceSelector
                     factMetricId={block.factMetricId}
                     customMetricSlices={
                       (
