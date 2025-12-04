@@ -19,7 +19,7 @@ import {
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import { MetricTimeSeries } from "shared/src/validators/metric-time-series";
 import {
   DifferenceType,
   PValueCorrection,

@@ -8,7 +8,7 @@ import {
   MetricTimeSeries,
   CreateMetricTimeSeries,
   CreateMetricTimeSeriesSingleDataPoint,
-} from "back-end/src/validators/metric-time-series";
+} from "shared/src/validators/metric-time-series";
 import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 

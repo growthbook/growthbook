@@ -5,6 +5,11 @@ import {
   expandAllSliceMetricsInMap,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  CreateMetricTimeSeriesSingleDataPoint,
+  MetricTimeSeriesValue,
+  MetricTimeSeriesVariation,
+} from "shared/src/validators/metric-time-series";
 import { ReqContext } from "back-end/types/organization";
 import {
   ExperimentAnalysisSummary,
@@ -20,11 +25,6 @@ import {
   MetricForSnapshot,
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
-import {
-  CreateMetricTimeSeriesSingleDataPoint,
-  MetricTimeSeriesValue,
-  MetricTimeSeriesVariation,
-} from "back-end/src/validators/metric-time-series";
 import {
   FactMetricInterface,
   FactTableInterface,

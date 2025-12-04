@@ -4,7 +4,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
-import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import { MetricTimeSeries } from "shared/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
