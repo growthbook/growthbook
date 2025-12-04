@@ -28,6 +28,7 @@
     "src/**/*",
     "types/**/*.d.ts",
     "typings/**/*.d.ts",
-    "../shared/src/validators/metric-time-series.ts"
+    "../shared/src/validators/**/*",
+    "../shared/types/**/*.d.ts"
   ]
 }
