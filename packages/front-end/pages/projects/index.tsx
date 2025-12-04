@@ -71,7 +71,7 @@ const ProjectsPage: FC = () => {
             <tr>
               <th className="col-3">Project Name</th>
               <th className="col-3">Description</th>
-              <th className="col-2">Id</th>
+              <th className="col-2">Public ID</th>
               <th className="col-2">Date Created</th>
               <th className="col-2">Date Updated</th>
               <th className="w-50"></th>
@@ -119,7 +119,9 @@ const ProjectsPage: FC = () => {
                   <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
                     {p.description}
                   </td>
-                  <td>{p.id}</td>
+                  <td>
+                    <code>{p.publicId || p.id}</code>
+                  </td>
                   <td>{date(p.dateCreated)}</td>
                   <td>{date(p.dateUpdated)}</td>
                   <td

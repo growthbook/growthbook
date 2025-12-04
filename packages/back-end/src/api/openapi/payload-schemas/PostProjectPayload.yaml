@@ -4,6 +4,9 @@ required:
 properties:
   name:
     type: string
+  publicId:
+    type: string
+    description: Unique identifier for the project. If not provided, the project ID will be used in payloads.
   description:
     type: string
   settings:

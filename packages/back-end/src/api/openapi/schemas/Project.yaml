@@ -9,6 +9,8 @@ properties:
     type: string
   name:
     type: string
+  publicId:
+    type: string
   dateCreated:
     type: string
     format: date-time

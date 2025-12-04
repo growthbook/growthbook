@@ -5,6 +5,11 @@ import {
   managedByValidator,
   ManagedBy,
 } from "back-end/src/validators/managed-by";
+import { logger } from "back-end/src/util/logger";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { getPayloadKeysForAllEnvs } from "./ExperimentModel";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 export const statsEnginesValidator = z.enum(statsEngines);
 
@@ -15,6 +20,7 @@ export const projectSettingsValidator = z.object({
 export const projectValidator = baseSchema
   .extend({
     name: z.string(),
+    publicId: z.string().optional(),
     description: z.string().default("").optional(),
     settings: projectSettingsValidator.default({}).optional(),
     managedBy: managedByValidator.optional(),
@@ -24,10 +30,6 @@ export const projectValidator = baseSchema
 export type StatsEngine = z.infer<typeof statsEnginesValidator>;
 export type ProjectSettings = z.infer<typeof projectSettingsValidator>;
 export type ProjectInterface = z.infer<typeof projectValidator>;
-
-type MigratedProject = Omit<ProjectInterface, "settings"> & {
-  settings: Partial<ProjectInterface["settings"]>;
-};
 
 const BaseClass = MakeModelClass({
   schema: projectValidator,
@@ -44,6 +46,7 @@ const BaseClass = MakeModelClass({
 
 interface CreateProjectProps {
   name: string;
+  publicId?: string;
   description?: string;
   id?: string;
   managedBy?: ManagedBy;
@@ -64,14 +67,6 @@ export class ProjectModel extends BaseClass {
 
   protected canDelete(doc: ProjectInterface) {
     return this.context.permissions.canDeleteProject(doc.id);
-  }
-
-  protected migrate(doc: MigratedProject) {
-    const settings = {
-      ...(doc.settings || {}),
-    };
-
-    return { ...doc, settings };
   }
 
   public create(project: CreateProjectProps) {
@@ -114,6 +109,7 @@ export class ProjectModel extends BaseClass {
     return {
       id: project.id,
       name: project.name,
+      publicId: project.publicId,
       description: project.description || "",
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
@@ -121,5 +117,70 @@ export class ProjectModel extends BaseClass {
         statsEngine: project.settings?.statsEngine,
       },
     };
+  }
+
+  protected async afterCreate(
+    doc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterCreate(doc, writeOptions);
+    // Refresh SDK payload cache for all environments
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [doc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project create",
+      );
+    });
+  }
+
+  protected async afterUpdate(
+    existing: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+    newDoc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterUpdate(existing, updates, newDoc, writeOptions);
+    // Refresh SDK payload cache for all environments
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [newDoc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project update",
+      );
+    });
+  }
+
+  protected async afterDelete(
+    doc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterDelete(doc, writeOptions);
+    // Refresh SDK payload cache for all environments
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [doc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project delete",
+      );
+    });
   }
 }

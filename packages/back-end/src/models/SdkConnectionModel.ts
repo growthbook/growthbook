@@ -27,7 +27,10 @@ import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { logger } from "back-end/src/util/logger";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+import { getPayloadKeysForAllEnvs } from "./ExperimentModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
   id: {
@@ -54,6 +57,9 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
   includeRuleIds: Boolean,
+  includeProjectPublicId: Boolean,
+  includeCustomFields: [String],
+  includeTags: [String],
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -194,6 +200,9 @@ export const createSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
+    includeProjectPublicId: z.boolean().optional(),
+    includeCustomFields: z.array(z.string()).optional(),
+    includeTags: z.array(z.string()).optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -272,6 +281,9 @@ export const editSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
+    includeProjectPublicId: z.boolean().optional(),
+    includeCustomFields: z.array(z.string()).optional(),
+    includeTags: z.array(z.string()).optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
@@ -333,6 +345,9 @@ export async function editSDKConnection(
     "includeExperimentNames",
     "includeRedirectExperiments",
     "includeRuleIds",
+    "includeProjectPublicId",
+    "includeCustomFields",
+    "includeTags",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -368,6 +383,46 @@ export async function editSDKConnection(
       newProxy,
       isUsingProxy,
     );
+  }
+
+  // Refresh SDK payload cache if includeCustomFields changed (affects payload metadata.customFields)
+  if (
+    "includeCustomFields" in otherChanges &&
+    !isEqual(otherChanges.includeCustomFields, connection.includeCustomFields)
+  ) {
+    // Refresh cache for all environments since custom fields can be used across environments
+    // If projects is empty, get all projects to ensure we refresh all environments
+    const projectsToUse =
+      connection.projects.length > 0
+        ? connection.projects
+        : (await context.models.projects.getAll()).map((p) => p.id);
+    const payloadKeys = getPayloadKeysForAllEnvs(context, projectsToUse);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after SDK connection custom fields update",
+      );
+    });
+  }
+
+  // Refresh SDK payload cache if includeTags changed (affects payload metadata.tags)
+  if (
+    "includeTags" in otherChanges &&
+    !isEqual(otherChanges.includeTags, connection.includeTags)
+  ) {
+    // Refresh cache for all environments since tags can be used across environments
+    // If projects is empty, get all projects to ensure we refresh all environments
+    const projectsToUse =
+      connection.projects.length > 0
+        ? connection.projects
+        : (await context.models.projects.getAll()).map((p) => p.id);
+    const payloadKeys = getPayloadKeysForAllEnvs(context, projectsToUse);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after SDK connection tags update",
+      );
+    });
   }
 
   return { ...connection, ...fullChanges };
@@ -559,6 +614,7 @@ export function toApiSDKConnectionInterface(
     includeExperimentNames: connection.includeExperimentNames,
     includeRedirectExperiments: connection.includeRedirectExperiments,
     includeRuleIds: connection.includeRuleIds,
+    includeProjectPublicId: connection.includeProjectPublicId,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,

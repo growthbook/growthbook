@@ -99,6 +99,9 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     includeExperimentNames: connection.includeExperimentNames,
     includeRedirectExperiments: connection.includeRedirectExperiments,
     includeRuleIds: connection.includeRuleIds,
+    includeProjectPublicId: connection.includeProjectPublicId,
+    includeCustomFields: connection.includeCustomFields,
+    includeTags: connection.includeTags,
     hashSecureAttributes: connection.hashSecureAttributes,
   });
 
