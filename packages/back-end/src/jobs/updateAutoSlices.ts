@@ -12,6 +12,7 @@ import { ColumnInterface, FactTableInterface } from "back-end/types/fact-table";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
+import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
 import { runColumnTopValuesQuery } from "./refreshFactTableColumns";
 
 const QUEUE_AUTO_SLICE_UPDATES = "queueAutoSliceUpdates";
@@ -41,7 +42,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateJob = agenda.create(QUEUE_AUTO_SLICE_UPDATES, {});
     updateJob.unique({});
-    updateJob.repeatEvery("24 hours");
+    updateJob.repeatEvery(AUTO_SLICE_UPDATE_FREQUENCY_HOURS + " hours");
     await updateJob.save();
   }
 

@@ -9,16 +9,21 @@ import {
 import { useForm } from "react-hook-form";
 import React, { useState, useEffect } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
+import format from "date-fns/format";
+import { getValidDate } from "shared/dates";
 import {
   PiPlus,
   PiX,
   PiArrowSquareOut,
   PiArrowClockwise,
+  PiInfo,
+  PiCheck,
 } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -29,11 +34,13 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import RadixButton from "@/ui/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
+import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import { DocLink } from "../DocLink";
 
 export interface Props {
@@ -64,6 +71,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     useState(false);
   const [shouldForceOverwriteSlices, setShouldForceOverwriteSlices] =
     useState(false);
+  const [newSliceValue, setNewSliceValue] = useState("");
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -583,18 +591,82 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             {form.watch("isAutoSliceColumn") &&
               hasMetricSlicesFeature &&
               form.watch("datatype") !== "boolean" && (
-                <div className="mb-2">
-                  <div className="d-flex justify-content-between mb-1">
-                    <label className="form-label mb-0">Slices</label>
-                    <RadixButton
-                      size="xs"
-                      variant="ghost"
-                      onClick={refreshTopValues}
-                      loading={refreshingTopValues}
-                    >
-                      <PiArrowClockwise /> Use Top Values
-                    </RadixButton>
-                  </div>
+                <div className="mt-4 mb-2">
+                  <Flex align="center" gap="2" mb="1" justify="between">
+                    <label className="form-label mb-0">
+                      <Tooltip
+                        tipPosition="top"
+                        body={
+                          factTable.autoSliceUpdatesEnabled ? (
+                            <>
+                              <p>
+                                Automatically set Auto Slice levels based on top
+                                column values. Pinned levels will always be
+                                preserved.
+                              </p>
+                              <p>
+                                Currently <strong>enabled</strong> — updates
+                                every {getAutoSliceUpdateFrequencyHours()}{" "}
+                                hours.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p>
+                                Automatically set Auto Slice levels based on top
+                                column values. Pinned levels will always be
+                                preserved.
+                              </p>
+                              <p>
+                                Currently <strong>disabled</strong> — enable in
+                                Fact Table settings.
+                              </p>
+                            </>
+                          )
+                        }
+                      >
+                        Dynamic slices <PiInfo />
+                        <Badge
+                          label={
+                            factTable.autoSliceUpdatesEnabled
+                              ? "enabled"
+                              : "disabled"
+                          }
+                          color={
+                            factTable.autoSliceUpdatesEnabled ? "green" : "red"
+                          }
+                          variant="soft"
+                          ml="2"
+                        />
+                      </Tooltip>
+                    </label>
+                    {factTable.autoSliceUpdatesEnabled && (
+                      <div className="text-muted small">
+                        Last run:{" "}
+                        {existing?.topValuesDate
+                          ? format(
+                              getValidDate(existing.topValuesDate),
+                              "MMM dd yyyy",
+                            )
+                          : "Never"}
+                      </div>
+                    )}
+                  </Flex>
+
+                  {!factTable.autoSliceUpdatesEnabled && (
+                    <div className="d-flex justify-content-between mt-2 mb-1">
+                      <label className="form-label mb-0">Slices</label>
+                      <RadixButton
+                        size="xs"
+                        variant="ghost"
+                        onClick={refreshTopValues}
+                        loading={refreshingTopValues}
+                      >
+                        <PiArrowClockwise /> Use Top Values
+                      </RadixButton>
+                    </div>
+                  )}
+
                   {autoSlicesWarning ||
                   (form.watch("autoSlices") || [])?.length >
                     maxMetricSliceLevels ? (
@@ -602,79 +674,188 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                       Limit {maxMetricSliceLevels + ""} slices
                     </HelperText>
                   ) : null}
-                  <MultiSelectField
-                    value={form.watch("autoSlices") || []}
-                    onChange={(values) => {
-                      if (values.length > maxMetricSliceLevels) {
-                        values = values.slice(0, maxMetricSliceLevels);
-                        setAutoSlicesWarning(true);
-                        setTimeout(() => {
-                          setAutoSlicesWarning(false);
-                        }, 3000);
-                      }
-                      // Track if user manually clears all slices
-                      if (values.length === 0) {
-                        setHasManuallyClearedSlices(true);
-                      }
-                      form.setValue("autoSlices", values);
-                    }}
-                    options={autoSliceOptions.map((opt) => {
-                      const isPinned = (
-                        form.watch("pinnedAutoSlices") || []
-                      ).includes(opt.value);
-                      return {
-                        ...opt,
-                        label: isPinned ? `${opt.label} 📌` : opt.label,
-                      };
-                    })}
-                    creatable={true}
-                  />
-                  {!!form.watch("autoSlices")?.length && (
+
+                  {factTable.autoSliceUpdatesEnabled ? (
                     <div className="mt-2">
-                      <label className="form-label mb-1">
-                        Pinned Slices (protected from auto-updates)
-                      </label>
-                      <div className="d-flex flex-wrap gap-1">
-                        {(form.watch("autoSlices") || []).map((slice) => {
-                          const isPinned = (
-                            form.watch("pinnedAutoSlices") || []
-                          ).includes(slice);
-                          return (
-                            <button
-                              key={slice}
-                              type="button"
-                              className={`btn btn-sm ${
-                                isPinned
-                                  ? "btn-primary"
-                                  : "btn-outline-secondary"
-                              }`}
-                              onClick={() => {
-                                const currentPinned =
-                                  form.watch("pinnedAutoSlices") || [];
-                                if (isPinned) {
-                                  form.setValue(
-                                    "pinnedAutoSlices",
-                                    currentPinned.filter((s) => s !== slice),
-                                  );
-                                } else {
-                                  form.setValue("pinnedAutoSlices", [
-                                    ...currentPinned,
-                                    slice,
-                                  ]);
+                      <table className="table table-tiny gbtable mb-0">
+                        <thead>
+                          <tr>
+                            <th>Slice</th>
+                            <th style={{ width: "80px", textAlign: "center" }}>
+                              Top value
+                            </th>
+                            <th style={{ width: "70px", textAlign: "center" }}>
+                              <Tooltip
+                                tipPosition="top"
+                                popperClassName="text-left"
+                                body="Pinned slices are protected from automatic updates. They will always be included in the slice levels even if they're not in the top values query results."
+                              >
+                                Pinned <PiInfo />
+                              </Tooltip>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(form.watch("autoSlices") || []).map((slice) => {
+                            const isPinned = (
+                              form.watch("pinnedAutoSlices") || []
+                            ).includes(slice);
+                            const isInTopValues = (
+                              existing?.topValues || []
+                            ).includes(slice);
+                            return (
+                              <tr key={slice}>
+                                <td>{slice}</td>
+                                <td style={{ textAlign: "center" }}>
+                                  {isInTopValues && <PiCheck />}
+                                </td>
+                                <td style={{ textAlign: "center" }}>
+                                  <Checkbox
+                                    value={isPinned}
+                                    setValue={(value) => {
+                                      const currentPinned =
+                                        form.watch("pinnedAutoSlices") || [];
+                                      const currentSlices =
+                                        form.watch("autoSlices") || [];
+                                      if (value) {
+                                        form.setValue("pinnedAutoSlices", [
+                                          ...currentPinned,
+                                          slice,
+                                        ]);
+                                      } else {
+                                        // If unpinning a slice that's not in topValues, remove it completely
+                                        if (!isInTopValues) {
+                                          form.setValue(
+                                            "autoSlices",
+                                            currentSlices.filter(
+                                              (s) => s !== slice,
+                                            ),
+                                          );
+                                          form.setValue(
+                                            "pinnedAutoSlices",
+                                            currentPinned.filter(
+                                              (s) => s !== slice,
+                                            ),
+                                          );
+                                        } else {
+                                          // Just unpin if it's in topValues
+                                          form.setValue(
+                                            "pinnedAutoSlices",
+                                            currentPinned.filter(
+                                              (s) => s !== slice,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {(existing?.topValues || []).length === 0 && (
+                            <tr>
+                              <td colSpan={3}>
+                                <em className="text-muted small">
+                                  No slices returned from top values query
+                                </em>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      <Flex mt="2" gap="2" align="center">
+                        <div style={{ flex: 1 }}>
+                          <Field
+                            style={{ height: 28 }}
+                            value={newSliceValue}
+                            onChange={(e) => setNewSliceValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const trimmed = newSliceValue.trim();
+                                if (trimmed) {
+                                  const currentSlices =
+                                    form.watch("autoSlices") || [];
+                                  const currentPinned =
+                                    form.watch("pinnedAutoSlices") || [];
+                                  if (!currentSlices.includes(trimmed)) {
+                                    form.setValue("autoSlices", [
+                                      ...currentSlices,
+                                      trimmed,
+                                    ]);
+                                    form.setValue("pinnedAutoSlices", [
+                                      ...currentPinned,
+                                      trimmed,
+                                    ]);
+                                    setNewSliceValue("");
+                                  }
                                 }
-                              }}
-                              title={
-                                isPinned
-                                  ? "Click to unpin"
-                                  : "Click to pin (protect from auto-updates)"
                               }
-                            >
-                              {slice} {isPinned ? "📌" : ""}
-                            </button>
-                          );
-                        })}
-                      </div>
+                            }}
+                            placeholder="Pin new slice..."
+                            containerClassName="mb-0"
+                          />
+                        </div>
+                        <RadixButton
+                          size="sm"
+                          variant="ghost"
+                          ml="2"
+                          style={{ height: 28 }}
+                          onClick={() => {
+                            const trimmed = newSliceValue.trim();
+                            if (trimmed) {
+                              const currentSlices =
+                                form.watch("autoSlices") || [];
+                              const currentPinned =
+                                form.watch("pinnedAutoSlices") || [];
+                              if (!currentSlices.includes(trimmed)) {
+                                form.setValue("autoSlices", [
+                                  ...currentSlices,
+                                  trimmed,
+                                ]);
+                                form.setValue("pinnedAutoSlices", [
+                                  ...currentPinned,
+                                  trimmed,
+                                ]);
+                                setNewSliceValue("");
+                              }
+                            }
+                          }}
+                        >
+                          Add
+                        </RadixButton>
+                      </Flex>
                     </div>
+                  ) : (
+                    <>
+                      {(form.watch("autoSlices") || []).length === 0 && (
+                        <div className="text-muted mb-2 small">
+                          No slices configured. Click &quot;Use Top Values&quot;
+                          or manually enter slices below.
+                        </div>
+                      )}
+                      <MultiSelectField
+                        value={form.watch("autoSlices") || []}
+                        onChange={(values) => {
+                          if (values.length > maxMetricSliceLevels) {
+                            values = values.slice(0, maxMetricSliceLevels);
+                            setAutoSlicesWarning(true);
+                            setTimeout(() => {
+                              setAutoSlicesWarning(false);
+                            }, 3000);
+                          }
+                          // Track if user manually clears all slices
+                          if (values.length === 0) {
+                            setHasManuallyClearedSlices(true);
+                          }
+                          form.setValue("autoSlices", values);
+                        }}
+                        options={autoSliceOptions}
+                        creatable={true}
+                        placeholder="Select or enter slices..."
+                      />
+                    </>
                   )}
                 </div>
               )}

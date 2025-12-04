@@ -279,7 +279,7 @@ export default function FactTableModal({
         {permissionsUtil.canCreateOfficialResources({
           projects: form.watch("projects") || [],
         }) && hasCommercialFeature("manage-official-resources") ? (
-          <div className="mt-2">
+          <div className="mt-4">
             <Checkbox
               label="Mark as Official Fact Table"
               disabled={form.watch("managedBy") === "api"}
@@ -294,10 +294,10 @@ export default function FactTableModal({
         ) : null}
 
         {hasCommercialFeature("metric-slices") && (
-          <div className="mt-2">
+          <div className="mt-4">
             <Checkbox
-              label="Enable Auto-Slice Updates"
-              description="Automatically update auto-slice levels daily based on top column values from the past 14 days. Pinned levels will always be preserved."
+              label="Enable Dynamic Auto Slices"
+              description="Automatically update Auto Slice levels daily based on top column values (14 day lookback). Pinned slice levels will always be preserved."
               value={form.watch("autoSliceUpdatesEnabled") ?? false}
               setValue={(value) => {
                 form.setValue("autoSliceUpdatesEnabled", value);
