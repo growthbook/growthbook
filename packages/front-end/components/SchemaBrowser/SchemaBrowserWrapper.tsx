@@ -57,9 +57,7 @@ export default function SchemaBrowserWrapper({
               >
                 <button
                   className="btn btn-link p-0 text-secondary"
-                  disabled={
-                    informationSchema.status === "PENDING" || !canRunQueries
-                  }
+                  disabled={fetching || !canRunQueries}
                   onClick={async (e) => {
                     e.preventDefault();
                     setError(null);
