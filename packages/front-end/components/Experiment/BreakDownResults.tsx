@@ -15,6 +15,8 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { FaCaretRight } from "react-icons/fa";
+import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -25,6 +27,9 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Link from "@/ui/Link";
+import UsersTable from "./UsersTable";
 
 export const includeVariation = (
   d: ExperimentReportResultDimension,
@@ -130,6 +135,9 @@ const BreakDownResults: FC<{
 
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
+  const _settings = useOrgSettings();
+  const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
+
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
     getDimensionById(dimensionId)?.name ||
@@ -172,6 +180,27 @@ const BreakDownResults: FC<{
             <strong>{activationMetricObj?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
+          </div>
+        )}
+        {!isBandit && (
+          <div className="users">
+            <Collapsible
+              trigger={
+                <Link className="d-inline-flex mx-3 align-items-center">
+                  <FaCaretRight className="chevron mr-1" />
+                  View dimension breakdown
+                </Link>
+              }
+              transitionTime={100}
+            >
+              <UsersTable
+                dimension={dimension}
+                dimensionValuesFilter={dimensionValuesFilter}
+                results={results}
+                variations={variations}
+                settings={settings}
+              />
+            </Collapsible>
           </div>
         )}
       </div>
