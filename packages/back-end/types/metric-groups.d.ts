@@ -1,4 +1,4 @@
-import { CreateProps } from "back-end/src/models/BaseModel";
+import { CreateProps } from "shared/types/baseModel";
 
 export interface MetricGroupInterface {
   id: string;

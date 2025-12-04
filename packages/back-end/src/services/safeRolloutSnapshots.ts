@@ -24,6 +24,7 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
+import { CreateProps } from "shared/types/baseModel";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
@@ -48,7 +49,6 @@ import {
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { CreateProps } from "back-end/src/models/BaseModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { getFeature } from "back-end/src/models/FeatureModel";

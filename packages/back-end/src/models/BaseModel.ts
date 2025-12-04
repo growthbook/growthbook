@@ -7,6 +7,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
+import { CreateProps, UpdateProps } from "shared/types/baseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
@@ -36,10 +37,6 @@ export const baseSchema = z
 
 export type BaseSchema = typeof baseSchema;
 
-export type CreateProps<T extends object> = Omit<
-  T,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
-> & { id?: string };
 export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
   Omit<z.infer<T>, "organization">
 >;
@@ -57,10 +54,6 @@ export const createSchema = <T extends BaseSchema>(schema: T) =>
     })
     .extend({ id: z.string().optional() })
     .strict() as unknown as CreateZodObject<T>;
-
-export type UpdateProps<T extends object> = Partial<
-  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
->;
 
 export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
   UpdateProps<z.infer<T>>

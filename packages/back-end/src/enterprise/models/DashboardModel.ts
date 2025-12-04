@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
+import { UpdateProps } from "shared/types/baseModel";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -8,7 +9,6 @@ import {
 import {
   MakeModelClass,
   ScopedFilterQuery,
-  UpdateProps,
 } from "back-end/src/models/BaseModel";
 import {
   getCollection,

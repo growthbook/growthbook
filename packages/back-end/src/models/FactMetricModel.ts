@@ -4,6 +4,7 @@ import {
   getAggregateFilters,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { UpdateProps } from "shared/types/baseModel";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -14,7 +15,6 @@ import {
 import { ApiFactMetric } from "back-end/types/openapi";
 import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
-import { UpdateProps } from "back-end/types/models";
 import { promiseAllChunks } from "../util/promise";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";

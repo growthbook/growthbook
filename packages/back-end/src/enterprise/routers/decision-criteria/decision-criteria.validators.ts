@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CreateProps, UpdateProps } from "back-end/types/models";
+import { CreateProps, UpdateProps } from "shared/types/baseModel";
 
 export const decisionCriteriaAction = z.enum(["ship", "rollback", "review"]);
 

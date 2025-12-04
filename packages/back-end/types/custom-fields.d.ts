@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CreateProps } from "back-end/src/models/BaseModel";
+import { CreateProps } from "shared/types/baseModel";
 import {
   customFieldTypes,
   customFieldSectionTypes,

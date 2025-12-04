@@ -1,8 +1,8 @@
 import type { Response } from "express";
+import { CreateProps, UpdateProps } from "shared/types/baseModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { CustomHookInterface } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { CreateProps, UpdateProps } from "back-end/types/models";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { sandboxEval } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
