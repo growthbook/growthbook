@@ -47,6 +47,7 @@ import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SegmentInterface } from "shared/types/segment";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -93,7 +94,6 @@ import {
   MetricStats,
   Operator,
 } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   Changeset,
   ExperimentInterface,

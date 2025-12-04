@@ -5,6 +5,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
+import { SegmentInterface } from "shared/types/segment";
 import { DataSourceInterface, DataSourceType } from "back-end/types/datasource";
 import {
   AttributionModel,
@@ -13,7 +14,6 @@ import {
   MetricOverride,
   Variation,
 } from "back-end/types/experiment";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   Dimension,
   ExperimentFactMetricsQueryParams,
