@@ -11,7 +11,7 @@ import {
 import { ExperimentInterface, Variation } from "back-end/types/experiment";
 import { ApiVisualChangeset } from "back-end/types/openapi";
 import { ReqContext } from "back-end/types/organization";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { onSDKPayloadUpdate } from "back-end/src/services/features";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -376,7 +376,7 @@ const onVisualChangesetCreate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  await onSDKPayloadUpdate(context, payloadKeys);
 };
 
 const onVisualChangesetUpdate = async ({
@@ -404,7 +404,7 @@ const onVisualChangesetUpdate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  await onSDKPayloadUpdate(context, payloadKeys);
 };
 
 const onVisualChangesetDelete = async ({
@@ -427,7 +427,7 @@ const onVisualChangesetDelete = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  await onSDKPayloadUpdate(context, payloadKeys);
 };
 
 // when an experiment adds/removes variations, we need to update the analogous

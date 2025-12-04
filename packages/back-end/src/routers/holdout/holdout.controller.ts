@@ -41,7 +41,7 @@ import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { onSDKPayloadUpdate } from "back-end/src/services/features";
 import { HoldoutInterface } from "./holdout.validators";
 
 /**
@@ -431,7 +431,7 @@ export const editStatus = async (
       },
     });
 
-    await refreshSDKPayloadCache(
+    await onSDKPayloadUpdate(
       context,
       getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
     );
@@ -477,7 +477,7 @@ export const editStatus = async (
       changes: { phases, status: "running" },
     });
 
-    await refreshSDKPayloadCache(
+    await onSDKPayloadUpdate(
       context,
       getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
     );
@@ -493,7 +493,7 @@ export const editStatus = async (
       analysisStartDate: undefined,
     });
 
-    await refreshSDKPayloadCache(
+    await onSDKPayloadUpdate(
       context,
       getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
     );
@@ -567,7 +567,7 @@ export const deleteHoldout = async (
 
   await context.models.holdout.delete(holdout);
 
-  await refreshSDKPayloadCache(
+  await onSDKPayloadUpdate(
     context,
     getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
   );

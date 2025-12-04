@@ -14,12 +14,6 @@ jest.mock("back-end/src/models/SavedGroupModel", () => ({
   getSavedGroupsById: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkPayloadModel", () => ({
-  getSDKPayload: jest.fn(),
-  updateSDKPayload: jest.fn(),
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
-}));
-
 // Now import the features service after mocking its dependencies
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
@@ -34,11 +28,10 @@ import {
   getAllSavedGroups,
   getSavedGroupsById,
 } from "back-end/src/models/SavedGroupModel";
-import {
-  getSDKPayload,
-  updateSDKPayload,
-} from "back-end/src/models/SdkPayloadModel";
 import { ReqContext } from "../../types/organization";
+
+const getSDKPayload = jest.fn();
+const updateSDKPayload = jest.fn();
 
 // Mock shared/util functions
 jest.mock("shared/util", () => ({

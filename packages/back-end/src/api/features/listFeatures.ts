@@ -48,6 +48,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
         includeExperimentNames: sdkConnection.includeExperimentNames,
         includeRedirectExperiments: sdkConnection.includeRedirectExperiments,
         savedGroupReferencesEnabled: sdkConnection.savedGroupReferencesEnabled,
+        dateUpdated: sdkConnection.payloadUpdated,
       });
 
       filteredFeatures = features.filter(

@@ -3,7 +3,7 @@ import {
   SafeRolloutInterface,
   safeRolloutValidator,
 } from "back-end/src/validators/safe-rollout";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { onSDKPayloadUpdate } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { MakeModelClass, UpdateProps } from "./BaseModel";
@@ -62,6 +62,17 @@ export class SafeRolloutModel extends BaseClass {
   public async getAllByFeatureIds(featureIds: string[]) {
     return await this._find({ featureId: { $in: featureIds } });
   }
+
+  public async getPayloadMapByFeatureId(featureId: string) {
+    const safeRollouts = await this.getAllByFeatureId(featureId);
+    return new Map(safeRollouts.map((r) => [r.id, r]));
+  }
+
+  public async getPayloadMapByFeatureIds(featureIds: string[]) {
+    const safeRollouts = await this.getAllByFeatureIds(featureIds);
+    return new Map(safeRollouts.map((r) => [r.id, r]));
+  }
+
   public async getAllPayloadSafeRollouts() {
     const safeRollouts = await this._find({});
     if (!safeRollouts || safeRollouts.length === 0) {
@@ -81,7 +92,7 @@ export class SafeRolloutModel extends BaseClass {
       const feature = await getFeature(this.context, existing.featureId);
       if (!feature) return;
 
-      await refreshSDKPayloadCache(
+      await onSDKPayloadUpdate(
         this.context,
         getAffectedSDKPayloadKeys(
           [feature],

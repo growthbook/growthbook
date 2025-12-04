@@ -100,6 +100,7 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     includeRedirectExperiments: connection.includeRedirectExperiments,
     includeRuleIds: connection.includeRuleIds,
     hashSecureAttributes: connection.hashSecureAttributes,
+    dateUpdated: connection.payloadUpdated,
   });
 
   const payload = JSON.stringify(defs);

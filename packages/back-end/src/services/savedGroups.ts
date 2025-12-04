@@ -8,7 +8,7 @@ import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ApiReqContext } from "back-end/types/api";
-import { refreshSDKPayloadCache } from "./features";
+import { onSDKPayloadUpdate } from "./features";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -70,10 +70,5 @@ export async function savedGroupUpdated(
     ),
   );
 
-  await refreshSDKPayloadCache(
-    context,
-    Array.from(payloadKeys.values()),
-    allFeatures,
-    experiments,
-  );
+  await onSDKPayloadUpdate(context, Array.from(payloadKeys.values()));
 }

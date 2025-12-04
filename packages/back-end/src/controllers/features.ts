@@ -162,6 +162,7 @@ export async function getPayloadParamsFromApiKey(
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
+  dateUpdated?: Date | null;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -194,6 +195,7 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      dateUpdated: connection.payloadUpdated,
     };
   }
   // Old, legacy API Key
@@ -407,6 +409,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeRuleIds,
       hashSecureAttributes,
       remoteEvalEnabled,
+      dateUpdated,
     } = await getPayloadParamsFromApiKey(key, req);
 
     const context = await getContextForAgendaJobByOrgId(organization);
@@ -449,6 +452,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeRedirectExperiments,
       includeRuleIds,
       hashSecureAttributes,
+      dateUpdated,
     });
 
     // This endpoint should never be cached

@@ -16,7 +16,7 @@ import {
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
-  refreshSDKPayloadCache,
+  onSDKPayloadUpdate,
 } from "back-end/src/services/features";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
@@ -443,7 +443,9 @@ export const createFeatureEvent = async <
     });
 
     const safeRolloutMap =
-      await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
+      await eventData.context.models.safeRollout.getPayloadMapByFeatureId(
+        eventData.data.object.id,
+      );
 
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
@@ -584,7 +586,7 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  await onSDKPayloadUpdate(
     context,
     getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
   );
@@ -602,7 +604,7 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  await onSDKPayloadUpdate(
     context,
     getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
   );
@@ -622,18 +624,13 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-  await refreshSDKPayloadCache(
+  await onSDKPayloadUpdate(
     context,
     getSDKPayloadKeysByDiff(
       feature,
       updatedFeature,
       getEnvironmentIdsFromOrg(context.org),
     ),
-    null,
-    undefined,
-    safeRolloutMap,
     skipRefreshForProject,
   );
 

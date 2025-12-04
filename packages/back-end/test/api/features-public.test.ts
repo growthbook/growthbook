@@ -3,9 +3,10 @@ import * as util from "shared/util";
 import * as featuresController from "back-end/src/controllers/features";
 const { getFeaturesPublic } = featuresController;
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { getSDKPayload } from "back-end/src/models/SdkPayloadModel";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureDefinitions } from "back-end/src/services/features";
+
+const getSDKPayload = jest.fn();
 
 // Mock Python stats server to avoid Python process spawning
 jest.mock("back-end/src/services/python", () => ({
@@ -70,12 +71,6 @@ jest.mock("back-end/src/services/features", () => ({
 
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgId: jest.fn(),
-}));
-
-jest.mock("back-end/src/models/SdkPayloadModel", () => ({
-  getSDKPayload: jest.fn(),
-  updateSDKPayload: jest.fn(),
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
 }));
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({

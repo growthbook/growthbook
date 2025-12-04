@@ -27,6 +27,7 @@ import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -41,6 +42,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   name: String,
   dateCreated: Date,
   dateUpdated: Date,
+  payloadUpdated: Date,
   languages: [String],
   sdkVersion: String,
   environment: String,
@@ -233,6 +235,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       version: "",
       error: "",
     }),
+    payloadUpdated: new Date(),
   };
 
   if (connection.proxy.enabled) {
@@ -535,6 +538,40 @@ export async function testProxyConnection(
       url,
     };
   }
+}
+
+export async function markSDKConnectionPayloadUpdated(
+  payloadKeys: SDKPayloadKey[],
+) {
+  if (!payloadKeys.length) return;
+
+  const allEnvs = Array.from(
+    new Set(payloadKeys.map(({ environment }) => environment)),
+  );
+
+  const projectScopedKeys = payloadKeys.filter(({ project }) => !!project);
+
+  await SDKConnectionModel.updateMany(
+    {
+      $or: [
+        // Global SDK connections (not project scoped)
+        {
+          projects: [],
+          environment: { $in: allEnvs },
+        },
+        // Project scoped SDK connections
+        ...projectScopedKeys.map(({ project, environment }) => ({
+          projects: project,
+          environment,
+        })),
+      ],
+    },
+    {
+      $set: {
+        payloadUpdated: new Date(),
+      },
+    },
+  );
 }
 
 export function toApiSDKConnectionInterface(

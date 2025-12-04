@@ -387,6 +387,7 @@ export async function fireSdkWebhook(
           includeRedirectExperiments: connection.includeRedirectExperiments,
           includeRuleIds: connection.includeRuleIds,
           hashSecureAttributes: connection.hashSecureAttributes,
+          dateUpdated: connection.payloadUpdated,
         });
 
         return [[connection.key, defs], ...payloads];
@@ -482,6 +483,7 @@ export async function fireGlobalSdkWebhooks(
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
+      dateUpdated: connection.payloadUpdated,
     });
 
     WEBHOOKS.forEach((webhook) => {

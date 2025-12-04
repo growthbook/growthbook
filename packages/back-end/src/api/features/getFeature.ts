@@ -30,7 +30,7 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
     feature.id,
   );
   const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    await req.context.models.safeRollout.getPayloadMapByFeatureId(feature.id);
   const revision = await getRevision({
     context: req.context,
     organization: feature.organization,
