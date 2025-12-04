@@ -60,16 +60,13 @@ jobs:
         run: |
           pip install pipx
           pipx install poetry
+          poetry config virtualenvs.in-project true
 
-      - name: Get Poetry Cache Path
-        id: poetry-cache-path
-        run: echo "VENV_PATH=$(cd packages/stats && poetry env info -p)" >> $GITHUB_OUTPUT
-
-      - name: Restore Poetry venv cache
+      - name: Cache poetry dependencies
         uses: actions/cache@v4
         id: poetry-cache
         with:
-          path: ${{ steps.poetry-cache-path.outputs.VENV_PATH }}
+          path: packages/stats/.venv
           # Key is based on the OS and the hash of the lock file
           key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
           restore-keys: |
