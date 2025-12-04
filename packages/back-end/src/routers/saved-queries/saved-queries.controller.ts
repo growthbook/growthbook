@@ -613,7 +613,6 @@ export async function postGenerateSQL(
     return res.status(400).json({
       status: 400,
       message: "AI did not return a valid SQL query",
-      error: e.message,
     });
   }
 }
