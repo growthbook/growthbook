@@ -84,7 +84,7 @@ const processRulesForDiff = (rules: FeatureRule[]): FeatureRule[] => {
   });
 };
 
-type FeatureRevisionDiffInput = Pick<
+export type FeatureRevisionDiffInput = Pick<
   FeatureRevisionInterface,
   "defaultValue" | "rules"
 >;
@@ -118,14 +118,12 @@ export function useFeatureRevisionDiff({
       });
     }
 
-    // Get all unique environment IDs from both current and draft
-    const allEnvironments = new Set([
-      ...Object.keys(current.rules || {}),
-      ...Object.keys(draft.rules || {}),
-    ]);
+    // Only iterate over environments present in draft
+    // (environments not in draft weren't modified and shouldn't show a diff)
+    const draftEnvironments = Object.keys(draft.rules || {});
 
     // Compare rules per environment
-    allEnvironments.forEach((envId) => {
+    draftEnvironments.forEach((envId) => {
       const currentRules = current.rules?.[envId] || [];
       const draftRules = draft.rules?.[envId] || [];
 
