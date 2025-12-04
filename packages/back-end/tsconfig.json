@@ -5,6 +5,7 @@
     "allowSyntheticDefaultImports": true,
     "target": "es2020",
     "noImplicitAny": true,
+    "skipLibCheck": true,
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
@@ -19,6 +20,7 @@
     "resolveJsonModule": true,
     "plugins": [{ "transform": "typescript-transform-paths" }],
     "inlineSources": true,
+    "incremental": true,
     // Set `sourceRoot` to  "/" to strip the build path prefix
     // from generated source code references.
     // This improves issue grouping in Sentry.

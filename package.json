@@ -36,7 +36,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "@typescript/native-preview": "^7.0.0-dev.20251110.1",
+    "@typescript/native-preview": "^7.0.0-dev.20251204.1",
     "dd-trace": "^5.46.0",
     "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"

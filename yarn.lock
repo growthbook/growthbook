@@ -10500,53 +10500,53 @@
     "@typescript-eslint/types" "6.19.1"
     eslint-visitor-keys "^3.4.1"
 
-"@typescript/native-preview-darwin-arm64@7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview-darwin-arm64/-/native-preview-darwin-arm64-7.0.0-dev.20251110.1.tgz#581b5f0870699402ab857d17b9312060e8585e82"
-  integrity sha512-x3DskzZCgk5qA7BCcCC/8XuZiycvZk5reeqkNTuDYeWyF1ZCKa8WWZRbW5LaunaOtXV6UsAPRCqRC8Wx34mMCg==
+"@typescript/native-preview-darwin-arm64@7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview-darwin-arm64/-/native-preview-darwin-arm64-7.0.0-dev.20251204.1.tgz#d60ff34d0bc0ab5fb3cc106ecdf3566bfaa9886c"
+  integrity sha512-CgIzuO/LFRufdVjJmll6x7jnejYqqLo4kJwrsUxQipJ/dcGeP0q2XMcxNBzT7F9L4Sd5dphRPOZFXES4kS0lig==
 
-"@typescript/native-preview-darwin-x64@7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview-darwin-x64/-/native-preview-darwin-x64-7.0.0-dev.20251110.1.tgz#68e0cc226e6c347d21734c32338ba512011d80d2"
-  integrity sha512-tuS4akGtsPs+RTiVXEXOT41+as23DXCOhzeOEtYYVdhWVuMBYLHksdTx5PGoQrCc4SfETp5jDwhyqUaVYLDGcA==
+"@typescript/native-preview-darwin-x64@7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview-darwin-x64/-/native-preview-darwin-x64-7.0.0-dev.20251204.1.tgz#c7659cfdb1814493bd9e3c334206f8269826141d"
+  integrity sha512-X76oQeDMQHJiukkPPbk7STrfu97pfPe5ixwiN6nXzSGXLE+tzrXRecNkYhz4XWeAW2ASNmGwDJJ2RAU5l8MbgQ==
 
-"@typescript/native-preview-linux-arm64@7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview-linux-arm64/-/native-preview-linux-arm64-7.0.0-dev.20251110.1.tgz#8b8d399cfd0cca950e0e3c9285a0b7b243227c8e"
-  integrity sha512-IvSeQ1iw4uvBZ8+XrO9z80J9KfbkbTzfXliPHUsjZqEtpOJTf/Mv7xzMbv4mN4xOEGVUyBG47p846oW2HknogA==
+"@typescript/native-preview-linux-arm64@7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview-linux-arm64/-/native-preview-linux-arm64-7.0.0-dev.20251204.1.tgz#34ddfde527193912959227b0dc574218bcc07774"
+  integrity sha512-+1as+h6ZNpc9TqlHwvDkBP7jg0FoCMUf6Rrc9/Mkllau6etznfVsWMADWT4t76gkGZKUIXOZqsl2Ya3uaBrCBQ==
 
-"@typescript/native-preview-linux-arm@7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview-linux-arm/-/native-preview-linux-arm-7.0.0-dev.20251110.1.tgz#0e44025e62fbc86ed42368bb139552110b12bfab"
-  integrity sha512-I9zOzHXFqIQIcTcf2Sx9EF6gLOKXUCMo5gsjoQm4/R22+19+TMLeAs7Q1aTvd8CX8kFCtpI1eeyNzIf76rxELA==
+"@typescript/native-preview-linux-arm@7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview-linux-arm/-/native-preview-linux-arm-7.0.0-dev.20251204.1.tgz#4566e27eae862da2b2b6c8b07ae371523a5768d6"
+  integrity sha512-3zl/Jj5rzkK9Oo5KVSIW+6bzRligoI+ZnA1xLpg0BBH2sk27a8Vasj7ZaGPlFvlSegvcaJdIjSt7Z8nBtiF9Ww==
 
-"@typescript/native-preview-linux-x64@7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview-linux-x64/-/native-preview-linux-x64-7.0.0-dev.20251110.1.tgz#b0e30e383ead2269f54fb095ae3aa7612886a4d4"
-  integrity sha512-OWy32tgpP70rSRvmQZ6OgJpuv1pi4mQdng00eF3tfHheHluX3mvqqe86H0FOv5B9PuxlGwOZSUot1XHWadhAWg==
+"@typescript/native-preview-linux-x64@7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview-linux-x64/-/native-preview-linux-x64-7.0.0-dev.20251204.1.tgz#94d55b4fde17faa1f884dc6ed1256ecc3ba4f373"
+  integrity sha512-YD//l6yv7iPNlKn9OZDzBxrI+QGLN6d4RV3dSucsyq/YNZUulcywGztbZiaQxdUzKPwj70G+LVb9WCgf5ITOIQ==
 
-"@typescript/native-preview-win32-arm64@7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview-win32-arm64/-/native-preview-win32-arm64-7.0.0-dev.20251110.1.tgz#a4f741be9ce6fa34a2c16f052b28ea7472e7d05f"
-  integrity sha512-u/Bo0gIcQCv/4MDnV5f2FZR1dEdN2jk3MfkmJLKGG1zwbak4MY7sWNzvSRJHihwK2SxtcJEHus4tKb2ra2Rhig==
+"@typescript/native-preview-win32-arm64@7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview-win32-arm64/-/native-preview-win32-arm64-7.0.0-dev.20251204.1.tgz#ad289f500fa73d06cea06ad62b2c0cae9013f493"
+  integrity sha512-eDXYR5qfPFA8EfQ0d9SbWGLn02VbAaeTM9jQ5VeLlPLcBP81nGRaGQ9Quta5zeEHev1S9iCdyRj5BqCRtl0ohw==
 
-"@typescript/native-preview-win32-x64@7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview-win32-x64/-/native-preview-win32-x64-7.0.0-dev.20251110.1.tgz#5d2a07b4eb5496774b72f566a681cba3e8d4c217"
-  integrity sha512-1CysgwFRuNjR0bBYv6RI3fbXtAwzD5OlbxqOQFhf2lUulMZRIkP1w4eCChSndLVCTfnUEt5Bnmn1JEUauIE+kQ==
+"@typescript/native-preview-win32-x64@7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview-win32-x64/-/native-preview-win32-x64-7.0.0-dev.20251204.1.tgz#b3851a6f60da7c583f42873dcc0b06465df06856"
+  integrity sha512-CRWI2OPdqXbzOU52R2abWMb3Ie2Wp6VPrCFzR3pzP53JabTAe8+XoBWlont9bw/NsqbPKp2aQbdfbLQX5RI44g==
 
-"@typescript/native-preview@^7.0.0-dev.20251110.1":
-  version "7.0.0-dev.20251110.1"
-  resolved "https://registry.yarnpkg.com/@typescript/native-preview/-/native-preview-7.0.0-dev.20251110.1.tgz#333b89f36d0869e0f8f55a0be90fead88f4243e1"
-  integrity sha512-yzCDN6wUV1kibefOTwxw1MdeIgaJOgN5/a06cMyUlEDcXBriV4O2v+yeXY8c3yzUaVVVO8CKtHPbCMwro4j1Dw==
+"@typescript/native-preview@^7.0.0-dev.20251204.1":
+  version "7.0.0-dev.20251204.1"
+  resolved "https://registry.yarnpkg.com/@typescript/native-preview/-/native-preview-7.0.0-dev.20251204.1.tgz#efb84aab023e0125f2ddca715e8ff5a28f824769"
+  integrity sha512-nyMp0ybgJVZFtDOWmcKDqaRqtj8dOg65+fDxbjIrnZuMWIqlOUGH+imFwofqlW+KndAA7KtAio2YSZMMZB25WA==
   optionalDependencies:
-    "@typescript/native-preview-darwin-arm64" "7.0.0-dev.20251110.1"
-    "@typescript/native-preview-darwin-x64" "7.0.0-dev.20251110.1"
-    "@typescript/native-preview-linux-arm" "7.0.0-dev.20251110.1"
-    "@typescript/native-preview-linux-arm64" "7.0.0-dev.20251110.1"
-    "@typescript/native-preview-linux-x64" "7.0.0-dev.20251110.1"
-    "@typescript/native-preview-win32-arm64" "7.0.0-dev.20251110.1"
-    "@typescript/native-preview-win32-x64" "7.0.0-dev.20251110.1"
+    "@typescript/native-preview-darwin-arm64" "7.0.0-dev.20251204.1"
+    "@typescript/native-preview-darwin-x64" "7.0.0-dev.20251204.1"
+    "@typescript/native-preview-linux-arm" "7.0.0-dev.20251204.1"
+    "@typescript/native-preview-linux-arm64" "7.0.0-dev.20251204.1"
+    "@typescript/native-preview-linux-x64" "7.0.0-dev.20251204.1"
+    "@typescript/native-preview-win32-arm64" "7.0.0-dev.20251204.1"
+    "@typescript/native-preview-win32-x64" "7.0.0-dev.20251204.1"
 
 "@typespec/ts-http-runtime@^0.3.0":
   version "0.3.1"
@@ -22880,7 +22880,7 @@ string-length@^4.0.1:
     char-regex "^1.0.2"
     strip-ansi "^6.0.0"
 
-"string-width-cjs@npm:string-width@^4.2.0", string-width@^4.0.0, string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.3:
+"string-width-cjs@npm:string-width@^4.2.0":
   version "4.2.3"
   resolved "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz"
   integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
@@ -22897,6 +22897,15 @@ string-width@^3.0.0, string-width@^3.1.0:
     emoji-regex "^7.0.1"
     is-fullwidth-code-point "^2.0.0"
     strip-ansi "^5.1.0"
+
+string-width@^4.0.0, string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.3:
+  version "4.2.3"
+  resolved "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz"
+  integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
+  dependencies:
+    emoji-regex "^8.0.0"
+    is-fullwidth-code-point "^3.0.0"
+    strip-ansi "^6.0.1"
 
 string-width@^5.0.1, string-width@^5.1.2:
   version "5.1.2"
@@ -23018,7 +23027,7 @@ stringify-object@^3.3.0:
     is-obj "^1.0.1"
     is-regexp "^1.0.0"
 
-"strip-ansi-cjs@npm:strip-ansi@^6.0.1", strip-ansi@^6.0.0, strip-ansi@^6.0.1:
+"strip-ansi-cjs@npm:strip-ansi@^6.0.1":
   version "6.0.1"
   resolved "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz"
   integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==
@@ -23031,6 +23040,13 @@ strip-ansi@^5.0.0, strip-ansi@^5.1.0, strip-ansi@^5.2.0:
   integrity sha512-DuRs1gKbBqsMKIZlrffwlug8MHkcnpjs5VPmL1PAh+mA30U0DTotfDZ0d2UUsXpPmPmMMJ6W773MaA3J+lbiWA==
   dependencies:
     ansi-regex "^4.1.0"
+
+strip-ansi@^6.0.0, strip-ansi@^6.0.1:
+  version "6.0.1"
+  resolved "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz"
+  integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==
+  dependencies:
+    ansi-regex "^5.0.1"
 
 strip-ansi@^7.0.1:
   version "7.0.1"
@@ -24829,7 +24845,7 @@ wordwrapjs@^5.1.0:
   resolved "https://registry.npmjs.org/wordwrapjs/-/wordwrapjs-5.1.0.tgz"
   integrity sha512-JNjcULU2e4KJwUNv6CHgI46UvDGitb6dGryHajXTDiLgg1/RiGoPSDw4kZfYnwGtEXf2ZMeIewDQgFGzkCB2Sg==
 
-"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0", wrap-ansi@^7.0.0:
+"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0":
   version "7.0.0"
   resolved "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz"
   integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
@@ -24851,6 +24867,15 @@ wrap-ansi@^6.2.0:
   version "6.2.0"
   resolved "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-6.2.0.tgz"
   integrity sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA==
+  dependencies:
+    ansi-styles "^4.0.0"
+    string-width "^4.1.0"
+    strip-ansi "^6.0.0"
+
+wrap-ansi@^7.0.0:
+  version "7.0.0"
+  resolved "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz"
+  integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
   dependencies:
     ansi-styles "^4.0.0"
     string-width "^4.1.0"
