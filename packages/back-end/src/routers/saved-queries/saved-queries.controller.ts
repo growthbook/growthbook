@@ -2,6 +2,7 @@ import { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   DataVizConfig,
@@ -465,6 +466,7 @@ export async function postGenerateSQL(
         );
       }
     } catch (e) {
+      logger.error(e, "Error generating SQL from AI, first part");
       return res.status(400).json({
         status: 400,
         message: "AI did not return a valid SQL query",
@@ -607,9 +609,11 @@ export async function postGenerateSQL(
       });
     }
   } catch (e) {
+    logger.error(e, "Error generating SQL from AI, second part");
     return res.status(400).json({
       status: 400,
       message: "AI did not return a valid SQL query",
+      error: e.message,
     });
   }
 }
