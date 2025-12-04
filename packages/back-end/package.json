@@ -8,7 +8,7 @@
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "build:clean": "rimraf -rf dist",
-    "build:typescript": "tsgo",
+    "build:typescript": "tsc",
     "clean": "rimraf node_modules",
     "dev": "yarn build:clean && concurrently \"yarn watch-compile\" \"yarn watch-dev | yarn pino-pretty\"",
     "build": "yarn build:clean && yarn build:typescript && yarn build:emails",

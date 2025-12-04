@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build:clean": "rimraf dist",
-    "build:typescript": "tsgo",
+    "build:typescript": "tsc",
     "dev": "swc src -w --out-dir dist",
     "build": "yarn build:clean && yarn build:typescript",
     "test": "jest",
