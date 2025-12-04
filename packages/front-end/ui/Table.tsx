@@ -1,10 +1,42 @@
 import { Table as RadixTable } from "@radix-ui/themes";
+import clsx from "clsx";
+import styles from "./Table.module.scss";
+
+interface TableProps extends React.ComponentProps<typeof RadixTable.Root> {
+  variant?: "standard" | "compact" | "bordered" | "query";
+  hover?: boolean;
+  stickyHeader?: boolean;
+  size?: "sm" | "md";
+  className?: string;
+}
 
 export default function Table({
   children,
+  variant = "standard",
+  hover = false,
+  stickyHeader = false,
+  size = "md",
+  className,
   ...props
-}: React.ComponentProps<typeof RadixTable.Root>) {
-  return <RadixTable.Root {...props}>{children}</RadixTable.Root>;
+}: TableProps) {
+  return (
+    <RadixTable.Root
+      className={clsx(
+        styles.table,
+        variant === "standard" && styles.standard,
+        variant === "compact" && styles.compact,
+        variant === "bordered" && styles.bordered,
+        variant === "query" && styles.query,
+        hover && styles.hover,
+        stickyHeader && styles.stickyHeader,
+        size === "sm" && styles.small,
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </RadixTable.Root>
+  );
 }
 
 export function TableHeader({

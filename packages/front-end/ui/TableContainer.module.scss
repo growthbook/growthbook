@@ -1,0 +1,17 @@
+// Base container for tables
+.container {
+  overflow-x: auto;
+}
+
+// Appbox variant - matches .appbox from global.scss
+.appbox {
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--slate-a3);
+  margin-bottom: 1em;
+  border-radius: 5px;
+
+  // Nested appbox has darker border (from global.scss)
+  .appbox & {
+    border-color: var(--slate-a4);
+  }
+}

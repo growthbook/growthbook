@@ -907,12 +907,6 @@ main.main {
 .bg-highlight {
   background-color: var(--background-highlight);
 }
-.hover-highlight {
-  transition: background-color 0.1s;
-  &:hover {
-    background-color: rgba(124, 69, 234, 0.06);
-  }
-}
 .highlight {
   background-color: var(--table-row-highlight-background-color);
 }
@@ -1012,75 +1006,172 @@ main.main {
 .modal-dialog.modal-fill {
   margin: 0 auto;
 }
+
 .gbtable {
-  background-color: var(--color-panel-solid); //var(--surface-background-color);
-  margin-bottom: 0;
-  thead {
-    th {
-      font-size: 11px;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: var(--text-color-th);
-      white-space: nowrap;
-      border-bottom-width: 1px;
-      border-bottom-color: var(--border-color-200);
-      border-top: 0;
-      background-color: rgba(colors.$gray4, 0.05);
-      .activesort,
-      .inactivesort {
-        font-size: 13px;
-      }
+  color: var(--color-text-high);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-5);
+  border-spacing: 0;
+  border-collapse: separate;
+
+  // Needed because we can't use overflow hidden on gbtable with sticky header
+  tr:last-child {
+    td:first-child {
+      border-bottom-left-radius: var(--radius-5);
     }
-    &.sticky-top th {
-      background-color: #fdfefe;
+    td:last-child {
+      border-bottom-right-radius: var(--radius-5);
     }
   }
+
+  thead tr:last-child {
+    th:first-child {
+      border-top-left-radius: var(--radius-5);
+    }
+    th:last-child {
+      border-top-right-radius: var(--radius-5);
+    }
+  }
+
   td {
     vertical-align: middle;
   }
 
-  .dark-theme &.decision-criteria-table {
-    tbody {
-      tr {
-        background-color: #1b2339;
-        td {
-          color: var(--text-color-main);
-        }
-      }
-    }
-    .hover-highlight:hover {
-      background-color: rgba(124, 69, 234, 0.06);
-    }
-  }
-}
-.dark-theme .gbtable {
+  // For sticky header
   thead {
-    th {
-      background-color: #262d42;
-    }
+    background-color: var(--color-panel-solid);
   }
-  td {
-    vertical-align: middle;
+
+  th,
+  thead th {
+    border: none;
+    // For the features table where it was wrapping
+    // TODO: how to figure out a better horizontal scroll?
+    white-space: nowrap;
   }
+
+  td,
+  tbody td,
+  th,
+  thead th {
+    border-color: var(--gray-a5);
+    border-width: 1px;
+  }
+
+  tbody tr:hover {
+    background-color: var(--violet-a2);
+  }
+
+  // color: var(--color-text-high);
+  // margin: 0;
+
+  // thead {
+  //   tr {
+  //     &:first-child {
+  //       th:first-child {
+  //         // To account for the 1px border
+  //         border-top-left-radius: calc(var(--radius-5) - 1px);
+  //       }
+  //       th:last-child {
+  //         // To account for the 1px border
+  //         border-top-right-radius: calc(var(--radius-5) - 1px);
+  //       }
+  //     }
+  //   }
+  // }
+  // tbody {
+  //   td {
+  //     &:last-child {
+  //       td:first-child {
+  //         // To account for the 1px border
+  //         border-bottom-left-radius: calc(var(--radius-5) - 1px);
+  //       }
+  //       td:last-child {
+  //         // To account for the 1px border
+  //         border-bottom-right-radius: calc(var(--radius-5) - 1px);
+  //       }
+  //     }
+  //     &:hover td {
+  //       background-color: var(--accent-a2);
+  //     }
+  //   }
+  // }
+
+  // thead {
+  //   th {
+  //     border-bottom-width: 1px;
+  //     font-weight: 600;
+
+  //     .sort-arrow {
+  //       color: var(--color-text-high);
+  //     }
+
+  //     // font-size: 11px;
+  //     // text-transform: uppercase;
+  //     // font-weight: 600;
+  //     // color: var(--text-color-th);
+  //     // white-space: nowrap;
+  //     // border-bottom-width: 1px;
+  //     // border-bottom-color: var(--border-color-200);
+  //     // border-top: 0;
+  //     // background-color: rgba(colors.$gray4, 0.05);
+  //     // .activesort,
+  //     // .inactivesort {
+  //     //   font-size: 13px;
+  //     // }
+  //   }
+  //   &.sticky-top {
+  //     th {
+  //       background-color: var(--color-panel-solid);
+  //       // border-bottom: 1px solid var(--gray-a5);
+  //     }
+  //     tr:first-child > td {
+  //       // border-top: none;
+  //     }
+  //   }
+  // }
+
+  // .dark &.decision-criteria-table {
+  //   tbody {
+  //     tr {
+  //       background-color: #1b2339;
+  //       td {
+  //         color: var(--text-color-main);
+  //       }
+  //     }
+  //   }
+  // }
 }
 
-.query-table {
-  thead {
-    th {
-      background-color: var(--slate-2);
-    }
-  }
-}
+// .dark .gbtable {
+//   thead {
+//     th {
+//       background-color: #262d42;
+//     }
+//   }
+//   td {
+//     vertical-align: middle;
+//   }
+// }
 
-.dark-theme .query-table {
-  thead {
-    th {
-      // hard coded to match slate-a2 on the background color
-      // opaque to prevent table header from showing through
-      background-color: rgba(36, 43, 61, 1);
-    }
-  }
-}
+// .query-table {
+//   thead {
+//     th {
+//       background-color: var(--slate-2);
+//     }
+//   }
+// }
+
+// .dark .query-table {
+//   thead {
+//     th {
+//       // hard coded to match slate-a2 on the background color
+//       // opaque to prevent table header from showing through
+//       background-color: rgba(36, 43, 61, 1);
+//     }
+//   }
+// }
 
 @media only screen and (max-width: 760px),
   (min-device-width: 768px) and (max-device-width: 1024px) {
@@ -3645,21 +3736,6 @@ input:disabled {
   padding: 10px 0;
 }
 
-.needs-attentions-table {
-  thead th {
-    font-weight: 600;
-  }
-  tbody td {
-    font-weight: 400;
-  }
-}
-.rounded-table {
-  border-radius: 0.33rem;
-  overflow: hidden;
-  border-spacing: 0;
-  border-collapse: separate;
-  border: 1px solid var(--slate-a6);
-}
 .border-violet {
   border-color: var(--violet-a7);
 }

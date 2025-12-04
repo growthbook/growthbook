@@ -1,0 +1,63 @@
+// Responsive table wrapper - matches .responsive-table from global.scss
+.responsiveTable {
+  // Desktop view - normal table display
+
+  // Mobile/tablet view - stack table for readability
+  @media only screen and (max-width: 760px),
+    (min-device-width: 768px) and (max-device-width: 1024px) {
+
+    // Force table elements to display as blocks
+    :global(.rt-TableRoot),
+    :global(.rt-TableHeader),
+    :global(.rt-TableBody),
+    :global(.rt-TableRow),
+    :global(.rt-TableColumnHeaderCell),
+    :global(.rt-TableCell) {
+      display: block;
+    }
+
+    // Hide table headers on mobile (we'll use data-mobile-label instead)
+    :global(.rt-TableHeader) :global(.rt-TableRow) {
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+    }
+
+    // Style each row as a card
+    :global(.rt-TableRow) {
+      border: 1px solid var(--border-color-300);
+      margin-bottom: 1em;
+      background-color: var(--surface-background-color);
+    }
+
+    // Style cells with label before content
+    :global(.rt-TableCell) {
+      border: none;
+      position: relative;
+      min-height: 42px;
+      padding-left: 50%;
+
+      &:not(:last-child) {
+        border-bottom: 1px solid var(--border-color-300);
+      }
+
+      // Show mobile label from data-mobile-label attribute
+      &::before {
+        content: attr(data-mobile-label);
+        position: absolute;
+        left: 0;
+        width: 45%;
+        padding-left: 10px;
+        color: var(--text-color-muted);
+        white-space: nowrap;
+        font-weight: 600;
+      }
+    }
+
+    // Remove nowrap on mobile
+    :global(.rt-TableColumnHeaderCell),
+    :global(.rt-TableCell) {
+      white-space: normal;
+    }
+  }
+}

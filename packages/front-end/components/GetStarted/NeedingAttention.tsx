@@ -384,7 +384,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
-          <table className="table gbtable needs-attentions-table mt-3 rounded-table">
+          <table className="table gbtable mt-3">
             <thead>
               <tr>
                 <SortableTHExperiments field="name">Name</SortableTHExperiments>
@@ -399,7 +399,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             </thead>
             <tbody>
               {paginatedExperiments.map((item: ComputedExperimentInterface) => (
-                <tr key={item.id} className="hover-highlight">
+                <tr key={item.id}>
                   <td className={styles.nameTd}>
                     <Link
                       href={`/experiment/${item.id}`}
@@ -507,9 +507,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
-          <table
-            className={`table gbtable mt-3 needs-attentions-table rounded-table`}
-          >
+          <table className="table gbtable mt-3">
             <thead>
               <tr>
                 <SortableTHFeatureFlags field="featureId">
@@ -528,7 +526,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             </thead>
             <tbody>
               {paginatedFeatureFlags.map((item) => (
-                <tr key={item.featureId} className="hover-highlight">
+                <tr key={item.featureId}>
                   <td className={styles.nameTd}>
                     <Link
                       href={`/features/${item.featureId}`}

@@ -136,7 +136,7 @@ export default function FeaturesPage() {
             </Flex>
           </Box>
 
-          <table className="table gbtable appbox">
+          <table className="table gbtable mb-3">
             <thead
               className="sticky-top shadow-sm"
               style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}

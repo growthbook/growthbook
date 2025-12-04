@@ -1,0 +1,102 @@
+// Base table styles matching .gbtable from global.scss
+.table {
+  :global(.rt-TableRoot) {
+    color: var(--color-text-high);
+    background-color: var(--color-panel-solid);
+    border: 1px solid var(--gray-a5);
+    border-radius: var(--radius-5);
+    border-spacing: 0;
+    border-collapse: separate;
+  }
+
+  // Rounded corners on first/last cells to match .gbtable behavior
+  :global(.rt-TableBody) :global(.rt-TableRow):last-child {
+    :global(.rt-TableCell):first-child {
+      border-bottom-left-radius: var(--radius-5);
+    }
+    :global(.rt-TableCell):last-child {
+      border-bottom-right-radius: var(--radius-5);
+    }
+  }
+
+  :global(.rt-TableHeader) :global(.rt-TableRow):last-child {
+    :global(.rt-TableColumnHeaderCell):first-child {
+      border-top-left-radius: var(--radius-5);
+    }
+    :global(.rt-TableColumnHeaderCell):last-child {
+      border-top-right-radius: var(--radius-5);
+    }
+  }
+
+  // Cell styling
+  :global(.rt-TableCell) {
+    vertical-align: middle;
+    border-color: var(--gray-a5);
+    border-width: 1px;
+  }
+
+  :global(.rt-TableColumnHeaderCell) {
+    border: none;
+    white-space: nowrap;
+    border-color: var(--gray-a5);
+    border-width: 1px;
+    background-color: var(--color-panel-solid);
+  }
+
+  // Thead background for sticky headers
+  :global(.rt-TableHeader) {
+    background-color: var(--color-panel-solid);
+  }
+}
+
+// Hover variant - matches tbody tr:hover from .gbtable
+.hover {
+  :global(.rt-TableBody) :global(.rt-TableRow):hover {
+    background-color: var(--violet-a2);
+  }
+}
+
+// Sticky header variant
+.stickyHeader {
+  :global(.rt-TableHeader) {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: var(--color-panel-solid);
+  }
+}
+
+// Size variants
+.small {
+  :global(.rt-TableCell),
+  :global(.rt-TableColumnHeaderCell) {
+    padding: 0.3rem;
+    font-size: 0.875rem;
+  }
+}
+
+// Style variants
+.standard {
+  // Standard variant uses base styles
+}
+
+.compact {
+  // Compact variant - could add tighter spacing if needed
+}
+
+.query {
+  :global(.rt-TableRoot) {
+    border: 1px solid var(--gray-a5);
+  }
+
+  :global(.rt-TableColumnHeaderCell) {
+    background-color: var(--slate-2);
+  }
+}
+
+.bordered {
+  :global(.rt-TableCell),
+  :global(.rt-TableColumnHeaderCell) {
+    border: 1px solid var(--gray-a5);
+  }
+}
