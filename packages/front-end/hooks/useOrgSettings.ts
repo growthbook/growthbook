@@ -1,4 +1,4 @@
-import { AGREEMENT_TYPE_AI } from "back-end/src/validators/agreements";
+import { AGREEMENT_TYPE_AI } from "shared/src/validators/agreements";
 import { useUser } from "@/services/UserContext";
 import { isCloud, hasOpenAIKey } from "@/services/env";
 

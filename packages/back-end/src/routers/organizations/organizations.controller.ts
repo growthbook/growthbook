@@ -10,6 +10,7 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
+import { AgreementType } from "shared/src/validators/agreements";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -149,7 +150,6 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
-import { AgreementType } from "back-end/src/validators/agreements";
 import {
   getInstallation,
   setInstallationName,

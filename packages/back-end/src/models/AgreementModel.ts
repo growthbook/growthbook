@@ -1,8 +1,8 @@
-import { MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   AgreementType,
   agreementValidator,
-} from "back-end/src/validators/agreements";
+} from "shared/src/validators/agreements";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: agreementValidator,

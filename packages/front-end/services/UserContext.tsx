@@ -36,7 +36,7 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { useFeature } from "@growthbook/growthbook-react";
-import { AgreementType } from "back-end/src/validators/agreements";
+import { AgreementType } from "shared/src/validators/agreements";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
