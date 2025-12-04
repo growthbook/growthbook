@@ -4,7 +4,7 @@ import {
   CustomHookInterface,
   CustomHookType,
 } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
-import { CreateProps } from "shared/types/baseModel";
+import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "back-end/types/feature";

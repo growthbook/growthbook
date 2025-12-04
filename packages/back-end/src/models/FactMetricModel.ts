@@ -4,7 +4,7 @@ import {
   getAggregateFilters,
   getSelectedColumnDatatype,
 } from "shared/experiments";
-import { UpdateProps } from "shared/types/baseModel";
+import { UpdateProps } from "shared/types/base-model";
 import {
   ColumnRef,
   FactMetricInterface,

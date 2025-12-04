@@ -104,7 +104,7 @@ From this, you can export types to use throughout the front-end and back-end. Th
 // File: back-end/types/foo.d.ts
 import { z } from "zod";
 import type { fooSchema } from "back-end/src/validators/foo";
-import { CreateProps, UpdateProps } from "shared/types/baseModel";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 
 // Full interface
 export type FooInterface = z.infer<fooSchema>;

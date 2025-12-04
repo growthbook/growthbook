@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
-import { UpdateProps } from "shared/types/baseModel";
+import { UpdateProps } from "shared/types/base-model";
 import {
   dashboardInterface,
   DashboardInterface,

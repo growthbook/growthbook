@@ -1,4 +1,4 @@
-import { UpdateProps } from "shared/types/baseModel";
+import { UpdateProps } from "shared/types/base-model";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import {
   SafeRolloutInterface,

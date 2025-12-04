@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { CreateProps, UpdateProps } from "shared/types/baseModel";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { CustomHookInterface } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { getContextFromReq } from "back-end/src/services/organizations";

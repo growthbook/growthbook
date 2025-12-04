@@ -24,7 +24,7 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { CreateProps } from "shared/types/baseModel";
+import { CreateProps } from "shared/types/base-model";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,

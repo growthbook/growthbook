@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CreateProps, UpdateProps } from "shared/types/baseModel";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 
 const dateAggregationEnum = z.enum([
   "none",
