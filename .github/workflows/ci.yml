@@ -33,7 +33,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
-          cache: "pip"
 
       - name: Cache eslint
         uses: actions/cache@v4
@@ -61,8 +60,20 @@ jobs:
         run: |
           pip install pipx
           pipx install poetry
-        env:
-          CI: true
+
+      - name: Get Poetry Cache Path
+        id: poetry-cache-path
+        run: echo "VENV_PATH=$(cd packages/stats && poetry env info -p)" >> $GITHUB_OUTPUT
+
+      - name: Restore Poetry venv cache
+        uses: actions/cache@v4
+        id: poetry-cache
+        with:
+          path: ${{ steps.poetry-cache-path.outputs.VENV_PATH }}
+          # Key is based on the OS and the hash of the lock file
+          key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
 
       - name: Build dependencies
         run: |

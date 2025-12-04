@@ -16,7 +16,7 @@
     "start:with-tracing": "node --require ./dist/tracing.opentelemetry.js dist/server.js",
     "start:with-datadog": "node --require ./dist/tracing.datadog.js dist/server.js",
     "repl": "node --require ts-node/register/transpile-only --experimental-repl-await repl",
-    "test": "DISABLE_PYTHON_MONITOR=true GB_STATS_ENGINE_MIN_POOL_SIZE=0 NODE_OPTIONS='--no-node-snapshot' jest --forceExit --verbose --detectOpenHandles",
+    "test": "DISABLE_PYTHON_MONITOR=true GB_STATS_ENGINE_MIN_POOL_SIZE=0 NODE_OPTIONS='--no-node-snapshot' jest",
     "type-check": "tsgo --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber",
     "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts",
