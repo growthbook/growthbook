@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-} from "back-end/src/routers/custom-fields/custom-fields.validators";
+} from "shared/src/validators/custom-fields";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

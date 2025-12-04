@@ -5,7 +5,7 @@ import {
   customFieldSectionTypes,
   customFieldsPropsValidator,
   customFieldsValidator,
-} from "back-end/src/routers/custom-fields/custom-fields.validators";
+} from "shared/src/validators/custom-fields";
 
 export type CustomFieldTypes = z.infer<typeof customFieldTypes>;
 

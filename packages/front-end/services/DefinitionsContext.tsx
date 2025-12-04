@@ -21,7 +21,7 @@ import {
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/types/groups";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { CustomField } from "back-end/types/custom-fields";
+import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "back-end/types/experiment";
 import { WebhookSecretFrontEndInterface } from "shared/src/validators/webhook-secrets";
 import useApi from "@/hooks/useApi";
