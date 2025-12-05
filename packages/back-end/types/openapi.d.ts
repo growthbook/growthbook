@@ -53,6 +53,13 @@ export interface paths {
     /** Get list of feature keys */
     get: operations["getFeatureKeys"];
   };
+  "/stale-features": {
+    /**
+     * Check if features are stale 
+     * @description Check whether the provided features (or all features) are stale based on staleness heuristics
+     */
+    post: operations["postStaleFeatures"];
+  };
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
@@ -7956,6 +7963,57 @@ export interface operations {
       };
     };
   };
+  postStaleFeatures: {
+    /**
+     * Check if features are stale 
+     * @description Check whether the provided features (or all features) are stale based on staleness heuristics
+     */
+    parameters: {
+        /** @description Filter by project id */
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        projectId?: string;
+        limit?: number;
+        offset?: number;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          /** @description Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided). */
+          featureIds?: (string)[];
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        content: {
+          "application/json": ({
+            features: ({
+                /** @description The feature ID */
+                id: string;
+                /** @description Whether the feature is considered stale */
+                stale: boolean;
+                /**
+                 * @description The reason why the feature is stale (only present if stale is true) 
+                 * @enum {string}
+                 */
+                reason?: "error" | "no-rules" | "rules-one-sided";
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
   listProjects: {
     /** Get all projects */
     parameters: {
@@ -13958,6 +14016,7 @@ export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["20
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
+export type PostStaleFeaturesResponse = operations["postStaleFeatures"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
