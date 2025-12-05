@@ -5,7 +5,7 @@ import {
   featurePrerequisite,
   savedGroupTargeting,
 } from "shared/src/validators/shared";
-import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
+import { windowTypeValidator } from "shared/src/validators/fact-table";
 
 export const customMetricSlice = z.object({
   slices: z.array(

@@ -5,7 +5,7 @@ import {
   cappingSettingsValidator,
   priorSettingsValidator,
   windowSettingsValidator,
-} from "back-end/src/routers/fact-table/fact-table.validators";
+} from "shared/src/validators/fact-table";
 import { statsEnginesValidator } from "back-end/src/models/ProjectModel";
 
 const metricStatsObject = z.object({

@@ -5,6 +5,7 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
+import { factMetricValidator } from "shared/src/validators/fact-table";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -13,7 +14,6 @@ import {
   LegacyFactMetricInterface,
 } from "back-end/types/fact-table";
 import { ApiFactMetric } from "back-end/types/openapi";
-import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "../util/promise";
 import { MakeModelClass } from "./BaseModel";
