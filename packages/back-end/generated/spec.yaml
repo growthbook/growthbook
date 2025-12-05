@@ -997,7 +997,6 @@ paths:
                             reason:
                               type: string
                               enum:
-                                - error
                                 - no-rules
                                 - rules-one-sided
                               description: The reason why the feature is stale (only present if stale is true)

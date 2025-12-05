@@ -8000,7 +8000,7 @@ export interface operations {
                  * @description The reason why the feature is stale (only present if stale is true) 
                  * @enum {string}
                  */
-                reason?: "error" | "no-rules" | "rules-one-sided";
+                reason?: "no-rules" | "rules-one-sided";
               })[];
           }) & {
             limit: number;
