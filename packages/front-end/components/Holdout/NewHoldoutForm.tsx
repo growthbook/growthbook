@@ -15,7 +15,7 @@ import { Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "back-end/types/feature";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";

@@ -4,7 +4,6 @@ export * from "./custom-fields";
 export * from "./custom-hooks";
 export * from "./experiments";
 export * from "./fact-table";
-export * from "./holdout";
 export * from "./incremental-refresh";
 export * from "./managed-by";
 export * from "./metric-time-series";

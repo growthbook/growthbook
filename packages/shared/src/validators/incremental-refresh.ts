@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseSchema } from "shared/validators";
+import { baseSchema } from "./base-model";
 
 export const incrementalRefreshMetricSourceValidator = z.object({
   groupId: z.string(),

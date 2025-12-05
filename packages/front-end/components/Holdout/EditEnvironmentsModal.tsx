@@ -1,4 +1,4 @@
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";

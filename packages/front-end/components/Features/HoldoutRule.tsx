@@ -2,7 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import React, { forwardRef } from "react";
 import Link from "next/link";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
 import { useAuth } from "@/services/auth";

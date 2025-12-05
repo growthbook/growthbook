@@ -20,7 +20,7 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { VisualChange } from "shared/types/visual-changeset";
 import { SavedGroupInterface } from "shared/types/groups";
 import { featureHasEnvironment } from "./features";

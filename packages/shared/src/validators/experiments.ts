@@ -4,8 +4,8 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
-  windowTypeValidator,
-} from "shared/validators";
+} from "./shared";
+import { windowTypeValidator } from "./fact-table";
 
 export const customMetricSlice = z.object({
   slices: z.array(

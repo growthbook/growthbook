@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "./useApi";
 
