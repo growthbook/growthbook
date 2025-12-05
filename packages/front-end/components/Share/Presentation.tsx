@@ -10,7 +10,7 @@ import {
   Appear,
   Text,
 } from "spectacle";
-import { PresentationInterface } from "back-end/types/presentation";
+import { PresentationInterface } from "shared/types/presentation";
 import {
   ExperimentInterfaceStringDates,
   Variation,

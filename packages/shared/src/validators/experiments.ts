@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
-import { statsEngines } from "back-end/src/util/constants";
+import { statsEngines } from "shared/constants";
 import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
 } from "./shared";
+import { windowTypeValidator } from "./fact-table";
 
 export const customMetricSlice = z.object({
   slices: z.array(

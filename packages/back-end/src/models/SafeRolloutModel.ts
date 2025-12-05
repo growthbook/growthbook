@@ -1,3 +1,4 @@
+import { UpdateProps } from "shared/types/base-model";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import {
   SafeRolloutInterface,
@@ -6,7 +7,7 @@ import {
 import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { MakeModelClass, UpdateProps } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "saferollout";
 

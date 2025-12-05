@@ -42,6 +42,7 @@ import {
   TemplateVariables,
   FormatDialect,
 } from "shared/types/sql";
+import { SegmentInterface } from "shared/types/segment";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -126,7 +127,6 @@ import {
   CovariatePhaseStartSettings,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,

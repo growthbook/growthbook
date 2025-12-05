@@ -1,4 +1,8 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  Variation,
+} from "shared/validators";
 import { UpdateExperimentResponse } from "back-end/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -14,10 +18,6 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateExperimentValidator } from "back-end/src/validators/openapi";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import {
-  ExperimentInterfaceExcludingHoldouts,
-  Variation,
-} from "back-end/src/validators/experiments";
 import { validateCustomFields } from "./validation";
 
 export const updateExperiment = createApiRequestHandler(

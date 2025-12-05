@@ -17,6 +17,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -135,7 +136,6 @@ import {
 } from "back-end/types/feature-rule";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutRule } from "back-end/src/validators/features";
-import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {

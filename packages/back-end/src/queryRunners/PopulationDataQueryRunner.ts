@@ -5,6 +5,7 @@ import {
   isRatioMetric,
 } from "shared/experiments";
 import { lastMondayString } from "shared/dates";
+import { SegmentInterface } from "shared/types/segment";
 import { ApiReqContext } from "back-end/types/api";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
@@ -25,7 +26,6 @@ import {
   PopulationDataMetric,
 } from "back-end/types/population-data";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   QueryRunner,
   QueryMap,

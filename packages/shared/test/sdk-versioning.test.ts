@@ -1,6 +1,6 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import cloneDeep from "lodash/cloneDeep";
 import { OrganizationInterface } from "back-end/types/organization";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
   scrubFeatures,
