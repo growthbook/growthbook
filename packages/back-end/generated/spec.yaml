@@ -243,6 +243,9 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
+  - name: StaleFeaturesResponse_model
+    x-displayName: StaleFeaturesResponse
+    description: <SchemaDefinition schemaRef="#/components/schemas/StaleFeaturesResponse" />
   - name: VisualChange_model
     x-displayName: VisualChange
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
@@ -936,6 +939,69 @@ paths:
                 type: array
                 items:
                   type: string
+  /stale-features:
+    post:
+      tags:
+        - features
+      summary: Check if features are stale
+      description: Check whether the provided features (or all features) are stale based on staleness heuristics
+      operationId: postStaleFeatures
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/stale-features \
+              -d '{"featureIds": ["feature-1", "feature-2"]}' \
+              -H "Content-Type: application/json" \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                featureIds:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided).'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - features
+                    properties:
+                      features:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - stale
+                          properties:
+                            id:
+                              type: string
+                              description: The feature ID
+                            stale:
+                              type: boolean
+                              description: Whether the feature is considered stale
+                            reason:
+                              type: string
+                              enum:
+                                - error
+                                - no-rules
+                                - rules-one-sided
+                              description: The reason why the feature is stale (only present if stale is true)
+                  - $ref: '#/components/schemas/PaginationFields'
   /projects:
     get:
       summary: Get all projects
@@ -8722,5 +8788,6 @@ x-tagGroups:
       - SdkConnection_model
       - Segment_model
       - Settings_model
+      - StaleFeaturesResponse_model
       - VisualChange_model
       - VisualChangeset_model

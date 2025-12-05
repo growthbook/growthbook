@@ -1,0 +1,7 @@
+type: object
+properties:
+  featureIds:
+    type: array
+    items:
+      type: string
+    description: Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided).
