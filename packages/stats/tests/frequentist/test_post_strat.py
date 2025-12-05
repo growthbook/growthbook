@@ -1,8 +1,14 @@
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from functools import partial
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from unittest import TestCase, main as unittest_main
+from gbstats.models.tests import sum_stats
+from gbstats.models.statistics import (
+    compute_theta,
+    compute_theta_regression_adjusted_ratio,
+)
 from gbstats.models.results import Uplift
+from scipy.stats import t
 
 import pandas as pd
 import numpy as np
@@ -26,7 +32,11 @@ from gbstats.models.tests import (
     EffectMomentsConfig,
     EffectMomentsPostStratification,
 )
-from gbstats.frequentist.tests import FrequentistConfig, FrequentistTestResult
+from gbstats.frequentist.tests import (
+    FrequentistConfig,
+    FrequentistTestResult,
+    two_sided_confidence_interval,
+)
 from gbstats.models.settings import (
     MetricSettingsForStatsEngine,
     AnalysisSettingsForStatsEngine,
@@ -87,6 +97,31 @@ def _round_result_dict(result_dict):
             v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
         result_dict[k] = v
     return result_dict
+
+
+def compute_dof(stats: List[Tuple[TestStatistic, TestStatistic]]) -> float:
+    stat_a, stat_b = sum_stats(stats)
+    if isinstance(stat_a, RegressionAdjustedStatistic) and isinstance(
+        stat_b, RegressionAdjustedStatistic
+    ):
+        theta = compute_theta(stat_a, stat_b)
+        stat_a = replace(stat_a, theta=theta)
+        stat_b = replace(stat_b, theta=theta)
+    if isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
+        stat_b, RegressionAdjustedRatioStatistic
+    ):
+        theta = compute_theta_regression_adjusted_ratio(stat_a, stat_b)
+        stat_a = replace(stat_a, theta=theta)
+        stat_b = replace(stat_b, theta=theta)
+
+    # welch-satterthwaite approx
+    return pow(
+        stat_b.variance / stat_b.n + stat_a.variance / stat_a.n,
+        2,
+    ) / (
+        pow(stat_b.variance, 2) / (pow(stat_b.n, 2) * (stat_b.n - 1))
+        + pow(stat_a.variance, 2) / (pow(stat_a.n, 2) * (stat_a.n - 1))
+    )
 
 
 class TestPostStratification(TestCase):
@@ -245,6 +280,7 @@ class TestPostStratification(TestCase):
         )
 
     def setUp(self):
+        self.alpha = 0.05
         self.point_estimate_count_rel = 0.10994584851937338
         self.point_estimate_count_abs = 3.548094377986586
         self.point_estimate_count_reg_rel = 0.11529547657147853
@@ -254,14 +290,14 @@ class TestPostStratification(TestCase):
         self.point_estimate_ratio_reg_rel = 0.13929489348145818
         self.point_estimate_ratio_reg_abs = 0.10399412678969455
 
-        self.standard_error_count_rel = 0.01216
-        self.standard_error_count_abs = 0.37391
-        self.standard_error_count_reg_rel = 0.0024
-        self.standard_error_count_reg_abs = 0.07918
-        self.standard_error_ratio_rel = 0.0069
-        self.standard_error_ratio_abs = 0.00491
-        self.standard_error_ratio_reg_rel = 0.00131
-        self.standard_error_ratio_reg_abs = 0.00127
+        self.standard_error_count_rel = 0.012158472217649813
+        self.standard_error_count_abs = 0.37390905245218425
+        self.standard_error_count_reg_rel = 0.0024004804584696823
+        self.standard_error_count_reg_abs = 0.07918232744081105
+        self.standard_error_ratio_rel = 0.006901772421583541
+        self.standard_error_ratio_abs = 0.004907272494342468
+        self.standard_error_ratio_reg_rel = 0.0013080138185700204
+        self.standard_error_ratio_reg_abs = 0.001273103441301489
 
         self.stats_count_strata = [
             (
@@ -1354,9 +1390,22 @@ class TestPostStratification(TestCase):
         stats_a, stats_b = zip(*self.stats_count_strata)
         test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        dof = compute_dof(self.stats_count_strata)  # type: ignore
+        halfwidth_rel = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_count_rel
+        )
+        halfwidth_abs = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_count_abs
+        )
+        ci_rel = two_sided_confidence_interval(
+            self.point_estimate_count_rel, halfwidth_rel
+        )
+        ci_abs = two_sided_confidence_interval(
+            self.point_estimate_count_abs, halfwidth_abs
+        )
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_count_rel,
-            ci=[0.08609, 0.13381],
+            ci=ci_rel,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_rel,
@@ -1368,7 +1417,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_count_abs,
-            ci=[2.81433, 4.28186],
+            ci=ci_abs,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_abs,
@@ -1391,9 +1440,25 @@ class TestPostStratification(TestCase):
         stats_a, stats_b = zip(*self.stats_ratio_strata)
         test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        dof = compute_dof(self.stats_ratio_strata)  # type: ignore
+        halfwidth_rel = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_ratio_rel
+        )
+        halfwidth_abs = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_ratio_abs
+        )
+        ci_rel = [
+            self.point_estimate_ratio_rel - halfwidth_rel,
+            self.point_estimate_ratio_rel + halfwidth_rel,
+        ]
+        ci_abs = [
+            self.point_estimate_ratio_abs - halfwidth_abs,
+            self.point_estimate_ratio_abs + halfwidth_abs,
+        ]
+
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_ratio_rel,
-            ci=[0.12017, 0.14726],
+            ci=ci_rel,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_rel,
@@ -1405,7 +1470,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_ratio_abs,
-            ci=[0.09046, 0.10972],
+            ci=ci_abs,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_abs,
@@ -1428,9 +1493,24 @@ class TestPostStratification(TestCase):
         stats_a, stats_b = zip(*self.stats_count_reg_strata)
         test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        dof = compute_dof(self.stats_count_reg_strata)  # type: ignore
+        halfwidth_rel = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_count_reg_rel
+        )
+        halfwidth_abs = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_count_reg_abs
+        )
+        ci_rel = [
+            self.point_estimate_count_reg_rel - halfwidth_rel,
+            self.point_estimate_count_reg_rel + halfwidth_rel,
+        ]
+        ci_abs = [
+            self.point_estimate_count_reg_abs - halfwidth_abs,
+            self.point_estimate_count_reg_abs + halfwidth_abs,
+        ]
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_count_reg_rel,
-            ci=[0.11058, 0.12001],
+            ci=ci_rel,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_reg_rel,
@@ -1442,7 +1522,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_count_reg_abs,
-            ci=[3.5563, 3.86709],
+            ci=ci_abs,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_reg_abs,
@@ -1466,9 +1546,24 @@ class TestPostStratification(TestCase):
         stats_a, stats_b = zip(*self.stats_ratio_reg_strata)
         test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        dof = compute_dof(self.stats_ratio_reg_strata)  # type: ignore
+        halfwidth_rel = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_ratio_reg_rel
+        )
+        halfwidth_abs = (
+            float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_ratio_reg_abs
+        )
+        ci_rel = [
+            self.point_estimate_ratio_reg_rel - halfwidth_rel,
+            self.point_estimate_ratio_reg_rel + halfwidth_rel,
+        ]
+        ci_abs = [
+            self.point_estimate_ratio_reg_abs - halfwidth_abs,
+            self.point_estimate_ratio_reg_abs + halfwidth_abs,
+        ]
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_ratio_reg_rel,
-            ci=[0.13673, 0.14186],
+            ci=ci_rel,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_reg_rel,
@@ -1480,7 +1575,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_ratio_reg_abs,
-            ci=[0.10150, 0.10649],
+            ci=ci_abs,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_ratio_reg_abs,
