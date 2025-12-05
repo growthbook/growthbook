@@ -9,6 +9,21 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
 
+// Helper to format slice label
+export const formatSliceLabel = (
+  slice: Record<string, string | null>,
+): string => {
+  const parts = Object.entries(slice)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([col, val]) => {
+      if (val === null) {
+        return `${col}: null`;
+      }
+      return `${col}: ${val}`;
+    });
+  return parts.join(" + ");
+};
+
 export function getXAxisConfig(
   config: Partial<DataVizConfig>,
 ): xAxisConfiguration[] {

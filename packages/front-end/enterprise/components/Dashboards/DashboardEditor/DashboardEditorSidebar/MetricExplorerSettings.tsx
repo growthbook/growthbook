@@ -16,6 +16,7 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricSlicesSection from "./MetricSlicesSection";
+import MetricExplorerDisplaySettings from "./MetricExplorerDisplaySettings";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -455,6 +456,11 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           </Box>
         </Collapsible>
       </Flex>
+      <MetricExplorerDisplaySettings
+        block={block}
+        setBlock={setBlock}
+        factTable={factTable}
+      />
     </Flex>
   );
 }

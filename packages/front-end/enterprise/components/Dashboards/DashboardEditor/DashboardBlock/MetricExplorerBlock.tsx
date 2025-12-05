@@ -10,6 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
+import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
@@ -52,19 +53,6 @@ export default function MetricExplorerBlock({
     const hasSlices = (metricAnalysis.result?.dates || []).some(
       (d) => d.slices && d.slices.length > 0,
     );
-
-    // Helper to format slice label
-    const formatSliceLabel = (slice: Record<string, string | null>): string => {
-      const parts = Object.entries(slice)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([col, val]) => {
-          if (val === null) {
-            return `${col}: null`;
-          }
-          return `${col}: ${val}`;
-        });
-      return parts.join(" + ");
-    };
 
     if (visualizationType === "bigNumber") {
       const rows = (metricAnalysis.result?.dates || [])
