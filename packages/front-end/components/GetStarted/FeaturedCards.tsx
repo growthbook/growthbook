@@ -70,9 +70,6 @@ export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
@@ -84,6 +81,9 @@ export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
           method: "POST",
         },
       );
+      track("Create Sample Project", {
+        source: "experiments-get-started",
+      });
       await mutateDefinitions();
       if (demoDataSourceProjectId) {
         setProject(demoDataSourceProjectId);

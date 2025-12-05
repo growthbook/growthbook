@@ -33,9 +33,6 @@ const ViewSampleDataButton = ({
         router.push(`/features/${demoFeatureId}`);
       }
     } else {
-      track("Create Sample Project", {
-        source: "get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
@@ -47,6 +44,9 @@ const ViewSampleDataButton = ({
           method: "POST",
         },
       );
+      track("Create Sample Project", {
+        source: "get-started",
+      });
       await mutateDefinitions();
       if (res.experimentId) {
         if (resource === "experiment") {

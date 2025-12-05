@@ -63,9 +63,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
@@ -77,6 +74,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
           method: "POST",
         },
       );
+      track("Create Sample Project", {
+        source: "experiments-get-started",
+      });
       await mutateDefinitions();
       if (res.experimentId) {
         router.push(`/experiment/${res.experimentId}`);
