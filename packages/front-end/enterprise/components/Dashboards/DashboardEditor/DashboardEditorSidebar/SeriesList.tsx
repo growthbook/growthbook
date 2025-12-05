@@ -29,7 +29,7 @@ interface SeriesListProps {
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>
   >;
-  factTable: FactTableInterface | null;
+  factTable: FactTableInterface;
   hasMetricSlicesFeature: boolean;
 }
 
@@ -339,12 +339,6 @@ export default function SeriesList({
       seriesToCount.some((series) => series.seriesId === s.seriesId),
     ).length || 0;
   const numOfSelectedSeries = totalSeriesCount - numOfSeriesHidden;
-
-  // Only show the section if there are series to display
-  //MKTODO: Need to think about this
-  if (!factTable) {
-    return null;
-  }
 
   return (
     <div>

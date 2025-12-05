@@ -27,6 +27,14 @@ export default function MetricExplorerDisplaySettings({
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
+  if (!factTable) {
+    return (
+      <Text as="p" className="mb-2" style={{ color: "var(--color-text-mid)" }}>
+        You must select a Metric before you can customize the display settings.
+      </Text>
+    );
+  }
+
   return (
     <Flex
       direction="column"
