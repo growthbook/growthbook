@@ -1778,7 +1778,6 @@ export default function FactMetricModal({
         if (!values.numerator.aggregateFilterColumn) {
           values.numerator.aggregateFilter = undefined;
         }
-        // TODO hide capping for daily participation
 
         if (values.cappingSettings?.type) {
           if (!values.cappingSettings.value) {
@@ -1994,6 +1993,12 @@ export default function FactMetricModal({
                             numeric columns in your fact tables.
                           </div>
                           <div className="mb-2">
+                            <strong>Daily Participation</strong> metrics
+                            calculate the average number of days since exposure
+                            that a unit matches a specific condition, and then
+                            averages that across users.
+                          </div>
+                          <div className="mb-2">
                             <strong>Quantile</strong> metrics calculate the
                             value at a specific percentile of a numeric column
                             in a fact table.
@@ -2102,12 +2107,12 @@ export default function FactMetricModal({
                     label: "Mean",
                   },
                   {
-                    value: "ratio",
-                    label: "Ratio",
-                  },
-                  {
                     value: "dailyParticipation",
                     label: "Daily Participation",
+                  },
+                  {
+                    value: "ratio",
+                    label: "Ratio",
                   },
                   {
                     value: "quantile",
@@ -2510,7 +2515,8 @@ export default function FactMetricModal({
                         ) : null}
                         {type !== "quantile" &&
                         type !== "proportion" &&
-                        type !== "retention" ? (
+                        type !== "retention" &&
+                        type !== "dailyParticipation" ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}

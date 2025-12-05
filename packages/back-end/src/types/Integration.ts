@@ -91,7 +91,7 @@ export type FactMetricAggregationMetadata = {
   // external context about the user (e.g. their first exposure timestamp)
   aggregationTransformationFunction: (
     column: string,
-    additionalColumn?: string,
+    startTimestampColumn?: string,
     endDate?: Date,
   ) => string;
 };
@@ -130,6 +130,10 @@ export type FactMetricData = {
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
   capCoalesceDenominatorCovariate: string;
+  numeratorAggFns: FactMetricAggregationMetadata;
+  denominatorAggFns: FactMetricAggregationMetadata;
+  covariateNumeratorAggFns: FactMetricAggregationMetadata;
+  covariateDenominatorAggFns: FactMetricAggregationMetadata;
   minMetricDelay: number;
   raMetricFirstExposureSettings: CovariateFirstExposureSettings;
   raMetricPhaseStartSettings: CovariatePhaseStartSettings;
