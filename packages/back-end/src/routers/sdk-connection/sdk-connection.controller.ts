@@ -6,13 +6,13 @@ import {
   EditSDKConnectionParams,
   ProxyTestResult,
 } from "shared/types/sdk-connection";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   CreateSdkWebhookProps,
   WebhookInterface,
   WebhookSummary,
-} from "back-end/types/webhook";
+} from "shared/types/webhook";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   countSdkWebhooksByOrg,
   createSdkWebhook,
