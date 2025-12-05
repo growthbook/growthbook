@@ -3,9 +3,11 @@ import {
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { Flex, Text, TextField } from "@radix-ui/themes";
+import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { useMemo, useState } from "react";
 import { PiMagnifyingGlass } from "react-icons/pi";
+import { FaAngleRight } from "react-icons/fa";
+import Collapsible from "react-collapsible";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
@@ -399,54 +401,90 @@ export default function SeriesList({
               {Array.from(filteredAutoSeriesByColumn.entries())
                 .sort((a, b) => a[1].columnName.localeCompare(b[1].columnName))
                 .map(([column, { columnName, series: columnSeries }]) => (
-                  <Flex key={column} direction="column" gap="1">
-                    <Text
-                      size="2"
-                      weight="medium"
-                      style={{
-                        paddingLeft: "4px",
-                        color: "var(--color-text-mid)",
-                      }}
+                  <Box key={column} pb="2">
+                    <Collapsible
+                      open={true}
+                      trigger={
+                        <Flex
+                          align="center"
+                          justify="between"
+                          style={{
+                            paddingLeft: "4px",
+                            paddingRight: "4px",
+                            paddingTop: "4px",
+                            paddingBottom: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Text
+                            size="2"
+                            weight="medium"
+                            style={{
+                              color: "var(--color-text-mid)",
+                            }}
+                          >
+                            {columnName}
+                          </Text>
+                          <FaAngleRight className="chevron" />
+                        </Flex>
+                      }
+                      transitionTime={100}
                     >
-                      {columnName}
-                    </Text>
-                    <Flex
-                      direction="column"
-                      gap="1"
-                      style={{ paddingLeft: "16px" }}
-                    >
-                      {columnSeries
-                        .sort((a, b) =>
-                          (a.level || "").localeCompare(b.level || ""),
-                        )
-                        .map((series) => (
-                          <SeriesCheckbox
-                            key={series.seriesId}
-                            series={series}
-                            isEnabled={isSeriesEnabled(series.seriesId)}
-                            isDisabled={isDisabled}
-                            onToggle={handleSeriesToggle}
-                          />
-                        ))}
-                    </Flex>
-                  </Flex>
+                      <Flex
+                        direction="column"
+                        gap="1"
+                        style={{ paddingLeft: "16px", paddingTop: "4px" }}
+                      >
+                        {columnSeries
+                          .sort((a, b) =>
+                            (a.level || "").localeCompare(b.level || ""),
+                          )
+                          .map((series) => (
+                            <SeriesCheckbox
+                              key={series.seriesId}
+                              series={series}
+                              isEnabled={isSeriesEnabled(series.seriesId)}
+                              isDisabled={isDisabled}
+                              onToggle={handleSeriesToggle}
+                            />
+                          ))}
+                      </Flex>
+                    </Collapsible>
+                  </Box>
                 ))}
               {filteredCustomSeries.length > 0 && (
-                <Flex direction="column" gap="1">
-                  <Text
-                    size="2"
-                    weight="medium"
-                    style={{
-                      paddingLeft: "4px",
-                      color: "var(--color-text-mid)",
-                    }}
-                  >
-                    Custom Slice{filteredCustomSeries.length > 1 ? "s" : ""}
-                  </Text>
+                <Collapsible
+                  open={true}
+                  trigger={
+                    <Flex
+                      align="center"
+                      justify="between"
+                      style={{
+                        paddingLeft: "4px",
+                        paddingRight: "4px",
+                        paddingTop: "4px",
+                        paddingBottom: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Text
+                        size="2"
+                        weight="medium"
+                        style={{
+                          color: "var(--color-text-mid)",
+                        }}
+                      >
+                        Custom Slice{filteredCustomSeries.length > 1 ? "s" : ""}
+                      </Text>
+                      <FaAngleRight className="chevron" />
+                    </Flex>
+                  }
+                  transitionTime={100}
+                >
                   <Flex
                     direction="column"
                     gap="1"
-                    style={{ paddingLeft: "16px" }}
+                    style={{ paddingLeft: "16px", paddingTop: "4px" }}
                   >
                     {filteredCustomSeries.map((series) => (
                       <SeriesCheckbox
@@ -458,7 +496,7 @@ export default function SeriesList({
                       />
                     ))}
                   </Flex>
-                </Flex>
+                </Collapsible>
               )}
             </>
           )}
