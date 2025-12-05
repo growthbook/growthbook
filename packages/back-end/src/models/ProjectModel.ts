@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
 import { managedByValidator, ManagedBy } from "shared/validators";
+import { baseSchema } from "shared/src/validators/base-model";
 import { ApiProject } from "back-end/types/openapi";
-import { baseSchema, MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel";
 export const statsEnginesValidator = z.enum(statsEngines);
 
 export const projectSettingsValidator = z.object({

@@ -7,6 +7,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
+import { baseSchema } from "shared/src/validators/base-model";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
@@ -25,15 +26,6 @@ import {
 } from "back-end/src/services/context";
 
 export type Context = ApiReqContext | ReqContext;
-
-export const baseSchema = z
-  .object({
-    id: z.string(),
-    organization: z.string(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
-  })
-  .strict();
 
 export type BaseSchema = typeof baseSchema;
 
