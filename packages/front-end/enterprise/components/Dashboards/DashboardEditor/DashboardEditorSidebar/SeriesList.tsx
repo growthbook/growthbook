@@ -5,7 +5,7 @@ import {
 import { FactTableInterface } from "back-end/types/fact-table";
 import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { useMemo, useState } from "react";
-import { PiMagnifyingGlass } from "react-icons/pi";
+import { PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -359,18 +359,37 @@ export default function SeriesList({
       {autoSeriesByColumn.size > 0 || customSeries.length > 0 ? (
         <>
           <Flex align="center" gap="2" mb="2">
-            <TextField.Root
-              size="2"
-              type="search"
-              placeholder="Search..."
-              value={filterInput}
-              onChange={(e) => setFilterInput(e.target.value)}
-              style={{ flex: 1 }}
-            >
-              <TextField.Slot>
-                <PiMagnifyingGlass size={16} style={{ marginLeft: "4px" }} />
-              </TextField.Slot>
-            </TextField.Root>
+            <Box style={{ position: "relative", flex: 1 }}>
+              <TextField.Root
+                size="2"
+                type="search"
+                placeholder="Search..."
+                value={filterInput}
+                onChange={(e) => setFilterInput(e.target.value)}
+                style={{ width: "100%" }}
+              >
+                <TextField.Slot>
+                  <PiMagnifyingGlass size={16} style={{ marginLeft: "4px" }} />
+                </TextField.Slot>
+              </TextField.Root>
+              {filterInput && (
+                <Box
+                  style={{
+                    position: "absolute",
+                    right: "8px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "4px",
+                  }}
+                  onClick={() => setFilterInput("")}
+                >
+                  <PiX size={16} />
+                </Box>
+              )}
+            </Box>
           </Flex>
           <Flex align="center" gap="2" mb="2" justify="between">
             <Text size="2" weight="light">
