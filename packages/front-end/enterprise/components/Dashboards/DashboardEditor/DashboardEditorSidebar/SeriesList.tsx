@@ -4,8 +4,9 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { Flex, Text } from "@radix-ui/themes";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
 
 interface SeriesInfo {
@@ -166,60 +167,72 @@ export default function SeriesList({
   }, [autoSeries, factTable]);
 
   // Check if a series is enabled (not hidden)
-  const isSeriesEnabled = useCallback(
-    (seriesId: string) => {
-      const config = block.displaySettings?.seriesOverrides?.find(
-        (c) => c.seriesId === seriesId,
-      );
-      // Default to shown (not hidden) if no config exists
-      return config?.hidden !== true;
-    },
-    [block.displaySettings?.seriesOverrides],
-  );
+  const isSeriesEnabled = (seriesId: string) => {
+    const config = block.displaySettings?.seriesOverrides?.find(
+      (c) => c.seriesId === seriesId,
+    );
+    // Default to shown (not hidden) if no config exists
+    return config?.hidden !== true;
+  };
 
   // Disable checkbox if this is the only series (user must show at least one)
   const isOnlySeries = allSeries.length === 1;
   const isDisabled = !hasMetricSlicesFeature || isOnlySeries;
 
-  const handleSeriesToggle = useCallback(
-    (seriesId: string, checked: boolean) => {
-      const currentOverrides = block.displaySettings?.seriesOverrides || [];
-      const existingIndex = currentOverrides.findIndex(
-        (c) => c.seriesId === seriesId,
-      );
+  const handleSeriesToggle = (seriesId: string, checked: boolean) => {
+    const currentOverrides = block.displaySettings?.seriesOverrides || [];
+    const existingIndex = currentOverrides.findIndex(
+      (c) => c.seriesId === seriesId,
+    );
 
-      let newOverrides: typeof currentOverrides;
-      if (checked) {
-        // User wants to show - remove from config if it exists
-        if (existingIndex >= 0) {
-          newOverrides = currentOverrides.filter((_, i) => i !== existingIndex);
-        } else {
-          newOverrides = currentOverrides;
-        }
+    let newOverrides: typeof currentOverrides;
+    if (checked) {
+      // User wants to show - remove from config if it exists
+      if (existingIndex >= 0) {
+        newOverrides = currentOverrides.filter((_, i) => i !== existingIndex);
       } else {
-        // User wants to hide - add or update config
-        if (existingIndex >= 0) {
-          newOverrides = [...currentOverrides];
-          newOverrides[existingIndex] = {
-            ...newOverrides[existingIndex],
-            hidden: true,
-          };
-        } else {
-          newOverrides = [...currentOverrides, { seriesId, hidden: true }];
-        }
+        newOverrides = currentOverrides;
       }
+    } else {
+      // User wants to hide - add or update config
+      if (existingIndex >= 0) {
+        newOverrides = [...currentOverrides];
+        newOverrides[existingIndex] = {
+          ...newOverrides[existingIndex],
+          hidden: true,
+        };
+      } else {
+        newOverrides = [...currentOverrides, { seriesId, hidden: true }];
+      }
+    }
 
-      setBlock({
-        ...block,
-        displaySettings: {
-          ...block.displaySettings,
-          seriesOverrides:
-            newOverrides && newOverrides.length > 0 ? newOverrides : undefined,
-        },
-      });
-    },
-    [block, setBlock],
-  );
+    setBlock({
+      ...block,
+      displaySettings: {
+        ...block.displaySettings,
+        seriesOverrides:
+          newOverrides && newOverrides.length > 0 ? newOverrides : undefined,
+      },
+    });
+  };
+
+  const handleSelectOrDeselect = (enableAll: boolean) => {
+    const selectableSeriesIds = [...autoSeries, ...customSeries].map(
+      (s) => s.seriesId,
+    );
+
+    const newOverrides = enableAll
+      ? undefined // Select all - no overrides needed (all shown by default)
+      : selectableSeriesIds.map((seriesId) => ({ seriesId, hidden: true })); // Deselect all - hide all
+
+    setBlock({
+      ...block,
+      displaySettings: {
+        ...block.displaySettings,
+        seriesOverrides: newOverrides,
+      },
+    });
+  };
 
   // Only show the section if there are series to display
   //MKTODO: Need to think about this
@@ -235,6 +248,24 @@ export default function SeriesList({
       </Text>
       {autoSeriesByColumn.size > 0 || customSeries.length > 0 ? (
         <>
+          <Flex align="center" gap="2" mb="2" justify="end">
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={isDisabled}
+              onClick={() => handleSelectOrDeselect(true)}
+            >
+              Select All
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={isDisabled}
+              onClick={() => handleSelectOrDeselect(false)}
+            >
+              Deselect All
+            </Button>
+          </Flex>
           {Array.from(autoSeriesByColumn.entries())
             .sort((a, b) => a[1].columnName.localeCompare(b[1].columnName))
             .map(([column, { columnName, series: columnSeries }]) => (
