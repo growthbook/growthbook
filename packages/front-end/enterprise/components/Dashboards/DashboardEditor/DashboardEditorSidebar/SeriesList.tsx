@@ -347,13 +347,14 @@ export default function SeriesList({
           Series
         </Text>
         <Tooltip
-          body="Series are the individual lines that make up the chart. You can customize which series are displayed on the chart by selecting or deselecting them here."
+          body="Series are the individual lines that make up the graph."
           className="d-inline-flex"
           style={{ verticalAlign: "middle" }}
         />
       </Flex>
       <Text as="p" className="mb-2" style={{ color: "var(--color-text-mid)" }}>
-        Customize which series are displayed on the chart.
+        Customize which series are displayed on the graph by selecting or
+        deselecting them here.
       </Text>
       {autoSeriesByColumn.size > 0 || customSeries.length > 0 ? (
         <>
@@ -370,15 +371,6 @@ export default function SeriesList({
                 <PiMagnifyingGlass size={16} style={{ marginLeft: "4px" }} />
               </TextField.Slot>
             </TextField.Root>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!hasFilter}
-              onClick={() => setFilterInput("")}
-              style={{ marginTop: "20px" }}
-            >
-              Clear
-            </Button>
           </Flex>
           <Flex align="center" gap="2" mb="2" justify="between">
             <Text size="2" weight="light">
