@@ -19,6 +19,7 @@ import { getPercentileLabel } from "@/services/metrics";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
+import { FactMetricTypeName } from "./FactMetricTypeName";
 
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
@@ -56,7 +57,11 @@ const MetricTooltipBody = ({
       label: "Type",
       body: (
         <>
-          {isFactMetric(metric) ? metric.metricType : metric.type}
+          {isFactMetric(metric) ? (
+            <FactMetricTypeName type={metric.metricType} />
+          ) : (
+            metric.type
+          )}
           {metric.inverse ? (
             <Tooltip body="Metric is inverse, lower is better" className="ml-1">
               <span>

@@ -2855,29 +2855,25 @@ export default abstract class SqlIntegration
             (metric) =>
               `${
                 metric.numeratorSourceIndex === sourceIndex
-                  ? `, ${this.getAggregateMetricColumn({
-                      metric: metric.metric,
-                      useDenominator: false,
-                      valueColumn: this.ifElse(
+                  ? `, ${metric.covariateNumeratorAggFns.fullAggregationFunction(
+                      this.ifElse(
                         `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                         `${metric.alias}_value`,
                         "NULL",
                       ),
-                    })} as ${metric.alias}_value`
+                    )} as ${metric.alias}_value`
                   : ""
               }
                 ${
                   metric.ratioMetric &&
                   metric.denominatorSourceIndex === sourceIndex
-                    ? `, ${this.getAggregateMetricColumn({
-                        metric: metric.metric,
-                        useDenominator: true,
-                        valueColumn: this.ifElse(
+                    ? `, ${metric.covariateDenominatorAggFns.fullAggregationFunction(
+                        this.ifElse(
                           `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                           `${metric.alias}_denominator`,
                           "NULL",
                         ),
-                      })} AS ${metric.alias}_denominator`
+                      )} AS ${metric.alias}_denominator`
                     : ""
                 }`,
           )
@@ -3318,20 +3314,13 @@ export default abstract class SqlIntegration
           , umj.${baseIdType}
           ${metricData
             .map((data) => {
-              const aggTransformationFn =
-                data.numeratorAggFns.aggregationTransformationFunction;
-              const denomAggTransformationFn =
-                data.denominatorAggFns.aggregationTransformationFunction;
-
               return `${
                 data.numeratorSourceIndex === f.index
-                  ? `, ${aggTransformationFn(
-                      this.getAggregateMetricColumn({
-                        metric: data.metric,
-                        useDenominator: false,
-                        valueColumn: `umj.${data.alias}_value`,
-                        quantileColumn: `qm.${data.alias}_quantile`,
-                      }),
+                  ? `, ${data.numeratorAggFns.aggregationTransformationFunction(
+                      data.numeratorAggFns.fullAggregationFunction(
+                        `umj.${data.alias}_value`,
+                        `qm.${data.alias}_quantile`,
+                      ),
                       "MIN(umj.timestamp)",
                       params.settings.endDate,
                     )} AS ${data.alias}_value`
@@ -3339,13 +3328,11 @@ export default abstract class SqlIntegration
               }
                 ${
                   data.ratioMetric && data.denominatorSourceIndex === f.index
-                    ? `, ${denomAggTransformationFn(
-                        this.getAggregateMetricColumn({
-                          metric: data.metric,
-                          useDenominator: true,
-                          valueColumn: `umj.${data.alias}_denominator`,
-                          quantileColumn: `qm.${data.alias}_quantile`,
-                        }),
+                    ? `, ${data.denominatorAggFns.aggregationTransformationFunction(
+                        data.denominatorAggFns.fullAggregationFunction(
+                          `umj.${data.alias}_denominator`,
+                          `qm.${data.alias}_quantile`,
+                        ),
                         "MIN(umj.timestamp)",
                         params.settings.endDate,
                       )} AS ${data.alias}_denominator`
@@ -6026,75 +6013,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
-  // TODO(sql): remove this and replace usage with getAggregationMetadata
-  // This method is not used for incremental refresh or fact metric standalone analyses
-  // only fact metric experiment analyses and should be superseded by the getAggregationMetadata method
-  // at some point
-  private getAggregateMetricColumn({
-    metric,
-    useDenominator,
-    valueColumn = "value",
-    quantileColumn = "qm.quantile",
-  }: {
-    metric: FactMetricInterface;
-    useDenominator?: boolean;
-    valueColumn?: string;
-    quantileColumn?: string;
-  }) {
-    const columnRef = useDenominator ? metric.denominator : metric.numerator;
-
-    const hasAggregateFilter =
-      getAggregateFilters({
-        columnRef: columnRef,
-        column: columnRef?.column || "",
-        ignoreInvalid: true,
-      }).length > 0;
-
-    const column = hasAggregateFilter
-      ? columnRef?.aggregateFilterColumn
-      : columnRef?.column;
-
-    const nullIfZero =
-      metric.quantileSettings?.ignoreZeros &&
-      metric.quantileSettings?.type === "unit";
-
-    if (
-      !hasAggregateFilter &&
-      (isBinomialMetric(metric) || column === "$$distinctUsers")
-    ) {
-      return `COALESCE(MAX(${valueColumn}), 0)`;
-    } else if (column === "$$distinctDates") {
-      return `COUNT(DISTINCT ${valueColumn})`;
-    } else if (column === "$$count") {
-      const aggColumn = `COUNT(${valueColumn})`;
-      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-    } else if (
-      metric.metricType === "quantile" &&
-      metric.quantileSettings?.type === "event"
-    ) {
-      return `SUM(${this.ifElse(
-        `${valueColumn} <= ${quantileColumn}`,
-        "1",
-        "0",
-      )})`;
-    } else if (
-      !columnRef?.column.startsWith("$$") &&
-      columnRef?.aggregation === "count distinct"
-    ) {
-      const aggColumn = this.hllCardinality(this.hllAggregate(valueColumn));
-      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-    } else if (
-      !columnRef?.column.startsWith("$$") &&
-      columnRef?.aggregation === "max"
-    ) {
-      const aggColumn = `COALESCE(MAX(${valueColumn}), 0)`;
-      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-    } else {
-      const aggColumn = `SUM(COALESCE(${valueColumn}, 0))`;
-      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-    }
-  }
-
   private getFactMetricColumn(
     metric: FactMetricInterface,
     columnRef: ColumnRef,
@@ -6522,6 +6440,27 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "float",
         fullAggregationFunction: (column: string) =>
           `COALESCE(MAX(${column}), 0)`,
+        aggregationTransformationFunction: noTransformationFunction,
+      };
+    }
+
+    if (
+      metric.metricType === "quantile" &&
+      metric.quantileSettings?.type === "event"
+    ) {
+      return {
+        intermediateDataType: "float", // TODO(incremental-refresh): use array-based method
+        // potentially use array based methods to store an array of events
+        // and then count share of array below method instead of the following hap
+        partialAggregationFunction: (_column: string) => {
+          throw new Error("Not implemented");
+        },
+        reAggregationFunction: (_column: string, _quantileColumn: string) => {
+          throw new Error("Not implemented");
+        },
+        finalDataType: "integer",
+        fullAggregationFunction: (column: string, quantileColumn: string) =>
+          `SUM(${this.ifElse(`${column} <= ${quantileColumn}`, "1", "0")})`,
         aggregationTransformationFunction: noTransformationFunction,
       };
     }

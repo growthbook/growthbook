@@ -1,0 +1,18 @@
+import { FactMetricType } from "back-end/types/fact-table";
+import { capitalizeFirstLetter } from "@/services/utils";
+
+export default function FactMetricTypeName({
+  type,
+}: {
+  type: FactMetricType;
+}): string {
+  switch (type) {
+    case "proportion":
+    case "mean":
+    case "ratio":
+    case "quantile":
+      return capitalizeFirstLetter(type);
+    case "dailyParticipation":
+      return "Daily Participation";
+  }
+}

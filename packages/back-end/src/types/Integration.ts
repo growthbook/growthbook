@@ -85,7 +85,7 @@ export type FactMetricAggregationMetadata = {
 
   // Takes the processed column from the fact table and produces the final metric value
   // directly and is only used for CUPED metrics in the incremental refresh pipeline.
-  fullAggregationFunction: (column: string) => string;
+  fullAggregationFunction: (column: string, quantileColumn?: string) => string;
 
   // A final aggregation step that happens at the final user level aggregation that sometimes requires
   // external context about the user (e.g. their first exposure timestamp)
