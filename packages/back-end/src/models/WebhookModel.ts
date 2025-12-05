@@ -4,9 +4,9 @@ import uniqid from "uniqid";
 import md5 from "md5";
 import { z } from "zod";
 import { managedByValidator } from "shared/validators";
+import { WebhookInterface } from "shared/types/webhook";
 import { ReqContext } from "back-end/types/organization";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
-import { WebhookInterface } from "back-end/types/webhook";
 
 const payloadFormatValidator = z.enum([
   "standard",
