@@ -21,9 +21,6 @@ import {
   isCappableMetricType,
   getFactTableTemplateVariables,
   parseSliceMetricId,
-  generateSliceStringFromLevels,
-  generateSliceString,
-  SliceLevelsData,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -893,93 +890,18 @@ export default abstract class SqlIntegration
   }
 
   getMetricAnalysisQuery(
-    metric: FactMetricInterface,
+    metrics: FactMetricInterface[],
     params: Omit<MetricAnalysisParams, "metric">,
   ): string {
     const { settings } = params;
 
-    // Create metrics with indices - one per slice group if slices are provided, plus the base metric
-    const metrics: FactMetricInterface[] = [metric];
-
-    // Get fact table once for reuse
+    // Get fact table once for reuse - use the base metric (first one)
+    const baseMetric = metrics[0];
     const factTable = params.factTableMap.get(
-      metric.numerator?.factTableId || "",
+      baseMetric.numerator?.factTableId || "",
     );
     if (!factTable) {
       throw new Error("Unknown fact table");
-    }
-
-    // 1. Process custom metric slices (if any)
-    if (settings.customMetricSlices && settings.customMetricSlices.length > 0) {
-      settings.customMetricSlices.forEach((sliceGroup) => {
-        // Sort slices alphabetically for consistent ID generation (matching experiment analysis)
-        const sortedSlices = sliceGroup.slices.sort((a, b) =>
-          a.column.localeCompare(b.column),
-        );
-
-        // Build slice levels
-        const sliceLevels: SliceLevelsData[] = sortedSlices.map((slice) => {
-          const column = factTable.columns.find(
-            (col) => col.column === slice.column,
-          );
-          const datatype =
-            column?.datatype === "boolean" ? "boolean" : "string";
-
-          // For boolean "null" slices, use empty array to generate ?dim:col= format
-          const levels =
-            slice.levels[0] === "null" && datatype === "boolean"
-              ? []
-              : slice.levels;
-
-          return {
-            column: slice.column,
-            datatype,
-            levels,
-          };
-        });
-
-        // Generate slice string and create slice metric
-        if (sliceLevels.length > 0) {
-          const sliceString = generateSliceStringFromLevels(sliceLevels);
-          const sliceMetric: FactMetricInterface = {
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${sortedSlices
-              .map((combo) => `${combo.column}: ${combo.levels[0] || ""}`)
-              .join(", ")})`,
-          };
-          metrics.push(sliceMetric);
-        }
-      });
-    }
-
-    // 2. Process auto slices from settings (if any) - separate from custom slices
-    if (settings.metricAutoSlices && settings.metricAutoSlices.length > 0) {
-      // Find auto slice columns that match the column names in settings.metricAutoSlices
-      const autoSliceColumns = factTable.columns.filter(
-        (col) =>
-          col.isAutoSliceColumn &&
-          !col.deleted &&
-          (col.autoSlices?.length || 0) > 0 &&
-          settings.metricAutoSlices?.includes(col.column),
-      );
-
-      autoSliceColumns.forEach((col) => {
-        const autoSlices = col.autoSlices || [];
-
-        // Create a metric for each auto slice value
-        autoSlices.forEach((value: string) => {
-          const sliceString = generateSliceString({
-            [col.column]: value,
-          });
-          const sliceMetric: FactMetricInterface = {
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${col.name || col.column}: ${value})`,
-          };
-          metrics.push(sliceMetric);
-        });
-      });
     }
 
     const metricsWithIndices = metrics.map((metric, index) => ({
@@ -990,7 +912,7 @@ export default abstract class SqlIntegration
     // Get any required identity join queries; only use same id type for now,
     // so not needed
     const idTypeObjects = [
-      getUserIdTypes(metric, params.factTableMap),
+      getUserIdTypes(baseMetric, params.factTableMap),
       //...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
       //settings.segment ? [settings.segment.userIdType || "user_id"] : [],
     ];
@@ -1018,16 +940,16 @@ export default abstract class SqlIntegration
 
     // TODO(sql): Support analyses for cross-table ratio metrics
     if (
-      isRatioMetric(metric) &&
-      metric.denominator &&
-      metric.denominator.factTableId !== factTable.id
+      isRatioMetric(baseMetric) &&
+      baseMetric.denominator &&
+      baseMetric.denominator.factTableId !== factTable.id
     ) {
       throw new Error(
         "Metric analyses for cross-table ratio metrics are not supported yet",
       );
     }
 
-    const createHistogram = metric.metricType === "mean";
+    const createHistogram = baseMetric.metricType === "mean";
 
     // TODO test HLL count distinct works for daily values
     const populationSQL = this.getMetricAnalysisPopulationCTEs({
@@ -1065,7 +987,7 @@ export default abstract class SqlIntegration
     // TODO check if query broken if segment has template variables
     // TODO return cap numbers
     return format(
-      `-- ${metric.name} Metric Analysis
+      `-- ${baseMetric.name} Metric Analysis
       WITH
         ${idJoinSQL}
         ${populationSQL}

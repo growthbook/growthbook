@@ -3,6 +3,9 @@ import {
   isBinomialMetric,
   isRatioMetric,
   parseSliceMetricId,
+  generateSliceStringFromLevels,
+  generateSliceString,
+  SliceLevelsData,
 } from "shared/experiments";
 import {
   meanVarianceFromSums,
@@ -33,7 +36,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisParams,
   MetricAnalysisResult
 > {
-  private metric?: FactMetricInterface;
+  private metrics: FactMetricInterface[] = [];
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricAnalysisQueries(
@@ -43,15 +46,109 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
   // For alternative entrypoints that don't pass the metric in for analysis
   setMetric(metric: FactMetricInterface) {
-    this.metric = metric;
+    this.metrics = [metric];
+  }
+
+  private buildMetricsArray(
+    metric: FactMetricInterface,
+    params: MetricAnalysisParams,
+  ): FactMetricInterface[] {
+    const { settings } = params;
+
+    // Create metrics with indices - one per slice group if slices are provided, plus the base metric
+    const metrics: FactMetricInterface[] = [metric];
+
+    // Get fact table once for reuse
+    const factTable = params.factTableMap.get(
+      metric.numerator?.factTableId || "",
+    );
+    if (!factTable) {
+      throw new Error("Unknown fact table");
+    }
+
+    // 1. Process custom metric slices (if any)
+    if (settings.customMetricSlices && settings.customMetricSlices.length > 0) {
+      settings.customMetricSlices.forEach((sliceGroup) => {
+        // Sort slices alphabetically for consistent ID generation (matching experiment analysis)
+        const sortedSlices = sliceGroup.slices.sort((a, b) =>
+          a.column.localeCompare(b.column),
+        );
+
+        // Build slice levels
+        const sliceLevels: SliceLevelsData[] = sortedSlices.map((slice) => {
+          const column = factTable.columns.find(
+            (col) => col.column === slice.column,
+          );
+          const datatype =
+            column?.datatype === "boolean" ? "boolean" : "string";
+
+          // For boolean "null" slices, use empty array to generate ?dim:col= format
+          const levels =
+            slice.levels[0] === "null" && datatype === "boolean"
+              ? []
+              : slice.levels;
+
+          return {
+            column: slice.column,
+            datatype,
+            levels,
+          };
+        });
+
+        // Generate slice string and create slice metric
+        if (sliceLevels.length > 0) {
+          const sliceString = generateSliceStringFromLevels(sliceLevels);
+          const sliceMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${sortedSlices
+              .map((combo) => `${combo.column}: ${combo.levels[0] || ""}`)
+              .join(", ")})`,
+          };
+          metrics.push(sliceMetric);
+        }
+      });
+    }
+
+    // 2. Process auto slices from settings (if any) - separate from custom slices
+    if (settings.metricAutoSlices && settings.metricAutoSlices.length > 0) {
+      // Find auto slice columns that match the column names in settings.metricAutoSlices
+      const autoSliceColumns = factTable.columns.filter(
+        (col) =>
+          col.isAutoSliceColumn &&
+          !col.deleted &&
+          (col.autoSlices?.length || 0) > 0 &&
+          settings.metricAutoSlices?.includes(col.column),
+      );
+
+      autoSliceColumns.forEach((col) => {
+        const autoSlices = col.autoSlices || [];
+
+        // Create a metric for each auto slice value
+        autoSlices.forEach((value: string) => {
+          const sliceString = generateSliceString({
+            [col.column]: value,
+          });
+          const sliceMetric: FactMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: ${value})`,
+          };
+          metrics.push(sliceMetric);
+        });
+      });
+    }
+
+    return metrics;
   }
 
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
-    this.metric = getMetricWithFiltersApplied(params);
+    const baseMetric = getMetricWithFiltersApplied(params);
+    this.metrics = this.buildMetricsArray(baseMetric, params);
     return [
       await this.startQuery({
         name: "metricAnalysis",
-        query: this.integration.getMetricAnalysisQuery(this.metric, params),
+        query: this.integration.getMetricAnalysisQuery(this.metrics, params),
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runMetricAnalysisQuery(query, setExternalId),
@@ -67,10 +164,12 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     if (!queryResults) {
       throw new Error("Metric analysis query failed");
     }
-    if (!this.metric) {
-      throw new Error("Metric not available to process query results");
+    if (this.metrics.length === 0) {
+      throw new Error("Metrics not available to process query results");
     }
-    return processMetricAnalysisQueryResponse(queryResults, this.metric);
+    // Use the base metric (first one) for processing results
+    const baseMetric = this.metrics[0];
+    return processMetricAnalysisQueryResponse(queryResults, baseMetric);
   }
   async getLatestModel(): Promise<MetricAnalysisInterface> {
     const model = await this.context.models.metricAnalysis.getById(
