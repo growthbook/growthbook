@@ -17,6 +17,13 @@ import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -80,19 +87,19 @@ const EnvironmentsPage: FC = () => {
       </p>
 
       {filteredEnvironments.length > 0 ? (
-        <table className="table mb-3 appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th>Environment</th>
-              <th>Description</th>
-              <th className="col-2">Projects</th>
-              <th>SDK Connections</th>
-              <th>Default state</th>
-              <th>Show toggle on feature list</th>
-              <th style={{ width: 30 }}></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="standard" hover className="mb-3 appbox">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Description</TableColumnHeader>
+              <TableColumnHeader className="col-2">Projects</TableColumnHeader>
+              <TableColumnHeader>SDK Connections</TableColumnHeader>
+              <TableColumnHeader>Default state</TableColumnHeader>
+              <TableColumnHeader>Show toggle on feature list</TableColumnHeader>
+              <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filteredEnvironments.map((e, i) => {
               const canEdit = permissionsUtil.canUpdateEnvironment(e, {});
               const canDelete = permissionsUtil.canDeleteEnvironment(e);
@@ -102,10 +109,10 @@ const EnvironmentsPage: FC = () => {
               ).filter((c) => sdkConnectionIds.includes(c.id));
               const numConnections = sdkConnectionIds.length;
               return (
-                <tr key={e.id}>
-                  <td>{e.id}</td>
-                  <td>{e.description}</td>
-                  <td>
+                <TableRow key={e.id}>
+                  <TableCell>{e.id}</TableCell>
+                  <TableCell>{e.description}</TableCell>
+                  <TableCell>
                     {(e?.projects?.length || 0) > 0 ? (
                       <ProjectBadges
                         resourceType="environment"
@@ -114,8 +121,8 @@ const EnvironmentsPage: FC = () => {
                     ) : (
                       <ProjectBadges resourceType="environment" />
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <Tooltip
                       tipPosition="bottom"
                       state={showConnections === i}
@@ -186,10 +193,10 @@ const EnvironmentsPage: FC = () => {
                     ) : (
                       <span className="font-italic text-muted">None</span>
                     )}
-                  </td>
-                  <td>{e.defaultState === false ? "off" : "on"}</td>
-                  <td>{e.toggleOnList ? "yes" : "no"}</td>
-                  <td style={{ width: 30 }}>
+                  </TableCell>
+                  <TableCell>{e.defaultState === false ? "off" : "on"}</TableCell>
+                  <TableCell>{e.toggleOnList ? "yes" : "no"}</TableCell>
+                  <TableCell style={{ width: 30 }}>
                     <MoreMenu>
                       {canEdit && (
                         <button
@@ -293,12 +300,12 @@ const EnvironmentsPage: FC = () => {
                         </Tooltip>
                       )}
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : canCreate ? (
         <p>Click the button below to add your first environment</p>
       ) : (

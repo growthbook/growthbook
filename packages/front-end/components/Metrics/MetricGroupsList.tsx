@@ -14,6 +14,13 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const MetricGroupsList: FC = () => {
   const [openModal, setOpenModal] = useState(false);
@@ -102,23 +109,23 @@ const MetricGroupsList: FC = () => {
         )}
       </div>
       <div>
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th className="col-3">Metric Group Name</th>
-              <th className="col-4">Description</th>
-              <th className="col-2">Datasource</th>
-              <th className="col-2">metrics</th>
-              <th className="col-2">Date Created</th>
-              <th></th>
-              <th style={{ width: "50px" }}></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="standard" hover className="appbox">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader className="col-3">Metric Group Name</TableColumnHeader>
+              <TableColumnHeader className="col-4">Description</TableColumnHeader>
+              <TableColumnHeader className="col-2">Datasource</TableColumnHeader>
+              <TableColumnHeader className="col-2">metrics</TableColumnHeader>
+              <TableColumnHeader className="col-2">Date Created</TableColumnHeader>
+              <TableColumnHeader></TableColumnHeader>
+              <TableColumnHeader style={{ width: "50px" }}></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {metricGroups.map((mg) => {
               const dsName = getDatasourceById(mg.datasource)?.name || "-";
               return (
-                <tr
+                <TableRow
                   key={mg.id}
                   onClick={() => {
                     router.push(`/metric-groups/${mg.id}`);
@@ -128,16 +135,16 @@ const MetricGroupsList: FC = () => {
                     opacity: mg.archived ? 0.65 : 1,
                   }}
                 >
-                  <td>
+                  <TableCell>
                     <a className="font-weight-bold">{mg.name}</a>
-                  </td>
-                  <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                  </TableCell>
+                  <TableCell className="pr-5 text-gray" style={{ fontSize: 12 }}>
                     {mg.description}
-                  </td>
-                  <td>{dsName}</td>
-                  <td>{mg.metrics.length}</td>
-                  <td>{date(mg.dateCreated)}</td>
-                  <td className="text-muted">
+                  </TableCell>
+                  <TableCell>{dsName}</TableCell>
+                  <TableCell>{mg.metrics.length}</TableCell>
+                  <TableCell>{date(mg.dateCreated)}</TableCell>
+                  <TableCell className="text-muted">
                     {mg.archived && (
                       <Tooltip
                         body={"Archived"}
@@ -147,8 +154,8 @@ const MetricGroupsList: FC = () => {
                         <FaArchive />
                       </Tooltip>
                     )}
-                  </td>
-                  <td
+                  </TableCell>
+                  <TableCell
                     className="text-right"
                     style={{ cursor: "initial", width: "50px" }}
                     onClick={(e) => {
@@ -205,12 +212,12 @@ const MetricGroupsList: FC = () => {
                         />
                       ) : null}
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {editModal && (
         <MetricGroupModal

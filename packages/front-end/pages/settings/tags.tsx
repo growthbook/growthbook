@@ -11,6 +11,12 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/ui/Table";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -68,20 +74,20 @@ const TagsPage: FC = () => {
                 />
               </div>
             </div>
-            <table className="table appbox gbtable table-hover">
-              <thead>
-                <tr>
+            <Table variant="standard" hover className="appbox">
+              <TableHeader>
+                <TableRow>
                   <SortableTH field="id">Tag name</SortableTH>
                   <SortableTH field="description">Description</SortableTH>
-                  <th>Preview</th>
-                  <th style={{ width: 140 }}></th>
-                </tr>
-              </thead>
-              <tbody>
+                  <TableCell as="th">Preview</TableCell>
+                  <TableCell as="th" style={{ width: 140 }}></TableCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items?.map((t, i) => {
                   return (
-                    <tr key={i}>
-                      <td
+                    <TableRow key={i}>
+                      <TableCell
                         onClick={(e) => {
                           e.preventDefault();
                           setModalOpen(t);
@@ -89,12 +95,12 @@ const TagsPage: FC = () => {
                         className="cursor-pointer"
                       >
                         {t.id}
-                      </td>
-                      <td>{t.description}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{t.description}</TableCell>
+                      <TableCell>
                         <Tag tag={t.id} skipMargin={true} />
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         {permissionsUtil.canCreateAndUpdateTag() ? (
                           <button
                             className="btn btn-outline-primary tr-hover mr-2"
@@ -120,19 +126,19 @@ const TagsPage: FC = () => {
                             }}
                           />
                         ) : null}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
                 {!items.length && isFiltered && (
-                  <tr>
-                    <td colSpan={4} align={"center"}>
+                  <TableRow>
+                    <TableCell colSpan={4} align={"center"}>
                       No matching tags found.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </>
         )}
       </Box>

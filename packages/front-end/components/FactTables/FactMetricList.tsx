@@ -26,6 +26,12 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import FactMetricModal from "./FactMetricModal";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/ui/Table";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -213,9 +219,9 @@ export default function FactMetricList({
       </div>
       {metrics.length > 0 && (
         <>
-          <table className="table appbox gbtable mt-2 mb-0 table-hover">
-            <thead>
-              <tr className="cursor-pointer">
+          <Table variant="standard" hover className="appbox mt-2 mb-0">
+            <TableHeader>
+              <TableRow className="cursor-pointer">
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="metricType">Type</SortableTH>
                 {shouldShowSliceAnalysisColumn && (
@@ -231,13 +237,13 @@ export default function FactMetricList({
                 )}
                 <SortableTH field="tags">Tags</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <th style={{ width: 30 }} />
-              </tr>
-            </thead>
-            <tbody>
+                <TableCell as="th" style={{ width: 30 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((metric) => (
-                <tr key={metric.id}>
-                  <td>
+                <TableRow key={metric.id}>
+                  <TableCell>
                     <Link
                       href={`/fact-metrics/${metric.id}`}
                       className="font-weight-bold"
@@ -245,10 +251,10 @@ export default function FactMetricList({
                     >
                       <MetricName id={metric.id} />
                     </Link>
-                  </td>
-                  <td>{metric.metricType}</td>
+                  </TableCell>
+                  <TableCell>{metric.metricType}</TableCell>
                   {shouldShowSliceAnalysisColumn && (
-                    <td>
+                    <TableCell>
                       <div
                         className="d-flex flex-wrap"
                         style={{ gap: "0.25rem" }}
@@ -310,15 +316,15 @@ export default function FactMetricList({
                           </Text>
                         )}
                       </div>
-                    </td>
+                    </TableCell>
                   )}
-                  <td>
+                  <TableCell>
                     <SortedTags tags={metric.tags} useFlex={true} />
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <MoreMenu>
                       {canEdit(metric) && (
                         <button
@@ -388,12 +394,12 @@ export default function FactMetricList({
                         </>
                       )}
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={5} align={"center"}>
+                <TableRow>
+                  <TableCell colSpan={5} align={"center"}>
                     No matching metrics.{" "}
                     <a
                       href="#"
@@ -404,11 +410,11 @@ export default function FactMetricList({
                     >
                       Clear search field
                     </a>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {pagination}
         </>
       )}

@@ -10,6 +10,12 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+} from "@/ui/Table";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -74,21 +80,21 @@ const NamespacesPage: FC = () => {
           "Click a namespace below to see more details about its current usage."}
       </p>
       {namespaces.length > 0 && (
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th>Namespace</th>
-              <th>
+        <Table variant="standard" hover className="appbox">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Namespace</TableColumnHeader>
+              <TableColumnHeader>
                 Namespace ID{" "}
                 <Tooltip body="This id is used as the namespace hash key and cannot be changed" />
-              </th>
-              <th>Description</th>
-              <th>Active experiments</th>
-              <th>Percent available</th>
-              <th style={{ width: 30 }}></th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableColumnHeader>
+              <TableColumnHeader>Description</TableColumnHeader>
+              <TableColumnHeader>Active experiments</TableColumnHeader>
+              <TableColumnHeader>Percent available</TableColumnHeader>
+              <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {namespaces.map((ns, i) => {
               const experiments = data?.namespaces[ns.name] ?? [];
               return (
@@ -131,8 +137,8 @@ const NamespacesPage: FC = () => {
                 />
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

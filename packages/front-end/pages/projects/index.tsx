@@ -15,6 +15,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -66,25 +73,25 @@ const ProjectsPage: FC = () => {
         things organized and easy to manage.
       </p>
       {projects.length > 0 ? (
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th className="col-3">Project Name</th>
-              <th className="col-3">Description</th>
-              <th className="col-2">Id</th>
-              <th className="col-2">Date Created</th>
-              <th className="col-2">Date Updated</th>
-              <th className="w-50"></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="standard" hover className="appbox">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader className="col-3">Project Name</TableColumnHeader>
+              <TableColumnHeader className="col-3">Description</TableColumnHeader>
+              <TableColumnHeader className="col-2">Id</TableColumnHeader>
+              <TableColumnHeader className="col-2">Date Created</TableColumnHeader>
+              <TableColumnHeader className="col-2">Date Updated</TableColumnHeader>
+              <TableColumnHeader className="w-50"></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {projects.map((p) => {
               const canEdit = permissionsUtil.canUpdateProject(p.id);
               const canDelete =
                 // If the project has the `managedBy` property, we block deletion.
                 permissionsUtil.canDeleteProject(p.id) && !p.managedBy?.type;
               return (
-                <tr
+                <TableRow
                   key={p.id}
                   onClick={
                     canEdit
@@ -95,7 +102,7 @@ const ProjectsPage: FC = () => {
                   }
                   style={canEdit ? { cursor: "pointer" } : {}}
                 >
-                  <td>
+                  <TableCell>
                     {canEdit ? (
                       <Link
                         href={`/project/${p.id}`}
@@ -115,14 +122,14 @@ const ProjectsPage: FC = () => {
                         />
                       </div>
                     ) : null}
-                  </td>
-                  <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                  </TableCell>
+                  <TableCell className="pr-5 text-gray" style={{ fontSize: 12 }}>
                     {p.description}
-                  </td>
-                  <td>{p.id}</td>
-                  <td>{date(p.dateCreated)}</td>
-                  <td>{date(p.dateUpdated)}</td>
-                  <td
+                  </TableCell>
+                  <TableCell>{p.id}</TableCell>
+                  <TableCell>{date(p.dateCreated)}</TableCell>
+                  <TableCell>{date(p.dateUpdated)}</TableCell>
+                  <TableCell
                     style={{ cursor: "initial" }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -165,12 +172,12 @@ const ProjectsPage: FC = () => {
                         />
                       ) : null}
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : (
         <p>Click the button in the top right to create your first project!</p>
       )}

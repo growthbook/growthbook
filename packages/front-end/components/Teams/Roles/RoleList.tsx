@@ -10,6 +10,13 @@ import Button from "@/components/Button";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export default function RoleList() {
   const { roles, refreshOrganization, organization } = useUser();
@@ -22,23 +29,23 @@ export default function RoleList() {
   return (
     <div className="mb-4">
       <div>
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th className="col-3">Role</th>
-              <th className="col-9">Description</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="standard" hover className="appbox">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader className="col-3">Role</TableColumnHeader>
+              <TableColumnHeader className="col-9">Description</TableColumnHeader>
+              <TableColumnHeader></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {roles.map((r) => {
               const isCustom = !RESERVED_ROLE_IDS.includes(r.id);
               const isOrgDefault =
                 organization.settings?.defaultRole?.role === r.id;
               const isDeactivated = deactivatedRoles.includes(r.id);
               return (
-                <tr key={r.id}>
-                  <td>
+                <TableRow key={r.id}>
+                  <TableCell>
                     <Link
                       className={`font-weight-bold`}
                       href={`/settings/role/${r.id}`}
@@ -57,9 +64,9 @@ export default function RoleList() {
                         />
                       ) : null}
                     </div>
-                  </td>
-                  <td>{r.description}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{r.description}</TableCell>
+                  <TableCell>
                     <MoreMenu>
                       <Button
                         color="btn-link"
@@ -151,12 +158,12 @@ export default function RoleList() {
                         </Tooltip>
                       </ConfirmButton>
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

@@ -19,6 +19,13 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
 import Button from "@/ui/Button";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;
@@ -131,17 +138,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
     const numReferences = features.length + experiments.length + groups.length;
 
     return (
-      <tr className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
-        <td className="text-gray font-weight-bold" style={{ width: "17%" }}>
+      <TableRow className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
+        <TableCell className="text-gray font-weight-bold" style={{ width: "17%" }}>
           {v.property}{" "}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}
-        </td>
-        <td className="text-gray" style={{ width: "38%" }}>
+        </TableCell>
+        <TableCell className="text-gray" style={{ width: "38%" }}>
           {v.description}
-        </td>
-        <td
+        </TableCell>
+        <TableCell
           className="text-gray"
           style={{ maxWidth: "20vw", wordWrap: "break-word" }}
         >
@@ -152,14 +159,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <small>(format: {v.format})</small>
             </p>
           )}
-        </td>
-        <td className="">
+        </TableCell>
+        <TableCell className="">
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
           />
-        </td>
-        <td className="text-gray">
+        </TableCell>
+        <TableCell className="text-gray">
           <Tooltip
             delay={0}
             tipPosition="bottom"
@@ -301,9 +308,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
               )}
             </a>
           )}
-        </td>
-        <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
-        <td>
+        </TableCell>
+        <TableCell className="text-gray">{v.hashAttribute && <>yes</>}</TableCell>
+        <TableCell>
           {permissionsUtil.canCreateAttribute(v) ? (
             <MoreMenu>
               {!v.archived && (
@@ -367,8 +374,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               />
             </MoreMenu>
           ) : null}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     );
   };
 
@@ -395,39 +402,39 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </p>
             </div>
           </div>
-          <table className="table gbtable appbox table-hover">
-            <thead>
-              <tr>
-                <th>Attribute</th>
-                <th>Description</th>
-                <th>Data Type</th>
-                <th>Projects</th>
-                <th>References</th>
-                <th>
+          <Table variant="standard" hover className="appbox">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Attribute</TableColumnHeader>
+                <TableColumnHeader>Description</TableColumnHeader>
+                <TableColumnHeader>Data Type</TableColumnHeader>
+                <TableColumnHeader>Projects</TableColumnHeader>
+                <TableColumnHeader>References</TableColumnHeader>
+                <TableColumnHeader>
                   Identifier{" "}
                   <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
                     <FaQuestionCircle
                       style={{ position: "relative", top: "-1px" }}
                     />
                   </Tooltip>
-                </th>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableColumnHeader>
+                <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {attributeSchema?.length > 0 ? (
                 <>{attributeSchema.map((v, i) => drawRow(v, i))}</>
               ) : (
                 <>
-                  <tr>
-                    <td colSpan={7} className="text-center text-gray">
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-gray">
                       <em>No attributes defined.</em>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 </>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
       {modalData !== null && (

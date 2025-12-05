@@ -14,6 +14,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const TeamsList: FC = () => {
   const { teams, refreshOrganization, organization } = useUser();
@@ -28,34 +35,34 @@ const TeamsList: FC = () => {
     <div className="mb-4">
       <div style={{ overflowX: "auto" }}>
         {teams && teams.length > 0 ? (
-          <table className="table appbox gbtable table-hover">
-            <thead>
-              <tr>
-                <th className="col-2">Team Name</th>
-                <th className="col-3">Description</th>
-                <th className="col-2">Date Updated</th>
-                <th className="col-2">Global Role</th>
-                <th className="col-2">Project Roles</th>
+          <Table variant="standard" hover className="appbox">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader className="col-2">Team Name</TableColumnHeader>
+                <TableColumnHeader className="col-3">Description</TableColumnHeader>
+                <TableColumnHeader className="col-2">Date Updated</TableColumnHeader>
+                <TableColumnHeader className="col-2">Global Role</TableColumnHeader>
+                <TableColumnHeader className="col-2">Project Roles</TableColumnHeader>
                 {environments.map((env) => (
-                  <th key={env.id}>{env.id}</th>
+                  <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
                 ))}
-                <th className="col-1">Members</th>
-                <th className="w-50" />
-              </tr>
-            </thead>
-            <tbody>
+                <TableColumnHeader className="col-1">Members</TableColumnHeader>
+                <TableColumnHeader className="w-50" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {teams.map((t) => {
                 const teamIsExternallyManaged =
                   t.managedBy?.type || t.managedByIdp;
                 return (
-                  <tr
+                  <TableRow
                     key={t.id}
                     onClick={() => {
                       router.push(`/settings/team/${t.id}`);
                     }}
                     style={{ cursor: "pointer" }}
                   >
-                    <td>
+                    <TableCell>
                       {
                         <Link
                           href={`/settings/team/${t.id}`}
@@ -73,13 +80,13 @@ const TeamsList: FC = () => {
                           />
                         </div>
                       ) : null}
-                    </td>
-                    <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                    </TableCell>
+                    <TableCell className="pr-5 text-gray" style={{ fontSize: 12 }}>
                       {t.description}
-                    </td>
-                    <td>{date(t.dateUpdated)}</td>
-                    <td>{t.role}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell>{date(t.dateUpdated)}</TableCell>
+                    <TableCell>{t.role}</TableCell>
+                    <TableCell>
                       {t.projectRoles &&
                         t.projectRoles.map((pr) => {
                           const p = projects.find((p) => p.id === pr.project);
@@ -96,7 +103,7 @@ const TeamsList: FC = () => {
                           }
                           return null;
                         })}
-                    </td>
+                    </TableCell>
                     {environments.map((env) => {
                       const access = roleHasAccessToEnv(
                         t,
@@ -104,7 +111,7 @@ const TeamsList: FC = () => {
                         organization,
                       );
                       return (
-                        <td key={env.id}>
+                        <TableCell key={env.id}>
                           {access === "N/A" ? (
                             <span className="text-muted">N/A</span>
                           ) : access === "yes" ? (
@@ -112,11 +119,11 @@ const TeamsList: FC = () => {
                           ) : (
                             <FaTimes className="text-danger" />
                           )}
-                        </td>
+                        </TableCell>
                       );
                     })}
-                    <td>{t.members ? t.members.length : 0}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <TableCell>{t.members ? t.members.length : 0}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {(canManageTeam && !teamIsExternallyManaged && (
                         <>
                           <DeleteButton
@@ -139,12 +146,12 @@ const TeamsList: FC = () => {
                           <RxIdCard className="text-blue" />
                         </Tooltip>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : (
           <p>Click the button in the top right to create your first team!</p>
         )}
