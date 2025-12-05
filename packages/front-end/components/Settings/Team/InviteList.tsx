@@ -11,6 +11,14 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ChangeRoleModal from "./ChangeRoleModal";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 type ChangeRoleInfo = {
   roleInfo: MemberRoleInfo;
@@ -149,32 +157,32 @@ const InviteList: FC<{
       {resending && <LoadingOverlay />}
       {resendMessage}
       <div style={{ overflowY: "auto" }}>
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Date Invited</th>
-              <th>{project ? "Project Role" : "Global Role"}</th>
-              {!project && <th>Project Roles</th>}
+        <Table variant="standard" hover className="appbox">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Email</TableColumnHeader>
+              <TableColumnHeader>Date Invited</TableColumnHeader>
+              <TableColumnHeader>{project ? "Project Role" : "Global Role"}</TableColumnHeader>
+              {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
               {environments.map((env) => (
-                <th key={env.id}>{env.id}</th>
+                <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
               ))}
-              <th style={{ width: 50 }} />
-            </tr>
-          </thead>
-          <tbody>
+              <TableColumnHeader style={{ width: 50 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {invites.map(({ email, key, dateCreated, ...member }) => {
               const roleInfo =
                 (project &&
                   member.projectRoles?.find((r) => r.project === project)) ||
                 member;
               return (
-                <tr key={key}>
-                  <td>{email}</td>
-                  <td>{datetime(dateCreated)}</td>
-                  <td>{roleInfo.role}</td>
+                <TableRow key={key}>
+                  <TableCell>{email}</TableCell>
+                  <TableCell>{datetime(dateCreated)}</TableCell>
+                  <TableCell>{roleInfo.role}</TableCell>
                   {!project && (
-                    <td className="col-3">
+                    <TableCell className="col-3">
                       {member.projectRoles?.map((pr) => {
                         const p = projects.find((p) => p.id === pr.project);
                         if (p?.name) {
@@ -190,7 +198,7 @@ const InviteList: FC<{
                         }
                         return null;
                       })}
-                    </td>
+                    </TableCell>
                   )}
                   {environments.map((env) => {
                     const access = roleHasAccessToEnv(
@@ -199,7 +207,7 @@ const InviteList: FC<{
                       organization,
                     );
                     return (
-                      <td key={env.id}>
+                      <TableCell key={env.id}>
                         {access === "N/A" ? (
                           <span className="text-muted">N/A</span>
                         ) : access === "yes" ? (
@@ -207,10 +215,10 @@ const InviteList: FC<{
                         ) : (
                           <FaTimes className="text-danger" />
                         )}
-                      </td>
+                      </TableCell>
                     );
                   })}
-                  <td>
+                  <TableCell>
                     <MoreMenu>
                       <button
                         className="dropdown-item"
@@ -245,12 +253,12 @@ const InviteList: FC<{
                         Remove
                       </button>
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

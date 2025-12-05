@@ -9,6 +9,14 @@ import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const DataSources: FC = () => {
   const router = useRouter();
@@ -28,19 +36,19 @@ const DataSources: FC = () => {
   }
 
   return (
-    <table className="table appbox gbtable table-hover">
-      <thead>
-        <tr>
-          <th className="col-2">Display Name</th>
-          <th className="col-auto">Description</th>
-          <th className="col-2">Type</th>
-          <th className="col-2">Projects</th>
-          {!hasFileConfig() && <th className="col-2">Last Updated</th>}
-        </tr>
-      </thead>
-      <tbody>
+    <Table variant="standard" hover className="appbox">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader className="col-2">Display Name</TableColumnHeader>
+          <TableColumnHeader className="col-auto">Description</TableColumnHeader>
+          <TableColumnHeader className="col-2">Type</TableColumnHeader>
+          <TableColumnHeader className="col-2">Projects</TableColumnHeader>
+          {!hasFileConfig() && <TableColumnHeader className="col-2">Last Updated</TableColumnHeader>}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {filteredDatasources.map((d, i) => (
-          <tr
+          <TableRow
             className="nav-item cursor-pointer"
             key={i}
             onClick={(e) => {
@@ -63,7 +71,7 @@ const DataSources: FC = () => {
               router.push(`/datasources/${d.id}`);
             }}
           >
-            <td>
+            <TableCell>
               <Link href={`/datasources/${d.id}`}>{d.name}</Link>{" "}
               {d.decryptionError && (
                 <Tooltip
@@ -77,12 +85,12 @@ const DataSources: FC = () => {
                   <FaExclamationTriangle className="text-danger" />
                 </Tooltip>
               )}
-            </td>
-            <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+            </TableCell>
+            <TableCell className="pr-5 text-gray" style={{ fontSize: 12 }}>
               {d.description}
-            </td>
-            <td>{d.type}</td>
-            <td>
+            </TableCell>
+            <TableCell>{d.type}</TableCell>
+            <TableCell>
               {(d?.projects?.length || 0) > 0 ? (
                 <ProjectBadges
                   resourceType="data source"
@@ -91,12 +99,12 @@ const DataSources: FC = () => {
               ) : (
                 <ProjectBadges resourceType="data source" />
               )}
-            </td>
-            {!hasFileConfig() && <td>{ago(d.dateUpdated || "")}</td>}
-          </tr>
+            </TableCell>
+            {!hasFileConfig() && <TableCell>{ago(d.dateUpdated || "")}</TableCell>}
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 };
 

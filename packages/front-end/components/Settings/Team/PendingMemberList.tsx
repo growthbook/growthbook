@@ -10,6 +10,14 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import { useUser } from "@/services/UserContext";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const PendingMemberList: FC<{
   pendingMembers: PendingMember[];
@@ -50,35 +58,35 @@ const PendingMemberList: FC<{
           }}
         />
       )}
-      <table className="table appbox gbtable">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Date Joined</th>
-            <th>{project ? "Project Role" : "Global Role"}</th>
-            {!project && <th>Project Roles</th>}
+      <Table variant="standard" className="appbox">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader>Email</TableColumnHeader>
+            <TableColumnHeader>Date Joined</TableColumnHeader>
+            <TableColumnHeader>{project ? "Project Role" : "Global Role"}</TableColumnHeader>
+            {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
             {environments.map((env) => (
-              <th key={env.id}>{env.id}</th>
+              <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
             ))}
-            <th />
-            <th style={{ width: 50 }} />
-          </tr>
-        </thead>
-        <tbody>
+            <TableColumnHeader />
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {pendingMembers.map((member) => {
             const roleInfo =
               (project &&
                 member.projectRoles?.find((r) => r.project === project)) ||
               member;
             return (
-              <tr key={member.id}>
-                <td>{member.name}</td>
-                <td>{member.email}</td>
-                <td>{member.dateCreated && datetime(member.dateCreated)}</td>
-                <td>{roleInfo.role}</td>
+              <TableRow key={member.id}>
+                <TableCell>{member.name}</TableCell>
+                <TableCell>{member.email}</TableCell>
+                <TableCell>{member.dateCreated && datetime(member.dateCreated)}</TableCell>
+                <TableCell>{roleInfo.role}</TableCell>
                 {!project && (
-                  <td className="col-3">
+                  <TableCell className="col-3">
                     {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                     {member.projectRoles.map((pr) => {
                       const p = projects.find((p) => p.id === pr.project);
@@ -95,7 +103,7 @@ const PendingMemberList: FC<{
                       }
                       return null;
                     })}
-                  </td>
+                  </TableCell>
                 )}
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(
@@ -104,7 +112,7 @@ const PendingMemberList: FC<{
                     organization,
                   );
                   return (
-                    <td key={env.id}>
+                    <TableCell key={env.id}>
                       {access === "N/A" ? (
                         <span className="text-muted">N/A</span>
                       ) : access === "yes" ? (
@@ -112,10 +120,10 @@ const PendingMemberList: FC<{
                       ) : (
                         <FaTimes className="text-danger" />
                       )}
-                    </td>
+                    </TableCell>
                   );
                 })}
-                <td>
+                <TableCell>
                   <button
                     className="btn btn-outline-success px-2"
                     onClick={async () => {
@@ -127,8 +135,8 @@ const PendingMemberList: FC<{
                   >
                     <FaUserCheck /> Approve
                   </button>
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <MoreMenu>
                     <button
                       className="dropdown-item"
@@ -153,12 +161,12 @@ const PendingMemberList: FC<{
                       }}
                     />
                   </MoreMenu>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 };

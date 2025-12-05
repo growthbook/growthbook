@@ -11,6 +11,14 @@ import Button from "@/ui/Button";
 import { isCloud } from "@/services/env";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const ShowLicenseInfo: FC<{
   showInput?: boolean;
@@ -191,28 +199,28 @@ const ShowLicenseInfo: FC<{
                     <Text className="font-weight-semibold mb-3">
                       Seats in Use:
                     </Text>
-                    <table className="table gbtable appbox table-sm">
-                      <thead>
-                        <tr>
-                          <th>Installation</th>
-                          <th>Seats Used</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table variant="standard" className="appbox table-sm">
+                      <TableHeader>
+                        <TableRow>
+                          <TableColumnHeader>Installation</TableColumnHeader>
+                          <TableColumnHeader>Seats Used</TableColumnHeader>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {Object.entries(license?.installationUsers || {}).map(
                           ([id, { installationName, userHashes }]) => (
-                            <tr key={id}>
-                              <td>{installationName || id}</td>
-                              <td>{userHashes.length}</td>
-                            </tr>
+                            <TableRow key={id}>
+                              <TableCell>{installationName || id}</TableCell>
+                              <TableCell>{userHashes.length}</TableCell>
+                            </TableRow>
                           ),
                         )}
-                        <tr key="total" className="font-weight-bold">
-                          <td>Total Distinct Users</td>
-                          <td>{license?.seatsInUse || 0}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        <TableRow key="total" className="font-weight-bold">
+                          <TableCell>Total Distinct Users</TableCell>
+                          <TableCell>{license?.seatsInUse || 0}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               )}

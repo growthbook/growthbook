@@ -10,6 +10,13 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
@@ -34,32 +41,32 @@ const Webhooks: FC = () => {
       </p>
 
       {data.webhooks.length > 0 && (
-        <table className="table mb-3 appbox gbtable">
-          <thead>
-            <tr>
-              <th>Webhook</th>
-              <th>Endpoint</th>
-              <th>Environment</th>
-              {projects.length > 0 && <th>Project</th>}
-              <th>Shared Secret</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="standard" className="mb-3 appbox">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Webhook</TableColumnHeader>
+              <TableColumnHeader>Endpoint</TableColumnHeader>
+              <TableColumnHeader>Environment</TableColumnHeader>
+              {projects.length > 0 && <TableColumnHeader>Project</TableColumnHeader>}
+              <TableColumnHeader>Shared Secret</TableColumnHeader>
+              <TableColumnHeader>Status</TableColumnHeader>
+              <TableColumnHeader></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.webhooks.map((webhook) => (
               <Fragment key={webhook.id}>
-                <tr>
-                  <td>
+                <TableRow>
+                  <TableCell>
                     {webhook.name}
                     {!webhook.featuresOnly && (
                       <Tooltip body="In addition to features, legacy webhooks also include experiment overrides which are now deprecated">
                         <span className="badge badge-warning ml-2">legacy</span>
                       </Tooltip>
                     )}
-                  </td>
-                  <td className="text-break">{webhook.endpoint}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="text-break">{webhook.endpoint}</TableCell>
+                  <TableCell>
                     {!webhook.environment ? (
                       <>
                         <span className="badge badge-secondary mr-1">dev</span>
@@ -72,20 +79,20 @@ const Webhooks: FC = () => {
                         {webhook.environment}
                       </span>
                     )}
-                  </td>
+                  </TableCell>
                   {projects.length > 0 && (
-                    <td>
+                    <TableCell>
                       {webhook.project ? (
                         getProjectById(webhook.project)?.name || webhook.project
                       ) : (
                         <em className="text-muted">All Projects</em>
                       )}
-                    </td>
+                    </TableCell>
                   )}
-                  <td>
+                  <TableCell>
                     <code>{webhook.signingKey}</code>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {webhook.error ? (
                       <pre className="text-danger">Error</pre>
                     ) : webhook.lastSuccess ? (
@@ -96,8 +103,8 @@ const Webhooks: FC = () => {
                     ) : (
                       <em>never fired</em>
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {permissionsUtil.canManageLegacySDKWebhooks() ? (
                       <DeleteButton
                         link={true}
@@ -112,11 +119,11 @@ const Webhooks: FC = () => {
                         }}
                       />
                     ) : null}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
                 {webhook.error && (
-                  <tr>
-                    <td colSpan={6} className="border-0">
+                  <TableRow>
+                    <TableCell colSpan={6} className="border-0">
                       <OverflowText
                         className="text-danger mb-0 pb-0"
                         maxWidth={400}
@@ -124,13 +131,13 @@ const Webhooks: FC = () => {
                       >
                         {webhook.error}
                       </OverflowText>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
               </Fragment>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

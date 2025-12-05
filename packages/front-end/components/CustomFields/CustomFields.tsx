@@ -25,6 +25,14 @@ import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const CustomFields: FC<{
   section: CustomFieldSection;
@@ -126,22 +134,22 @@ const CustomFields: FC<{
           onDragCancel={handleDragCancel}
           collisionDetection={closestCenter}
         >
-          <table className="table gbtable appbox">
-            <thead>
-              <tr>
-                <th style={{ width: "30px" }}></th>
-                <th>Field Name</th>
-                <th>Field Key</th>
-                <th>Description</th>
-                <th>Type</th>
-                <th>Default value</th>
-                <th>Placeholder</th>
-                <th>Projects</th>
-                <th>Required</th>
-                <th style={{ width: 75 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table variant="standard" className="appbox">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader style={{ width: "30px" }}></TableColumnHeader>
+                <TableColumnHeader>Field Name</TableColumnHeader>
+                <TableColumnHeader>Field Key</TableColumnHeader>
+                <TableColumnHeader>Description</TableColumnHeader>
+                <TableColumnHeader>Type</TableColumnHeader>
+                <TableColumnHeader>Default value</TableColumnHeader>
+                <TableColumnHeader>Placeholder</TableColumnHeader>
+                <TableColumnHeader>Projects</TableColumnHeader>
+                <TableColumnHeader>Required</TableColumnHeader>
+                <TableColumnHeader style={{ width: 75 }}></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {customFields?.length && items?.length ? (
                 <SortableContext
                   items={items}
@@ -160,8 +168,8 @@ const CustomFields: FC<{
                 </SortableContext>
               ) : (
                 <>
-                  <tr>
-                    <td colSpan={10} className="text-center text-gray">
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center text-gray">
                       <em>
                         No custom fields defined{" "}
                         <a
@@ -174,19 +182,19 @@ const CustomFields: FC<{
                           Add custom field
                         </a>
                       </em>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 </>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           <DragOverlay>
             {activeId && selectedRow && (
-              <table style={{ width: "100%" }} className="table gbtable appbox">
-                <tbody>
+              <Table variant="standard" style={{ width: "100%" }} className="appbox">
+                <TableBody>
                   <StaticCustomFieldRow customField={selectedRow} />
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )}
           </DragOverlay>
         </DndContext>

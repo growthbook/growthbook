@@ -30,6 +30,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export interface Props {
   groups: SavedGroupInterface[];
@@ -168,25 +176,25 @@ export default function IdLists({ groups, mutate }: Props) {
             </div>
             <div className="row mb-0">
               <div className="col-12">
-                <table className="table gbtable">
-                  <thead>
-                    <tr>
+                <Table variant="standard">
+                  <TableHeader>
+                    <TableRow>
                       <SortableTH field={"groupName"}>Name</SortableTH>
                       <SortableTH field="attributeKey">Attribute</SortableTH>
-                      <th>Description</th>
-                      <th className="col-2">Projects</th>
+                      <TableColumnHeader>Description</TableColumnHeader>
+                      <TableColumnHeader className="col-2">Projects</TableColumnHeader>
                       <SortableTH field={"owner"}>Owner</SortableTH>
                       <SortableTH field={"dateUpdated"}>
                         Date Updated
                       </SortableTH>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
+                      <TableColumnHeader />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {items.map((s) => {
                       return (
-                        <tr key={s.id}>
-                          <td>
+                        <TableRow key={s.id}>
+                          <TableCell>
                             <Link
                               className="text-color-primary"
                               key={s.id}
@@ -194,14 +202,14 @@ export default function IdLists({ groups, mutate }: Props) {
                             >
                               {s.groupName}
                             </Link>
-                          </td>
-                          <td>{s.attributeKey}</td>
-                          <td>
+                          </TableCell>
+                          <TableCell>{s.attributeKey}</TableCell>
+                          <TableCell>
                             <div className="d-flex flex-wrap">
                               {truncateString(s.description || "", 40)}
                             </div>
-                          </td>
-                          <td>
+                          </TableCell>
+                          <TableCell>
                             {(s?.projects?.length || 0) > 0 ? (
                               <ProjectBadges
                                 resourceType="saved group"
@@ -210,10 +218,10 @@ export default function IdLists({ groups, mutate }: Props) {
                             ) : (
                               <ProjectBadges resourceType="saved group" />
                             )}
-                          </td>
-                          <td>{s.owner}</td>
-                          <td>{ago(s.dateUpdated)}</td>
-                          <td style={{ width: 30 }}>
+                          </TableCell>
+                          <TableCell>{s.owner}</TableCell>
+                          <TableCell>{ago(s.dateUpdated)}</TableCell>
+                          <TableCell style={{ width: 30 }}>
                             <MoreMenu>
                               {canUpdate(s) ? (
                                 <a
@@ -251,19 +259,19 @@ export default function IdLists({ groups, mutate }: Props) {
                                 />
                               ) : null}
                             </MoreMenu>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
                     {!items.length && isFiltered && (
-                      <tr>
-                        <td colSpan={7} align={"center"}>
+                      <TableRow>
+                        <TableCell colSpan={7} align={"center"}>
                           No matching saved groups
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
           </>

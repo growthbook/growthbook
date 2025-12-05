@@ -17,6 +17,14 @@ import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useAllDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const MAX_REFERENCES = 10;
 
@@ -93,21 +101,21 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
       {items.length > 0 ? (
         <div className="mt-3">
-          <table className="table appbox gbtable">
-            <thead>
-              <tr>
+          <Table variant="standard" className="appbox">
+            <TableHeader>
+              <TableRow>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="datasourceId">Data Source</SortableTH>
-                <th style={{ width: 100 }}>Visualization</th>
-                <th style={{ width: 100 }}>Rows</th>
-                <th>References</th>
+                <TableColumnHeader style={{ width: 100 }}>Visualization</TableColumnHeader>
+                <TableColumnHeader style={{ width: 100 }}>Rows</TableColumnHeader>
+                <TableColumnHeader>References</TableColumnHeader>
                 <SortableTH field="dateUpdated" style={{ width: 150 }}>
                   Updated
                 </SortableTH>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+                <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((query, i) => {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
@@ -125,23 +133,23 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 const numReferences = activeReferences.length;
 
                 return (
-                  <tr key={query.id}>
-                    <td>
+                  <TableRow key={query.id}>
+                    <TableCell>
                       <Link
                         href={`/sql-explorer/${query.id}`}
                         className="d-block"
                       >
                         {query.name}
                       </Link>
-                    </td>
-                    <td>{datasourceName}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell>{datasourceName}</TableCell>
+                    <TableCell>
                       {query.dataVizConfig && query.dataVizConfig.length > 0
                         ? "Yes"
                         : "No"}
-                    </td>
-                    <td>{query.results?.results?.length || 0}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell>{query.results?.results?.length || 0}</TableCell>
+                    <TableCell>
                       <div
                         onClick={(e) => {
                           e.stopPropagation();
@@ -251,11 +259,11 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                           </a>
                         )}
                       </div>
-                    </td>
-                    <td title={datetime(query.dateUpdated)}>
+                    </TableCell>
+                    <TableCell title={datetime(query.dateUpdated)}>
                       {date(query.dateUpdated)}
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       onClick={(e) => e.stopPropagation()}
                       style={{ cursor: "initial" }}
                     >
@@ -318,12 +326,12 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                           </>
                         )}
                       </MoreMenu>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {pagination}
         </div>
       ) : isFiltered ? (

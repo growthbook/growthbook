@@ -19,6 +19,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -131,32 +139,32 @@ const MemberList: FC<{
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table className="table appbox gbtable">
-            <thead>
-              <tr>
+          <Table variant="standard" className="appbox">
+            <TableHeader>
+              <TableRow>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="email">Email</SortableTH>
                 <SortableTH field="dateCreated">Date Joined</SortableTH>
                 <SortableTH field="lastLoginDate">Last Login</SortableTH>
-                <th>{project ? "Project Role" : "Global Role"}</th>
-                {!project && <th>Project Roles</th>}
+                <TableColumnHeader>{project ? "Project Role" : "Global Role"}</TableColumnHeader>
+                {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
                 {environments.map((env) => (
-                  <th key={env.id}>{env.id}</th>
+                  <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
                 ))}
                 <SortableTH field="numTeams">Teams</SortableTH>
-                <th style={{ width: 50 }} />
-              </tr>
-            </thead>
-            <tbody>
+                <TableColumnHeader style={{ width: 50 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((member) => {
                 const roleInfo =
                   (project &&
                     member.projectRoles?.find((r) => r.project === project)) ||
                   member;
                 return (
-                  <tr key={member.id}>
-                    <td>{member.name}</td>
-                    <td>
+                  <TableRow key={member.id}>
+                    <TableCell>{member.name}</TableCell>
+                    <TableCell>
                       <div className="d-flex align-items-center">
                         {member.managedByIdp ? (
                           <Tooltip
@@ -168,16 +176,16 @@ const MemberList: FC<{
                         ) : null}
                         {member.email}
                       </div>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {member.dateCreated && datetime(member.dateCreated)}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {member.lastLoginDate && date(member.lastLoginDate)}
-                    </td>
-                    <td>{roleInfo.role}</td>
+                    </TableCell>
+                    <TableCell>{roleInfo.role}</TableCell>
                     {!project && (
-                      <td className="col-2">
+                      <TableCell className="col-2">
                         {member.projectRoles?.map((pr) => {
                           const p = projects.find((p) => p.id === pr.project);
                           if (p?.name) {
@@ -193,7 +201,7 @@ const MemberList: FC<{
                           }
                           return null;
                         })}
-                      </td>
+                      </TableCell>
                     )}
                     {environments.map((env) => {
                       const access = roleHasAccessToEnv(
@@ -202,7 +210,7 @@ const MemberList: FC<{
                         organization,
                       );
                       return (
-                        <td key={env.id}>
+                        <TableCell key={env.id}>
                           {access === "N/A" ? (
                             <span className="text-muted">N/A</span>
                           ) : access === "yes" ? (
@@ -210,13 +218,13 @@ const MemberList: FC<{
                           ) : (
                             <FaTimes className="text-danger" />
                           )}
-                        </td>
+                        </TableCell>
                       );
                     })}
 
-                    <td>{member.teams ? member.teams.length : 0}</td>
+                    <TableCell>{member.teams ? member.teams.length : 0}</TableCell>
 
-                    <td>
+                    <TableCell>
                       {canEditRoles && member.id !== userId && (
                         <>
                           <MoreMenu>
@@ -258,19 +266,19 @@ const MemberList: FC<{
                           </MoreMenu>
                         </>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={4} align={"center"}>
+                <TableRow>
+                  <TableCell colSpan={4} align={"center"}>
                     No matching members found.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         {pagination}
       </div>
