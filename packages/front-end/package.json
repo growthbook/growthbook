@@ -123,7 +123,7 @@
     "@types/react-transition-group": "^4.4.6",
     "eslint-plugin-react-hooks": "^4.6.0",
     "identity-obj-proxy": "^3.0.0",
-    "sass": "^1.71.0",
+    "sass": "^1.94.2",
     "typescript": "5.7.3",
     "vitest": "^3.2.4"
   },

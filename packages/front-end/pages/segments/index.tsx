@@ -8,6 +8,13 @@ import clsx from "clsx";
 import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import SegmentForm from "@/components/Segments/SegmentForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -235,31 +242,35 @@ const SegmentPage: FC = () => {
               &quot;annual subscribers&quot; or &quot;left-handed people from
               France.&quot;
             </p>
-            <table
-              className={clsx("table appbox gbtable", {
-                "table-hover": !hasFileConfig(),
-              })}
+            <Table
+              variant="standard"
+              hover={!hasFileConfig()}
+              className="appbox"
             >
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Owner</th>
-                  <th>Projects</th>
-                  <th className="d-none d-sm-table-cell">Data Source</th>
-                  <th className="d-none d-md-table-cell">Identifier Type</th>
-                  <th>Date Updated</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader>Name</TableColumnHeader>
+                  <TableColumnHeader>Owner</TableColumnHeader>
+                  <TableColumnHeader>Projects</TableColumnHeader>
+                  <TableColumnHeader className="d-none d-sm-table-cell">
+                    Data Source
+                  </TableColumnHeader>
+                  <TableColumnHeader className="d-none d-md-table-cell">
+                    Identifier Type
+                  </TableColumnHeader>
+                  <TableColumnHeader>Date Updated</TableColumnHeader>
+                  <TableColumnHeader></TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {segments.map((s) => {
                   const datasource = getDatasourceById(s.datasource);
                   const userIdType = datasource?.properties?.userIds
                     ? s.userIdType || "user_id"
                     : "";
                   return (
-                    <tr key={s.id}>
-                      <td>
+                    <TableRow key={s.id}>
+                      <TableCell>
                         <>
                           <OfficialBadge
                             type="Segment"
@@ -270,9 +281,9 @@ const SegmentPage: FC = () => {
                             <Tooltip body={s.description} />
                           ) : null}
                         </>
-                      </td>
-                      <td>{s.owner}</td>
-                      <td className="col-2">
+                      </TableCell>
+                      <TableCell>{s.owner}</TableCell>
+                      <TableCell className="col-2">
                         {s && (s.projects || []).length > 0 ? (
                           <ProjectBadges
                             resourceType="segment"
@@ -281,8 +292,8 @@ const SegmentPage: FC = () => {
                         ) : (
                           <ProjectBadges resourceType="segment" />
                         )}
-                      </td>
-                      <td className="d-none d-sm-table-cell">
+                      </TableCell>
+                      <TableCell className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
                             <Link href={`/datasources/${datasource.id}`}>
@@ -293,23 +304,23 @@ const SegmentPage: FC = () => {
                             ) : null}
                           </>
                         )}
-                      </td>
-                      <td className="d-none d-md-table-cell">
+                      </TableCell>
+                      <TableCell className="d-none d-md-table-cell">
                         <span
                           className="badge badge-secondary mr-1"
                           key={`${s.id}-${userIdType}`}
                         >
                           {userIdType}
                         </span>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         {s.managedBy !== "config" ? (
                           <>{ago(s.dateUpdated)}</>
                         ) : (
                           <>-</>
                         )}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <MoreMenu>
                           {/* If the user has permission & the segment isn't externally managed, show edit icon,
                           otherwise the cta should be `View Details`. This is because Segment's don't have an id page,
@@ -352,12 +363,12 @@ const SegmentPage: FC = () => {
                             />
                           ) : null}
                         </MoreMenu>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
