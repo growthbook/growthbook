@@ -6,6 +6,7 @@ import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
+import { ExperimentInterfaceExcludingHoldouts } from "shared/src/validators/experiments";
 import {
   Changeset,
   ExperimentInterface,
@@ -48,7 +49,6 @@ import {
   DiffResult,
   getObjectDiff,
 } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";

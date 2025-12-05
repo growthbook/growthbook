@@ -1,6 +1,6 @@
 export { StatsEngine } from "back-end/src/models/ProjectModel";
 
-import { BanditResult } from "back-end/src/validators/experiments";
+import { BanditResult } from "shared/src/validators/experiments";
 import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";

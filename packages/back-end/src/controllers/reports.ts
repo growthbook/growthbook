@@ -4,6 +4,7 @@ import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import uniqid from "uniqid";
+import { experimentAnalysisSettings } from "shared/src/validators/experiments";
 import {
   ExperimentReportAnalysisSettings,
   ExperimentReportInterface,
@@ -39,7 +40,6 @@ import {
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { experimentAnalysisSettings } from "back-end/src/validators/experiments";
 import {
   createReportSnapshot,
   generateExperimentReportSSRData,

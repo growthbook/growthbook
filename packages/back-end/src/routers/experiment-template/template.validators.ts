@@ -4,7 +4,7 @@ import {
   featurePrerequisite,
   savedGroupTargeting,
 } from "shared/src/validators/shared";
-import { customMetricSlice } from "back-end/src/validators/experiments";
+import { customMetricSlice } from "shared/src/validators/experiments";
 
 export const experimentTemplateInterface = z
   .object({

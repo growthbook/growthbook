@@ -10,14 +10,14 @@ import {
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
 } from "shared/src/validators/metric-time-series";
-import { ReqContext } from "back-end/types/organization";
 import {
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentInterface,
   GoalMetricStatus,
   GuardrailMetricStatus,
-} from "back-end/src/validators/experiments";
+} from "shared/src/validators/experiments";
+import { ReqContext } from "back-end/types/organization";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,

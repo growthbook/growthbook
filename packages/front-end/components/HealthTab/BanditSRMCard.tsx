@@ -1,4 +1,4 @@
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/src/validators/experiments";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,

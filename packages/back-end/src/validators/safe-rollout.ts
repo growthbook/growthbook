@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { experimentAnalysisSummary } from "shared/src/validators/experiments";
 import { baseSchema } from "back-end/src/models/BaseModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 

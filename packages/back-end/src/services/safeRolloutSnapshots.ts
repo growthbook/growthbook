@@ -25,6 +25,7 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { CreateProps } from "shared/types/base-model";
+import { ExperimentAnalysisSummary } from "shared/src/validators/experiments";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
@@ -50,7 +51,6 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {

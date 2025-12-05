@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/src/validators/experiments";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";

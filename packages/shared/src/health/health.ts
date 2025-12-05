@@ -1,6 +1,6 @@
-import { ExperimentType } from "back-end/src/validators/experiments";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentType } from "shared/src/validators/experiments";
 
 type MultipleExposureHealthStatus =
   | "not-enough-traffic"

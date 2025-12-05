@@ -1,3 +1,4 @@
+import { ExperimentInterfaceExcludingHoldouts } from "shared/src/validators/experiments";
 import { ListExperimentsResponse } from "back-end/types/openapi";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
@@ -7,7 +8,6 @@ import {
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 import { listExperimentsValidator } from "back-end/src/validators/openapi";
-import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/experiments";
 
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator,

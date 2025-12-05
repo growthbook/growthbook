@@ -10,6 +10,7 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
+import { ExperimentAnalysisSummary } from "shared/src/validators/experiments";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
@@ -29,7 +30,6 @@ import {
 } from "back-end/types/experiment";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
-import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
