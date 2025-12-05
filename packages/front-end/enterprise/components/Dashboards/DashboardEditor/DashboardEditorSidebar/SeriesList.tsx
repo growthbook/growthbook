@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { PiMagnifyingGlass } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
@@ -347,7 +348,16 @@ export default function SeriesList({
 
   return (
     <div>
-      <Text as="label">Series</Text>
+      <Flex align="center" gap="1" mb="2">
+        <Text as="label" style={{ margin: 0 }}>
+          Series
+        </Text>
+        <Tooltip
+          body="Series are the individual lines that make up the chart. You can customize which series are displayed on the chart by selecting or deselecting them here."
+          className="d-inline-flex"
+          style={{ verticalAlign: "middle" }}
+        />
+      </Flex>
       <Text as="p" className="mb-2" style={{ color: "var(--color-text-mid)" }}>
         Customize which series are displayed on the chart.
       </Text>
