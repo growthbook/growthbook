@@ -10,14 +10,10 @@ import {
   FactTableInterface,
   CreateFactMetricProps,
   CreateFactTableProps,
-  FactFilterInterface,
 } from "back-end/types/fact-table";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
-import {
-  getNewFiltersForMetricSource,
-  transformStatsigMetricToMetric,
-} from "@/services/importing/statsig/transformers/metricTransformer";
+import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
 import {
   StatsigFeatureGate,
   StatsigDynamicConfig,
@@ -1233,21 +1229,12 @@ export async function buildImportedData(
             metricSourceIdMap.set(ft.name, ft.id);
           });
 
-          // Build a mapping from saved filter value to id, keyed by fact table id
-          const savedFilterIdMap = new Map<string, string>();
-          existingFactTables.forEach((ft) => {
-            ft.filters?.forEach((sf) => {
-              savedFilterIdMap.set(`${ft.id}::${sf.value}`, sf.id);
-            });
-          });
-
           for (const metricImport of data.metrics) {
             if (!metricImport.metric) continue;
             try {
               const transformed = await transformStatsigMetricToMetric(
                 metricImport.metric,
                 metricSourceIdMap,
-                savedFilterIdMap,
                 project || "",
                 datasource || "",
               );
@@ -1303,10 +1290,6 @@ export async function buildImportedData(
         }
 
         if (data.metricSources) {
-          const statsigMetrics = (data.metrics || [])
-            .map((m) => m?.metric)
-            .filter(Boolean) as StatsigMetric[];
-
           for (const msImport of data.metricSources) {
             if (!msImport.metricSource) continue;
             try {
@@ -1316,23 +1299,6 @@ export async function buildImportedData(
                   project || "",
                   datasource || "",
                 )) as FactTableInterface;
-
-              // First add, fitlers from existing metric source (if exists)
-              transformed.filters = transformed.filters || [];
-              const existingFilters = new Set<string>();
-              msImport.existingMetricSource?.filters?.map((f) => {
-                transformed.filters.push(f);
-                existingFilters.add(f.value);
-              });
-
-              // Then, add any filters we are going to insert
-              getNewFiltersForMetricSource(
-                statsigMetrics,
-                msImport.metricSource.name,
-                existingFilters,
-              ).forEach((f) => {
-                transformed.filters.push(f as FactFilterInterface);
-              });
 
               msImport.transformedMetricSource =
                 transformed as CreateFactTableProps;
@@ -1466,16 +1432,11 @@ export async function runImport(options: RunImportOptions) {
   }
 
   const metricSourceIdMap = new Map<string, string>();
-  const savedFilterIdMap = new Map<string, string>();
 
-  // Build mapping from existing fact table names to IDs (and filters to ids)
+  // Build mapping from existing fact table names to IDs
   if (existingFactTables) {
     existingFactTables.forEach((ft: FactTableInterface) => {
       metricSourceIdMap.set(ft.name, ft.id);
-
-      ft.filters?.forEach((sf) => {
-        savedFilterIdMap.set(`${ft.id}::${sf.value}`, sf.id);
-      });
     });
   }
 
@@ -2048,32 +2009,6 @@ export async function runImport(options: RunImportOptions) {
           }
           metricSourceIdMap.set(metricSource.name, id);
 
-          // Add any saved filters
-          const metrics = (data.metrics || [])
-            .filter((metricImport, i) => {
-              return (
-                canProcessItem(metricImport.status) &&
-                shouldImportItem("metrics", i, metricImport)
-              );
-            })
-            .map((mi) => mi.metric)
-            .filter(Boolean) as StatsigMetric[];
-          const filtersToAdd = getNewFiltersForMetricSource(
-            metrics,
-            metricSource.name,
-          );
-          for (const filter of filtersToAdd) {
-            if (!filter) continue;
-            const key = `${id}::${filter.value}`;
-            // If filter already exists, skip
-            if (savedFilterIdMap.has(key)) continue;
-            const savedFilterRes = await apiCall(`/fact-tables/${id}/filter`, {
-              method: "POST",
-              body: JSON.stringify(filter),
-            });
-            savedFilterIdMap.set(key, savedFilterRes.filterId);
-          }
-
           metricSourceImport.status = "completed";
           metricSourceImport.exists = isUpdate;
         } catch (e) {
@@ -2105,7 +2040,6 @@ export async function runImport(options: RunImportOptions) {
           const metricPayload = await transformStatsigMetricToMetric(
             metric,
             metricSourceIdMap,
-            savedFilterIdMap,
             project || "",
             datasource || "",
           );

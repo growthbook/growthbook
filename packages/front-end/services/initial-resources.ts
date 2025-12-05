@@ -98,10 +98,13 @@ WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Page View"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Page View"],
+                },
+              ],
             },
           },
           {
@@ -110,10 +113,13 @@ WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Session Start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Session Start"],
+                },
+              ],
             },
           },
           {
@@ -122,18 +128,24 @@ WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Page View"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Page View"],
+                },
+              ],
             },
             denominator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Session Start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Session Start"],
+                },
+              ],
             },
           },
         ],
@@ -223,7 +235,6 @@ WHERE
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
             },
           },
         ],
@@ -309,7 +320,6 @@ WHERE
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
             },
           },
         ],
@@ -471,10 +481,13 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["page_view"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["page_view"],
+                },
+              ],
             },
           },
           {
@@ -483,10 +496,13 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["session_start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["session_start"],
+                },
+              ],
             },
           },
           {
@@ -495,18 +511,24 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["page_view"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["page_view"],
+                },
+              ],
             },
             denominator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["session_start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["session_start"],
+                },
+              ],
             },
           },
           {
@@ -517,7 +539,12 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$distinctUsers",
-              filters: ["Engaged Session"],
+              rowFilters: [
+                {
+                  operator: "saved_filter",
+                  values: ["Engaged Session"],
+                },
+              ],
             },
           },
           {
@@ -527,7 +554,6 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "engagement_time",
-              filters: [],
             },
           },
           {
@@ -537,15 +563,17 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "engagement_time",
-              filters: [],
             },
             denominator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["session_start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["session_start"],
+                },
+              ],
             },
           },
           {
@@ -554,10 +582,13 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$distinctUsers",
-              filters: [],
-              inlineFilters: {
-                event_name: ["form_submit"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["form_submit"],
+                },
+              ],
             },
           },
         ],
@@ -727,23 +758,47 @@ export async function createInitialResources({
       for (const metric of metrics) {
         try {
           // Replace filter names with filter ids
-          if (metric.numerator?.filters?.length) {
-            metric.numerator.filters = metric.numerator.filters.map(
-              (name) => filterMap[name],
+          if (metric.numerator?.rowFilters?.length) {
+            metric.numerator.rowFilters = metric.numerator.rowFilters.map(
+              (rf) => {
+                if (
+                  rf.operator === "saved_filter" &&
+                  rf.values &&
+                  rf.values[0]
+                ) {
+                  const filterId = filterMap[rf.values[0]];
+                  if (!filterId) {
+                    throw new Error("Required filters not created");
+                  }
+                  return {
+                    ...rf,
+                    values: filterId ? [filterId] : [],
+                  };
+                }
+                return rf;
+              },
             );
-            // If some filters are missing, skip this metric
-            if (metric.numerator.filters.some((f) => !f)) {
-              throw new Error("Required filters not created");
-            }
           }
-          if (metric.denominator?.filters?.length) {
-            metric.denominator.filters = metric.denominator.filters.map(
-              (name) => filterMap[name],
+          if (metric.denominator?.rowFilters?.length) {
+            metric.denominator.rowFilters = metric.denominator.rowFilters.map(
+              (rf) => {
+                if (
+                  rf.operator === "saved_filter" &&
+                  rf.values &&
+                  rf.values[0]
+                ) {
+                  const filterId = filterMap[rf.values[0]];
+                  if (!filterId) {
+                    throw new Error("Required filters not created");
+                  }
+                  return {
+                    ...rf,
+                    values: filterId ? [filterId] : [],
+                  };
+                }
+                return rf;
+              },
             );
-            // If some filters are missing, skip this metric
-            if (metric.denominator.filters.some((f) => !f)) {
-              throw new Error("Required filters not created");
-            }
           }
 
           // Inject factTableId into numerator and denominator
