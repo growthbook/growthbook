@@ -1,9 +1,9 @@
+import uniq from "lodash/uniq";
+import { paddedVersionString } from "@growthbook/growthbook";
 import {
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
-import uniq from "lodash/uniq";
-import { paddedVersionString } from "@growthbook/growthbook";
+} from "shared/types/sdk-connection";
 import { CapabilityStrategy, SDKCapability } from "./types";
 
 import * as nocode_json from "./sdk-versions/nocode.json";

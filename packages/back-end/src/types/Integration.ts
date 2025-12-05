@@ -1,6 +1,7 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { TemplateVariables, FormatDialect } from "shared/types/sql";
+import { SegmentInterface } from "shared/types/segment";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -13,7 +14,6 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "back-end/types/metric";
 import { AdditionalQueryMetadata, QueryStatistics } from "back-end/types/query";
-import { SegmentInterface } from "back-end/types/segment";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
   ColumnInterface,

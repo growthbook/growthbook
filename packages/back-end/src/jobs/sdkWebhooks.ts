@@ -4,6 +4,8 @@ import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { Promise as BluebirdPromise } from "bluebird";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { WEBHOOKS } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -11,7 +13,6 @@ import {
   findSDKConnectionsByIds,
   findSDKConnectionsByOrganization,
 } from "back-end/src/models/SdkConnectionModel";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { logger } from "back-end/src/util/logger";
 import {
   findAllSdkWebhooksByConnection,
@@ -19,7 +20,6 @@ import {
   findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
 } from "back-end/src/models/WebhookModel";
-import { WebhookInterface, WebhookPayloadFormat } from "back-end/types/webhook";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
   cancellableFetch,

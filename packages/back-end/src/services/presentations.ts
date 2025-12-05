@@ -1,9 +1,9 @@
 import uniqid from "uniqid";
-import { PresentationModel } from "back-end/src/models/PresentationModel";
 import {
   PresentationInterface,
   PresentationSlide,
-} from "back-end/types/presentation";
+} from "shared/types/presentation";
+import { PresentationModel } from "back-end/src/models/PresentationModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";

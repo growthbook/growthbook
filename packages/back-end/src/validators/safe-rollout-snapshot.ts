@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { MidExperimentPowerCalculationResultValidator } from "shared/enterprise";
 import {
+  queryPointerValidator,
   cappingSettingsValidator,
   priorSettingsValidator,
   windowSettingsValidator,
-} from "back-end/src/routers/fact-table/fact-table.validators";
+} from "shared/validators";
 import { statsEnginesValidator } from "back-end/src/models/ProjectModel";
-import { queryPointerValidator } from "./queries";
 
 const metricStatsObject = z.object({
   users: z.number(),
@@ -34,8 +34,18 @@ export const safeRolloutSnapshotMetricObject = z.object({
   cr: z.number(),
   users: z.number(),
   denominator: z.number().optional(),
-  ci: z.tuple([z.number(), z.number()]).optional(),
-  ciAdjusted: z.tuple([z.number(), z.number()]).optional(),
+  ci: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
+  ciAdjusted: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
   expected: z.number().optional(),
   risk: z.tuple([z.number(), z.number()]).optional(),
   riskType: z.enum(["relative", "absolute"]).optional(),

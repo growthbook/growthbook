@@ -1,9 +1,9 @@
 import { ExperimentMetricInterface, SliceLevelsData } from "shared/experiments";
+import { ExperimentDecisionFrameworkSettings } from "shared/validators";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
 import { ProjectInterface } from "back-end/src/models/ProjectModel";
-import { ExperimentDecisionFrameworkSettings } from "back-end/src/validators/experiments";
 import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,

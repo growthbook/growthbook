@@ -2,7 +2,7 @@ import React, { FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { NotificationEventName } from "back-end/src/events/base-types";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import {
   eventWebHookEventOptions,
   notificationEventNames,

@@ -1,6 +1,11 @@
 import md5 from "md5";
 import { isFactMetricId, expandMetricGroups } from "shared/experiments";
 import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
+import {
+  CreateMetricTimeSeriesSingleDataPoint,
+  MetricTimeSeriesValue,
+  MetricTimeSeriesVariation,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/organization";
 import {
   FactMetricInterface,
@@ -15,11 +20,6 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotMetricInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
-import {
-  CreateMetricTimeSeriesSingleDataPoint,
-  MetricTimeSeriesValue,
-  MetricTimeSeriesVariation,
-} from "back-end/src/validators/metric-time-series";
 import { logger } from "back-end/src/util/logger";
 
 export async function updateSafeRolloutTimeSeries({

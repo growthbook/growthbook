@@ -1,4 +1,4 @@
-import { CustomField } from "back-end/types/custom-fields";
+import { CustomField } from "shared/types/custom-fields";
 
 export const validateCustomFieldValue = (
   customField: CustomField,

@@ -1,3 +1,4 @@
+import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import { GetVisualChangesetResponse } from "back-end/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
@@ -7,7 +8,6 @@ import {
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getVisualChangesetValidator } from "back-end/src/validators/openapi";
-import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/experiments";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,

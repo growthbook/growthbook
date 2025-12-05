@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { Router } from "express";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   createApiRequestHandler,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { _dangerousGetSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
 import { _dangerousGetAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
 import { getOrganizationIdsWithTrackingDisabled } from "back-end/src/models/OrganizationModel";

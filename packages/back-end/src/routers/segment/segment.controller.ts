@@ -1,6 +1,11 @@
 import type { Response } from "express";
 import { FilterQuery } from "mongoose";
 import { z } from "zod";
+import { SegmentInterface } from "shared/types/segment";
+import {
+  createSegmentValidator,
+  updateSegmentValidator,
+} from "shared/validators";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -17,12 +22,7 @@ import {
   getExperimentsUsingSegment,
 } from "back-end/src/models/ExperimentModel";
 import { MetricInterface } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
 import { ExperimentInterface } from "back-end/types/experiment";
-import {
-  createSegmentValidator,
-  updateSegmentValidator,
-} from "./segment.validators";
 
 // region GET /segments
 

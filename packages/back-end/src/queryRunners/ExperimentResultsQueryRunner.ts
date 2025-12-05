@@ -11,6 +11,7 @@ import {
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
+import { SegmentInterface } from "shared/types/segment";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -27,7 +28,6 @@ import {
   QueryPointer,
   QueryStatus,
 } from "back-end/types/query";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   findSnapshotById,
   updateSnapshot,
