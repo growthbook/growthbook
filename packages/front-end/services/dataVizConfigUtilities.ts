@@ -7,6 +7,19 @@ import {
   dimensionAxisConfiguration,
   xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
+import {
+  blue,
+  teal,
+  orange,
+  pink,
+  amber,
+  mint,
+  lime,
+  cyan,
+  red,
+  indigo,
+  purple,
+} from "@radix-ui/colors";
 import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
 
 export function getXAxisConfig(
@@ -115,4 +128,71 @@ export function normalizeDimensionsForChartType(
       dimension: undefined,
     } as Partial<DataVizConfig>;
   }
+}
+
+const PALETTE = [
+  blue.blue8,
+  teal.teal10,
+  orange.orange10,
+  pink.pink10,
+  amber.amber10,
+  red.red10,
+  indigo.indigo10,
+  purple.purple10,
+  cyan.cyan10,
+  mint.mint10,
+  lime.lime11,
+];
+
+function hashStringToInt(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0; // convert to 32-bit
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Assigns unique colors to dimension/slice keys.
+ *
+ * Uses a hybrid approach:
+ * - Each key's hash determines its preferred color (ensures consistency across charts)
+ * - If hash collision occurs, falls back to next available color (ensures uniqueness)
+ * - Always uses the full palette to ensure the same key gets the same color across charts
+ */
+export function assignColorsToKeys(keys: string[]): Map<string, string> {
+  const colorMap = new Map<string, string>();
+
+  if (keys.length === 0) {
+    return colorMap;
+  }
+
+  // Track which color indices have been used to ensure uniqueness
+  const usedIndices = new Set<number>();
+
+  // Sort keys deterministically for consistent collision resolution order
+  const sortedKeys = [...keys].sort();
+
+  sortedKeys.forEach((key) => {
+    // Start with the key's preferred color based on its hash
+    let colorIndex = hashStringToInt(key) % PALETTE.length;
+    const startIndex = colorIndex; // Track where we started to detect full cycle
+
+    // If preferred color is already taken, find next available color
+    // This ensures uniqueness while maintaining consistency when possible
+    while (usedIndices.has(colorIndex)) {
+      colorIndex = (colorIndex + 1) % PALETTE.length;
+
+      // If we've cycled back to start, palette is exhausted - colors will repeat
+      if (colorIndex === startIndex) {
+        break; // Exit loop - we'll assign a duplicate color
+      }
+    }
+
+    usedIndices.add(colorIndex);
+    colorMap.set(key, PALETTE[colorIndex]);
+  });
+
+  return colorMap;
 }
