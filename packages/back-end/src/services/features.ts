@@ -121,6 +121,7 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  includeDraftExperiments = false,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -132,6 +133,7 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
+  includeDraftExperiments?: boolean;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -150,6 +152,7 @@ export function generateFeaturesPayload({
       experimentMap,
       safeRolloutMap,
       holdoutsMap,
+      includeDraftExperiments,
     });
     if (def) {
       defs[feature.id] = def;
@@ -910,6 +913,7 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
+    includeDraftExperiments,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
