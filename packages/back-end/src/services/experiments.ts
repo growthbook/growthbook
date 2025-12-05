@@ -47,8 +47,7 @@ import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import { SegmentInterface } from "shared/types/segment";
 import {
   ExperimentAnalysisSummaryVariationStatus,
   BanditResult,
@@ -56,7 +55,9 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
-} from "back-end/src/validators/experiments";
+} from "shared/validators";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -93,7 +94,6 @@ import {
   MetricStats,
   Operator,
 } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   Changeset,
   ExperimentInterface,

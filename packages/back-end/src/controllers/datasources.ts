@@ -10,6 +10,7 @@ import {
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { TemplateVariables } from "shared/types/sql";
+import { factTableColumnTypes } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -72,7 +73,6 @@ import {
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
-import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "../models/ExperimentModel";
 

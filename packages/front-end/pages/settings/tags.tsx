@@ -1,6 +1,6 @@
 import React, { useState, FC } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";

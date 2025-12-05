@@ -1,5 +1,5 @@
 import React, { ReactElement, useState } from "react";
-import { WebhookInterface } from "back-end/types/webhook";
+import { WebhookInterface } from "shared/types/webhook";
 import {
   FaCheck,
   FaExclamationTriangle,

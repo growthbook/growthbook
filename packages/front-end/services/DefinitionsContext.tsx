@@ -1,7 +1,7 @@
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
 import { ProjectInterface } from "back-end/types/project";
 import {
   useContext,
@@ -13,7 +13,7 @@ import {
   ReactElement,
   useEffect,
 } from "react";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -21,9 +21,9 @@ import {
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/types/groups";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { CustomField } from "back-end/types/custom-fields";
+import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "back-end/types/experiment";
-import { WebhookSecretFrontEndInterface } from "back-end/src/validators/webhook-secrets";
+import { WebhookSecretFrontEndInterface } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";

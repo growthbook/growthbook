@@ -8,7 +8,7 @@ import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { curveLinear } from "@visx/curve";
 import { Flex, Text } from "@radix-ui/themes";
-import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import { MetricTimeSeries } from "shared/validators";
 import { datetime, getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { RadixTheme } from "@/services/RadixTheme";

@@ -10,12 +10,12 @@ import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/types/groups";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
+import { WebhookInterface } from "shared/types/webhook";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
 } from "back-end/types/report";
-import { WebhookInterface } from "back-end/types/webhook";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
 import {
