@@ -56,13 +56,16 @@ jobs:
         id: yarn-cache
         with:
           path: |
-            **/node_modules
+            node_modules
+            !node_modules/shared
+            !node_modules/front-end
+            !node_modules/back-end
+            !node_modules/@growthbook
           key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
 
       - name: Install yarn dependencies
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install --frozen-lockfile
 
       - name: Install python dependencies
