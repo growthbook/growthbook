@@ -2,14 +2,14 @@ import { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { logger } from "back-end/src/util/logger";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   DataVizConfig,
   SavedQuery,
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
+import { logger } from "back-end/src/util/logger";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
   getContextFromReq,

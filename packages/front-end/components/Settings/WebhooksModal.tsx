@@ -6,7 +6,7 @@ import {
   WebhookInterface,
   WebhookMethod,
   WebhookPayloadFormat,
-} from "back-end/types/webhook";
+} from "shared/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { useAuth } from "@/services/auth";

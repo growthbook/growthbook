@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import pick from "lodash/pick";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,

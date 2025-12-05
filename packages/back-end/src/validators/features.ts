@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
-import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import {
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
-} from "back-end/src/validators/shared";
+} from "shared/validators";
+import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({

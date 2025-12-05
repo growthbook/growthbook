@@ -4,7 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
