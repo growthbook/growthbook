@@ -3,8 +3,9 @@ import {
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { Flex, Text } from "@radix-ui/themes";
-import { useMemo } from "react";
+import { Flex, Text, TextField } from "@radix-ui/themes";
+import { useMemo, useState } from "react";
+import { PiMagnifyingGlass } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
@@ -59,6 +60,8 @@ export default function SeriesList({
   factTable,
   hasMetricSlicesFeature,
 }: SeriesListProps) {
+  const [filterInput, setFilterInput] = useState("");
+
   const allSeries = useMemo(() => {
     const series: SeriesInfo[] = [];
 
@@ -166,6 +169,66 @@ export default function SeriesList({
     return grouped;
   }, [autoSeries, factTable]);
 
+  // Filter series based on filterSeries input
+  const filterLower = filterInput.toLowerCase().trim();
+  const hasFilter = filterLower.length > 0;
+
+  // Filter auto series
+  const filteredAutoSeries = useMemo(() => {
+    if (!hasFilter) return autoSeries;
+    return autoSeries.filter((series) => {
+      const labelMatch = series.label.toLowerCase().includes(filterLower);
+      const seriesIdMatch = series.seriesId.toLowerCase().includes(filterLower);
+      // Also check column display name if available
+      const columnMatch = series.column
+        ? factTable?.columns
+            .find((c) => c.column === series.column)
+            ?.name?.toLowerCase()
+            .includes(filterLower)
+        : false;
+      return labelMatch || seriesIdMatch || columnMatch;
+    });
+  }, [autoSeries, filterLower, hasFilter, factTable]);
+
+  // Group filtered auto series by column
+  const filteredAutoSeriesByColumn = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        columnName: string;
+        series: SeriesInfo[];
+      }
+    >();
+
+    filteredAutoSeries.forEach((series) => {
+      if (!series.column) return;
+
+      if (!grouped.has(series.column)) {
+        const columnInfo = factTable?.columns.find(
+          (c) => c.column === series.column,
+        );
+        const columnName = columnInfo?.name || series.column;
+        grouped.set(series.column, {
+          columnName,
+          series: [],
+        });
+      }
+      grouped.get(series.column)!.series.push(series);
+    });
+
+    return grouped;
+  }, [filteredAutoSeries, factTable]);
+
+  // Filter custom series
+  const filteredCustomSeries = useMemo(() => {
+    if (!hasFilter) return customSeries;
+    return customSeries.filter((series) => {
+      const labelMatch = series.label.toLowerCase().includes(filterLower);
+      const seriesIdMatch = series.seriesId.toLowerCase().includes(filterLower);
+      return labelMatch || seriesIdMatch;
+    });
+  }, [customSeries, filterLower, hasFilter]);
+
   // Check if a series is enabled (not hidden)
   const isSeriesEnabled = (seriesId: string) => {
     const config = block.displaySettings?.seriesOverrides?.find(
@@ -217,27 +280,52 @@ export default function SeriesList({
   };
 
   const handleSelectOrDeselect = (enableAll: boolean) => {
-    const selectableSeriesIds = [...autoSeries, ...customSeries].map(
-      (s) => s.seriesId,
+    // Use filtered series if filter is active, otherwise use all series
+    const seriesToAffect = hasFilter
+      ? [...filteredAutoSeries, ...filteredCustomSeries]
+      : [...autoSeries, ...customSeries];
+
+    const selectableSeriesIds = seriesToAffect.map((s) => s.seriesId);
+
+    const currentOverrides = block.displaySettings?.seriesOverrides || [];
+    const existingOverrides = currentOverrides.filter(
+      (o) => !selectableSeriesIds.includes(o.seriesId),
     );
 
     const newOverrides = enableAll
-      ? undefined // Select all - no overrides needed (all shown by default)
-      : selectableSeriesIds.map((seriesId) => ({ seriesId, hidden: true })); // Deselect all - hide all
+      ? existingOverrides.length > 0
+        ? existingOverrides
+        : undefined
+      : [
+          ...existingOverrides,
+          ...selectableSeriesIds.map((seriesId) => ({
+            seriesId,
+            hidden: true,
+          })),
+        ];
 
     setBlock({
       ...block,
       displaySettings: {
         ...block.displaySettings,
-        seriesOverrides: newOverrides,
+        seriesOverrides:
+          newOverrides && newOverrides.length > 0 ? newOverrides : undefined,
       },
     });
   };
 
+  // Calculate counts - use filtered series if filter is active
+  const seriesToCount = hasFilter
+    ? [...filteredAutoSeries, ...filteredCustomSeries]
+    : [...autoSeries, ...customSeries];
+  const totalSeriesCount = hasFilter
+    ? seriesToCount.length
+    : autoSeries.length + customSeries.length;
   const numOfSeriesHidden =
-    block.displaySettings?.seriesOverrides?.filter((s) => s.hidden).length || 0;
-  const numOfSelectedSeries =
-    autoSeries.length + customSeries.length - numOfSeriesHidden;
+    block.displaySettings?.seriesOverrides?.filter((s) =>
+      seriesToCount.some((series) => series.seriesId === s.seriesId),
+    ).length || 0;
+  const numOfSelectedSeries = totalSeriesCount - numOfSeriesHidden;
 
   // Only show the section if there are series to display
   //MKTODO: Need to think about this
@@ -253,19 +341,42 @@ export default function SeriesList({
       </Text>
       {autoSeriesByColumn.size > 0 || customSeries.length > 0 ? (
         <>
+          <Flex align="center" gap="2" mb="2">
+            <TextField.Root
+              size="2"
+              type="search"
+              placeholder="Search..."
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              <TextField.Slot>
+                <PiMagnifyingGlass size={16} style={{ marginLeft: "4px" }} />
+              </TextField.Slot>
+            </TextField.Root>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!hasFilter}
+              onClick={() => setFilterInput("")}
+              style={{ marginTop: "20px" }}
+            >
+              Clear
+            </Button>
+          </Flex>
           <Flex align="center" gap="2" mb="2" justify="between">
             <Text size="2" weight="light">
-              {numOfSelectedSeries} of {autoSeries.length + customSeries.length}{" "}
-              selected
+              {numOfSelectedSeries} of {totalSeriesCount} selected
+              {hasFilter && " (filtered)"}
             </Text>
-            <Flex align="center" justify="end">
+            <Flex align="center" justify="end" gap="2">
               <Button
                 variant="ghost"
                 size="xs"
                 disabled={isDisabled}
                 onClick={() => handleSelectOrDeselect(true)}
               >
-                Select All
+                {hasFilter ? "Select All Filtered" : "Select All"}
               </Button>
               <Button
                 variant="ghost"
@@ -273,34 +384,71 @@ export default function SeriesList({
                 disabled={isDisabled}
                 onClick={() => handleSelectOrDeselect(false)}
               >
-                Deselect All
+                {hasFilter ? "Deselect All Filtered" : "Deselect All"}
               </Button>
             </Flex>
           </Flex>
-          {Array.from(autoSeriesByColumn.entries())
-            .sort((a, b) => a[1].columnName.localeCompare(b[1].columnName))
-            .map(([column, { columnName, series: columnSeries }]) => (
-              <Flex key={column} direction="column" gap="1">
-                <Text
-                  size="2"
-                  weight="medium"
-                  style={{
-                    paddingLeft: "4px",
-                    color: "var(--color-text-mid)",
-                  }}
-                >
-                  {columnName}
-                </Text>
-                <Flex
-                  direction="column"
-                  gap="1"
-                  style={{ paddingLeft: "16px" }}
-                >
-                  {columnSeries
-                    .sort((a, b) =>
-                      (a.level || "").localeCompare(b.level || ""),
-                    )
-                    .map((series) => (
+          {filteredAutoSeriesByColumn.size === 0 &&
+          filteredCustomSeries.length === 0 &&
+          hasFilter ? (
+            <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+              No series found that match your search.
+            </Text>
+          ) : (
+            <>
+              {Array.from(filteredAutoSeriesByColumn.entries())
+                .sort((a, b) => a[1].columnName.localeCompare(b[1].columnName))
+                .map(([column, { columnName, series: columnSeries }]) => (
+                  <Flex key={column} direction="column" gap="1">
+                    <Text
+                      size="2"
+                      weight="medium"
+                      style={{
+                        paddingLeft: "4px",
+                        color: "var(--color-text-mid)",
+                      }}
+                    >
+                      {columnName}
+                    </Text>
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      style={{ paddingLeft: "16px" }}
+                    >
+                      {columnSeries
+                        .sort((a, b) =>
+                          (a.level || "").localeCompare(b.level || ""),
+                        )
+                        .map((series) => (
+                          <SeriesCheckbox
+                            key={series.seriesId}
+                            series={series}
+                            isEnabled={isSeriesEnabled(series.seriesId)}
+                            isDisabled={isDisabled}
+                            onToggle={handleSeriesToggle}
+                          />
+                        ))}
+                    </Flex>
+                  </Flex>
+                ))}
+              {filteredCustomSeries.length > 0 && (
+                <Flex direction="column" gap="1">
+                  <Text
+                    size="2"
+                    weight="medium"
+                    style={{
+                      paddingLeft: "4px",
+                      color: "var(--color-text-mid)",
+                    }}
+                  >
+                    Custom Slice{filteredCustomSeries.length > 1 ? "s" : ""}
+                  </Text>
+                  <Flex
+                    direction="column"
+                    gap="1"
+                    style={{ paddingLeft: "16px" }}
+                  >
+                    {filteredCustomSeries.map((series) => (
                       <SeriesCheckbox
                         key={series.seriesId}
                         series={series}
@@ -309,33 +457,10 @@ export default function SeriesList({
                         onToggle={handleSeriesToggle}
                       />
                     ))}
+                  </Flex>
                 </Flex>
-              </Flex>
-            ))}
-          {customSeries.length > 0 && (
-            <Flex direction="column" gap="1">
-              <Text
-                size="2"
-                weight="medium"
-                style={{
-                  paddingLeft: "4px",
-                  color: "var(--color-text-mid)",
-                }}
-              >
-                Custom Slice{customSeries.length > 1 ? "s" : ""}
-              </Text>
-              <Flex direction="column" gap="1" style={{ paddingLeft: "16px" }}>
-                {customSeries.map((series) => (
-                  <SeriesCheckbox
-                    key={series.seriesId}
-                    series={series}
-                    isEnabled={isSeriesEnabled(series.seriesId)}
-                    isDisabled={isDisabled}
-                    onToggle={handleSeriesToggle}
-                  />
-                ))}
-              </Flex>
-            </Flex>
+              )}
+            </>
           )}
         </>
       ) : (
