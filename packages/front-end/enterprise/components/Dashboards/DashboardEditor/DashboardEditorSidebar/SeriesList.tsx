@@ -11,6 +11,7 @@ import Collapsible from "react-collapsible";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 interface SeriesInfo {
   seriesId: string;
@@ -63,6 +64,9 @@ export default function SeriesList({
   hasMetricSlicesFeature,
 }: SeriesListProps) {
   const [filterInput, setFilterInput] = useState("");
+  const { factMetrics } = useDefinitions();
+  const metricName =
+    factMetrics.find((m) => m.id === block.factMetricId)?.name || "Metric";
 
   const allSeries = useMemo(() => {
     const series: SeriesInfo[] = [];
@@ -77,7 +81,7 @@ export default function SeriesList({
       return [
         {
           seriesId: "",
-          label: "Base", // I think this should actually be the name of the metric
+          label: `${metricName} (${block.valueType})`,
           type: "base" as const,
         },
       ];
@@ -135,7 +139,13 @@ export default function SeriesList({
     }
 
     return series;
-  }, [block, factTable]);
+  }, [
+    block.analysisSettings.customMetricSlices,
+    block.analysisSettings.metricAutoSlices,
+    block.valueType,
+    factTable,
+    metricName,
+  ]);
 
   // Group series by type
   const baseSeries = allSeries.filter((s) => s.type === "base");
