@@ -8,6 +8,7 @@ import {
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
 } from "shared/src/validators/saved-queries";
+import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
@@ -465,6 +466,7 @@ export async function postGenerateSQL(
         );
       }
     } catch (e) {
+      logger.error(e, "Error generating SQL from AI, first part");
       return res.status(400).json({
         status: 400,
         message: "AI did not return a valid SQL query",
@@ -607,6 +609,7 @@ export async function postGenerateSQL(
       });
     }
   } catch (e) {
+    logger.error(e, "Error generating SQL from AI, second part");
     return res.status(400).json({
       status: 400,
       message: "AI did not return a valid SQL query",
