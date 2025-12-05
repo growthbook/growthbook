@@ -12,12 +12,13 @@ import {
   GBDatabase,
   GBExperiment,
   GBLibrary,
+  GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppFeatures } from "@/types/app-features";
-import { WhiteButton } from "@/components/Radix/Button";
+import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
@@ -88,6 +89,13 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "Product Analytics",
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
+    Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
+  },
+  {
     name: "Metrics and Data",
     href: "/metrics",
     path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
@@ -108,6 +116,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Segments",
         href: "/segments",
         path: /^segment/,
+        filter: ({ segments }) => segments.length > 0,
       },
       {
         name: "Dimensions",
@@ -228,6 +237,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/archetypes",
         path: /^archetypes/,
       },
+      {
+        name: "Exposures Debugger",
+        href: "/exposure-debugger",
+        path: /^exposure-debugger/,
+      },
     ],
   },
   {
@@ -330,6 +344,13 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("cdn-usage-data"),
       },
       {
+        name: "Custom Hooks",
+        href: "/settings/custom-hooks",
+        path: /^settings\/custom-hooks/,
+        filter: ({ permissionsUtils, isCloud }) =>
+          !isCloud && permissionsUtils.canCreateCustomHook({ projects: [] }),
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
@@ -425,7 +446,10 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
+  let pageTitle = [...breadcrumb]
+    .reverse()
+    .map((b) => b.display)
+    .join(" - ");
 
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {

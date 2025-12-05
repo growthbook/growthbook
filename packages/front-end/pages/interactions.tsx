@@ -1,5 +1,5 @@
 import { Box, Heading } from "@radix-ui/themes";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 
 const InteractionsPage = (): React.ReactElement => {
   return (

@@ -11,6 +11,7 @@ import {
   ReactNode,
   useCallback,
   ReactElement,
+  useEffect,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
 import {
@@ -18,7 +19,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
 import { DecisionCriteriaInterface } from "back-end/types/experiment";
@@ -27,6 +28,7 @@ import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
+import { useUser } from "./UserContext";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -141,7 +143,36 @@ export function useDefinitions() {
 
 export const LOCALSTORAGE_PROJECT_KEY = "gb_current_project" as const;
 
-export const useProject = () => useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+// Applies user's team(s) default project constraint once per browser session
+let teamConstraintApplied = false;
+function useTeamProjectConstraint() {
+  const { user, teams } = useUser();
+  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
+  useEffect(() => {
+    if (!user?.teams || !teams || teamConstraintApplied) return;
+
+    const defaultProjects = new Set<string>();
+    (teams || []).forEach((team) => {
+      if (team?.defaultProject && user?.teams?.includes(team.id)) {
+        defaultProjects.add(team.defaultProject);
+      }
+    });
+
+    // Apply default project if applicable
+    teamConstraintApplied = true;
+    if (defaultProjects.size > 0 && !defaultProjects.has(project)) {
+      const firstAllowedProject = Array.from(defaultProjects)[0];
+      setProject(firstAllowedProject);
+    }
+  }, [user?.teams, teams, project, setProject]);
+
+  return [project, setProject] as const;
+}
+
+export const useProject = () => {
+  return useTeamProjectConstraint();
+};
 
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
@@ -246,6 +277,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+
   const getMetricGroupById = useGetById(data?.metricGroups);
   const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
 

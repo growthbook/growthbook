@@ -10,26 +10,21 @@ import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal
 import { useExperiments } from "@/hooks/useExperiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
-import Button from "@/components/Radix/Button";
+} from "@/ui/DropdownMenu";
+import Button from "@/ui/Button";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useExperimentSearch } from "@/services/experiments";
 import { useWatching } from "@/services/WatchProvider";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";

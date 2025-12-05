@@ -8,14 +8,17 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
+import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
 import format from "date-fns/format";
+import Link from "next/link";
 import {
   condToJson,
   jsonToConds,
   useAttributeMap,
   useAttributeSchema,
   getDefaultOperator,
+  getFormatEquivalentOperator,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -27,7 +30,7 @@ import CountrySelector, {
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -41,7 +44,7 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { savedGroups } = useDefinitions();
+  const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
 
@@ -415,6 +418,21 @@ export default function ConditionInput(props: Props) {
                           newConds[i]["operator"] =
                             getDefaultOperator(newAttribute);
                           newConds[i]["value"] = newConds[i]["value"] || "";
+                        } else if (
+                          newAttribute &&
+                          newAttribute.format !== attribute.format
+                        ) {
+                          const desiredOperator = getFormatEquivalentOperator(
+                            conds[i].operator,
+                            newAttribute?.format,
+                          );
+                          if (desiredOperator) {
+                            newConds[i]["operator"] = desiredOperator;
+                          } else {
+                            newConds[i]["operator"] =
+                              getDefaultOperator(newAttribute);
+                            newConds[i]["value"] = newConds[i]["value"] || "";
+                          }
                         }
                         setConds(newConds);
                       }}
@@ -440,6 +458,24 @@ export default function ConditionInput(props: Props) {
                       value={value}
                       onChange={(v) => {
                         handleCondsChange(v, "value");
+                      }}
+                      formatOptionLabel={(o, meta) => {
+                        if (meta.context !== "value" || !o.value)
+                          return o.label;
+                        const group = getSavedGroupById(o.value);
+                        const link =
+                          group?.type === "list"
+                            ? `/saved-groups/${group.id}`
+                            : "/saved-groups#conditionGroups";
+                        return (
+                          <Link
+                            href={link}
+                            target="_blank"
+                            style={{ position: "relative", zIndex: 1000 }}
+                          >
+                            {o.label} <PiArrowSquareOut />
+                          </Link>
+                        );
                       }}
                       name="value"
                       initialOption="Choose group..."

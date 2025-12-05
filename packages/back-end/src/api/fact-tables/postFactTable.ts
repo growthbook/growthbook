@@ -13,7 +13,6 @@ import { postFactTableValidator } from "back-end/src/validators/openapi";
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
     const data: CreateFactTableProps = {
-      columns: [],
       eventName: "",
       id: "",
       description: "",
@@ -23,9 +22,6 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       ...req.body,
     };
 
-    if (!req.context.permissions.canCreateFactTable(data)) {
-      req.context.permissions.throwPermissionError();
-    }
     const datasource = await getDataSourceById(
       req.context,
       req.body.datasource,

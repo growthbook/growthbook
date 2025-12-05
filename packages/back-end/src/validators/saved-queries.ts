@@ -41,14 +41,99 @@ const yAxisConfigurationValidator = z.object({
 export type yAxisConfiguration = z.infer<typeof yAxisConfigurationValidator>;
 export type yAxisAggregationType = z.infer<typeof aggregationEnum>;
 
-const dimensionAxisConfigurationValidator = z.object({
+const baseDimensionAxisConfigurationValidator = z.object({
   fieldName: z.string(),
-  display: z.enum(["grouped", "stacked"]),
+  display: z.enum(["grouped"]),
   maxValues: z.number().optional(),
 });
-export type dimensionAxisConfiguration = z.infer<
-  typeof dimensionAxisConfigurationValidator
+export type baseDimensionAxisConfiguration = z.infer<
+  typeof baseDimensionAxisConfigurationValidator
 >;
+
+const extendedDimensionAxisConfigurationValidator =
+  baseDimensionAxisConfigurationValidator.extend({
+    display: z.enum(["stacked", "grouped"]),
+  });
+export type extendedDimensionAxisConfiguration = z.infer<
+  typeof extendedDimensionAxisConfigurationValidator
+>;
+
+// Union type for all dimension axis configurations
+export type dimensionAxisConfiguration =
+  | baseDimensionAxisConfiguration
+  | extendedDimensionAxisConfiguration;
+
+const filterConfigurationValidator = z.union([
+  // Date filters
+  z.object({
+    column: z.string(),
+    columnType: z.literal("date"),
+    filterMethod: z.literal("dateRange"),
+    config: z
+      .object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+      .refine((data) => data.startDate || data.endDate, {
+        message: "At least one of startDate or endDate is required",
+      }),
+  }),
+  z.object({
+    column: z.string(),
+    columnType: z.literal("date"),
+    filterMethod: z.enum(["today", "last7Days", "last30Days"]),
+    config: z.object({}).optional(), // No config needed
+  }),
+
+  // Number filters
+  z.object({
+    column: z.string(),
+    columnType: z.literal("number"),
+    filterMethod: z.literal("numberRange"),
+    config: z
+      .object({
+        min: z.union([z.string(), z.number()]).optional(),
+        max: z.union([z.string(), z.number()]).optional(),
+      })
+      .refine((data) => data.min !== undefined || data.max !== undefined, {
+        message: "At least one of min or max is required",
+      }),
+  }),
+  z.object({
+    column: z.string(),
+    columnType: z.literal("number"),
+    filterMethod: z.enum([
+      "greaterThan",
+      "lessThan",
+      "equalTo",
+      "greaterThanOrEqualTo",
+      "lessThanOrEqualTo",
+    ]),
+    config: z.object({
+      value: z.union([z.string(), z.number()]),
+    }),
+  }),
+
+  // String filters
+  z.object({
+    column: z.string(),
+    columnType: z.literal("string"),
+    filterMethod: z.literal("contains"),
+    config: z.object({
+      value: z.string(),
+    }),
+  }),
+  z.object({
+    column: z.string(),
+    columnType: z.literal("string"),
+    filterMethod: z.literal("includes"),
+    config: z.object({
+      values: z.array(z.string()),
+    }),
+  }),
+]);
+
+export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;
 
 const formatEnum = z.enum([
   "shortNumber",
@@ -60,16 +145,32 @@ const formatEnum = z.enum([
 
 // Base chart components for composition
 const baseChartConfig = z.object({
+  id: z.string().optional(), // UUID for referencing in blockConfig - optional as this was added after the initial release
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  filters: z.array(filterConfigurationValidator).optional(),
 });
 
 const withXAxis = z.object({
   xAxis: xAxisConfigurationValidator,
 });
 
-const withDimensions = z.object({
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+const withXAxes = z.object({
+  xAxes: z.array(xAxisConfigurationValidator).nonempty(),
+});
+
+const withBaseDimensions = z.object({
+  dimension: z
+    .array(baseDimensionAxisConfigurationValidator)
+    .nonempty()
+    .optional(),
+});
+
+const withExtendedDimensions = z.object({
+  dimension: z
+    .array(extendedDimensionAxisConfigurationValidator)
+    .nonempty()
+    .optional(),
 });
 
 const withFormat = z.object({
@@ -80,26 +181,31 @@ const withFormat = z.object({
 const barChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("bar") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withExtendedDimensions);
 
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withBaseDimensions);
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withExtendedDimensions);
 
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
   .merge(withXAxis)
-  .merge(withDimensions);
+  .merge(withBaseDimensions);
 
 const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))
   .merge(withFormat);
+
+const pivotTableValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("pivot-table") }))
+  .merge(withXAxes)
+  .merge(withBaseDimensions);
 
 // Union of all chart type validators
 export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
@@ -108,6 +214,7 @@ export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
   areaChartValidator,
   scatterChartValidator,
   bigValueChartValidator,
+  pivotTableValidator,
 ]);
 
 // Type helpers for better TypeScript inference
@@ -117,8 +224,9 @@ export type AreaChart = z.infer<typeof areaChartValidator>;
 export type ScatterChart = z.infer<typeof scatterChartValidator>;
 export type BigValueChart = z.infer<typeof bigValueChartValidator>;
 export type BigValueFormat = z.infer<typeof formatEnum>;
+export type PivotTable = z.infer<typeof pivotTableValidator>;
 
-export const testQueryRowSchema = z.record(z.any());
+export const testQueryRowSchema = z.record(z.string(), z.any());
 
 export const queryExecutionResultValidator = z.object({
   results: z.array(testQueryRowSchema),

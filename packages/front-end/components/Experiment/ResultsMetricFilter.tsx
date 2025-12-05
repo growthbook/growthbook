@@ -6,7 +6,7 @@ import { Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 export default function ResultsMetricFilter({
   metricTags = [],

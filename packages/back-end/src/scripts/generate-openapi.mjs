@@ -42,8 +42,8 @@ async function run() {
     // Zod validator for response body
     validators.push(
       `export const api${k}Validator = ${generateZodSchema(
-        api.components.schemas[k]
-      )}`
+        api.components.schemas[k],
+      )}`,
     );
 
     output += `export type Api${k} = z.infer<typeof openApiValidators.api${k}Validator>;\n`;
@@ -72,7 +72,7 @@ async function run() {
   bodySchema: ${generateZodSchema(requestSchema, false)},
   querySchema: ${generateZodSchema(querySchema)},
   paramsSchema: ${generateZodSchema(pathSchema)},
-};`
+};`,
         );
       }
     });
@@ -81,13 +81,13 @@ async function run() {
   // Step 4: Persist specs and generated files to file system
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "types", "openapi.d.ts"),
-    output
+    output,
   );
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "src", "validators", "openapi.ts"),
     generatedFileHeader +
       `import { z } from "zod";\n\n` +
-      validators.join("\n\n")
+      validators.join("\n\n"),
   );
 }
 
@@ -116,6 +116,10 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
   // remove overly strick datetime zod validation
   // until we can write custom regex validator
   zod = zod.replace(/(?<=string\(\))\.datetime\(\{.*?\}\)/g, "");
+
+  // Convert zod v3 style z.record(valueType) to zod v4 style z.record(z.string(), valueType)
+  // This handles the breaking change in zod v4 where z.record() requires explicit key and value types
+  zod = zod.replace(/z\.record\(([^)]+)\)/g, "z.record(z.string(), $1)");
 
   return zod;
 }

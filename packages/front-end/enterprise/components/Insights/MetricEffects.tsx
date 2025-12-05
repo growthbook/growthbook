@@ -36,8 +36,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import EmptyState from "@/components/EmptyState";
-import LinkButton from "@/components/Radix/LinkButton";
-import Callout from "@/components/Radix/Callout";
+import LinkButton from "@/ui/LinkButton";
+import Callout from "@/ui/Callout";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 interface HistogramDatapoint {
@@ -253,7 +253,7 @@ const MetricEffectCard = ({
 }): React.ReactElement => {
   const { apiCall } = useAuth();
 
-  const { project, getExperimentMetricById, getFactTableById } =
+  const { project, getExperimentMetricById, getFactTableById, metricGroups } =
     useDefinitions();
 
   const metricExpCounts = useMetricExpCounts(experiments);
@@ -312,8 +312,12 @@ const MetricEffectCard = ({
     }
 
     setLoading(true);
-
-    const filteredExperiments = filterExperimentsByMetrics(experiments, metric);
+    const filteredExperiments = filterExperimentsByMetrics(
+      experiments,
+      metric,
+      undefined,
+      metricGroups,
+    );
     const experimentsWithData = new Map<string, ExperimentWithSnapshot>();
 
     setSearchParams({
@@ -407,7 +411,14 @@ const MetricEffectCard = ({
       setExperimentsWithSnapshot(Array.from(experimentsWithData.values()));
       setLoading(false);
     }
-  }, [metric, experiments, differenceType, setSearchParams, apiCall]);
+  }, [
+    metric,
+    experiments,
+    differenceType,
+    setSearchParams,
+    apiCall,
+    metricGroups,
+  ]);
 
   useEffect(() => {
     handleFetchMetric();
@@ -513,6 +524,7 @@ const MetricEffectCard = ({
                         formatter={(value) =>
                           formatterM1(value, formatterOptions)
                         }
+                        xAxisLabel="Lift"
                         mean={metricData.stats?.mean || 0}
                         height={300}
                         highlightPositiveNegative={true}

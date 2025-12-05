@@ -72,6 +72,13 @@ properties:
         description: Array of Fact Table Filter Ids
         items:
           type: string
+      inlineFilters:
+        type: object
+        description: Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.
+        additionalProperties:
+          type: array
+          items:
+            type: string
       aggregateFilterColumn:
         type: string
         description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -94,6 +101,13 @@ properties:
         description: Array of Fact Table Filter Ids
         items:
           type: string
+      inlineFilters:
+        type: object
+        description: Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.
+        additionalProperties:
+          type: array
+          items:
+            type: string
   inverse:
     type: boolean
     description: Set to true for things like Bounce Rate, where you want the metric to decrease
@@ -226,6 +240,7 @@ properties:
     enum:
       - ""
       - api
+      - admin
   dateCreated:
     type: string
     format: date-time
@@ -234,3 +249,8 @@ properties:
     format: date-time
   archived:
     type: boolean
+  metricAutoSlices:
+    type: array
+    items:
+      type: string
+    description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.

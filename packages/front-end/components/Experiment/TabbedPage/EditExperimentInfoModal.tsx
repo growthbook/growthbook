@@ -7,7 +7,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 

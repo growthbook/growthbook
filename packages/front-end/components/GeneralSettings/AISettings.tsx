@@ -3,18 +3,18 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import { AIPromptDefaults, AIPromptInterface } from "shared/ai";
 import { useAuth } from "@/services/auth";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud, hasOpenAIKey } from "@/services/env";
 import useApi from "@/hooks/useApi";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{

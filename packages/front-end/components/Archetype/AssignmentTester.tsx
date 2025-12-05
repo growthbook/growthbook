@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -18,9 +18,10 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import DatePicker from "@/components/DatePicker";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -63,6 +64,7 @@ export default function AssignmentTester({
   const { apiCall } = useAuth();
 
   const hasPrerequisites = useMemo(() => {
+    return true;
     if (feature?.prerequisites?.length) return true;
     if (
       Object.values(feature?.environmentSettings ?? {}).some((env) =>
@@ -317,20 +319,12 @@ export default function AssignmentTester({
             <Flex align="center">
               {hasPrerequisites && (
                 <>
-                  <label
-                    className="mr-2 mb-0"
-                    htmlFor="skipRulesWithPrerequisites"
-                  >
-                    <Text size="1" color="gray">
-                      Skip rules with prerequisite targeting
-                    </Text>
-                    <Switch
-                      ml="3"
-                      id="skipRulesWithPrerequisites"
-                      checked={skipRulesWithPrerequisites}
-                      onCheckedChange={(c) => setSkipRulesWithPrerequisites(c)}
-                    />
-                  </label>
+                  <Switch
+                    label="Skip rules with prerequisite targeting"
+                    id="skipRulesWithPrerequisites"
+                    value={skipRulesWithPrerequisites}
+                    onChange={(c) => setSkipRulesWithPrerequisites(c)}
+                  />
                 </>
               )}
               {hasScheduled && (

@@ -1,6 +1,8 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { putDefaultRoleValidator } from "./organizations.validators";
 import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();
@@ -53,6 +55,9 @@ router.put(
 router.put("/organization/license", organizationsController.putLicenseKey);
 router.put(
   "/organization/default-role",
+  validateRequestMiddleware({
+    body: putDefaultRoleValidator,
+  }),
   organizationsController.putDefaultRole,
 );
 router.put(

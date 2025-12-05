@@ -3844,6 +3844,36 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
       permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
     ).toEqual(true);
   });
+
+  it("canCreateMetric should block creation if the user isn't an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateMetric({ projects: ["abc123"], managedBy: "admin" }),
+    ).toEqual(false);
+  });
+
+  it("canCreateMetric should allow creation if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateMetric({ projects: ["abc123"], managedBy: "admin" }),
+    ).toEqual(true);
+  });
 });
 
 describe("PermissionsUtilClass.canUpdateMetric check", () => {
@@ -4044,6 +4074,50 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
 
     expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
   });
+
+  it("canUpdateMetric should allow updates if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "admin",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: [],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(true);
+  });
+
+  it("canUpdateMetric should not allow updates if the user is an experimenter and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "admin",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: [],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
 });
 
 describe("PermissionsUtilClass.canDeleteMetric check", () => {
@@ -4221,6 +4295,36 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
     expect(
       // its true since the user DOES have permission in all projects
       permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
+    ).toEqual(true);
+  });
+
+  it("canDeleteMetric should not allow deletion if the user is an experimenter and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canDeleteMetric({ projects: ["abc123"], managedBy: "admin" }),
+    ).toEqual(false);
+  });
+
+  it("canDeleteMetric should allow deletion if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canDeleteMetric({ projects: ["abc123"], managedBy: "admin" }),
     ).toEqual(true);
   });
 });

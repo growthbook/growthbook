@@ -11,11 +11,12 @@ import {
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
+  ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
+import { getSnapshotAnalysis } from "../../util";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 export const metricSelectors = [
@@ -25,13 +26,28 @@ export const metricSelectors = [
   "custom",
 ] as const;
 
+// BlockConfig item types for sql-explorer blocks
+export const BLOCK_CONFIG_ITEM_TYPES = {
+  RESULTS_TABLE: "results_table",
+  VISUALIZATION: "visualization",
+} as const;
+
+export function isResultsTableItem(item: string): boolean {
+  return item === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+}
+export const pinSources = ["experiment", "custom", "none"] as const;
+
+export interface BlockSnapshotSettings {
+  dimensionId?: string;
+}
+
 export function getBlockData<T extends DashboardBlockInterface>(
   block: DashboardBlockInterfaceOrData<T>,
 ): DashboardBlockData<T> {
   return { ...block, organization: undefined, id: undefined, uid: undefined };
 }
 
-export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
+export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
   data: DashboardBlockInterfaceOrData<T>,
 ): data is T {
   const block = data as T;
@@ -68,13 +84,13 @@ export function blockHasFieldOfType<Field extends string, T>(
 
 export function getBlockSnapshotSettings(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-): Partial<ExperimentSnapshotSettings> {
-  const blockSettings: Partial<ExperimentSnapshotSettings> = {};
+): BlockSnapshotSettings {
+  const blockSettings: BlockSnapshotSettings = {};
   if (
     blockHasFieldOfType(block, "dimensionId", isString) &&
     block.dimensionId.length > 0
   ) {
-    blockSettings.dimensions = [{ id: block.dimensionId }];
+    blockSettings.dimensionId = block.dimensionId;
   }
   return blockSettings;
 }
@@ -103,15 +119,32 @@ export function getBlockAnalysisSettings(
   };
 }
 
-export function dashboardCanAutoUpdate({
-  blocks,
-}: {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-}) {
-  // Only update dashboards where all the blocks will stay up to date with each other
-  return !blocks.find((block) =>
-    ["sql-explorer", "experiment-dimension"].includes(block.type),
+export function snapshotSatisfiesBlock(
+  snapshot: ExperimentSnapshotInterface,
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+) {
+  const blockSettings = getBlockSnapshotSettings(block);
+  // If snapshot does have a dimension, must match block dimension
+  if (snapshot.dimension) {
+    return snapshot.dimension === blockSettings.dimensionId;
+  }
+  if (!blockSettings.dimensionId) return true;
+  // If snapshot doesn't have a dimension, check whether the requested dimension is precomputed
+  return snapshot.settings.dimensions.some(
+    ({ id }) => blockSettings.dimensionId === id,
   );
+}
+
+export function getBlockSnapshotAnalysis<
+  B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(snapshot: ExperimentSnapshotInterface, block: B) {
+  const defaultAnalysis = getSnapshotAnalysis(snapshot);
+  if (!defaultAnalysis) return null;
+  const blockAnalysisSettings = getBlockAnalysisSettings(
+    block,
+    defaultAnalysis.settings,
+  );
+  return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
 }
 
 type CreateBlock<T extends DashboardBlockInterface> = (args: {
@@ -154,6 +187,8 @@ export const CREATE_BLOCK_TYPE: {
     differenceType: "relative",
     baselineRow: 0,
     columnsFilter: [],
+    pinSource: "experiment",
+    pinnedMetricSlices: [],
     ...(initialValues || {}),
   }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
@@ -179,6 +214,8 @@ export const CREATE_BLOCK_TYPE: {
     metricSelector: "experiment-goal",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
+    pinSource: "experiment",
+    pinnedMetricSlices: [],
     ...(initialValues || {}),
   }),
   "experiment-traffic": ({ initialValues, experiment }) => ({
@@ -195,7 +232,27 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     savedQueryId: "",
-    dataVizConfigIndex: -1,
+    blockConfig: [],
+    ...(initialValues || {}),
+  }),
+  "metric-explorer": ({ initialValues }) => ({
+    type: "metric-explorer",
+    title: "",
+    description: "",
+    factMetricId: "",
+    analysisSettings: {
+      lookbackDays: 30,
+      startDate: new Date(Date.now() - 30 * 24 * 3600 * 1000),
+      endDate: new Date(),
+      populationId: "",
+      populationType: "factTable",
+      userIdType: "",
+      additionalNumeratorFilters: undefined,
+      additionalDenominatorFilters: undefined,
+    },
+    visualizationType: "timeseries",
+    valueType: "avg",
+    metricAnalysisId: "",
     ...(initialValues || {}),
   }),
 };

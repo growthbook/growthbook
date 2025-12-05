@@ -29,6 +29,7 @@ class AnalysisSettingsForStatsEngine:
     traffic_percentage: float = 1
     num_goal_metrics: int = 1
     one_sided_intervals: bool = False
+    post_stratification_enabled: bool = False
 
 
 @dataclass

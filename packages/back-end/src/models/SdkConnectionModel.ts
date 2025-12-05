@@ -2,11 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, omit } from "lodash";
-import { ApiSdkConnection } from "back-end/types/openapi";
-import {
-  managedByValidator,
-  ManagedBy,
-} from "back-end/src/validators/managed-by";
+import { managedByValidator, ManagedBy } from "shared/validators";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -14,7 +10,8 @@ import {
   ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
+import { ApiSdkConnection } from "back-end/types/openapi";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -57,6 +54,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
+  eventTracker: String,
   managedBy: {},
   key: {
     type: String,
@@ -273,6 +271,7 @@ export const editSDKConnectionValidator = z
     includeRuleIds: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    eventTracker: z.string().optional(),
   })
   .strict();
 

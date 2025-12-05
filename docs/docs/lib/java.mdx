@@ -168,7 +168,7 @@ The builder is the easiest to use way to construct a `GBContext`, allowing you t
 
 <CodeTabsGBContextBuilderPartial />
 
-:::info Note
+:::info HttpClient recommendation
 The above example uses `java.net.http.HttpClient` which, depending on your web framework, may not be the best option, in which case it is recommended to use a networking library more suitable for your implementation.
 :::
 
@@ -944,16 +944,16 @@ The main difference is you create a `GBContext` by passing an encryption key (`.
 
 <CodeTabsGBContextBuilderEncryptedPartial />
 
-### Fetching, Cacheing, and Refreshing features with GBFeaturesRepository
+### Fetching, Caching, and Refreshing features with GBFeaturesRepository
 
 As of version 0.4.0, the Java SDK provides an optional `GBFeaturesRepository` class which will manage networking for you in the following ways:
 
 - Fetching features from the SDK endpoint when `initialize()` is called
 - Decrypting encrypted features when provided with the client key, e.g. `.builder().encryptionKey(clientKey)`
-- Cacheing features (in-memory)
+- Caching features (in-memory)
 - Refreshing features
 
-If you wish to manage fetching, refreshing, and cacheing features on your own, you can choose to not implement this class.
+If you wish to manage fetching, refreshing, and caching features on your own, you can choose to not implement this class.
 
 :::info Recommendation
 This class should be implemented as a singleton class as it includes caching and refreshing functionality.
@@ -971,7 +971,7 @@ Then, you would call `myGbFeaturesRepositoryInstance.initialize()` in order to m
 
 For more references, see the [Examples](#code-examples) below.
 
-#### Cacheing and refreshing behavior
+#### Caching and refreshing behavior
 
 As of version 0.9.0, there are 2 refresh strategies available.
 

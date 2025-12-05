@@ -2,7 +2,7 @@ import { FaPlusCircle } from "react-icons/fa";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,

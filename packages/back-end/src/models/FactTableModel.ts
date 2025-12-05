@@ -14,6 +14,7 @@ import {
 import { ApiFactTable, ApiFactTableFilter } from "back-end/types/openapi";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { promiseAllChunks } from "../util/promise";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -45,6 +46,8 @@ const factTableSchema = new mongoose.Schema({
       alwaysInlineFilter: Boolean,
       topValues: [String],
       topValuesDate: Date,
+      isAutoSliceColumn: Boolean,
+      autoSlices: [String],
     },
   ],
   columnsError: String,
@@ -93,6 +96,9 @@ function createPropsToInterface(
     ? props.columns.map((column) => {
         return {
           ...column,
+          name: column.name ?? column.column,
+          description: column.description ?? "",
+          numberFormat: column.numberFormat ?? "",
           dateCreated: new Date(),
           dateUpdated: new Date(),
           deleted: false,
@@ -198,6 +204,19 @@ export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps,
 ) {
+  if (
+    data.managedBy === "admin" &&
+    !context.hasPremiumFeature("manage-official-resources")
+  ) {
+    throw new Error(
+      "Your organization's plan does not support creating official fact tables.",
+    );
+  }
+
+  if (!context.permissions.canCreateFactTable(data)) {
+    context.permissions.throwPermissionError();
+  }
+
   const doc = await FactTableModel.create(
     createPropsToInterface(context, data),
   );
@@ -206,34 +225,40 @@ export async function createFactTable(
   return factTable;
 }
 
-export async function createFactTables(
-  context: ReqContext,
-  factTables: Omit<CreateFactTableProps, "datasource">[],
-  datasource: string,
-): Promise<FactTableInterface[]> {
-  const factTablesToCreate = factTables.map((factTable) =>
-    createPropsToInterface(context, { ...factTable, datasource }),
-  );
-
-  return (await FactTableModel.insertMany(factTablesToCreate)).map(toInterface);
-}
-
 export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
-  {
-    bypassManagedByCheck,
-  }: {
-    bypassManagedByCheck?: boolean;
-  } = {},
 ) {
+  // Allow changing columns even for API-managed fact tables
   if (
-    !bypassManagedByCheck &&
+    Object.keys(changes).some((k) => k !== "columns") &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
-    throw new Error("This fact table is managed by the API");
+    throw new Error(
+      "Cannot update fact table managed by API if the request isn't from the API.",
+    );
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, changes)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Clean up auto slices from metrics if columns were deleted or modified
+  if (changes.columns) {
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
+
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
   }
 
   await FactTableModel.updateOne(
@@ -255,6 +280,7 @@ export async function updateFactTable(
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
   changes: Partial<Pick<FactTableInterface, "columns" | "columnsError">>,
+  context?: ReqContext | ApiReqContext,
 ) {
   await FactTableModel.updateOne(
     {
@@ -265,13 +291,105 @@ export async function updateFactTableColumns(
       $set: changes,
     },
   );
+
+  // Clean up auto slices from metrics if columns were refreshed and some were deleted
+  if (context && changes.columns) {
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
+
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
+  }
 }
 
-export async function updateColumn(
-  factTable: FactTableInterface,
-  column: string,
-  changes: UpdateColumnProps,
-) {
+// Detect columns that were removed or had auto slice disabled
+export function detectRemovedColumns(
+  originalColumns: Array<{
+    column: string;
+    deleted?: boolean;
+    isAutoSliceColumn?: boolean;
+  }>,
+  newColumns: Array<{
+    column: string;
+    deleted?: boolean;
+    isAutoSliceColumn?: boolean;
+  }>,
+): string[] {
+  // Find columns that were deleted (existed before but don't exist now)
+  const deletedColumns = originalColumns
+    .filter((col) => !col.deleted)
+    .map((col) => col.column)
+    .filter(
+      (columnName) =>
+        !newColumns.some(
+          (newCol) => newCol.column === columnName && !newCol.deleted,
+        ),
+    );
+
+  // Find columns where isAutoSliceColumn was disabled
+  const disabledAutoSliceColumns = originalColumns
+    .filter((col) => col.isAutoSliceColumn && !col.deleted)
+    .map((col) => col.column)
+    .filter((columnName) => {
+      const newCol = newColumns.find((newCol) => newCol.column === columnName);
+      return newCol && !newCol.isAutoSliceColumn;
+    });
+
+  return [...deletedColumns, ...disabledAutoSliceColumns];
+}
+
+// Clean up auto slices from fact metrics when columns are "deleted" or dropped
+export async function cleanupMetricAutoSlices({
+  context,
+  factTableId,
+  removedColumns,
+}: {
+  context: ReqContext | ApiReqContext;
+  factTableId: string;
+  removedColumns: string[];
+}) {
+  // Get all fact metrics that use this fact table
+  const allFactMetrics = await context.models.factMetrics.getAll();
+  const affectedMetrics = allFactMetrics.filter(
+    (metric) => metric.numerator?.factTableId === factTableId,
+  );
+
+  // For each affected metric, remove auto slices that reference removed columns
+  for (const metric of affectedMetrics) {
+    if (!metric.metricAutoSlices?.length) continue;
+
+    const originalAutoSlices = [...metric.metricAutoSlices];
+    const cleanedAutoSlices = metric.metricAutoSlices.filter(
+      (sliceColumn) => !removedColumns.includes(sliceColumn),
+    );
+
+    // Only update if there were changes
+    if (cleanedAutoSlices.length !== originalAutoSlices.length) {
+      await context.models.factMetrics.update(metric, {
+        metricAutoSlices: cleanedAutoSlices,
+      });
+    }
+  }
+}
+
+export async function updateColumn({
+  context,
+  factTable,
+  column,
+  changes,
+}: {
+  context?: ReqContext | ApiReqContext;
+  factTable: FactTableInterface;
+  column: string;
+  changes: UpdateColumnProps;
+}) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");
 
@@ -282,12 +400,25 @@ export async function updateColumn(
     throw new Error("Only string columns are eligible for inline filtering");
   }
 
-  factTable.columns[columnIndex] = {
-    ...factTable.columns[columnIndex],
+  const originalColumn = factTable.columns[columnIndex];
+  const updatedColumn = {
+    ...originalColumn,
     ...changes,
     ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   };
+
+  // If auto slice settings changed, reset autoSlices to empty array
+  if (updatedColumn.isAutoSliceColumn && !updatedColumn.autoSlices) {
+    updatedColumn.autoSlices = [];
+  }
+
+  // Ensure boolean columns only save ["true", "false"]
+  if (updatedColumn.datatype === "boolean" && updatedColumn.autoSlices) {
+    updatedColumn.autoSlices = ["true", "false"];
+  }
+
+  factTable.columns[columnIndex] = updatedColumn;
 
   await FactTableModel.updateOne(
     {
@@ -301,6 +432,19 @@ export async function updateColumn(
       },
     },
   );
+
+  // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
+  if (
+    context &&
+    (updatedColumn.deleted ||
+      (!updatedColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn))
+  ) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: [column],
+    });
+  }
 }
 
 export async function createFactFilter(
@@ -405,13 +549,39 @@ export async function deleteFactTable(
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
-    throw new Error("This fact table is managed by the API");
+    throw new Error(
+      "Cannot delete fact table managed by API if the request isn't from the API.",
+    );
+  }
+
+  if (!context.permissions.canDeleteFactTable(factTable)) {
+    context.permissions.throwPermissionError();
   }
 
   await FactTableModel.deleteOne({
     id: factTable.id,
     organization: factTable.organization,
   });
+}
+
+export async function deleteAllFactTablesForAProject({
+  projectId,
+  context,
+}: {
+  projectId: string;
+  context: ReqContext | ApiReqContext;
+}) {
+  const factTablesToDelete = await FactTableModel.find({
+    organization: context.org.id,
+    projects: [projectId],
+  });
+
+  await promiseAllChunks(
+    factTablesToDelete.map(
+      (factTable) => async () => await deleteFactTable(context, factTable),
+    ),
+    5,
+  );
 }
 
 export async function deleteFactFilter(
@@ -455,11 +625,18 @@ export function toFactTableApiInterface(
   return {
     ...omit(factTable, [
       "organization",
-      "columns",
       "filters",
       "dateCreated",
       "dateUpdated",
     ]),
+    columns: factTable.columns.map((col) => ({
+      ...col,
+      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
+      isAutoSliceColumn: col.isAutoSliceColumn ?? false,
+      dateCreated: col.dateCreated.toISOString(),
+      dateUpdated: col.dateUpdated.toISOString(),
+      topValuesDate: col.topValuesDate?.toISOString(),
+    })),
     managedBy: factTable.managedBy || "",
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",

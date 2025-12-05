@@ -25,12 +25,12 @@ import {
   PiInfo,
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -68,10 +68,11 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Badge from "@/components/Radix/Badge";
-import Frame from "@/components/Radix/Frame";
+import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import PrerequisiteStatusRow, {
@@ -518,7 +519,7 @@ export default function FeaturesOverview({
               {ago(revision.dateUpdated)}
             </Box>
           )}
-          <Box>
+          <Flex align="center" gap="2">
             {renderStatusCopy()}
             <Button
               title="View log"
@@ -529,7 +530,7 @@ export default function FeaturesOverview({
             >
               <RxListBullet />
             </Button>
-          </Box>
+          </Flex>
         </Flex>
       </Flex>
     );
@@ -699,20 +700,17 @@ export default function FeaturesOverview({
                       Kill Switch
                     </td>
                     {envs.map((env) => (
-                      <td
-                        key={env}
-                        className="text-center align-bottom pb-2"
-                        style={{ minWidth: 120 }}
-                      >
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={env}
-                          mutate={() => {
-                            mutate();
-                          }}
-                          id={`${env}_toggle`}
-                          className="mr-0"
-                        />
+                      <td key={env} style={{ minWidth: 120 }}>
+                        <Flex align="center" justify="center">
+                          <EnvironmentToggle
+                            feature={feature}
+                            environment={env}
+                            mutate={() => {
+                              mutate();
+                            }}
+                            id={`${env}_toggle`}
+                          />
+                        </Flex>
                       </td>
                     ))}
                     <td className="w-100" />
@@ -756,9 +754,15 @@ export default function FeaturesOverview({
               <div className="row mt-3">
                 {environments.length > 0 ? (
                   environments.map((en) => (
-                    <div className="col-auto" key={en.id}>
+                    <Flex
+                      wrap="nowrap"
+                      direction="row"
+                      gap="2"
+                      key={en.id}
+                      mr="4"
+                    >
                       <label
-                        className="font-weight-bold mr-2 mb-0"
+                        className="font-weight-bold mb-0"
                         htmlFor={`${en.id}_toggle`}
                       >
                         {en.id}:{" "}
@@ -771,7 +775,7 @@ export default function FeaturesOverview({
                         }}
                         id={`${en.id}_toggle`}
                       />
-                    </div>
+                    </Flex>
                   ))
                 ) : (
                   <div className="alert alert-warning pt-3 pb-2 w-100">
@@ -1014,9 +1018,9 @@ export default function FeaturesOverview({
 
               {renderRevisionInfo()}
 
-              <Box className="appbox" mt="4" p="5" pl="6" pr="5">
+              <Box className="appbox" mt="4" p="4" pl="6" pr="5">
                 <Flex align="center" justify="between">
-                  <Heading as="h3" size="4" mb="0">
+                  <Heading as="h3" size="4" mb="3">
                     Default Value
                   </Heading>
                   {canEdit && !isLocked && canEditDrafts && (
@@ -1054,12 +1058,11 @@ export default function FeaturesOverview({
                   </Flex>
                   <label className="font-weight-semibold">
                     <Switch
-                      mr="1"
                       disabled={!hasInactiveRules}
-                      checked={!hideInactive}
-                      onCheckedChange={(state) => setHideInactive(!state)}
-                    />{" "}
-                    Show inactive
+                      value={!hasInactiveRules ? false : !hideInactive}
+                      onChange={(state) => setHideInactive(!state)}
+                      label="Show inactive"
+                    />
                   </label>
                 </Flex>
                 {environments.length > 0 ? (

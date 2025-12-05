@@ -8,7 +8,7 @@ import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
-import { Switch } from "@radix-ui/themes";
+import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
@@ -152,8 +152,7 @@ export default function TrafficCard({
           </h3>
           {!selectedDimension && (
             <div className="ml-auto">
-              Cumulative{" "}
-              <Switch checked={cumulative} onCheckedChange={setCumulative} />
+              Cumulative <Switch value={cumulative} onChange={setCumulative} />
             </div>
           )}
         </div>

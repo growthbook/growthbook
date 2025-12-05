@@ -1,10 +1,10 @@
 .timeSeriesCell {
   padding: 0;
-  background-color: var(--slate-a2);
-  border: 1px solid var(--slate-a3);
-  border-top: none;
-  border-bottom-width: 2px;
-  padding-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  box-shadow:
+    rgba(102, 102, 102, 0.01) 0 1px inset,
+    rgba(102, 102, 102, 0.01) 0 -1px inset,
+    0 6px 6px -6px var(--slate-a3) inset;
 }
 
 .expandAnimation {

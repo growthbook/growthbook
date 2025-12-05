@@ -1,8 +1,10 @@
 import md5 from "md5";
 import {
-  getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
+  expandAllSliceMetricsInMap,
 } from "shared/experiments";
+import cloneDeep from "lodash/cloneDeep";
 import { ReqContext } from "back-end/types/organization";
 import {
   ExperimentAnalysisSummary,
@@ -28,6 +30,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 
 export async function updateExperimentTimeSeries({
   context,
@@ -52,11 +55,22 @@ export async function updateExperimentTimeSeries({
   }
 
   const metricGroups = await context.models.metricGroups.getAll();
-  const metricsIds = getAllMetricIdsFromExperiment(
-    experimentSnapshot.settings,
-    false,
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
     metricGroups,
-  );
+  });
+
+  const allMetricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: experimentSnapshot.settings,
+    expandedMetricMap: metricMap,
+    metricGroups,
+  });
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "relative" &&
@@ -84,14 +98,12 @@ export async function updateExperimentTimeSeries({
   }
 
   let factMetrics: FactMetricInterface[] | undefined = undefined;
-  let factTableMap: Map<string, FactTableInterface> | undefined = undefined;
-  const factMetricsIds: string[] = metricsIds.filter(isFactMetricId);
+  const factMetricsIds: string[] = allMetricIds.filter(isFactMetricId);
   if (factMetricsIds.length > 0) {
     factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
-    factTableMap = await getFactTableMap(context);
   }
 
-  const timeSeriesVariationsPerMetricId = metricsIds.reduce(
+  const timeSeriesVariationsPerMetricId = allMetricIds.reduce(
     (acc, metricId) => {
       acc[metricId] = variations.map((_, variationIndex) => ({
         id: experiment.variations[variationIndex].id,
@@ -135,7 +147,7 @@ export async function updateExperimentTimeSeries({
   );
 
   const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
-    metricsIds.map((metricId) => ({
+    allMetricIds.map((metricId) => ({
       source: "experiment",
       sourceId: experiment.id,
       sourcePhase: experimentSnapshot.phase,
@@ -209,6 +221,8 @@ function getExperimentSettingsHash(
     dimensions: snapshotAnalysisSettings.dimensions,
     statsEngine: snapshotAnalysisSettings.statsEngine,
     regressionAdjusted: snapshotAnalysisSettings.regressionAdjusted,
+    postStratificationEnabled:
+      snapshotAnalysisSettings.postStratificationEnabled,
     sequentialTesting: snapshotAnalysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       snapshotAnalysisSettings.sequentialTestingTuningParameter,
@@ -263,6 +277,106 @@ function getMetricSettingsHash(
       },
     });
   }
+}
+
+// TODO(incremental-refresh): Reconcile with getExperimentSettingsHash and getMetricSettingsHash
+export function getExperimentSettingsHashForIncrementalRefresh(
+  snapshotSettings: ExperimentSnapshotSettings,
+): string {
+  return hashObject({
+    // snapshotSettings
+    activationMetric: snapshotSettings.activationMetric,
+    attributionModel: snapshotSettings.attributionModel,
+    queryFilter: snapshotSettings.queryFilter,
+    segment: snapshotSettings.segment,
+    skipPartialData: snapshotSettings.skipPartialData,
+    datasourceId: snapshotSettings.datasourceId,
+    exposureQueryId: snapshotSettings.exposureQueryId,
+    startDate: snapshotSettings.startDate,
+    regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
+    experimentId: snapshotSettings.experimentId,
+  });
+}
+
+export function getMetricSettingsHashForIncrementalRefresh({
+  factMetric,
+  factTableMap,
+  metricSettings,
+}: {
+  factMetric: FactMetricInterface;
+  factTableMap: Map<string, FactTableInterface>;
+  metricSettings?: MetricForSnapshot;
+}): string {
+  const numeratorFactTableId = factMetric.numerator.factTableId;
+  const numeratorFactTable = numeratorFactTableId
+    ? factTableMap?.get(numeratorFactTableId)
+    : undefined;
+
+  const denominatorFactTableId = factMetric.denominator?.factTableId;
+  const denominatorFactTable = denominatorFactTableId
+    ? factTableMap?.get(denominatorFactTableId)
+    : undefined;
+
+  const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
+    factMetric.numerator.filters.includes(it.id),
+  );
+
+  const denominatorFilters = denominatorFactTable?.filters.filter((it) =>
+    factMetric.denominator?.filters.includes(it.id),
+  );
+
+  if (metricSettings) {
+    const trimmedMetricComputedSettings: Partial<
+      MetricForSnapshot["computedSettings"]
+    > = cloneDeep(metricSettings.computedSettings);
+    // strip fields we don't need for incremental refresh
+    if (trimmedMetricComputedSettings) {
+      delete trimmedMetricComputedSettings.properPrior;
+      delete trimmedMetricComputedSettings.properPriorMean;
+      delete trimmedMetricComputedSettings.properPriorStdDev;
+      delete trimmedMetricComputedSettings.regressionAdjustmentReason;
+      delete trimmedMetricComputedSettings.targetMDE;
+    }
+  }
+
+  return hashObject({
+    ...(metricSettings?.computedSettings
+      ? {
+          regressionAdjustmentEnabled:
+            metricSettings.computedSettings.regressionAdjustmentEnabled,
+          regressionAdjustmentDays:
+            metricSettings.computedSettings.regressionAdjustmentDays,
+          regressionAdjustmentReason:
+            metricSettings.computedSettings.regressionAdjustmentReason,
+          // this drops unneeded analysis settings that don't affect the data
+        }
+      : {}),
+    metricType: factMetric.metricType,
+    numerator: factMetric.numerator,
+    denominator: factMetric.denominator,
+    cappingSettings: factMetric.cappingSettings,
+    quantileSettings: factMetric.quantileSettings,
+    numeratorFactTable: {
+      sql: numeratorFactTable?.sql,
+      eventName: numeratorFactTable?.eventName,
+      filters: numeratorFilters?.map((it) => ({
+        id: it.id,
+        name: it.name,
+        value: it.value,
+      })),
+    },
+    denominatorFactTable: {
+      sql: denominatorFactTable?.sql,
+      eventName: denominatorFactTable?.eventName,
+      // filters should be added here as well in case it is a cross
+      // fact table ratio metric
+      filters: denominatorFilters?.map((it) => ({
+        id: it.id,
+        name: it.name,
+        value: it.value,
+      })),
+    },
+  });
 }
 
 function getHasSignificantDifference(

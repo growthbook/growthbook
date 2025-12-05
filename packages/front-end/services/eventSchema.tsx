@@ -399,6 +399,7 @@ export const dataSourceConnections: {
       bucketUri: "s3://",
       region: "us-east-1",
       database: "",
+      catalog: "AwsDataCatalog",
       accessKeyId: "",
       secretAccessKey: "",
       workGroup: "primary",

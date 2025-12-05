@@ -7,7 +7,7 @@ import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 
 export interface Props {
   feature: FeatureInterface;
@@ -128,6 +128,11 @@ export default function CompareEnvironmentsModal({
           newValue={JSON.stringify(rulesByEnv[sourceEnv], null, 2)}
           compareMethod={DiffMethod.LINES}
           useDarkTheme={appearance === "dark"}
+          styles={{
+            contentText: {
+              wordBreak: "break-all",
+            },
+          }}
         />
       )}
     </Modal>

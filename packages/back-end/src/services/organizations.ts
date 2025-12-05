@@ -21,6 +21,7 @@ import {
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import { TiktokenModel } from "@dqbd/tiktoken";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -69,7 +70,6 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { DimensionInterface } from "back-end/types/dimension";
 import { DataSourceInterface } from "back-end/types/datasource";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { logger } from "back-end/src/util/logger";
 import { SegmentInterface } from "back-end/types/segment";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
@@ -846,7 +846,7 @@ export async function importConfig(
 
             await updateMetric(context, existing, updates);
           } else {
-            await createMetric({
+            await createMetric(context, {
               ...m,
               name: m.name || k,
               id: k,

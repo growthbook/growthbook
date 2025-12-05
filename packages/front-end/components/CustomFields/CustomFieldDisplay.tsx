@@ -13,9 +13,9 @@ import {
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
-import DataList, { DataListItem } from "@/components/Radix/DataList";
-import Button from "@/components/Radix/Button";
-import Frame from "@/components/Radix/Frame";
+import DataList, { DataListItem } from "@/ui/DataList";
+import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{

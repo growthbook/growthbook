@@ -3,7 +3,7 @@ import { datetime } from "shared/dates";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";

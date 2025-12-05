@@ -167,7 +167,6 @@ function App({
         }
         .radix-themes {
           --default-font-family: ${inter.style.fontFamily};
-          --font-weight-medium: 600;
         }
       `}</style>
       <Head>

@@ -30,11 +30,15 @@ export default function ExperimentDimensionBlock({
     dimensionId,
     dimensionValues,
     differenceType,
+    metricSelector,
+    metricIds,
   } = block;
-  const blockId = useMemo(
-    () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
+  // The actual ID of the block which might be null in the case of a block being created
+  const blockInherentId = useMemo(
+    () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
     [block],
   );
+  const blockId = useMemo(() => blockInherentId ?? uuid4(), [blockInherentId]);
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
@@ -110,6 +114,7 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
+      experimentId={experiment.id}
       noStickyHeader
       idPrefix={blockId}
       key={snapshot.dimension}
@@ -134,11 +139,15 @@ export default function ExperimentDimensionBlock({
       status={experiment.status}
       statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
       pValueCorrection={pValueCorrection}
-      regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
       settingsForSnapshotMetrics={settingsForSnapshotMetrics}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
       renderMetricName={(metric) => metric.name}
+      showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
+        d.startsWith("precomputed:"),
+      )}
+      sortBy={metricSelector === "custom" ? "custom" : null}
+      customMetricOrder={metricSelector === "custom" ? metricIds : undefined}
     />
   );
 }

@@ -13,7 +13,8 @@ import { v4 as uuidv4 } from "uuid";
 import { Flex, Text } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
-import Button from "@/components/Radix/Button";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+import Button from "@/ui/Button";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -67,6 +68,7 @@ type ModalProps = {
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
   stickyFooter?: boolean;
+  aboveBodyContent?: ReactNode;
   useRadixButton?: boolean;
   borderlessHeader?: boolean;
   borderlessFooter?: boolean;
@@ -116,6 +118,7 @@ const Modal: FC<ModalProps> = ({
   modalUuid: _modalUuid,
   trackOnSubmit = true,
   useRadixButton,
+  aboveBodyContent = null,
   borderlessHeader = false,
   borderlessFooter = false,
 }) => {
@@ -124,19 +127,29 @@ const Modal: FC<ModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTop = () => {
+    setTimeout(() => {
+      if (bodyRef.current) {
+        bodyRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 50);
+  };
+
   if (inline) {
     size = "fill";
   }
 
   useEffect(() => {
     setError(externalError || null);
+    externalError && scrollToTop();
   }, [externalError]);
 
   useEffect(() => {
     setLoading(externalLoading || false);
   }, [externalLoading]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setTimeout(() => {
       if (!autoFocusSelector) return;
@@ -240,7 +253,11 @@ const Modal: FC<ModalProps> = ({
         {isSuccess ? (
           <div className="alert alert-success">{successMessage}</div>
         ) : (
-          children
+          <>
+            {aboveBodyContent}
+            {error && <ErrorDisplay error={error} mb="3" />}
+            {children}
+          </>
         )}
       </div>
       {!hideCta &&
@@ -258,19 +275,6 @@ const Modal: FC<ModalProps> = ({
               <div className="flex-1" />
             </>
           ) : null}
-          {error && (
-            <div
-              className="alert alert-danger mr-auto"
-              style={{ maxWidth: "65%" }}
-            >
-              {error
-                .split("\n")
-                .filter((v) => !!v.trim())
-                .map((s, i) => (
-                  <div key={i}>{s}</div>
-                ))}
-            </div>
-          )}
           <ConditionalWrapper
             condition={stickyFooter}
             wrapper={
@@ -431,6 +435,7 @@ const Modal: FC<ModalProps> = ({
                 }
               } catch (e) {
                 setError(e.message);
+                scrollToTop();
                 setLoading(false);
                 if (trackOnSubmit) {
                   sendTrackingEvent("modal-submit-error", {

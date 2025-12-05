@@ -41,17 +41,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
-import LinkButton from "@/components/Radix/LinkButton";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
@@ -256,14 +251,16 @@ export default function FeaturesPage() {
                       <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </td>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative text-center">
-                        {featureHasEnvironment(feature, en) && (
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={en.id}
-                            mutate={mutate}
-                          />
-                        )}
+                      <td key={en.id}>
+                        <Flex align="center" justify="center">
+                          {featureHasEnvironment(feature, en) && (
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={en.id}
+                              mutate={mutate}
+                            />
+                          )}
+                        </Flex>
                       </td>
                     ))}
                     <td>

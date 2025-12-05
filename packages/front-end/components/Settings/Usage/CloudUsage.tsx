@@ -10,13 +10,13 @@ import { useRouter } from "next/router";
 import { curveLinear } from "@visx/curve";
 import { PiArrowSquareOut, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
-import Callout from "@/components/Radix/Callout";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { isCloud } from "@/services/env";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import track from "@/services/track";
 
 // Formatter for numbers

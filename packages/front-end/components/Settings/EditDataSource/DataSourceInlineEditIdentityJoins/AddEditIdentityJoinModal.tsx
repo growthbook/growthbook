@@ -113,6 +113,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
           requiredColumns={new Set(userEnteredIdentityJoinIds)}
           value={userEnteredQuery}
           save={async (sql) => form.setValue("query", sql)}
+          sqlObjectInfo={{ objectType: "Identity Join" }}
         />
       )}
       <Modal

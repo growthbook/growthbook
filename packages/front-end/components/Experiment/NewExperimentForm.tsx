@@ -65,17 +65,17 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Toggle from "@/components/Forms/Toggle";
 import { useExperiments } from "@/hooks/useExperiments";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
@@ -322,6 +322,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
+      customMetricSlices: initialValue?.customMetricSlices || [],
+      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
@@ -335,6 +337,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
+
+  const isPipelineIncrementalEnabledForDatasource =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  const willExperimentBeIncludedInIncrementalRefresh =
+    isPipelineIncrementalEnabledForDatasource &&
+    datasource?.settings.pipelineSettings?.includedExperimentIds === undefined;
 
   const { apiCall } = useAuth();
 
@@ -1370,6 +1378,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
               <ExperimentMetricsSelector
                 datasource={datasource?.id}
+                noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
+                excludeQuantiles={willExperimentBeIncludedInIncrementalRefresh}
                 exposureQueryId={exposureQueryId}
                 project={project}
                 goalMetrics={form.watch("goalMetrics") ?? []}
@@ -1384,19 +1394,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setGuardrailMetrics={(guardrailMetrics) =>
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
+                experimentId={initialValue?.id}
               />
             </div>
 
             {isImport && (
-              <div className="form-group ml-2">
-                <Toggle
-                  id="auto_refresh_results"
-                  label="Auto Refresh Results"
-                  value={autoRefreshResults}
-                  setValue={setAutoRefreshResults}
-                />
-                <label>Populate Results on Save</label>
-              </div>
+              <Checkbox
+                id="auto_refresh_results"
+                label="Auto Refresh Results"
+                description="Populate results on save"
+                value={autoRefreshResults}
+                setValue={setAutoRefreshResults}
+                ml="2"
+              />
             )}
           </Page>
         ) : null}

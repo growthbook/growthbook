@@ -1,6 +1,6 @@
 import {ExperimentInterfaceStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
 import React from "react";
-import {VisualChangesetInterface} from "back-end/types/visual-changeset";
+import {VisualChangesetInterface} from "shared/types/visual-changeset";
 import {URLRedirectInterface} from "back-end/types/url-redirect";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
@@ -34,7 +34,7 @@ export default function PublicExperimentOverview({
 
       <div className="box px-4 py-3 mb-4">
         <h4>Description</h4>
-        <Markdown>
+        <Markdown isPublic={true} experimentUid={experiment.uid}>
           {experiment?.description || "_no description_"}
         </Markdown>
       </div>
@@ -53,6 +53,8 @@ export default function PublicExperimentOverview({
         <VariationsTable
           experiment={experiment}
           canEditExperiment={false}
+          isPublic={true}
+          experimentUid={experiment.uid}
         />
       </div>
 

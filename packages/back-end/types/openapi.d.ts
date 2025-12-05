@@ -335,6 +335,16 @@ export interface paths {
     /** Deletes a single fact metric */
     delete: operations["deleteFactMetric"];
   };
+  "/fact-metrics/{id}/analysis": {
+    /** Create a fact metric analysis */
+    post: operations["postFactMetricAnalysis"];
+    parameters: {
+        /** @description The fact metric id to analyze */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/bulk-import/facts": {
     /** Bulk import fact tables, filters, and metrics */
     post: operations["postBulkImportFacts"];
@@ -356,6 +366,10 @@ export interface paths {
   "/settings": {
     /** Get organization settings */
     get: operations["getSettings"];
+  };
+  "/custom-fields": {
+    /** Get list of custom fields */
+    get: operations["getCustomFields"];
   };
 }
 
@@ -393,7 +407,7 @@ export interface components {
        * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api" | "config";
+      managedBy: "" | "api" | "config" | "admin";
       dateCreated: string;
       dateUpdated: string;
       owner: string;
@@ -2922,6 +2936,15 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+      pinnedMetricSlices?: (string)[];
+      /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     ExperimentSnapshot: {
       id: string;
@@ -3249,6 +3272,15 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+      pinnedMetricSlices?: (string)[];
+      /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -3376,16 +3408,93 @@ export interface components {
       datasource: string;
       userIdTypes: (string)[];
       sql: string;
+      /** @description The event name used in SQL template variables */
+      eventName?: string;
+      /** @description Array of column definitions for this fact table */
+      columns?: ({
+          /** @description The actual column name in the database/SQL query */
+          column: string;
+          /** @enum {string} */
+          datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+          /** @enum {string} */
+          numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+          /** @description For JSON columns, defines the structure of nested fields */
+          jsonFields?: {
+            [key: string]: ({
+              /** @enum {string} */
+              datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+            }) | undefined;
+          };
+          /** @description Display name for the column (can be different from the actual column name) */
+          name?: string;
+          description?: string;
+          /**
+           * @description Whether this column should always be included as an inline filter in queries 
+           * @default false
+           */
+          alwaysInlineFilter?: boolean;
+          /** @default false */
+          deleted: boolean;
+          /**
+           * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+           * @default false
+           */
+          isAutoSliceColumn?: boolean;
+          /** @description Specific slices to automatically analyze for this column. */
+          autoSlices?: (string)[];
+          /** Format: date-time */
+          dateCreated?: string;
+          /** Format: date-time */
+          dateUpdated?: string;
+        })[];
+      /** @description Error message if there was an issue parsing the SQL schema */
+      columnsError?: string | null;
       archived?: boolean;
       /**
        * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api";
+      managedBy: "" | "api" | "admin";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+    };
+    FactTableColumn: {
+      /** @description The actual column name in the database/SQL query */
+      column: string;
+      /** @enum {string} */
+      datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+      /** @enum {string} */
+      numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+      /** @description For JSON columns, defines the structure of nested fields */
+      jsonFields?: {
+        [key: string]: ({
+          /** @enum {string} */
+          datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+        }) | undefined;
+      };
+      /** @description Display name for the column (can be different from the actual column name) */
+      name?: string;
+      description?: string;
+      /**
+       * @description Whether this column should always be included as an inline filter in queries 
+       * @default false
+       */
+      alwaysInlineFilter?: boolean;
+      /** @default false */
+      deleted: boolean;
+      /**
+       * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+       * @default false
+       */
+      isAutoSliceColumn?: boolean;
+      /** @description Specific slices to automatically analyze for this column. */
+      autoSlices?: (string)[];
+      /** Format: date-time */
+      dateCreated?: string;
+      /** Format: date-time */
+      dateUpdated?: string;
     };
     FactTableFilter: {
       id: string;
@@ -3419,6 +3528,10 @@ export interface components {
         aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        inlineFilters?: {
+          [key: string]: (string)[] | undefined;
+        };
         /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
         aggregateFilterColumn?: string;
         /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -3429,6 +3542,10 @@ export interface components {
         column: string;
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        inlineFilters?: {
+          [key: string]: (string)[] | undefined;
+        };
       };
       /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
       inverse: boolean;
@@ -3486,12 +3603,21 @@ export interface components {
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api";
+      managedBy: "" | "api" | "admin";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
       archived?: boolean;
+      /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+      metricAutoSlices?: (string)[];
+    };
+    MetricAnalysis: {
+      /** @description The ID of the created metric analysis */
+      id: string;
+      /** @description The status of the analysis (e.g., "running", "completed", "error") */
+      status: string;
+      settings?: any;
     };
     Member: {
       id: string;
@@ -3543,7 +3669,7 @@ export interface components {
       runAtEnd: boolean;
     };
     Settings: {
-      confidenceLevel: number | null;
+      confidenceLevel: number;
       northStar: {
         title?: string;
         metricIds?: (string)[];
@@ -3559,8 +3685,8 @@ export interface components {
         maxPercentageChange?: number;
         minPercentageChange?: number;
         targetMDE?: number;
-      } | null;
-      pastExperimentsMinLength: number | null;
+      };
+      pastExperimentsMinLength: number;
       metricAnalysisDays: number;
       updateSchedule: ({
         /** @enum {string} */
@@ -3574,7 +3700,7 @@ export interface components {
         limitAccessByEnvironment?: boolean;
         environments?: (string)[];
       };
-      statsEngine: string | null;
+      statsEngine: string;
       pValueThreshold: number;
       regressionAdjustmentEnabled: boolean;
       regressionAdjustmentDays: number;
@@ -3582,12 +3708,12 @@ export interface components {
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
       attributionModel: "firstExposure" | "experimentDuration";
-      targetMDE: number | null;
-      delayHours: number | null;
-      windowType: string | null;
-      windowHours: number | null;
-      winRisk: number | null;
-      loseRisk: number | null;
+      targetMDE: number;
+      delayHours: number;
+      windowType: string;
+      windowHours: number;
+      winRisk: number;
+      loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
       requireReviews: ({
@@ -3606,6 +3732,8 @@ export interface components {
       banditBurnInUnit: "hours" | "days";
       experimentMinLengthDays: number;
       experimentMaxLengthDays?: number | null;
+      preferredEnvironment?: string | null;
+      maxMetricSliceLevels?: number;
     };
     CodeRef: {
       /** @description The organization name */
@@ -3636,6 +3764,20 @@ export interface components {
           /** @description The feature flag key referenced */
           flagKey: string;
         })[];
+    };
+    CustomField: {
+      id: string;
+      name: string;
+      type: string;
+      section: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      active: boolean;
+      required: boolean;
+      projects?: (string)[];
+      values?: string;
     };
   };
   responses: {
@@ -4568,6 +4710,9 @@ export interface operations {
           prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };
@@ -6123,6 +6268,9 @@ export interface operations {
           prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };
@@ -9005,6 +9153,15 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
+                /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+                pinnedMetricSlices?: (string)[];
+                /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
               })[];
           }) & {
             limit: number;
@@ -9130,6 +9287,18 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          customFields?: {
+            [key: string]: string | undefined;
+          };
+          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+          pinnedMetricSlices?: (string)[];
+          /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
         };
       };
     };
@@ -9280,6 +9449,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -9462,6 +9640,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -9591,6 +9778,18 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          customFields?: {
+            [key: string]: string | undefined;
+          };
+          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+          pinnedMetricSlices?: (string)[];
+          /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
         };
       };
     };
@@ -9741,6 +9940,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -9978,7 +10186,7 @@ export interface operations {
                  * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api" | "config";
+                managedBy: "" | "api" | "config" | "admin";
                 dateCreated: string;
                 dateUpdated: string;
                 owner: string;
@@ -10096,7 +10304,7 @@ export interface operations {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
           /**
-           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only. 
            * @enum {string}
            */
           managedBy?: "" | "api";
@@ -10245,7 +10453,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -10366,7 +10574,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -10481,10 +10689,10 @@ export interface operations {
       content: {
         "application/json": {
           /**
-           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only. Please note that we have deprecated support for setting the managedBy property to "admin". Your existing Legacy Metrics with this value will continue to work, but we suggest migrating to Fact Metrics instead. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -10833,6 +11041,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -11611,6 +11828,7 @@ export interface operations {
                 project: string;
                 role: string;
                 environments: (string)[];
+                limitAccessByEnvironment?: boolean;
               })[];
           };
         };
@@ -11776,12 +11994,53 @@ export interface operations {
                 datasource: string;
                 userIdTypes: (string)[];
                 sql: string;
+                /** @description The event name used in SQL template variables */
+                eventName?: string;
+                /** @description Array of column definitions for this fact table */
+                columns?: ({
+                    /** @description The actual column name in the database/SQL query */
+                    column: string;
+                    /** @enum {string} */
+                    datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    /** @enum {string} */
+                    numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                    /** @description For JSON columns, defines the structure of nested fields */
+                    jsonFields?: {
+                      [key: string]: ({
+                        /** @enum {string} */
+                        datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                      }) | undefined;
+                    };
+                    /** @description Display name for the column (can be different from the actual column name) */
+                    name?: string;
+                    description?: string;
+                    /**
+                     * @description Whether this column should always be included as an inline filter in queries 
+                     * @default false
+                     */
+                    alwaysInlineFilter?: boolean;
+                    /** @default false */
+                    deleted: boolean;
+                    /**
+                     * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                     * @default false
+                     */
+                    isAutoSliceColumn?: boolean;
+                    /** @description Specific slices to automatically analyze for this column. */
+                    autoSlices?: (string)[];
+                    /** Format: date-time */
+                    dateCreated?: string;
+                    /** Format: date-time */
+                    dateUpdated?: string;
+                  })[];
+                /** @description Error message if there was an issue parsing the SQL schema */
+                columnsError?: string | null;
                 archived?: boolean;
                 /**
                  * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api";
+                managedBy: "" | "api" | "admin";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -11819,11 +12078,13 @@ export interface operations {
           userIdTypes: (string)[];
           /** @description The SQL query for this fact table */
           sql: string;
+          /** @description The event name used in SQL template variables */
+          eventName?: string;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -11841,12 +12102,53 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
               archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -11879,12 +12181,53 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
               archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -11919,11 +12262,52 @@ export interface operations {
           userIdTypes?: (string)[];
           /** @description The SQL query for this fact table */
           sql?: string;
+          /** @description The event name used in SQL template variables */
+          eventName?: string;
+          /** @description Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license. */
+          columns?: ({
+              /** @description The actual column name in the database/SQL query */
+              column: string;
+              /** @enum {string} */
+              datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+              /** @enum {string} */
+              numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+              /** @description For JSON columns, defines the structure of nested fields */
+              jsonFields?: {
+                [key: string]: ({
+                  /** @enum {string} */
+                  datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                }) | undefined;
+              };
+              /** @description Display name for the column (can be different from the actual column name) */
+              name?: string;
+              description?: string;
+              /**
+               * @description Whether this column should always be included as an inline filter in queries 
+               * @default false
+               */
+              alwaysInlineFilter?: boolean;
+              /** @default false */
+              deleted: boolean;
+              /**
+               * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+               * @default false
+               */
+              isAutoSliceColumn?: boolean;
+              /** @description Specific slices to automatically analyze for this column. */
+              autoSlices?: (string)[];
+              /** Format: date-time */
+              dateCreated?: string;
+              /** Format: date-time */
+              dateUpdated?: string;
+            })[];
+          /** @description Error message if there was an issue parsing the SQL schema */
+          columnsError?: string | null;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           archived?: boolean;
         };
       };
@@ -11942,12 +12326,53 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
               archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -12224,6 +12649,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                   /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                   aggregateFilterColumn?: string;
                   /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12234,6 +12663,10 @@ export interface operations {
                   column: string;
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse: boolean;
@@ -12291,12 +12724,14 @@ export interface operations {
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api";
+                managedBy: "" | "api" | "admin";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
                 archived?: boolean;
+                /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoSlices?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -12324,7 +12759,7 @@ export interface operations {
           metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12333,6 +12768,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
             /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
             aggregateFilterColumn?: string;
             /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12341,7 +12780,7 @@ export interface operations {
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12350,6 +12789,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -12434,7 +12877,9 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
+          /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoSlices?: (string)[];
         };
       };
     };
@@ -12459,6 +12904,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12469,6 +12918,10 @@ export interface operations {
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -12526,12 +12979,14 @@ export interface operations {
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -12567,6 +13022,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12577,6 +13036,10 @@ export interface operations {
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -12634,12 +13097,14 @@ export interface operations {
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -12666,7 +13131,7 @@ export interface operations {
           metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12675,6 +13140,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
             /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
             aggregateFilterColumn?: string;
             /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12683,7 +13152,7 @@ export interface operations {
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12692,6 +13161,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -12764,8 +13237,10 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           archived?: boolean;
+          /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoSlices?: (string)[];
         };
       };
     };
@@ -12790,6 +13265,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12800,6 +13279,10 @@ export interface operations {
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -12857,12 +13340,14 @@ export interface operations {
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -12891,6 +13376,47 @@ export interface operations {
       };
     };
   };
+  postFactMetricAnalysis: {
+    /** Create a fact metric analysis */
+    requestBody?: {
+      content: {
+        "application/json": {
+          /** @description The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table. */
+          userIdType?: string;
+          /** @description Number of days to look back for the analysis. Defaults to 30. */
+          lookbackDays?: number;
+          /**
+           * @description The type of population to analyze. Defaults to 'factTable', meaning the analysis will return the metric value for all units found in the fact table. 
+           * @enum {string}
+           */
+          populationType?: "factTable" | "segment";
+          /** @description The ID of the population (e.g., segment ID) when populationType is not 'factTable'. Defaults to null. */
+          populationId?: string | null;
+          /** @description We support passing in adhoc filters for an analysis that don't live on the metric itself. These are in addition to the metric's filters. To use this, you can pass in an array of Fact Table Filter Ids. */
+          additionalNumeratorFilters?: (string)[];
+          /** @description We support passing in adhoc filters for an analysis that don't live on the metric itself. These are in addition to the metric's filters. To use this, you can pass in an array of Fact Table Filter Ids. */
+          additionalDenominatorFilters?: (string)[];
+          /** @description Whether to use a cached query if one exists. Defaults to true. */
+          useCache?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricAnalysis: {
+              /** @description The ID of the created metric analysis */
+              id: string;
+              /** @description The status of the analysis (e.g., "running", "completed", "error") */
+              status: string;
+              settings?: any;
+            };
+          };
+        };
+      };
+    };
+  };
   postBulkImportFacts: {
     /** Bulk import fact tables, filters, and metrics */
     requestBody: {
@@ -12914,11 +13440,13 @@ export interface operations {
                 userIdTypes: (string)[];
                 /** @description The SQL query for this fact table */
                 sql: string;
+                /** @description The event name used in SQL template variables */
+                eventName?: string;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
                  */
-                managedBy?: "" | "api";
+                managedBy?: "" | "api" | "admin";
               };
             })[];
           factTableFilters?: ({
@@ -12952,7 +13480,7 @@ export interface operations {
                 metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
-                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
                   column?: string;
                   /**
                    * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12961,6 +13489,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                   /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                   aggregateFilterColumn?: string;
                   /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12969,7 +13501,7 @@ export interface operations {
                 /** @description Only when metricType is 'ratio' */
                 denominator?: {
                   factTableId: string;
-                  /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+                  /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
                   column: string;
                   /**
                    * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12978,6 +13510,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse?: boolean;
@@ -13062,7 +13598,9 @@ export interface operations {
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
                  */
-                managedBy?: "" | "api";
+                managedBy?: "" | "api" | "admin";
+                /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoSlices?: (string)[];
               };
             })[];
         };
@@ -13262,7 +13800,7 @@ export interface operations {
         content: {
           "application/json": {
             settings: {
-              confidenceLevel: number | null;
+              confidenceLevel: number;
               northStar: {
                 title?: string;
                 metricIds?: (string)[];
@@ -13278,8 +13816,8 @@ export interface operations {
                 maxPercentageChange?: number;
                 minPercentageChange?: number;
                 targetMDE?: number;
-              } | null;
-              pastExperimentsMinLength: number | null;
+              };
+              pastExperimentsMinLength: number;
               metricAnalysisDays: number;
               updateSchedule: ({
                 /** @enum {string} */
@@ -13293,7 +13831,7 @@ export interface operations {
                 limitAccessByEnvironment?: boolean;
                 environments?: (string)[];
               };
-              statsEngine: string | null;
+              statsEngine: string;
               pValueThreshold: number;
               regressionAdjustmentEnabled: boolean;
               regressionAdjustmentDays: number;
@@ -13301,12 +13839,12 @@ export interface operations {
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
               attributionModel: "firstExposure" | "experimentDuration";
-              targetMDE: number | null;
-              delayHours: number | null;
-              windowType: string | null;
-              windowHours: number | null;
-              winRisk: number | null;
-              loseRisk: number | null;
+              targetMDE: number;
+              delayHours: number;
+              windowType: string;
+              windowHours: number;
+              winRisk: number;
+              loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
               requireReviews: ({
@@ -13325,8 +13863,39 @@ export interface operations {
               banditBurnInUnit: "hours" | "days";
               experimentMinLengthDays: number;
               experimentMaxLengthDays?: number | null;
+              preferredEnvironment?: string | null;
+              maxMetricSliceLevels?: number;
             };
           };
+        };
+      };
+    };
+  };
+  getCustomFields: {
+    /** Get list of custom fields */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              name: string;
+              type: string;
+              section: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              active: boolean;
+              required: boolean;
+              projects?: (string)[];
+              values?: string;
+            })[];
         };
       };
     };
@@ -13368,13 +13937,16 @@ export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeVa
 export type ApiSavedGroup = z.infer<typeof openApiValidators.apiSavedGroupValidator>;
 export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationValidator>;
 export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
+export type ApiFactTableColumn = z.infer<typeof openApiValidators.apiFactTableColumnValidator>;
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
+export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
+export type ApiCustomField = z.infer<typeof openApiValidators.apiCustomFieldValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -13466,9 +14038,11 @@ export type PostFactMetricResponse = operations["postFactMetric"]["responses"]["
 export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type PostFactMetricAnalysisResponse = operations["postFactMetricAnalysis"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type ListCodeRefsResponse = operations["listCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
+export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];

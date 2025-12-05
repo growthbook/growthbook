@@ -16,13 +16,13 @@ import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
-import { useAISettings } from "@/hooks/useOrgSettings";
+import Button from "@/ui/Button";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
@@ -74,6 +74,7 @@ const MarkdownInput: FC<{
   const [revertValue, setRevertValue] = useState<string | null>(null);
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const { blockFileUploads } = useOrgSettings();
 
   const [aiAgreementModal, setAiAgreementModal] = useState(false);
   useEffect(() => {
@@ -83,6 +84,8 @@ const MarkdownInput: FC<{
   }, [autofocus, textareaRef.current]);
 
   const onDrop = (files: File[]) => {
+    if (blockFileUploads) return;
+
     setUploading(true);
     const toAdd: string[] = [];
     const promises = Promise.all(
@@ -208,26 +211,32 @@ const MarkdownInput: FC<{
                   },
                 }}
               />
+
               {uploading && <LoadingOverlay />}
-              <input {...getInputProps()} />
-              <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
-                <a
-                  href="https://guides.github.com/features/mastering-markdown/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-dark float-right"
-                  style={{
-                    fontSize: "1.2em",
-                    lineHeight: "1em",
-                  }}
-                  title="Github-flavored Markdown is supported"
-                >
-                  <FaMarkdown />
-                </a>
-                <div className="small text-muted" onClick={open}>
-                  Upload images by dragging &amp; dropping or clicking here{" "}
-                </div>
-              </div>
+              {!blockFileUploads && (
+                <>
+                  <input {...getInputProps()} />
+                  <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
+                    <a
+                      href="https://guides.github.com/features/mastering-markdown/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-dark float-right"
+                      style={{
+                        fontSize: "1.2em",
+                        lineHeight: "1em",
+                      }}
+                      title="Github-flavored Markdown is supported"
+                    >
+                      <FaMarkdown />
+                    </a>
+                    <div className="small text-muted" onClick={open}>
+                      Upload images by dragging &amp; dropping or clicking
+                      here{" "}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             {showButtons && (
               <div className="row">

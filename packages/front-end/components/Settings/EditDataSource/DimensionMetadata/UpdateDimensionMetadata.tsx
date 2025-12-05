@@ -4,7 +4,7 @@ import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { Flex, Text } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   CustomDimensionMetadata,
   DimensionSlicesRunner,

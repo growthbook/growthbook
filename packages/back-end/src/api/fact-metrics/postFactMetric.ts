@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { getScopedSettings } from "shared/settings";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
@@ -77,6 +77,7 @@ export async function getCreateMetricPropsFromBody(
 
   const cleanedNumerator = {
     filters: [],
+    inlineFilters: {},
     ...numerator,
     column:
       body.metricType === "proportion" || body.metricType === "retention"
@@ -121,15 +122,13 @@ export async function getCreateMetricPropsFromBody(
     inverse: false,
     quantileSettings: quantileSettings ?? null,
     windowSettings: {
-      type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
+      type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:
         windowSettings?.delayValue ??
         windowSettings?.delayHours ??
-        scopedSettings.delayHours.value ??
         DEFAULT_METRIC_WINDOW_DELAY_HOURS,
       delayUnit: windowSettings?.delayUnit ?? "hours",
-      windowValue:
-        scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
+      windowValue: DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
     },
     cappingSettings: {
@@ -148,12 +147,14 @@ export async function getCreateMetricPropsFromBody(
     regressionAdjustmentEnabled: !!scopedSettings.regressionAdjustmentEnabled,
     numerator: cleanedNumerator,
     denominator: null,
+    metricAutoSlices: [],
     ...otherFields,
   };
 
   if (denominator) {
     data.denominator = {
       filters: [],
+      inlineFilters: {},
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
@@ -201,6 +202,14 @@ export async function getCreateMetricPropsFromBody(
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
+    if (
+      req.body.metricAutoSlices &&
+      req.body.metricAutoSlices.length > 0 &&
+      !req.context.hasPremiumFeature("metric-slices")
+    ) {
+      throw new Error("Metric slices require an enterprise license");
+    }
+
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
     const data = await getCreateMetricPropsFromBody(

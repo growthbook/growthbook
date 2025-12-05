@@ -34,8 +34,18 @@ export const safeRolloutSnapshotMetricObject = z.object({
   cr: z.number(),
   users: z.number(),
   denominator: z.number().optional(),
-  ci: z.tuple([z.number(), z.number()]).optional(),
-  ciAdjusted: z.tuple([z.number(), z.number()]).optional(),
+  ci: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
+  ciAdjusted: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
   expected: z.number().optional(),
   risk: z.tuple([z.number(), z.number()]).optional(),
   riskType: z.enum(["relative", "absolute"]).optional(),
@@ -158,6 +168,8 @@ const safeRolloutSnapshotSettings = z.object({
   endDate: z.date(),
   variations: z.array(snapshotSettingsVariationValidator),
   coverage: z.number().optional(),
+  phase: z.object({ index: z.string() }).optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type SafeRolloutSnapshotSettings = z.infer<
@@ -181,6 +193,7 @@ export type SafeRolloutReportResultDimension = z.infer<
 const safeRolloutSnapshotAnalysisSettingsValidator = z.object({
   statsEngine: statsEnginesValidator,
   regressionAdjusted: z.boolean().optional(),
+  postStratificationEnabled: z.boolean().optional(),
   sequentialTesting: z.boolean().optional(),
   sequentialTestingTuningParameter: z.number().optional(),
   pValueCorrection: z

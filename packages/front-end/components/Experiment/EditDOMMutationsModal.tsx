@@ -1,11 +1,11 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { DOMMutation, VisualChange } from "back-end/types/visual-changeset";
+import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
 import React, { FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const actionValues = ["append", "set", "remove"];

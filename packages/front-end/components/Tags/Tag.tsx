@@ -2,8 +2,8 @@ import React from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Radix/Badge";
-import { RadixColor } from "@/components/Radix/HelperText";
+import Badge from "@/ui/Badge";
+import { RadixColor } from "@/ui/HelperText";
 
 export const TAG_COLORS = [
   "blue",

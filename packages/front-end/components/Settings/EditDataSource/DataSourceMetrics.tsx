@@ -19,8 +19,10 @@ import {
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -37,12 +39,30 @@ export default function DataSourceMetrics({
     useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
-  const { mutateDefinitions } = useDefinitions();
+  const settings = useOrgSettings();
+  const { disableLegacyMetricCreation } = settings;
+  const {
+    mutateDefinitions,
+    factTables,
+    metrics: legacyMetrics,
+  } = useDefinitions();
 
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
   });
   const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
+
+  const hasLegacyMetrics = legacyMetrics.some(
+    (f) => f.datasource === dataSource.id,
+  );
+
+  const hasFactTables = factTables.some((f) => f.datasource === dataSource.id);
+
+  // Show the create fact table button if there are no legacy metrics and no fact tables
+  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
+  const showCreateFactTableButton = disableLegacyMetricCreation
+    ? !hasFactTables
+    : !hasLegacyMetrics && !hasFactTables;
 
   // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
   const canCreateMetricsInAllDataSourceProjects =
@@ -81,7 +101,8 @@ export default function DataSourceMetrics({
         </Box>
         {canEdit &&
         envAllowsCreatingMetrics() &&
-        canCreateMetricsInAllDataSourceProjects ? (
+        canCreateMetricsInAllDataSourceProjects &&
+        !showCreateFactTableButton ? (
           <>
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
@@ -92,6 +113,10 @@ export default function DataSourceMetrics({
               <FaPlus className="mr-1" /> Add
             </Button>
           </>
+        ) : permissionsUtil.canCreateFactTable({
+            projects: dataSource.projects || [],
+          }) ? (
+          <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
         ) : null}
       </Flex>
       <Flex gap="2">
@@ -249,7 +274,10 @@ export default function DataSourceMetrics({
           ) : (
             <div className="alert alert-info">
               No metrics have been defined yet from this data source. Click the{" "}
-              <strong>Add</strong> button to create your first one.
+              <strong>
+                {showCreateFactTableButton ? "Create Fact Table" : "Add"}
+              </strong>{" "}
+              button to create your first one.
             </div>
           )}
         </Box>

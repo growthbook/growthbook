@@ -9,7 +9,7 @@ properties:
     description: ID for the [DataSource](#tag/DataSource_model)
   managedBy:
     type: string
-    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only.
     enum:
       - ""
       - api

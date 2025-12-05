@@ -1,27 +1,23 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {
-  FaChartBar,
-  FaDatabase,
-  FaExclamationTriangle,
-  FaFlask,
-  FaTable,
-} from "react-icons/fa";
-import React, { ReactElement, useMemo, useState } from "react";
-import { GiPieChart } from "react-icons/gi";
-import { HiCursorClick } from "react-icons/hi";
+import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
+import React, { useMemo, useState } from "react";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import clsx from "clsx";
+import { Box, Text } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
   isMetricJoinable,
+  expandAllSliceMetricsInMap,
+  ExperimentMetricInterface,
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
+import { startCase } from "lodash";
+import { PiPencilSimpleFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBEdit } from "@/components/Icons";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { trackSnapshot } from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -36,11 +32,13 @@ import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
-import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import OverflowText from "./OverflowText";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
+import Callout from "@/ui/Callout";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import Metadata from "@/ui/Metadata";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -51,10 +49,11 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
-  differenceType: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
   reportArgs?: ExperimentSnapshotReportArgs;
 }
+
+const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
@@ -65,16 +64,17 @@ export default function AnalysisSettingsSummary({
   baselineRow,
   setVariationFilter,
   setBaselineRow,
-  differenceType,
   setDifferenceType,
   reportArgs,
 }: Props) {
   const {
     getDatasourceById,
-    getSegmentById,
     getExperimentMetricById,
     factTables,
     metricGroups,
+    factMetrics,
+    metrics,
+    mutateDefinitions,
   } = useDefinitions();
 
   const datasourceSettings = experiment.datasource
@@ -104,6 +104,8 @@ export default function AnalysisSettingsSummary({
     phase,
   } = useSnapshot();
 
+  const { mutateDashboards } = useExperimentDashboards(experiment.id);
+
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
     experiment,
     {},
@@ -126,15 +128,63 @@ export default function AnalysisSettingsSummary({
     };
   });
 
+  const totalUnits = useMemo(() => {
+    const healthVariationUnits =
+      snapshot?.health?.traffic?.overall?.variationUnits;
+    if (healthVariationUnits && healthVariationUnits.length > 0) {
+      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+    }
+    // Fallback to using results for total units if health units not available
+    let totalUsers = 0;
+    analysis?.results?.forEach((result) => {
+      result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
+    });
+    return totalUsers;
+  }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
+
+  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
+  const unitDisplayName = userIdType
+    ? startCase(userIdType.split("_").join(" ")) + "s"
+    : "Units";
+
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
+
+  const handleDisableIncrementalRefresh = async () => {
+    if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;
+
+    await apiCall(`/datasource/${datasource.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: {
+          ...datasource.settings,
+          pipelineSettings: {
+            ...datasource.settings.pipelineSettings,
+            excludedExperimentIds: [
+              ...(datasource.settings?.pipelineSettings
+                ?.excludedExperimentIds ?? []),
+              experiment.id,
+            ],
+          },
+        },
+      }),
+    });
+    setRefreshError("");
+    mutateDefinitions();
+  };
+
   const allExpandedMetrics = Array.from(
     new Set(
       expandMetricGroups(
-        getAllMetricIdsFromExperiment(experiment, false),
+        getAllMetricIdsFromExperiment(experiment, false, metricGroups),
         metricGroups,
       ),
     ),
@@ -192,14 +242,6 @@ export default function AnalysisSettingsSummary({
   });
 
   const ds = getDatasourceById(experiment.datasource);
-  const assignmentQuery = ds?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  );
-  const segment = getSegmentById(experiment.segment || "");
-
-  const activationMetric = getExperimentMetricById(
-    experiment.activationMetric || "",
-  );
 
   const goals: string[] = [];
   expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
@@ -225,108 +267,8 @@ export default function AnalysisSettingsSummary({
 
   const numMetrics = goals.length + secondary.length + guardrails.length;
 
-  const items: {
-    value: string | number | ReactElement;
-    tooltip?: string | ReactElement;
-    icon?: ReactElement;
-    noTransform?: boolean;
-  }[] = [];
-
-  items.push({
-    value: ds ? ds.name : <em>no data source</em>,
-    icon: <FaDatabase className="mr-1" />,
-    tooltip: ds ? "Data Source" : "",
-  });
-
-  if (assignmentQuery && ds?.type !== "mixpanel") {
-    items.push({
-      value: assignmentQuery.name,
-      icon: <FaTable className="mr-1" />,
-      tooltip: "Experiment Assignment Query",
-    });
-  }
-  if (ds) {
-    items.push({
-      value: experiment.trackingKey,
-      icon: <FaFlask className="mr-1" />,
-      tooltip: "Tracking Key",
-    });
-  }
-  if (segment) {
-    items.push({
-      value: segment.name,
-      icon: <GiPieChart className="mr-1" />,
-      tooltip: "Segment",
-    });
-  }
-  if (activationMetric) {
-    items.push({
-      value: <MetricName id={activationMetric.id} />,
-      icon: <HiCursorClick className="mr-1" />,
-      tooltip: "Activation Metric",
-    });
-  }
-
-  items.push({
-    value: numMetrics + (numMetrics === 1 ? " metric" : " metrics"),
-    icon: <FaChartBar className="mr-1" />,
-    noTransform: true,
-    tooltip:
-      numMetrics > 0 ? (
-        <>
-          <div className="mb-2 text-left">
-            <strong>Goals:</strong>
-            {goals.length > 0 ? (
-              <ul className=" ml-0 pl-3 mb-0">
-                {goals.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
-          <div className="mb-2 text-left">
-            <strong>Secondary Metrics:</strong>
-            {secondary.length > 0 ? (
-              <ul className=" ml-0 pl-3 mb-0">
-                {secondary.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
-          {experiment.type !== "holdout" ? (
-            <div className="text-left">
-              <strong>Guardrails:</strong>
-              {guardrails.length > 0 ? (
-                <ul className="ml-0 pl-3 mb-0">
-                  {guardrails.map((m, i) => (
-                    <li key={i}>{m}</li>
-                  ))}
-                </ul>
-              ) : (
-                <>
-                  {" "}
-                  <em>none</em>
-                </>
-              )}
-            </div>
-          ) : null}
-        </>
-      ) : undefined,
-  });
-
   return (
-    <div className="px-3 py-2 analysis-settings-top border-bottom">
+    <div className="px-3 py-2">
       {analysisModal && (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
@@ -354,47 +296,22 @@ export default function AnalysisSettingsSummary({
                     }}
                   >
                     <span className="text-dark">Analysis Settings</span>
-                    <GBEdit className="ml-2" />
+                    <PiPencilSimpleFill className="ml-2" />
                   </Link>
                 </div>
               ) : (
                 <span>Analysis Settings</span>
               )}
             </div>
-            {items.map((item, i) => (
-              <Tooltip
-                body={
-                  item.tooltip && item.noTransform ? (
-                    <div>{item.tooltip}</div>
-                  ) : item.tooltip ? (
-                    <div className="text-center">
-                      <strong>{item.tooltip}:</strong>
-                      <div>{item.value}</div>
-                    </div>
-                  ) : (
-                    ""
-                  )
-                }
-                key={i}
-              >
-                <div
-                  key={i}
-                  className={`col-auto px-3 ${i > 0 ? "border-left" : ""}`}
-                >
-                  <div style={{ cursor: "default" }}>
-                    {item.icon ? <>{item.icon} </> : null}
-                    {item.noTransform ? (
-                      item.value
-                    ) : (
-                      <OverflowText maxWidth={150}>{item.value}</OverflowText>
-                    )}
-                  </div>
-                </div>
-              </Tooltip>
-            ))}
           </div>
         </div>
         <div className="col flex-1" />
+        <div className="col-auto" style={{ fontSize: "12px" }}>
+          <Metadata
+            label={unitDisplayName}
+            value={numberFormatter.format(totalUnits ?? 0)}
+          />
+        </div>
         <div className="col-auto">
           <div className="row align-items-center justify-content-end">
             <div className="col-auto">
@@ -405,6 +322,7 @@ export default function AnalysisSettingsSummary({
                   <QueriesLastRun
                     status={status}
                     dateCreated={snapshot?.dateCreated}
+                    nextUpdate={experiment.nextSnapshotAttempt}
                   />
                 ))}
             </div>
@@ -421,6 +339,7 @@ export default function AnalysisSettingsSummary({
                       mutate={() => {
                         mutateSnapshot();
                         mutate();
+                        mutateDashboards();
                       }}
                       model={latest}
                       icon="refresh"
@@ -474,6 +393,7 @@ export default function AnalysisSettingsSummary({
                       experiment={experiment}
                       lastAnalysis={analysis}
                       dimension={dimension}
+                      setError={(error) => setRefreshError(error ?? "")}
                       setAnalysisSettings={setAnalysisSettings}
                       resetFilters={() => {
                         if (baselineRow !== 0) {
@@ -533,7 +453,6 @@ export default function AnalysisSettingsSummary({
             <div className="col-auto px-0">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={differenceType}
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={
@@ -563,9 +482,11 @@ export default function AnalysisSettingsSummary({
                             );
                             mutateSnapshot();
                             mutate();
+                            setRefreshError("");
                           })
                           .catch((e) => {
                             console.error(e);
+                            setRefreshError(e.message);
                           });
                       }
                     : undefined
@@ -582,7 +503,40 @@ export default function AnalysisSettingsSummary({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={getAllMetricIdsFromExperiment(experiment, false)}
+                metrics={useMemo(() => {
+                  const metricMap = new Map<
+                    string,
+                    ExperimentMetricInterface
+                  >();
+                  const allBaseMetrics = [...metrics, ...factMetrics];
+                  allBaseMetrics.forEach((metric) =>
+                    metricMap.set(metric.id, metric),
+                  );
+                  const factTableMap = new Map(
+                    factTables.map((table) => [table.id, table]),
+                  );
+
+                  // Expand slice metrics and add them to the map
+                  expandAllSliceMetricsInMap({
+                    metricMap,
+                    factTableMap,
+                    experiment,
+                    metricGroups,
+                  });
+
+                  return getAllExpandedMetricIdsFromExperiment({
+                    exp: experiment,
+                    expandedMetricMap: metricMap,
+                    includeActivationMetric: false,
+                    metricGroups,
+                  });
+                }, [
+                  experiment,
+                  metrics,
+                  factMetrics,
+                  factTables,
+                  metricGroups,
+                ])}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}
@@ -594,9 +548,23 @@ export default function AnalysisSettingsSummary({
         </div>
       </div>
       {refreshError && (
-        <div className="alert alert-danger mt-2">
-          <strong>Error updating data: </strong> {refreshError}
-        </div>
+        <>
+          <Callout status="error" mt="2">
+            <strong>Error updating data: </strong> {refreshError}
+          </Callout>
+          {isExperimentIncludedInIncrementalRefresh && (
+            <Box mt="2" mb="2" style={{ color: "var(--color-text-low)" }}>
+              <Text size="1">
+                If this error persists, you can try disabling Incremental
+                Refresh for this experiment by{" "}
+                <Link onClick={handleDisableIncrementalRefresh}>
+                  clicking here
+                </Link>
+                .
+              </Text>
+            </Box>
+          )}
+        </>
       )}
     </div>
   );

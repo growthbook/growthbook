@@ -20,4 +20,5 @@ export interface ExperimentLaunchChecklistInterface {
   dateUpdated: Date;
   updatedByUserId: string;
   tasks: ChecklistTask[];
+  projectId: string;
 }

@@ -62,10 +62,14 @@ Organization:
   $ref: "./Organization.yaml"
 FactTable:
   $ref: "./FactTable.yaml"
+FactTableColumn:
+  $ref: "./FactTableColumn.yaml"
 FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:
   $ref: "./FactMetric.yaml"
+MetricAnalysis:
+  $ref: "./MetricAnalysis.yaml"
 Member:
   $ref: "./Member.yaml"
 Archetype:
@@ -76,3 +80,5 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
+CustomField:
+  $ref: "./CustomField.yaml"

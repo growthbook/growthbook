@@ -1,4 +1,4 @@
-import { ManagedBy } from "back-end/src/validators/managed-by";
+import { ManagedBy } from "shared/validators";
 
 export interface WebhookInterface {
   id: string;
@@ -41,6 +41,7 @@ export type WebhookPayloadFormat =
   | "standard-no-payload"
   | "sdkPayload"
   | "edgeConfig"
+  | "edgeConfigUnescaped"
   | "vercelNativeIntegration"
   | "none";
 

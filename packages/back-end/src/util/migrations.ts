@@ -7,11 +7,11 @@ import {
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { omit } from "lodash";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
 } from "back-end/types/report";
@@ -208,6 +208,11 @@ export function upgradeDatasourceObject(
     ];
   }
 
+  // Sanity check as somehow this ended up with null value in the array
+  if (settings.userIdTypes) {
+    settings.userIdTypes = settings.userIdTypes?.filter((it) => !!it);
+  }
+
   // Upgrade old docs to the new exposure queries format
   if (settings && !settings?.queries?.exposure) {
     const isSQL = !["google_analytics", "mixpanel"].includes(datasource.type);
@@ -249,6 +254,15 @@ export function upgradeDatasourceObject(
         },
       ];
     }
+  }
+
+  // mode field was added later -- default to ephemeral if missing
+  if (
+    settings &&
+    settings.pipelineSettings &&
+    !settings.pipelineSettings.mode
+  ) {
+    settings.pipelineSettings.mode = "ephemeral";
   }
 
   return datasource;
@@ -659,7 +673,7 @@ export function migrateExperimentReport(
     ...otherArgs
   } = args || {};
 
-  const newArgs: ExperimentReportArgs = {
+  const newArgs: LegacyExperimentReportArgs = {
     secondaryMetrics: [],
     ...otherArgs,
     attributionModel:

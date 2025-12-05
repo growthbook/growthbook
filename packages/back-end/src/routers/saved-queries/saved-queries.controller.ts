@@ -1,17 +1,20 @@
 import { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
+import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import {
+  DataVizConfig,
+  SavedQuery,
+  SavedQueryCreateProps,
+  SavedQueryUpdateProps,
+} from "back-end/src/validators/saved-queries";
 import {
   getAISettingsForOrg,
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  SavedQuery,
-  SavedQueryCreateProps,
-  SavedQueryUpdateProps,
-} from "back-end/src/validators/saved-queries";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
@@ -35,6 +38,16 @@ import { ReqContext } from "back-end/types/organization";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ApiReqContext } from "back-end/types/api";
 
+/**
+ * Ensures all dataVizConfig items have IDs. Adds IDs to any items that don't have them.
+ */
+function ensureDataVizIds(dataVizConfig: DataVizConfig[]): DataVizConfig[] {
+  return dataVizConfig.map((config) => ({
+    ...config,
+    id: config.id || `data-viz_${uuidv4()}`,
+  }));
+}
+
 export async function getSavedQueries(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
 
@@ -50,6 +63,33 @@ export async function getSavedQueries(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     savedQueries,
+  });
+}
+
+export async function getSavedQueriesByIds(
+  req: AuthRequest<null, { ids: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
+    return res.status(200).json({
+      status: 200,
+      savedQueries: [],
+    });
+  }
+
+  const { ids } = req.params;
+  const savedQueryIds = ids.split(",");
+
+  const docs = await context.models.savedQueries.getByIds(savedQueryIds);
+
+  // Lookup table so we can return queries in the same order we received them
+  const map = new Map(docs.map((d) => [d.id, d]));
+
+  res.status(200).json({
+    status: 200,
+    savedQueries: savedQueryIds.map((id) => map.get(id) || null),
   });
 }
 
@@ -86,8 +126,15 @@ export async function postSavedQuery(
   req: AuthRequest<SavedQueryCreateProps>,
   res: Response,
 ) {
-  const { name, sql, datasourceId, results, dateLastRan, dataVizConfig } =
-    req.body;
+  const {
+    name,
+    sql,
+    datasourceId,
+    results,
+    dateLastRan,
+    dataVizConfig,
+    linkedDashboardIds,
+  } = req.body;
   const context = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
@@ -99,16 +146,19 @@ export async function postSavedQuery(
     throw new Error("Cannot find datasource");
   }
 
-  await context.models.savedQueries.create({
+  const savedQuery = await context.models.savedQueries.create({
     name,
     sql,
     datasourceId,
     dateLastRan: getValidDate(dateLastRan),
     results,
-    dataVizConfig,
+    dataVizConfig: ensureDataVizIds(dataVizConfig || []),
+    linkedDashboardIds,
   });
   res.status(200).json({
     status: 200,
+    id: savedQuery.id,
+    savedQuery,
   });
 }
 
@@ -128,11 +178,18 @@ export async function putSavedQuery(
     dateLastRan: req.body.dateLastRan
       ? getValidDate(req.body.dateLastRan)
       : undefined,
+    dataVizConfig: req.body.dataVizConfig
+      ? ensureDataVizIds(req.body.dataVizConfig)
+      : undefined,
   };
 
-  await context.models.savedQueries.updateById(id, updateData);
+  const savedQuery = await context.models.savedQueries.updateById(
+    id,
+    updateData,
+  );
   res.status(200).json({
     status: 200,
+    savedQuery,
   });
 }
 
@@ -274,7 +331,6 @@ export async function postGenerateSQL(
   let isGA = false;
   const shardedTables = new Map();
   const dbSchemas = new Map();
-  const errors = [];
 
   // check how many tables there are in the information schema:
   const tablesInfo = informationSchema.databases
@@ -410,6 +466,7 @@ export async function postGenerateSQL(
         );
       }
     } catch (e) {
+      logger.error(e, "Error generating SQL from AI, first part");
       return res.status(400).json({
         status: 400,
         message: "AI did not return a valid SQL query",
@@ -447,8 +504,8 @@ export async function postGenerateSQL(
             tableName: table.tableName,
           });
           dbSchemas.set(table.id, tableSchemaData);
-        } catch (error) {
-          errors.push(error);
+        } catch {
+          // Ignoring errors
         }
       } else {
         dbSchemas.set(table.id, tableSchema);
@@ -552,6 +609,7 @@ export async function postGenerateSQL(
       });
     }
   } catch (e) {
+    logger.error(e, "Error generating SQL from AI, second part");
     return res.status(400).json({
       status: 400,
       message: "AI did not return a valid SQL query",

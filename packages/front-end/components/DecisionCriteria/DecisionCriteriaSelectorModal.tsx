@@ -7,9 +7,9 @@ import {
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { Select, SelectItem } from "@/ui/Select";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
 import { useAuth } from "@/services/auth";

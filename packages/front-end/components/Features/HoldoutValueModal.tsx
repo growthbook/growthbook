@@ -3,9 +3,9 @@ import { PiInfo } from "react-icons/pi";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
-import Callout from "../Radix/Callout";
 import FeatureValueField from "./FeatureValueField";
 
 interface Props {
@@ -78,6 +78,8 @@ const HoldoutValueModal = ({ feature, close, mutate }: Props) => {
             form.setValue("holdout", { ...form.watch("holdout"), value: v })
           }
           valueType={feature.valueType}
+          useCodeInput={true}
+          showFullscreenButton={true}
         />
       </Box>
     </Modal>

@@ -28,11 +28,11 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
-import Callout from "@/components/Radix/Callout";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import Link from "../Radix/Link";
+import Link from "@/ui/Link";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
@@ -127,8 +127,8 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center">
-              <Heading size="7" as="h1">
+            <Flex align="center" mb="2">
+              <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
               {stale && (

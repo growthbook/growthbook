@@ -183,6 +183,86 @@ const PagedModal: FC<Props> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  const stepper = !hideNav ? (
+    <nav
+      className={`nav mb-3 justify-content-start ${navStyleClass} ${navFillClass} ${
+        style === "default" && "paged-modal-default"
+      }`}
+    >
+      {steps.map(({ display, enabled }, i) => {
+        if (navStyleClass === "nav-default") {
+          return (
+            <div
+              className={clsx(
+                "step d-flex align-items-center justify-content-between",
+                {
+                  active: step === i,
+                  completed: i < step && !skipped?.has(i),
+                  disabled: !enabled,
+                },
+              )}
+              key={i}
+            >
+              <a
+                key={i}
+                role="button"
+                className="nav-link d-flex align-items-center"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  setError("");
+                  try {
+                    await validateSteps(i);
+                    setStep(i);
+                  } catch (e) {
+                    setError(e.message);
+                  }
+                }}
+              >
+                <span className="step-number rounded-circle">
+                  {i < step ? (
+                    skipped?.has(i) ? (
+                      <PiCircleDashed />
+                    ) : (
+                      <MdCheck />
+                    )
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <div className="step-title ml-1" style={{ lineHeight: "18px" }}>
+                  {display}
+                </div>
+              </a>
+            </div>
+          );
+        } else {
+          return (
+            <a
+              key={i}
+              role="button"
+              className={clsx("w-md-100 nav-item nav-link", {
+                active: step === i,
+                disabled: !enabled,
+              })}
+              onClick={async (e) => {
+                e.preventDefault();
+                setError("");
+                try {
+                  await validateSteps(i);
+                  setStep(i);
+                } catch (e) {
+                  setError(e.message);
+                }
+              }}
+            >
+              {i + 1}. {display}
+            </a>
+          );
+        }
+      })}
+    </nav>
+  ) : null;
+
   return (
     <Modal
       inline={inline}
@@ -261,90 +341,9 @@ const PagedModal: FC<Props> = (props) => {
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}
       modalUuid={modalUuid}
+      aboveBodyContent={stepper}
     >
-      {!hideNav ? (
-        <nav
-          className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
-            style === "default" && "paged-modal-default"
-          }`}
-        >
-          {steps.map(({ display, enabled }, i) => {
-            if (navStyleClass === "nav-default") {
-              return (
-                <div
-                  className={clsx(
-                    "step d-flex align-items-center justify-content-between",
-                    {
-                      active: step === i,
-                      completed: i < step && !skipped?.has(i),
-                      disabled: !enabled,
-                    },
-                  )}
-                  key={i}
-                >
-                  <a
-                    key={i}
-                    role="button"
-                    className="nav-link d-flex align-items-center"
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      setError("");
-                      try {
-                        await validateSteps(i);
-                        setStep(i);
-                      } catch (e) {
-                        setError(e.message);
-                      }
-                    }}
-                  >
-                    <span className="step-number rounded-circle">
-                      {i < step ? (
-                        skipped?.has(i) ? (
-                          <PiCircleDashed />
-                        ) : (
-                          <MdCheck />
-                        )
-                      ) : (
-                        i + 1
-                      )}
-                    </span>
-                    <div
-                      className="step-title ml-1"
-                      style={{ lineHeight: "18px" }}
-                    >
-                      {display}
-                    </div>
-                  </a>
-                </div>
-              );
-            } else {
-              return (
-                <a
-                  key={i}
-                  role="button"
-                  className={clsx("w-md-100 nav-item nav-link", {
-                    active: step === i,
-                    disabled: !enabled,
-                  })}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    setError("");
-                    try {
-                      await validateSteps(i);
-                      setStep(i);
-                    } catch (e) {
-                      setError(e.message);
-                    }
-                  }}
-                >
-                  {i + 1}. {display}
-                </a>
-              );
-            }
-          })}
-        </nav>
-      ) : null}
-      {content}
+      <div className="mt-2">{content}</div>
     </Modal>
   );
 };

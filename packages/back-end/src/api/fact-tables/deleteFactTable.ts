@@ -14,10 +14,6 @@ export const deleteFactTable = createApiRequestHandler(
     throw new Error("Unable to delete - Could not find factTable with that id");
   }
 
-  if (!req.context.permissions.canDeleteFactTable(factTable)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   await deleteFactTableFromDb(req.context, factTable);
 
   return {

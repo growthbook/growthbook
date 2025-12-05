@@ -37,13 +37,13 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { DocLink } from "@/components/DocLink";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 

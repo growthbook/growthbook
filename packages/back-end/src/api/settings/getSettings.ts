@@ -25,6 +25,8 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
       ? filteredSettings.requireReviews
       : [],
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
+    preferredEnvironment:
+      req.context.org.settings?.preferredEnvironment ?? null,
   };
 
   return {

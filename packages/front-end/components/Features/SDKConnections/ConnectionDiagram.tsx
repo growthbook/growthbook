@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import clsx from "clsx";
 import { BsLightningFill } from "react-icons/bs";
 import { FaLock } from "react-icons/fa";
@@ -8,7 +8,7 @@ import {
 } from "shared/util";
 import { teal, slate } from "@radix-ui/colors";
 import { PiArrowClockwise } from "react-icons/pi";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import ConnectionNode from "@/components/Features/SDKConnections/ConnectionNode";
 import ConnectionStatus from "@/components/Features/SDKConnections/ConnectionStatus";
@@ -16,7 +16,7 @@ import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButto
 import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 

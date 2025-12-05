@@ -7,7 +7,7 @@ import {
   truncateString,
 } from "shared/util";
 import Link from "next/link";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { PiInfoFill } from "react-icons/pi";
 import { isEmpty } from "lodash";
@@ -17,7 +17,7 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";

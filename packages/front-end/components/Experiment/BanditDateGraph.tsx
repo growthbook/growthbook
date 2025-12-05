@@ -26,8 +26,8 @@ import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
-import HelperText from "@/components/Radix/HelperText";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./ExperimentDateGraph.module.scss";
 
@@ -825,8 +825,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
                 {gradients}

@@ -1,5 +1,5 @@
 import Handlebars from "handlebars";
-import { SQLVars } from "back-end/types/sql";
+import { SQLVars } from "shared/types/sql";
 import {
   FactTableColumnType,
   JSONColumnFields,
@@ -65,7 +65,14 @@ function usesTemplateVariable(sql: string, variableName: string) {
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
 export function compileSqlTemplate(
   sql: string,
-  { startDate, endDate, experimentId, templateVariables }: SQLVars,
+  {
+    startDate,
+    endDate,
+    experimentId,
+    templateVariables,
+    customFields,
+    phase,
+  }: SQLVars,
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -89,7 +96,10 @@ export function compileSqlTemplate(
     experimentId = "%";
   }
 
-  const replacements: Record<string, string> = {
+  const replacements: Record<string, unknown> = {
+    ...templateVariables,
+    customFields: customFields || {},
+    phase: phase || {},
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
@@ -105,17 +115,16 @@ export function compileSqlTemplate(
     experimentId,
   };
 
-  if (templateVariables?.eventName) {
-    replacements.eventName = templateVariables.eventName;
-  } else if (usesTemplateVariable(sql, "eventName")) {
+  // Better error messages for known variables that are missing
+  if (!templateVariables?.eventName && usesTemplateVariable(sql, "eventName")) {
     throw new Error(
       "Error compiling SQL template: You must set eventName first.",
     );
   }
-
-  if (templateVariables?.valueColumn) {
-    replacements.valueColumn = templateVariables.valueColumn;
-  } else if (usesTemplateVariable(sql, "valueColumn")) {
+  if (
+    !templateVariables?.valueColumn &&
+    usesTemplateVariable(sql, "valueColumn")
+  ) {
     throw new Error(
       "Error compiling SQL template: You must set valueColumn first.",
     );
@@ -137,16 +146,6 @@ export function compileSqlTemplate(
     });
     return template(replacements);
   } catch (e) {
-    if (e.message.includes("eventName")) {
-      throw new Error(
-        "Error compiling SQL template: You must set eventName first.",
-      );
-    }
-    if (e.message.includes("valueColumn")) {
-      throw new Error(
-        "Error compiling SQL template: You must set valueColumn first.",
-      );
-    }
     if (e.message.includes("not defined in [object Object]")) {
       const variableName = e.message.match(/"(.+?)"/)[1];
       throw new Error(
@@ -246,7 +245,10 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
   return fields;
 }
 
-export function determineColumnTypes(rows: Record<string, unknown>[]): {
+export function determineColumnTypes(
+  rows: Record<string, unknown>[],
+  typeMap: Map<string, FactTableColumnType>,
+): {
   column: string;
   datatype: FactTableColumnType;
   jsonFields?: JSONColumnFields;
@@ -259,13 +261,24 @@ export function determineColumnTypes(rows: Record<string, unknown>[]): {
     datatype: FactTableColumnType;
     jsonFields?: JSONColumnFields;
   }[] = [];
+
   cols.forEach((col) => {
     const testValues = rows
       .map((row) => row[col])
       .filter((val) => val !== null && val !== undefined);
     const testValue = testValues[0];
 
-    if (typeof testValue === "string" && isJSON(testValue)) {
+    const colType = typeMap.get(col);
+    const shouldAttemptInference =
+      colType === undefined ||
+      colType === "" ||
+      (colType === "string" &&
+        typeof testValue === "string" &&
+        isJSON(testValue));
+
+    if (!shouldAttemptInference) {
+      return;
+    } else if (typeof testValue === "string" && isJSON(testValue)) {
       // Use all test values to determine JSON fields
       columns.push({
         column: col,

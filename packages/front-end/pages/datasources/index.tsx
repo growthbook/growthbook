@@ -12,16 +12,16 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { hasFileConfig, isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { dataSourceConnections } from "@/services/eventSchema";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
@@ -161,6 +161,8 @@ const DataSourcesPage: FC = () => {
       !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
 
+  const useNewSampleData = gb.isOn("new-sample-data");
+
   return (
     <div className="container-fluid pagecontents">
       {newModalData && (
@@ -184,9 +186,14 @@ const DataSourcesPage: FC = () => {
           <Button
             onClick={async () => {
               try {
-                await apiCall("/demo-datasource-project", {
-                  method: "POST",
-                });
+                await apiCall(
+                  useNewSampleData
+                    ? "/demo-datasource-project/new"
+                    : "/demo-datasource-project",
+                  {
+                    method: "POST",
+                  },
+                );
                 track("Create Sample Project", {
                   source: "sample-project-page",
                 });

@@ -7,7 +7,7 @@ import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
-} from "back-end/types/visual-changeset";
+} from "shared/types/visual-changeset";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
@@ -17,10 +17,10 @@ import { useAuth } from "@/services/auth";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;

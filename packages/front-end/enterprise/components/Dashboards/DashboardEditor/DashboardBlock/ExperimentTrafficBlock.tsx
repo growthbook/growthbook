@@ -2,7 +2,7 @@ import { ExperimentTrafficBlockInterface } from "back-end/src/enterprise/validat
 import { useMemo } from "react";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import { BlockProps } from ".";
 

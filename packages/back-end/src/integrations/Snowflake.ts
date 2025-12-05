@@ -1,9 +1,14 @@
 import { snowflakeCreateTableOptions } from "shared/enterprise";
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
-import { QueryResponse } from "back-end/src/types/Integration";
+import {
+  QueryResponse,
+  DataType,
+  ExternalIdCallback,
+} from "back-end/src/types/Integration";
+import { QueryMetadata } from "back-end/types/query";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
@@ -17,8 +22,11 @@ export default class Snowflake extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return snowflakeCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {},
+      this.datasource.settings.pipelineSettings,
     );
   }
   getFormatDialect(): FormatDialect {
@@ -27,8 +35,12 @@ export default class Snowflake extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password", "privateKey", "privateKeyPassword"];
   }
-  runQuery(sql: string): Promise<QueryResponse> {
-    return runSnowflakeQuery(this.params, sql);
+  runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
+  ): Promise<QueryResponse> {
+    return runSnowflakeQuery(this.params, sql, setExternalId, queryMetadata);
   }
   formatDate(col: string): string {
     return `TO_VARCHAR(${col}, 'YYYY-MM-DD')`;
@@ -62,5 +74,27 @@ export default class Snowflake extends SqlIntegration {
   }
   getDefaultDatabase() {
     return this.params.database || "";
+  }
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "VARCHAR";
+      case "integer":
+        return "INTEGER";
+      case "float":
+        return "DOUBLE";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      case "hll":
+        return "BINARY";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
   }
 }

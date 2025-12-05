@@ -4,6 +4,8 @@ description: Learn about defining metrics and fact tables within GrowthBook
 slug: /app/metrics
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Metrics and Fact Tables
 
 Metrics are how you measure success and failure for your business. An e-commerce company might have metrics related to conversion rates, revenue, and cart abandonment. A B2B SaaS company might have metrics around subscription trials, cancellations, and usage. Every company is different and GrowthBook is flexible enough to support a wide variety of use cases.
@@ -55,19 +57,27 @@ Any column can be used to create filters, but only numeric columns can be used a
 
 For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency`, `time:seconds`, `memory:bytes`, and `memory:kilobytes`.
 
-:::note
+:::note USD by default
 The default display currency is USD, but you can change it under **Settings** → **General** → **Metric Settings**
 :::
 
 ## Metric Types
 
-There are 4 types of metrics you can create within GrowthBook - Proportion, Mean, Quantile, and Ratio.
+There are 5 types of metrics you can create within GrowthBook - Proportion, Retention, Mean, Ratio, and Quantile.
 
 ### Proportion Metrics
 
 Proportion Metrics measure the percent of users in an experiment who exist in a Fact Table (and match any filters you specify).
 
 For example, if you have an Orders Fact Table, you can create a Proportion Metric to see what percent of users purchased something. For this metric, we don't care how many times they purchased, just that they have at least 1 matching row.
+
+### Retention Metrics
+
+Retention Metrics are used to measure the retention of users over time with respect to their first experiment exposure. For example, you might want to measure the retention of users who came back to your site at least 7 days after their first experiment exposure.
+
+You can use the filters to determine if a user qualifies as retained (using a row filter to only look for certain events or using a user filter to only look for users who completed an action a certain number of times).
+
+You then set the retention window, which is the amount of time after the first experiment exposure that a user must do the qualifying actions. You can also use a conversion window to only look for a certain time period after the start of the retention window. For example, if you want to measure the retention of users who came back to your site in the second full week after the experiment exposure, you would set the retention window to 7 days and the conversion window to 7 days.
 
 ### Mean Metrics
 
@@ -76,11 +86,12 @@ Mean Metrics are useful when there are more than 2 possible states a user can be
 For the metric value, there are 4 types of aggregations you can do:
 
 - `COUNT(*)` - a count of all rows per user in your Fact Table
+- `COUNT(DISTINCT DATE(timestamp))` - the distinct number of days user completed the qualifying actions in your fact table (e.g. for a count of active days per user, akin to daily active users [DAU] metrics)
 - `SUM(column)` - the sum per user of any numeric column in your Fact Table
 - `MAX(column)` - the max of a numeric column per user in your Fact Table
 - `COUNT(DISTINCT column)` - the distinct count of a string column per user in your Fact Table.
 
-Note: for `COUNT DISTINCT`, we use the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) estimation method to approximate the distinct count while scaling to account for data with many rows and easily allow re-aggregation. However, `COUNT DISTINCT` is still more computationally costly than other aggregation types, so use it only when necessary. This aggregation is not available for SQL Server, MySQL, Postgres, or Vertica.
+Note: for `COUNT(DISTINCT column)` where you pass an arbitrary column, we use the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) estimation method to approximate the distinct count while scaling to account for data with many rows and easily allow re-aggregation. However, `COUNT DISTINCT` is still more computationally costly than other aggregation types, so use it only when necessary. This aggregation is not available for SQL Server, MySQL, Postgres, or Vertica.
 
 For example, an **Orders per User** metric would use `COUNT(*)` since you want to count the total number of rows. A **Revenue per User** metric would use `SUM` and select the column where the order total is stored.
 
@@ -258,11 +269,91 @@ Additionally, you can use experiment metric overrides to further customize these
 
 You can read more about Bayesian priors on [our statistical details page](/statistics/details).
 
+## Metric Slices
+
+:::info Metric slices are available for Enterprise customers only.
+:::
+
+Many metrics are easily decomposed, and you may want to learn about the different elements.
+For example, you may want to see revenue across different product types (e.g. "apparel", "equipment").
+
+Rather than creating and maintaining a separate revenue metric for each product type, metric slices permit you to automatically create distinct revenue metrics for each product type. These drilldown metrics are also sometimes referred to as "metric dimensions" in the experimentation community.
+
+Metric slices are enabled for Fact Metrics. We offer two key ways to slice your metrics: Auto Slices and Custom Slices.
+
+### Auto Slices
+
+These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When using auto slices in your Fact Metric, each slice analysis (a dimension + value pair) will materialize across **all** experiments which use the metric. This allows for a standardized deep-dive analyses across your experiments.
+
+To set up Auto Slices:
+
+1. Navigate to your Fact Table that has the right columns. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only **string** and **boolean** columns can be used.
+
+<MaxWidthImage maxWidth={700}>
+  <img src="/images/metrics/metric-dim-config.png" alt="Configuring a column for metric slicing" />
+</MaxWidthImage>
+
+2. With your column (`product_type`) in the Fact Table SQL, you now edit the column property in the "Columns" table. Click the edit icon next to your column and then check the "Enable Auto Slices" checkbox in the window that pops up.
+   - For **string** columns, add the slices you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Slice values here could be "apparel", "equipment", and more. An "other" slice will also be shown if any metric value is attributed to values outside of your selected slices.
+   - For **boolean** columns, no other slice configuration is necessary—both "true" and "false" slices will be generated. A "null" slice will also be shown for nullable columns if any metric value is attributed to "null".
+
+<MaxWidthImage maxWidth={350}>
+  <img src="/images/metrics/metric-dim-levels.png" alt="Configuring slice levels" />
+</MaxWidthImage>
+
+3. Scroll down to the list of Fact Metrics, or navigate to a Fact Metric from this Fact Table.
+4. Click "Edit" and select your slices.
+5. If there are slices you want run for every experiment (e.g., "I want revenue breakdowns by product type for every experiment"), please continue reading, otherwise, skip to the next step. Go to your metric page. Add the slices that will be analyzed for every experiment including this metric.
+
+<MaxWidthImage maxWidth={700}>
+  <img src="/images/metrics/auto-slices.png" alt="Adding auto slices" />
+</MaxWidthImage>
+
+### Custom Slices
+
+We also allow you to perform custom metric breakdowns across all of your experiment metrics for a single experiment. For example: "For this experiment, I want to see how treatment will affect apparel revenue and average order value in EU". Unlike auto slices, custom slices allow you to create filtering combinations from different columns (e.g., `product_type = 'apparel' and location = 'EU'`).
+
+You can add custom slices when setting up your experiment after selecting your metrics, or at any point afterwards. These slices will be run for all metrics in your experiment, but for that experiment only.
+
+Custom slices can be created using any non-user-identifier string or boolean column in your Fact Table. (Custom slicing is not limited to auto-slices columns.)
+
+<MaxWidthImage maxWidth={700}>
+  <img src="/images/metrics/custom-slices.png" alt="Adding custom slices" />
+</MaxWidthImage>
+
+### Viewing and pinning metric slices
+
+Using our revenue metric as an example, when you run an experiment you will now have the option to split revenue by product type (auto slice) and/or by "apparel and EU" (custom slice).
+
+If you click the arrow icon next to "revenue" on the experiment results table, you will see these slices expand under the base metric row (revenue), each slice materialized as its own sub-row.
+
+You may "pin" these metric slice rows so that they always render on the results table, even when the metric is collapsed or you return to the page.
+
+<MaxWidthImage maxWidth={800}>
+  <img src="/images/metrics/metric-dim-results.png" alt="Metric slice results" />
+</MaxWidthImage>
+
+<br />
+
+:::note Dimensions versus Slices
+
+Unit dimensions and experiment dimensions are attributes specific to an experimental unit (e.g. user).
+In contrast, metric slices are an attribute specific to a metric.
+For example, suppose that a user named Romain lives in France, and he buys products from both France and Germany.
+In a dimension analysis (i.e. a unit dimension analysis), all of Romain's spend will be attributed to France.
+
+In a metric slice analysis, only the French products purchased will be attributed to French revenue, and only the German products purchased will be attributed to German revenue.
+So one user will always be mapped to a single user dimension, but can contribute to multiple metric slices.
+
+All users (units) contribute to a metric slice. This provides the most accurate inference, as trying to filter down the denominator can cause bias issues if you allow users to switch between different dimension levels.
+
+:::
+
 ## Metric Analysis
 
 After creating a metric, you can perform some basic analysis on it. Depending on the metric type, we show you the average value over time, a histogram breakdown, and more. You can customize the date range and population that's included.
 
-We have a lot more we want to do here in the future, so let us know what other kinds of analyses you are most excited about!
+For more advanced analysis, use our [Product Analytics](/app/product-analytics) feature.
 
 ## Metric Groups
 
@@ -274,60 +365,4 @@ GrowthBook Enterprise customers can define Metric Groups to accomplish this. Add
 
 For large Fact Tables, it can be important to consider query costs, especially when using a data warehouse like BigQuery which charges based on data scanned.
 
-### Date Partitioning
-
-The most effective way to limit database cost is to partition your tables by date. Without this, we have to scan the entire table every time instead of just focusing on the date range we care about.
-
-We add WHERE clauses on the `timestamp` column for every query, but sometimes the database engine is not smart enough to pick up on these (or you might use a secondary column for partitioning). For these cases, we allow you to add Template Variables (using Handlebars syntax) to add your own filtering.
-
-The following variables are available:
-
-- **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
-- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format
-- **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
-- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format
-
-There is also a `date` helper you can use with the ISO variables to format the date exactly how you need it. For example `{{date endDateISO "yyyyMMdd"}}`
-
-| code | meaning   |
-| ---- | --------- |
-| yyyy | year      |
-| MM   | month     |
-| dd   | day       |
-| HH   | hour      |
-| mm   | minutes   |
-| ss   | seconds   |
-| t    | timestamp |
-
-Here's a full example of this being used:
-
-```sql
-SELECT
-  user_id as user_id,
-  received_at as timestamp
-FROM
-  orders
-WHERE
-  partition_key BETWEEN
-    '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
-```
-
-:::note
-
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of `{{ startDate }}`).
-
-:::
-
-### Fact Table Query Optimization
-
-GrowthBook Enterprise customers can enable Fact Table Query Optimization for faster, more efficient queries.
-
-If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sources with usage-based billing, this can result in dramatic cost savings.
-
-There are some restrictions that limit when this optimization can be performed:
-
-- Ratio metrics where the numerator and denominator are part of different Fact Tables are always excluded from this optimization
-- If `Exclude In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
-- If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
-
-In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings → General → Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
+Read our dedicated guide on [Query Optimization](/app/query-optimization) for best practices on reducing query costs across GrowthBook.

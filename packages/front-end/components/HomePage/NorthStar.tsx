@@ -1,4 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -6,12 +7,12 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Modal from "@/components/Modal";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{
@@ -113,8 +114,8 @@ const NorthStar: FC<{
             </div>
             <div className="col" style={{ position: "relative" }}>
               {(selectedMetrics?.length || 0) > 0 && (
-                <div
-                  className="float-right mr-3"
+                <Flex
+                  className="float-right"
                   style={{ position: "relative", top: 40 }}
                 >
                   <label
@@ -125,15 +126,15 @@ const NorthStar: FC<{
                     <br />
                     (7 day trailing)
                   </label>
-                  <Toggle
+                  <Switch
+                    size="3"
                     value={smoothBy === "week"}
-                    setValue={() =>
+                    onChange={() =>
                       setSmoothBy(smoothBy === "week" ? "day" : "week")
                     }
                     id="toggle-group-smooth-by"
-                    className="align-middle"
                   />
-                </div>
+                </Flex>
               )}
             </div>
           </div>

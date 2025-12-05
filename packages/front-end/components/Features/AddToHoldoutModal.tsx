@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
+import Callout from "@/ui/Callout";
 import Modal from "../Modal";
-import Callout from "../Radix/Callout";
 import { HoldoutSelect } from "../Holdout/HoldoutSelect";
 
 const AddToHoldoutModal = ({

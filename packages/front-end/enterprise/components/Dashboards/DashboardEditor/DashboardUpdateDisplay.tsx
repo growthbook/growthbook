@@ -3,71 +3,82 @@ import { Flex, Text } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
-import { dashboardCanAutoUpdate } from "shared/enterprise";
-import {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
-function SnapshotStatusSummary({
-  blocks,
+function DashboardStatusSummary({
   enableAutoUpdates,
+  nextUpdate,
+  dashboardLastUpdated,
 }: {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
+  dashboardLastUpdated?: Date; // Optional rather than Date | undefined as this doesn't apply to experiment dashboards
 }) {
   const {
     settings: { updateSchedule },
   } = useUser();
   const {
-    experiment,
-    defaultSnapshot: snapshot,
+    defaultSnapshot,
+    snapshotsMap,
+    metricAnalysesMap,
     refreshError,
     allQueries,
+    snapshotError,
   } = useContext(DashboardSnapshotContext);
   const numFailed = useMemo(
     () => allQueries.filter((q) => q.status === "failed").length,
     [allQueries],
   );
 
-  if (!snapshot) return null;
+  // Find any snapshot or metric analysis actively in use by the dashboard (if one exists)
+  const snapshotEntry = snapshotsMap
+    .entries()
+    .find(([snapshotId]) => snapshotId !== defaultSnapshot?.id);
+  const metricAnalysisEntry = [...metricAnalysesMap.entries()][0];
 
-  const autoUpdateEnabled =
-    enableAutoUpdates &&
-    dashboardCanAutoUpdate({ blocks }) &&
-    updateSchedule?.type !== "never" &&
-    experiment?.autoSnapshots;
-  const nextUpdate = experiment?.nextSnapshotAttempt;
+  const snapshot = snapshotEntry ? snapshotEntry[1] : defaultSnapshot;
+  const metricAnalysis = metricAnalysisEntry?.[1];
 
-  const textColor = refreshError || numFailed > 0 ? "red" : undefined;
+  const textColor =
+    refreshError || numFailed > 0 || snapshotError ? "red" : undefined;
+  const lastUpdateTime =
+    metricAnalysis?.runStarted ??
+    dashboardLastUpdated ??
+    snapshot?.runStarted ??
+    undefined;
   const content = refreshError
     ? "Update Failed"
     : numFailed > 0
       ? "One or more queries failed"
-      : snapshot.runStarted
-        ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
-        : "Not started yet";
+      : snapshotError
+        ? "Error running analysis"
+        : lastUpdateTime
+          ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
+          : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
     <Flex gap="1" align="center">
       <Text size="1">
-        {autoUpdateEnabled &&
-          nextUpdate &&
-          getValidDate(nextUpdate) > new Date() && (
-            <Tooltip
-              tipPosition="top"
-              body={`Next auto-update ${ago(nextUpdate)}`}
-            >
-              <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
-            </Tooltip>
-          )}
+        {enableAutoUpdates && updateSchedule?.type !== "never" && (
+          <Tooltip
+            tipPosition="top"
+            body={
+              nextUpdate && getValidDate(nextUpdate) > new Date()
+                ? `Next auto-update ${ago(nextUpdate)}`
+                : "Auto-update starting soon"
+            }
+          >
+            <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
+          </Tooltip>
+        )}
       </Text>
       <Text size="1" color={textColor}>
         {content}
@@ -91,23 +102,29 @@ function SnapshotStatusSummary({
 }
 
 interface Props {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  dashboardId: string;
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
+  dashboardLastUpdated?: Date;
   disabled: boolean;
   isEditing: boolean;
 }
 
 export default function DashboardUpdateDisplay({
-  blocks,
+  dashboardId,
   enableAutoUpdates,
+  nextUpdate,
+  dashboardLastUpdated,
   disabled,
   isEditing,
 }: Props) {
+  const { datasources } = useDefinitions();
   const {
-    defaultSnapshot: snapshot,
+    projects,
     loading,
     refreshStatus,
     allQueries,
+    savedQueriesMap,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
   const refreshing = ["running", "queued"].includes(refreshStatus);
@@ -118,6 +135,18 @@ export default function DashboardUpdateDisplay({
     ).length;
     return { numQueries, numFinished };
   }, [allQueries]);
+  const datasourceIds = useMemo(
+    () => [...(savedQueriesMap?.values().map((sq) => sq.datasourceId) ?? [])],
+    [savedQueriesMap],
+  );
+  const datasourcesInUse = datasourceIds.map((id) =>
+    datasources.find((ds) => ds.id === id),
+  );
+  const { canRunSqlExplorerQueries, canCreateAnalyses } = usePermissionsUtil();
+
+  const canRefresh =
+    canCreateAnalyses(projects) &&
+    !datasourcesInUse.some((ds) => ds && !canRunSqlExplorerQueries(ds));
   if (loading)
     return (
       <Flex gap="1" align="center">
@@ -125,7 +154,6 @@ export default function DashboardUpdateDisplay({
         <Text>Loading dashboard...</Text>
       </Flex>
     );
-  if (!snapshot) return null;
 
   return (
     <Flex
@@ -135,9 +163,10 @@ export default function DashboardUpdateDisplay({
       style={{ minWidth: 250 }}
       justify={"end"}
     >
-      <SnapshotStatusSummary
-        blocks={blocks}
+      <DashboardStatusSummary
         enableAutoUpdates={enableAutoUpdates}
+        nextUpdate={nextUpdate}
+        dashboardLastUpdated={dashboardLastUpdated}
       />
       {isEditing && (
         <DashboardViewQueriesButton
@@ -148,16 +177,19 @@ export default function DashboardUpdateDisplay({
       )}
 
       <div className="position-relative">
-        <Button
-          size="xs"
-          disabled={refreshing}
-          icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
-          iconPosition="left"
-          variant="ghost"
-          onClick={updateAllSnapshots}
-        >
-          {refreshing ? "Refreshing" : "Update"}
-        </Button>
+        {canRefresh && (
+          <Button
+            size="xs"
+            disabled={refreshing || !dashboardId || dashboardId === "new"}
+            icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
+            iconPosition="left"
+            variant="ghost"
+            onClick={updateAllSnapshots}
+          >
+            {refreshing ? "Refreshing" : "Update"}
+          </Button>
+        )}
+
         {refreshing && allQueries.length > 0 && (
           <div
             className="position-absolute bg-info"

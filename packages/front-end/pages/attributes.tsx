@@ -6,7 +6,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { BsXCircle } from "react-icons/bs";
 import { FeatureInterface } from "back-end/src/validators/features";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -18,7 +18,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;

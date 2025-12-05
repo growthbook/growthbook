@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
 import { FaHashtag, FaApple, FaJava, FaCode } from "react-icons/fa";

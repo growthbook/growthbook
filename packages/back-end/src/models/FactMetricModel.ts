@@ -15,6 +15,7 @@ import { ApiFactMetric } from "back-end/types/openapi";
 import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { UpdateProps } from "back-end/types/models";
+import { promiseAllChunks } from "../util/promise";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -156,17 +157,38 @@ export class FactMetricModel extends BaseClass {
         "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes",
       );
     }
+
+    if (doc.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error(
+        "Cannot create fact metric managed by API if the request isn't from the API.",
+      );
+    }
+
+    if (
+      doc.managedBy === "admin" &&
+      !this.context.hasPremiumFeature("manage-official-resources")
+    ) {
+      throw new Error(
+        "Your organization's plan does not support creating official fact metrics.",
+      );
+    }
   }
 
   protected async beforeUpdate(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot update fact metric managed by API");
+      throw new Error(
+        "Cannot update fact metric managed by API if the request isn't from the API.",
+      );
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot delete fact metric managed by API");
+      throw new Error(
+        "Cannot delete fact metric managed by API if the request isn't from the API.",
+      );
     }
   }
 
@@ -192,6 +214,20 @@ export class FactMetricModel extends BaseClass {
         if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
           throw new Error(`Invalid numerator filter id: ${filter}`);
         }
+      }
+    }
+
+    // validate column
+    const metricSupportsDistinctDates =
+      data.metricType === "mean" ||
+      data.metricType === "ratio" ||
+      (data.metricType === "quantile" &&
+        data.quantileSettings?.type === "unit");
+    if (data.numerator.column === "$$distinctDates") {
+      if (!metricSupportsDistinctDates) {
+        throw new Error(
+          "$$distinctDates is only supported for mean, ratio, and quantile metrics",
+        );
       }
     }
 
@@ -246,7 +282,8 @@ export class FactMetricModel extends BaseClass {
     }
     if (
       data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics")
+      !this.context.hasPremiumFeature("retention-metrics") &&
+      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
@@ -261,6 +298,18 @@ export class FactMetricModel extends BaseClass {
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
       );
     }
+  }
+
+  public async deleteAllFactMetricsForAProject(projectId: string) {
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    await promiseAllChunks(
+      factMetrics.map(
+        (factMetric) => async () => await this.delete(factMetric),
+      ),
+      5,
+    );
   }
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {

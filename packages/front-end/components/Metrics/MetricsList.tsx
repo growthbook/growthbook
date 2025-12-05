@@ -6,8 +6,8 @@ import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
+import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
-import ProjectBadges from "@/components/ProjectBadges";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,21 +20,24 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
-import MetricName from "@/components/Metrics/MetricName";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   MetricModal,
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
-import PremiumCallout from "../Radix/PremiumCallout";
+import PremiumCallout from "@/ui/PremiumCallout";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import LinkButton from "@/ui/LinkButton";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export interface MetricTableItem {
   id: string;
-  managedBy: "" | "api" | "config";
+  managedBy: "" | "api" | "config" | "admin";
   name: string;
   description?: string;
   type: string;
@@ -48,6 +51,7 @@ export interface MetricTableItem {
   archived: boolean;
   canEdit: boolean;
   canDuplicate: boolean;
+  canDelete: boolean;
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -73,9 +77,18 @@ export function useCombinedMetrics({
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateMetric(m);
-      const canEdit = permissionsUtil.canUpdateMetric(m, {});
-      const canDelete = permissionsUtil.canDeleteMetric(m);
+      const canDuplicate = permissionsUtil.canCreateMetric({
+        // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+        projects: m.projects,
+      });
+      let canEdit = permissionsUtil.canUpdateMetric(m, {});
+      let canDelete = permissionsUtil.canDeleteMetric(m);
+
+      // Additional check if managed by api or config
+      if (m.managedBy && ["api", "config"].includes(m.managedBy)) {
+        canEdit = false;
+        canDelete = false;
+      }
 
       const item: MetricTableItem = {
         id: m.id,
@@ -92,6 +105,7 @@ export function useCombinedMetrics({
         isRatio: !!m.denominator,
         canDuplicate,
         canEdit,
+        canDelete,
         onArchive: canEdit
           ? async (desiredState) => {
               const newStatus = desiredState ? "archived" : "active";
@@ -117,6 +131,12 @@ export function useCombinedMetrics({
                   currentMetric: {
                     ...m,
                     name: m.name + " (copy)",
+                    // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+                    managedBy:
+                      m.managedBy === "admin" &&
+                      permissionsUtil.canCreateOfficialResources(m)
+                        ? "admin"
+                        : "",
                   },
                 })
             : undefined,
@@ -141,9 +161,16 @@ export function useCombinedMetrics({
       return item;
     }),
     ...factMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateFactMetric(m);
-      const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
-      const canDelete = permissionsUtil.canDeleteFactMetric(m);
+      const canDuplicate = permissionsUtil.canCreateFactMetric({
+        projects: m.projects,
+      });
+      let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
+      let canDelete = permissionsUtil.canDeleteFactMetric(m);
+
+      if (m.managedBy && ["admin", "api"].includes(m.managedBy)) {
+        canEdit = false;
+        canDelete = false;
+      }
 
       const item: MetricTableItem = {
         id: m.id,
@@ -161,6 +188,7 @@ export function useCombinedMetrics({
         type: m.metricType,
         canDuplicate,
         canEdit,
+        canDelete,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -225,12 +253,17 @@ const MetricsList = (): React.ReactElement => {
     getProjectById,
     metricGroups,
     project,
+    factTables,
+    metrics: legacyMetrics,
     ready,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
+  const { disableLegacyMetricCreation } = settings;
 
   const [showArchived, setShowArchived] = useState(false);
   const combinedMetrics = useCombinedMetrics({
@@ -254,6 +287,22 @@ const MetricsList = (): React.ReactElement => {
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
     : metrics;
+
+  const hasLegacyMetrics = legacyMetrics.some(
+    (f) =>
+      isProjectListValidForProject(f.projects, project) &&
+      f.datasource !== demoDataSourceId,
+  ); // Don't factor in demo datasource metrics
+
+  const hasFactTables = factTables.some((f) =>
+    isProjectListValidForProject(f.projects, project),
+  );
+
+  // Show the create fact table button if there are no legacy metrics and no fact tables
+  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
+  const showCreateFactTableButton = disableLegacyMetricCreation
+    ? !hasFactTables
+    : !hasLegacyMetrics && !hasFactTables;
 
   //searching:
   const filterResults = useCallback(
@@ -279,7 +328,7 @@ const MetricsList = (): React.ReactElement => {
     items: filteredMetrics,
     defaultSortField: "name",
     localStorageKey: "metrics",
-    searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
+    searchFields: ["name^3", "description"],
     updateSearchQueryOnChange: true,
     searchTermFilters: {
       is: (item) => {
@@ -360,18 +409,21 @@ const MetricsList = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         {permissionsUtil.canCreateMetric({ projects: [project] }) &&
-          envAllowsCreatingMetrics() && (
-            <div className="col-auto">
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-              />
-              <Button onClick={() => setModalData({ mode: "new" })}>
-                Add Metric
-              </Button>
-            </div>
-          )}
+        envAllowsCreatingMetrics() &&
+        !showCreateFactTableButton ? (
+          <div className="col-auto">
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+            />
+            <Button onClick={() => setModalData({ mode: "new" })}>
+              Add Metric
+            </Button>
+          </div>
+        ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
+          <div className="col-auto">
+            <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+          </div>
+        ) : null}
       </div>
       <div className="mt-4">
         <CustomMarkdown page={"metricList"} />
@@ -402,29 +454,23 @@ const MetricsList = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
+            <th />
             <SortableTH field="name" className="col-3">
-              Name
+              Metric Name
             </SortableTH>
             <SortableTH field="type" className="col-1">
               Type
             </SortableTH>
-            <th className="col-2">Tags</th>
             <th>Projects</th>
-            <th className="col-1">Owner</th>
-            <SortableTH
-              field="datasourceName"
-              className="d-none d-lg-table-cell col-auto"
-            >
-              Data Source
-            </SortableTH>
+            <th className="col-2">Tags</th>
             <SortableTH
               field="dateUpdated"
               className="d-none d-md-table-cell col-1"
             >
               Last Updated
             </SortableTH>
-            <th></th>
-            <th></th>
+            <th />
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -445,7 +491,7 @@ const MetricsList = (): React.ReactElement => {
               );
             }
 
-            if (!metric.managedBy && !metric.archived && metric.onEdit) {
+            if (metric.canEdit && !metric.archived && metric.onEdit) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -459,7 +505,7 @@ const MetricsList = (): React.ReactElement => {
               );
             }
 
-            if (!metric.managedBy && metric.onArchive) {
+            if (metric.canEdit && metric.onArchive) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -473,7 +519,7 @@ const MetricsList = (): React.ReactElement => {
               );
             }
 
-            if (!metric.managedBy && metric.onDelete) {
+            if (metric.canDelete && metric.onDelete) {
               moreMenuLinks.push(
                 <DeleteButton
                   className="dropdown-item text-danger"
@@ -493,6 +539,21 @@ const MetricsList = (): React.ReactElement => {
               <tr
                 key={metric.id}
                 onClick={(e) => {
+                  // If clicking on a link or button, default to browser behavior
+                  if (
+                    e.target instanceof HTMLElement &&
+                    e.target.closest("a, button")
+                  ) {
+                    return;
+                  }
+
+                  // If cmd/ctrl/shift+click, open in new tab
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+                    window.open(getMetricLink(metric.id), "_blank");
+                    return;
+                  }
+
+                  // Otherwise, navigate to the metric
                   e.preventDefault();
                   router.push(getMetricLink(metric.id));
                 }}
@@ -500,45 +561,34 @@ const MetricsList = (): React.ReactElement => {
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
+                  <OfficialBadge
+                    type="metric"
+                    managedBy={metric.managedBy || ""}
+                    leftGap
+                  />
+                </td>
+                <td>
                   <Link
                     href={getMetricLink(metric.id)}
                     className={`${
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
-                    <MetricName id={metric.id} />
+                    {metric.name}
                   </Link>
                 </td>
-                <td>{metric.type}</td>
-
+                <td>{startCase(metric.type)}</td>
+                <td className="col-2">
+                  {metric.projectNames.length === 0
+                    ? null
+                    : metric.projectNames.join(", ")}
+                </td>
                 <td className="col-4">
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
                     useFlex={true}
                   />
-                </td>
-                <td className="col-2">
-                  {metric && (metric.projects || []).length > 0 ? (
-                    <ProjectBadges
-                      resourceType="metric"
-                      projectIds={metric.projects}
-                    />
-                  ) : (
-                    <ProjectBadges resourceType="metric" />
-                  )}
-                </td>
-                <td>{metric.owner}</td>
-                <td className="d-none d-lg-table-cell">
-                  {metric.datasourceName}
-                  {metric.datasourceDescription && (
-                    <div
-                      className="text-gray font-weight-normal small text-ellipsis"
-                      style={{ maxWidth: 350 }}
-                    >
-                      {metric.datasourceDescription}
-                    </div>
-                  )}
                 </td>
                 <td
                   title={datetime(metric.dateUpdated || "")}
@@ -579,7 +629,7 @@ const MetricsList = (): React.ReactElement => {
 
           {!items.length && isFiltered && (
             <tr>
-              <td colSpan={9} align={"center"}>
+              <td colSpan={8} align={"center"}>
                 No matching metrics
               </td>
             </tr>

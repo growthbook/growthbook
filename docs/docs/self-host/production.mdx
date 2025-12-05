@@ -30,6 +30,12 @@ If you change the `ENCRYPTION_KEY`, you will need to migrate any existing data s
 docker compose run growthbook yarn migrate-encryption-key OLD_KEY
 ```
 
+### Data Sources
+
+In general, GrowthBook only requires read access to your data warehouse. The one exception is if Pipeline Mode is enabled, in which case GrowthBook will need write access to a specific schema that you specify in order to create temporary tables for experiment analysis.
+
+We do our best to protect against SQL injection attacks and destructive queries, but because a large part of GrowthBook's functionality is running arbitrary user-defined SQL, there is always a risk. For this reason, we recommend following the principle of least privilege and creating a dedicated database user for GrowthBook with only the necessary permissions. That means only read access to your data, plus write access to a dedicated schema created specifically for GrowthBook (if Pipeline Mode is enabled).
+
 ### Networking
 
 The most secure thing you can do is to put your entire GrowthBook deployment behind a firewall and/or corporate VPN. This way, you can restrict access to only those who need to sign into the GrowthBook platform. This can drastically reduce the attack vector and serves as an important first layer of security.
@@ -37,7 +43,7 @@ The most secure thing you can do is to put your entire GrowthBook deployment beh
 If you are using GrowthBook to serve feature flags to client-side apps, you will need some way for your end users to download the feature flag payload outside of the firewall or VPN. There are a few secure approaches for this:
 
 1. Use a [**GrowthBook Proxy**](/self-host/proxy) server. This way, your main GrowthBook instance can remain on a private subnet and only the Proxy needs to be exposed to the internet. The Proxy has a very small attack surface compared to the full GrowthBook app.
-2. Use a [**CDN**](/self-host/cdn). If you go this route, it's very important to only allow requests to the `/api/features/*` endpoint in your CDN. If you allow access to other endpoints (e.g. `/auth/*` or other API routes) you lose many of the benefits of a Firewall or VPN.
+2. Use a [**CDN**](/self-host/cdn). If you go this route, it's very important to only allow requests to the `/api/features/*` endpoint in your CDN. If you allow access to other endpoints (e.g. `/auth/*` or other API routes) you lose many of the benefits of a Firewall or VPN and may even end up leaking sensitive information.
 3. Use **SDK Webhooks** to send your feature payload to a publicly accessible place (e.g. a public S3 bucket). This switches GrowthBook from a "pull" model to a "push" model and you no longer need to allow any incoming requests from users at all.
 
 ### Authentication and Permissions
@@ -86,7 +92,6 @@ Store uploads in an AWS S3 bucket.
 - **S3_DOMAIN** (defaults to `https://${S3_BUCKET}.s3.amazonaws.com/`)
 - **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
 - **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
-- **USE_FILE_PROXY** set this to true for access to uploads to proxy through your self hosted server allowing you to keep the bucket private.
 
 ### google-cloud
 
@@ -95,11 +100,27 @@ Store uploads in a Google Cloud Storage bucket.
 - **GCS_BUCKET_NAME**
 - **GCS_DOMAIN** (defaults to `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`)
 - **GOOGLE_APPLICATION_CREDENTIALS** (not required when deployed to GCP with an instance service account)
-- **USE_FILE_PROXY** set this to true for access to uploads to proxy through your self hosted server allowing you to keep the bucket private.
 
 ## Scaling
 
-GrowthBook instances are stateless and can be horizontally scaled behind a load balancer. We recommend each instance have at least 2GB of RAM and 1vCPU. You should run at least 3 instances at a time for maximum fault tolerance.
+### GrowthBook Container
+
+GrowthBook container instances are stateless and can be horizontally scaled behind a load balancer. We recommend each instance have at least 2GB of RAM and 1vCPU (some may need more RAM not to get Out Of Memory errors). You should run at least 3 instances at a time for maximum fault tolerance.
+
+The most intensive part of GrowthBook is the stats engine and background jobs. If you are running a high volume of experiments, processing those experiments may impact other requests to growthbook. If you notice this, you can separate concerns by starting one "Jobs Server" with increased resourced as needed and the env vars `PYTHON_SERVER_MODE=true`, `GB_STATS_ENGINE_POOL_SIZE=<number of vCPUs>` on the "Jobs Server" and the others with `GB_STATS_ENGINE_MIN_POOL_SIZE=0`, `EXTERNAL_PYTHON_SERVER_URL=<url of jobs server>`, and `CRON_DISABLED=true`.
+
+### MongoDB
+
+All application state is stored in MongoDB. A small GrowthBook deployment can run with shared CPU/RAM and under 512MB of storage. A very large deployment with 1,000 feature flags and experiments will take up around 5GB of storage and require at least 2GB of RAM and 2vCPUs.
+
+The easiest option in production is to use a managed service:
+
+- [MongoDB Atlas](https://www.mongodb.com/) (recommended)
+- AWS DocumentDB
+- [FerretDB](/self-host/ferretdb)
+- Azure CosmosDB
+
+If you prefer to run MongoDB yourself, we recommend running a replica set configuration with 3 nodes. This will ensure that your data is always available even if one of your MongoDB instances goes down.
 
 ### Serving Feature Flags
 

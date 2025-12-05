@@ -38,7 +38,7 @@ import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
-import Button from "../Radix/Button";
+import Button from "@/ui/Button";
 
 export interface Props {
   value: FeaturePrerequisite[];

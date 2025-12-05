@@ -1,5 +1,6 @@
 import { Promise as BluebirdPromise } from "bluebird";
 import { ensureAndReturn } from "shared/util";
+import { Permissions } from "shared/permissions";
 import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";
@@ -10,6 +11,8 @@ import {
 } from "back-end/src/services/organizations";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
+import { ReqContext } from "../../../types/organization";
+import { MetricInterface } from "../../../types/metric";
 import {
   metrics,
   snapshots,
@@ -100,11 +103,31 @@ const testCases = [
 ];
 
 describe("Experiment Significance notifications", () => {
-  const { isReady } = setupApp();
+  const { isReady, setReqContext } = setupApp();
 
   beforeAll(async () => {
     await isReady;
-    await metrics.map(insertMetric);
+
+    const globalContext = {
+      org: { id: "org1" },
+      permissions: new Permissions({
+        global: {
+          permissions: { createMetrics: true },
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      }),
+    } as ReqContext;
+
+    setReqContext(globalContext);
+
+    await Promise.all(
+      metrics.map(async (metric) => {
+        await insertMetric(globalContext, metric as unknown as MetricInterface);
+      }),
+    );
+
     await experiments.map(async (exp) => {
       await ExperimentModel.create(exp);
     });

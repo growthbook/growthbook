@@ -1,4 +1,5 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
+import { PhaseSQLVar } from "shared/types/sql";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
@@ -122,6 +123,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
   regressionAdjusted?: boolean;
+  postStratificationEnabled?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
   differenceType: DifferenceType;
@@ -137,7 +139,11 @@ export interface ExperimentSnapshotAnalysisSettings {
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
-export type SnapshotTriggeredBy = "schedule" | "manual";
+export type SnapshotTriggeredBy =
+  | "schedule"
+  | "manual"
+  | "manual-dashboard"
+  | "update-dashboards";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
@@ -187,6 +193,8 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;

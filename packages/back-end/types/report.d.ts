@@ -1,4 +1,4 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, SliceLevelsData } from "shared/experiments";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
@@ -49,6 +49,13 @@ export type ExperimentSnapshotReportArgs = {
   dimension?: string;
   dateStarted?: Date;
   dateEnded?: Date | null;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  pinnedMetricSlices?: string[];
 };
 
 export interface ExperimentReportMetadata {
@@ -69,7 +76,7 @@ export type ExperimentReportPhase = Pick<
 /** @deprecated */
 export interface ExperimentReportInterface extends ReportInterfaceBase {
   type: "experiment";
-  args: ExperimentReportArgs;
+  args: LegacyExperimentReportArgs;
   results?: ExperimentReportResults;
   error?: string;
   queries: Queries;
@@ -103,7 +110,8 @@ export type LegacyMetricRegressionAdjustmentStatus = {
   reason: string;
 };
 
-export interface ExperimentReportArgs {
+/** @deprecated */
+export interface LegacyExperimentReportArgs {
   trackingKey: string;
   datasource: string;
   /** @deprecated */
@@ -152,7 +160,7 @@ export type ReportInterface =
 /** @deprecated */
 export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   args: Omit<
-    ExperimentReportArgs,
+    LegacyExperimentReportArgs,
     | "goalMetrics"
     | "guardrailMetrics"
     | "secondaryMetrics"
@@ -172,6 +180,17 @@ export type ExperimentReportSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;
+  factMetricSlices: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      baseMetricId: string;
+      sliceLevels: SliceLevelsData[];
+      allSliceLevels: string[];
+    }>
+  >;
   settings: OrganizationSettings;
   projects: Record<string, ProjectInterface>;
   dimensions: DimensionInterface[];

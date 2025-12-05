@@ -9,29 +9,30 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Button from "@/components/Radix/Button";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
-import LinkButton from "@/components/Radix/LinkButton";
-import SplitButton from "@/components/Radix/SplitButton";
+import LinkButton from "@/ui/LinkButton";
+import SplitButton from "@/ui/SplitButton";
 import { useUser } from "@/services/UserContext";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ReportResultMoreMenu from "@/components/Report/ReportResultMoreMenu";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import track from "@/services/track";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
-import Metadata from "@/components/Radix/Metadata";
+import Metadata from "@/ui/Metadata";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import metaDataStyles from "@/ui/Metadata.module.scss";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -259,6 +260,8 @@ export default function ReportMetaInfo({
   const isBandit = experiment?.type === "multi-armed-bandit";
   const isHoldout = experiment?.type === "holdout";
 
+  const { metricGroups } = useDefinitions();
+
   return (
     <>
       <div className="mb-3">
@@ -382,11 +385,12 @@ export default function ReportMetaInfo({
                   variations={variations}
                   metrics={
                     snapshot?.settings
-                      ? getAllMetricIdsFromExperiment(snapshot.settings, false)
+                      ? getAllMetricIdsFromExperiment(
+                          snapshot.settings,
+                          false,
+                          metricGroups,
+                        )
                       : undefined
-                  }
-                  differenceType={
-                    analysis?.settings?.differenceType ?? "relative"
                   }
                   trackingKey={report.title}
                   dimension={snapshot?.dimension ?? undefined}

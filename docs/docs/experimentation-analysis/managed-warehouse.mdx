@@ -250,6 +250,12 @@ Read more about [fact tables and metrics](/app/metrics) and how to use them in G
 
 You can use the SQL Explorer to run ad-hoc queries against your events. This can be useful for exploring your data, debugging issues, or creating custom reports.
 
+:::note
+
+The SQL Explorer only allows read-only SELECT queries. Write operations (INSERT, UPDATE, etc.) are prevented from being executed by the platform.
+
+:::
+
 You will see 3 tables in the SQL Explorer:
 
 - **feature_usage** - contains all feature usage events

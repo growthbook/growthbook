@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
@@ -7,11 +7,14 @@ import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "back-end/types/organization";
 import { Permissions } from "shared/permissions";
+import { SegmentInterface } from "back-end/types/segment";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
@@ -27,12 +30,14 @@ export type SidebarLinkProps = {
   navigateOnExpand?: boolean;
   filter?: (props: {
     permissionsUtils: Permissions;
+    segments: SegmentInterface[];
     permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
     superAdmin: boolean;
     isCloud: boolean;
     isMultiOrg: boolean;
     gb?: GrowthBook<AppFeatures>;
     project?: string;
+    savedQueries: SavedQuery[];
   }) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
@@ -40,7 +45,16 @@ export type SidebarLinkProps = {
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
-  const { project } = useDefinitions();
+  const { project, segments } = useDefinitions();
+  const { data: savedQueryData } = useApi<{
+    status: number;
+    savedQueries: SavedQuery[];
+  }>("/saved-queries");
+  const savedQueries = useMemo(
+    () => savedQueryData?.savedQueries ?? [],
+    [savedQueryData],
+  );
+
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -67,6 +81,8 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     isMultiOrg: isMultiOrg(),
     gb: growthbook,
     project,
+    segments,
+    savedQueries,
   };
 
   if (props.filter && !props.filter(filterProps)) {
@@ -107,6 +123,11 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           })}
           href={props.href}
           onClick={(e) => {
+            // Allow browser default behavior for modifier keys (cmd/ctrl/shift) or middle mouse button
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+              return;
+            }
+
             e.preventDefault();
             if (props.subLinks) {
               // If it's currently closed and it's set to navigate on expand

@@ -2,7 +2,7 @@ import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -43,7 +43,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -1114,7 +1114,7 @@ export default function SDKConnectionForm({
                           }
                         >
                           <label
-                            className="ml-2 mb-0 cursor-pointer"
+                            className="mb-0 cursor-pointer"
                             htmlFor="sdk-connection-include-draft-experiments-toggle"
                           >
                             Include draft experiments <FaInfoCircle />

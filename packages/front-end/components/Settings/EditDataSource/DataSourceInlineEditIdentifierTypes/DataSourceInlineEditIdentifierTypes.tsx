@@ -10,8 +10,8 @@ import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/Edit
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 
 type DataSourceInlineEditIdentifierTypesProps =
   DataSourceQueryEditingModalBaseProps;

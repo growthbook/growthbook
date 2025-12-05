@@ -1,5 +1,6 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
+import { TemplateVariables } from "shared/types/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -15,6 +16,7 @@ import Mixpanel from "back-end/src/integrations/Mixpanel";
 import {
   SourceIntegrationInterface,
   TestQueryRow,
+  UserExperimentExposuresQueryResponseRows,
 } from "back-end/src/types/Integration";
 import {
   DataSourceInterface,
@@ -24,9 +26,9 @@ import {
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { TemplateVariables } from "back-end/types/sql";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { QueryStatistics } from "back-end/types/query";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -176,6 +178,54 @@ export async function runFreeFormQuery(
     return {
       results,
       duration,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
+}
+
+export async function runUserExposureQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  unitId: string,
+  userIdType: string,
+  lookbackDays: number,
+): Promise<{
+  rows?: UserExperimentExposuresQueryResponseRows;
+  statistics?: QueryStatistics;
+  error?: string;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support user exposures queries
+  if (
+    !integration.getUserExperimentExposuresQuery ||
+    !integration.runUserExperimentExposuresQuery
+  ) {
+    throw new Error("Unable to run user exposures query.");
+  }
+
+  const sql = integration.getUserExperimentExposuresQuery({
+    unitId,
+    userIdType,
+    lookbackDays,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runUserExperimentExposuresQuery(sql);
+    return {
+      rows,
+      statistics,
       sql,
     };
   } catch (e) {

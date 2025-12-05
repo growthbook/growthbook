@@ -18,7 +18,7 @@ import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {

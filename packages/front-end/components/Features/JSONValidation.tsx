@@ -6,7 +6,7 @@ import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";

@@ -1,14 +1,13 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { Fragment, ReactElement, useEffect, useState } from "react";
 import {
   PiCaretDownFill,
   PiPlus,
   PiTableDuotone,
-  PiPencilSimpleFill,
   PiChartLineDuotone,
   PiFileSqlDuotone,
   PiListDashesDuotone,
   PiArticleMediumDuotone,
+  PiPencilSimpleFill,
 } from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
@@ -19,18 +18,35 @@ import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
-import { isPersistedDashboardBlock } from "shared/enterprise";
-import Button from "@/components/Radix/Button";
+import { dashboardBlockHasIds, getBlockData } from "shared/enterprise";
+import {
+  DashboardEditLevel,
+  DashboardInterface,
+  DashboardShareLevel,
+  DashboardUpdateSchedule,
+} from "back-end/src/enterprise/validators/dashboard";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
-import Callout from "@/components/Radix/Callout";
-import Field from "@/components/Forms/Field";
+} from "@/ui/DropdownMenu";
+import Callout from "@/ui/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import ProjectBadges from "@/components/ProjectBadges";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import DashboardModal from "../DashboardModal";
+import DashboardShareModal from "../DashboardShareModal";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
+import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
@@ -62,7 +78,11 @@ export const BLOCK_TYPE_INFO: Record<
     icon: <PiChartLineDuotone />,
   },
   "sql-explorer": {
-    name: "SQL Explorer",
+    name: "SQL Query",
+    icon: <PiFileSqlDuotone />,
+  },
+  "metric-explorer": {
+    name: "Metric",
     icon: <PiFileSqlDuotone />,
   },
 };
@@ -73,19 +93,46 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     ["experiment-metric", "experiment-dimension", "experiment-time-series"],
   ],
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
-  ["Other", ["markdown", "sql-explorer"]],
+  ["Other", ["markdown", "sql-explorer", "metric-explorer"]],
 ];
+
+// Block types that are allowed in general dashboards (non-experiment specific)
+export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+  "markdown",
+  "sql-explorer",
+  "metric-explorer",
+];
+
+// Helper function to check if a block type is allowed for the given dashboard type
+export const isBlockTypeAllowed = (
+  blockType: DashboardBlockType,
+  isGeneralDashboard: boolean,
+  isIncrementalRefreshExperiment: boolean,
+): boolean => {
+  if (isIncrementalRefreshExperiment && blockType === "experiment-dimension") {
+    return false;
+  }
+  if (isGeneralDashboard) {
+    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
+  } else {
+    return true; // All block types are allowed for experiment dashboards
+  }
+};
 
 function AddBlockDropdown({
   trigger,
   addBlockType,
   onDropdownOpen,
   onDropdownClose,
+  isGeneralDashboard = false,
+  isIncrementalRefreshExperiment = false,
 }: {
   trigger: React.ReactNode;
   addBlockType: (bType: DashboardBlockType) => void;
   onDropdownOpen?: () => void;
   onDropdownClose?: () => void;
+  isGeneralDashboard?: boolean;
+  isIncrementalRefreshExperiment?: boolean;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
@@ -106,74 +153,150 @@ function AddBlockDropdown({
       }}
       trigger={trigger}
     >
-      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-        <Fragment key={`${subgroup}-${i}`}>
-          <DropdownMenuLabel className="font-weight-bold">
-            <Text style={{ color: "var(--color-text-high)" }}>{subgroup}</Text>
-          </DropdownMenuLabel>
-          {blockTypes.map((bType) => (
-            <DropdownMenuItem
-              key={bType}
-              onClick={() => {
-                setDropdownOpen(false);
-                addBlockType(bType);
-              }}
-            >
-              {BLOCK_TYPE_INFO[bType].name}
-            </DropdownMenuItem>
-          ))}
-          {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
-        </Fragment>
-      ))}
+      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
+        // Filter block types based on dashboard type
+        const allowedBlockTypes = blockTypes.filter((bType) =>
+          isBlockTypeAllowed(
+            bType,
+            isGeneralDashboard,
+            isIncrementalRefreshExperiment,
+          ),
+        );
+
+        // Don't render the subgroup if no block types are allowed
+        if (allowedBlockTypes.length === 0) {
+          return null;
+        }
+
+        return (
+          <Fragment key={`${subgroup}-${i}`}>
+            {!isGeneralDashboard && (
+              <DropdownMenuLabel className="font-weight-bold">
+                <Text style={{ color: "var(--color-text-high)" }}>
+                  {subgroup}
+                </Text>
+              </DropdownMenuLabel>
+            )}
+            {allowedBlockTypes.map((bType) => (
+              <DropdownMenuItem
+                key={bType}
+                onClick={() => {
+                  setDropdownOpen(false);
+                  addBlockType(bType);
+                }}
+              >
+                {BLOCK_TYPE_INFO[bType].name}
+              </DropdownMenuItem>
+            ))}
+            {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
+          </Fragment>
+        );
+      })}
     </DropdownMenu>
   );
 }
 
-interface Props {
-  isTabActive: boolean;
-  experiment: ExperimentInterfaceStringDates;
-  title: string;
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-  isEditing: boolean;
-  enableAutoUpdates: boolean;
+interface EditBlockProps {
+  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   editSidebarDirty: boolean;
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
-  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
-  setBlock: (
-    index: number,
-    block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-  ) => void;
-  setTitle?: (title: string) => Promise<void>;
-  moveBlock: (index: number, direction: -1 | 1) => void;
   addBlockType: (bType: DashboardBlockType, i?: number) => void;
+  moveBlock: (index: number, direction: -1 | 1) => void;
   editBlock: (index: number) => void;
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
+}
+
+interface Props {
+  isTabActive: boolean;
+  title: string;
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  id: string;
+  isEditing: boolean;
+  projects: string[];
+  enableAutoUpdates: boolean;
+  updateSchedule: DashboardUpdateSchedule | undefined;
+  ownerId: string;
+  initialEditLevel: DashboardEditLevel;
+  initialShareLevel: DashboardShareLevel;
+  dashboardOwnerId: string;
+  nextUpdate: Date | undefined;
+  dashboardLastUpdated?: Date;
+  setBlock:
+    | undefined
+    | ((
+        index: number,
+        block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+      ) => void);
   mutate: () => void;
+  switchToExperimentView?: () => void;
+  isGeneralDashboard: boolean;
+  isIncrementalRefreshExperiment: boolean;
+  setIsEditing?: (v: boolean) => void;
+  editBlockProps?: EditBlockProps;
 }
 
 function DashboardEditor({
   isTabActive,
-  experiment,
   title,
   blocks,
   isEditing,
   enableAutoUpdates,
-  editSidebarDirty,
-  focusedBlockIndex,
-  stagedBlockIndex,
-  scrollAreaRef,
+  updateSchedule,
+  ownerId,
+  initialEditLevel,
+  initialShareLevel,
+  id,
+  dashboardOwnerId,
+  nextUpdate,
+  dashboardLastUpdated,
+  projects,
   setBlock,
-  setTitle,
-  moveBlock,
-  addBlockType,
-  editBlock,
-  duplicateBlock,
-  deleteBlock,
   mutate,
+  switchToExperimentView,
+  isGeneralDashboard = false,
+  setIsEditing,
+  editBlockProps,
 }: Props) {
-  const [editingTitle, setEditingTitle] = useState(false);
+  const {
+    editSidebarDirty,
+    focusedBlockIndex,
+    stagedBlockIndex,
+    scrollAreaRef,
+    moveBlock,
+    addBlockType,
+    editBlock,
+    duplicateBlock,
+    deleteBlock,
+  } = editBlockProps ?? {};
+
+  const [editDashboard, setEditDashboard] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [duplicateDashboard, setDuplicateDashboard] = useState(false);
+  const { apiCall } = useAuth();
+  const { userId, getUserDisplay } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  const isOwner = dashboardOwnerId === userId;
+  const isAdmin = permissionsUtil.canManageOrgSettings();
+  let canEdit = permissionsUtil.canUpdateGeneralDashboards(
+    { projects: projects || [] },
+    {},
+  );
+  const canDelete =
+    permissionsUtil.canDeleteGeneralDashboards({
+      projects: projects || [],
+    }) &&
+    (isOwner || isAdmin);
+  const canDuplicate = permissionsUtil.canCreateGeneralDashboards({
+    projects: projects || [],
+  });
+  const canManageSharingAndEditLevels = canEdit && (isOwner || isAdmin);
+
+  if (initialEditLevel === "private" && !isOwner && !isAdmin) {
+    canEdit = false;
+  }
+  const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
 
   const renderSingleBlock = ({
     i,
@@ -188,9 +311,9 @@ function DashboardEditor({
     key: number | string;
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
     isFocused: boolean;
-    setBlock: React.Dispatch<
-      DashboardBlockInterfaceOrData<DashboardBlockInterface>
-    >;
+    setBlock:
+      | undefined
+      | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>;
     isEditingBlock: boolean;
     isLastBlock: boolean;
   }) => {
@@ -199,7 +322,6 @@ function DashboardEditor({
         <DashboardBlock
           isTabActive={isTabActive}
           block={block}
-          dashboardExperiment={experiment}
           isEditing={isEditing}
           isFocused={isFocused}
           editingBlock={isEditingBlock}
@@ -212,12 +334,14 @@ function DashboardEditor({
           }
           isFirstBlock={i === 0}
           isLastBlock={i === blocks.length - 1}
-          scrollAreaRef={scrollAreaRef}
+          scrollAreaRef={scrollAreaRef ?? null}
           setBlock={setBlock}
-          editBlock={() => editBlock(i)}
-          duplicateBlock={() => duplicateBlock(i)}
-          deleteBlock={() => deleteBlock(i)}
-          moveBlock={(direction) => moveBlock(i, direction)}
+          editBlock={editBlock ? () => editBlock(i) : () => {}}
+          duplicateBlock={duplicateBlock ? () => duplicateBlock(i) : () => {}}
+          deleteBlock={deleteBlock ? () => deleteBlock(i) : () => {}}
+          moveBlock={
+            moveBlock ? (direction) => moveBlock(i, direction) : () => {}
+          }
           mutate={mutate}
         />
         <Container
@@ -261,10 +385,11 @@ function DashboardEditor({
                   </IconButton>
                 }
                 addBlockType={(bType: DashboardBlockType) => {
-                  if (isDefined(i)) {
+                  if (isDefined(i) && addBlockType) {
                     addBlockType(bType, i + 1);
                   }
                 }}
+                isGeneralDashboard={isGeneralDashboard}
               />
             </Flex>
           )}
@@ -273,53 +398,103 @@ function DashboardEditor({
     );
   };
 
-  const canEditTitle = isEditing && !!setTitle;
-
   return (
     <div>
-      <Flex
-        align="end"
-        height={DASHBOARD_TOPBAR_HEIGHT}
-        className="mb-3"
-        gap="1"
-      >
-        {canEditTitle && editingTitle ? (
-          <Field
-            autoFocus
-            defaultValue={title}
-            placeholder="Title"
-            onFocus={(e) => {
-              e.target.select();
-            }}
-            onBlur={(e) => {
-              setEditingTitle(false);
-              const newTitle = e.target.value;
-              if (newTitle !== title) {
-                setTitle(newTitle);
+      {editDashboard && (
+        <DashboardModal
+          mode="edit"
+          type={isGeneralDashboard ? "general" : "experiment"}
+          initial={{
+            title: title,
+            editLevel: initialEditLevel,
+            enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
+            shareLevel: initialShareLevel,
+            projects: projects,
+            userId: ownerId,
+          }}
+          close={() => setEditDashboard(false)}
+          submit={async (data) => {
+            await apiCall(`/dashboards/${id}`, {
+              method: "PUT",
+              body: JSON.stringify(data),
+            });
+            mutate();
+          }}
+        />
+      )}
+      {duplicateDashboard && (
+        <DashboardModal
+          mode="duplicate"
+          type={isGeneralDashboard ? "general" : "experiment"}
+          initial={{
+            title: `Copy of ${title}`,
+            editLevel: initialEditLevel,
+            enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
+            shareLevel: initialShareLevel,
+            projects,
+            userId: ownerId,
+            blocks,
+          }}
+          close={() => setDuplicateDashboard(false)}
+          submit={async (data) => {
+            const res = await apiCall<{
+              status: number;
+              dashboard: DashboardInterface;
+            }>(`/dashboards`, {
+              method: "POST",
+              body: JSON.stringify({
+                title: data.title,
+                editLevel: data.editLevel,
+                shareLevel: data.shareLevel,
+                enableAutoUpdates: data.enableAutoUpdates,
+                experimentId: "",
+                updateSchedule: data.updateSchedule,
+                projects: data.projects,
+                blocks: (data.blocks ?? []).map(getBlockData),
+              }),
+            });
+            if (res.status === 200) {
+              if (typeof window !== "undefined") {
+                window.location.href = `/product-analytics/dashboards/${res.dashboard.id}`;
               }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                (e.target as HTMLInputElement).blur();
-              } else if (e.key === "Escape") {
-                setEditingTitle(false);
-              }
-            }}
-            containerClassName="flex-1"
-          />
-        ) : (
-          <>
+            } else {
+              console.error(res);
+            }
+          }}
+        />
+      )}
+      <DashboardShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        onSubmit={async (data) => {
+          await apiCall(`/dashboards/${id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              shareLevel: data.shareLevel,
+              editLevel: data.editLevel,
+            }),
+          });
+          await mutate();
+        }}
+        initialValues={{
+          shareLevel: initialShareLevel,
+          editLevel: initialEditLevel,
+        }}
+        isGeneralDashboard={isGeneralDashboard}
+        dashboardId={id}
+      />
+      <div className="mb-3">
+        <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
+          {switchToExperimentView ? (
+            <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
+              View Regular Experiment View
+            </Button>
+          ) : (
             <Text
               weight="medium"
               size="5"
-              onDoubleClick={
-                canEditTitle
-                  ? (e) => {
-                      e.preventDefault();
-                      setEditingTitle(true);
-                    }
-                  : undefined
-              }
               style={{
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -327,32 +502,137 @@ function DashboardEditor({
                 flexShrink: 1,
               }}
             >
-              {title}
+              <Flex align="center" gap="2">
+                {title}
+                <ShareStatusBadge
+                  shareLevel={
+                    initialShareLevel === "published"
+                      ? "organization"
+                      : "private"
+                  }
+                  editLevel={
+                    initialEditLevel === "private" ? "private" : "organization"
+                  }
+                  isOwner={dashboardOwnerId === userId}
+                />
+              </Flex>
             </Text>
-            {canEditTitle && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditingTitle(true);
-                }}
-                className="ml-2"
-                style={{ color: "var(--violet-9)", paddingBottom: 5 }}
-                title="Edit Title"
+          )}
+          <div style={{ flexGrow: 1 }} />
+          <DashboardUpdateDisplay
+            dashboardId={id}
+            enableAutoUpdates={enableAutoUpdates}
+            nextUpdate={nextUpdate}
+            dashboardLastUpdated={dashboardLastUpdated}
+            disabled={!!editSidebarDirty}
+            isEditing={isEditing}
+          />
+          {isGeneralDashboard && setIsEditing && !isEditing ? (
+            <>
+              {canManageSharingAndEditLevels && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShareModalOpen(true)}
+                >
+                  Share...
+                </Button>
+              )}
+              <Button
+                variant="solid"
+                size="sm"
+                className="mx-4"
+                disabled={!canEdit}
+                onClick={() => setIsEditing(true)}
               >
-                <PiPencilSimpleFill />
-              </a>
-            )}
-            <div style={{ flexGrow: 1 }} />
-          </>
+                <PiPencilSimpleFill className="mr-2" />
+                Edit Blocks
+              </Button>
+
+              <MoreMenu>
+                {canEdit && (
+                  <Button
+                    className="dropdown-item"
+                    onClick={() => setEditDashboard(true)}
+                  >
+                    <Text weight="regular">Edit Dashboard Settings</Text>
+                  </Button>
+                )}
+                {canDuplicate && (
+                  <Button
+                    className="dropdown-item"
+                    onClick={() => setDuplicateDashboard(true)}
+                  >
+                    <Text weight="regular">Duplicate</Text>
+                  </Button>
+                )}
+                <DropdownMenuSeparator />
+                <DashboardViewQueriesButton
+                  className="dropdown-item text-capitalize"
+                  weight="regular"
+                  size="2"
+                />
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DeleteButton
+                      displayName="Dashboard"
+                      className="dropdown-item text-danger"
+                      useIcon={false}
+                      text="Delete"
+                      title="Delete Dashboard"
+                      onClick={async () => {
+                        await apiCall(`/dashboards/${id}`, {
+                          method: "DELETE",
+                        });
+                        if (typeof window !== "undefined") {
+                          window.location.href =
+                            "/product-analytics/dashboards";
+                        }
+                      }}
+                    />
+                  </>
+                )}
+              </MoreMenu>
+            </>
+          ) : null}
+        </Flex>
+        {!isEditing && (
+          <Flex align="center" gap="3">
+            <Flex align="center" gap="1">
+              <Text weight="medium">Projects:</Text>
+              {projects?.length ? (
+                <Tooltip
+                  body={
+                    <Flex direction="column" gap="1">
+                      <ProjectBadges
+                        skipMargin
+                        resourceType="dashboard"
+                        projectIds={projects}
+                      />
+                    </Flex>
+                  }
+                >
+                  <span role="button">{projects.length}</span>
+                </Tooltip>
+              ) : (
+                <ProjectBadges resourceType="dashboard" />
+              )}
+            </Flex>
+            <Flex align="center" gap="1">
+              <Text weight="medium">Owner:</Text>
+              {ownerName ? (
+                <>
+                  <UserAvatar name={ownerName} size="sm" variant="soft" />
+                  <Text>{ownerName}</Text>
+                </>
+              ) : (
+                "None"
+              )}
+            </Flex>
+          </Flex>
         )}
-        <DashboardUpdateDisplay
-          blocks={blocks}
-          enableAutoUpdates={enableAutoUpdates}
-          disabled={editSidebarDirty}
-          isEditing={isEditing}
-        />
-      </Flex>
+      </div>
       <div>
         <div>
           {blocks.length === 0 ? (
@@ -370,31 +650,42 @@ function DashboardEditor({
                 <Heading weight="medium" align="center">
                   Add Content Blocks
                 </Heading>
-                <Text align="center">Choose a block type to get started.</Text>
+                <Text align="center">
+                  {addBlockType
+                    ? "Choose a block type to get started."
+                    : "Add some blocks to get started"}
+                </Text>
               </Flex>
-              <AddBlockDropdown
-                addBlockType={addBlockType}
-                trigger={
-                  <Button
-                    size="sm"
-                    icon={<PiCaretDownFill />}
-                    iconPosition="right"
-                  >
-                    Add block
-                  </Button>
-                }
-              />
+              {addBlockType ? (
+                <AddBlockDropdown
+                  addBlockType={addBlockType}
+                  isGeneralDashboard={isGeneralDashboard}
+                  trigger={
+                    <Button
+                      size="sm"
+                      icon={<PiCaretDownFill />}
+                      iconPosition="right"
+                    >
+                      Add Block
+                    </Button>
+                  }
+                />
+              ) : canEdit && setIsEditing ? (
+                <Button size="md" onClick={() => setIsEditing(true)}>
+                  Add Block
+                </Button>
+              ) : null}
             </Flex>
           ) : (
             blocks.map((block, i) =>
               renderSingleBlock({
                 i,
-                key: isPersistedDashboardBlock(block)
+                key: dashboardBlockHasIds(block)
                   ? block.id
                   : `${block.type}-${i}`,
                 block: block,
                 isFocused: focusedBlockIndex === i,
-                setBlock: (block) => setBlock(i, block),
+                setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
                 isEditingBlock: stagedBlockIndex === i,
                 isLastBlock: i === blocks.length - 1,
               }),

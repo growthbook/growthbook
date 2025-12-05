@@ -72,8 +72,14 @@ tags:
   - name: data-sources
     x-displayName: Data Sources
     description: How GrowthBook connects and queries your data
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: metrics
-    x-displayName: Metrics
+    x-displayName: Metrics (legacy)
     description: Metrics used as goals and guardrails for experiments
   - name: experiments
     x-displayName: Experiments
@@ -102,12 +108,6 @@ tags:
   - name: members
     x-displayName: Members
     description: Members are users who have been invited to an organization.
-  - name: fact-tables
-    x-displayName: Fact Tables
-    description: Fact Tables describe the shape of your data warehouse tables
-  - name: fact-metrics
-    x-displayName: Fact Metrics
-    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: code-references
     x-displayName: Code References
     description: Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).
@@ -120,6 +120,12 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
+  - name: custom-fields
+    x-displayName: Custom Fields
+    description: Custom fields for the organization.
+  - name: attributes
+    x-displayName: Attributes
+    description: Used when targeting feature flags and experiments.
 paths:
   /features:
     get:
@@ -337,6 +343,8 @@ paths:
       $ref: "./paths/updateFactMetric.yaml"
     delete:
       $ref: "./paths/deleteFactMetric.yaml"
+  /fact-metrics/{id}/analysis:
+    $ref: "./paths/postFactMetricAnalysis.yaml"
   /bulk-import/facts:
     post:
       $ref: "./paths/postBulkImportFacts.yaml"
@@ -354,6 +362,9 @@ paths:
   /settings:
     get:
       $ref: "./paths/getSettings.yaml"
+  /custom-fields:
+    get:
+      $ref: "./paths/getCustomFields.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

@@ -28,6 +28,7 @@ import type {
   StickyAssignmentsDocument,
   EventLogger,
   LogUnion,
+  DestroyOptions,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -38,6 +39,7 @@ import {
   promiseTimeout,
 } from "./util";
 import {
+  clearAutoRefresh,
   configureCache,
   refreshFeatures,
   startStreaming,
@@ -131,6 +133,7 @@ export class GrowthBook<
 
     this.log = this.log.bind(this);
     this._saveDeferredTrack = this._saveDeferredTrack.bind(this);
+    this._onExperimentEval = this._onExperimentEval.bind(this);
     this._fireSubscriptions = this._fireSubscriptions.bind(this);
     this._recordChangedId = this._recordChangedId.bind(this);
 
@@ -538,7 +541,8 @@ export class GrowthBook<
     return !!this._destroyed;
   }
 
-  public destroy() {
+  public destroy(options?: DestroyOptions) {
+    options = options || {};
     this._destroyed = true;
 
     // Custom callbacks
@@ -562,6 +566,9 @@ export class GrowthBook<
     this._payload = undefined;
     this._saveStickyBucketAssignmentDoc = undefined;
     unsubscribe(this);
+    if (options.destroyAllStreams) {
+      clearAutoRefresh();
+    }
     this.logs = [];
 
     if (isBrowser && window._growthbook === this) {
@@ -593,7 +600,7 @@ export class GrowthBook<
 
   public run<T>(experiment: Experiment<T>): Result<T> {
     const { result } = runExperiment(experiment, null, this._getEvalContext());
-    this._fireSubscriptions(experiment, result);
+    this._onExperimentEval(experiment, result);
     return result;
   }
 
@@ -658,8 +665,7 @@ export class GrowthBook<
       savedGroups: this._options.savedGroups,
       groups: this._options.groups,
       overrides: this._options.overrides,
-      onExperimentEval:
-        this._subscriptions.size > 0 ? this._fireSubscriptions : undefined,
+      onExperimentEval: this._onExperimentEval,
       recordChangeId: this._recordChangedId,
       saveDeferredTrack: this._saveDeferredTrack,
       eventLogger: this._options.eventLogger,
@@ -702,7 +708,7 @@ export class GrowthBook<
         null,
         this._getEvalContext(),
       ));
-      this._fireSubscriptions(experiment, result);
+      this._onExperimentEval(experiment, result);
     }
 
     // A hash to quickly tell if the assigned value changed
@@ -822,7 +828,8 @@ export class GrowthBook<
 
       // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
       if (
-        result?.inExperiment &&
+        result &&
+        result.inExperiment &&
         getAutoExperimentChangeType(exp) === "redirect"
       ) {
         break;
@@ -830,18 +837,27 @@ export class GrowthBook<
     }
   }
 
-  private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
-    const key = experiment.key;
+  private _onExperimentEval<T>(experiment: Experiment<T>, result: Result<T>) {
+    const prev = this._assigned.get(experiment.key);
+    this._assigned.set(experiment.key, { experiment, result });
+    if (this._subscriptions.size > 0) {
+      this._fireSubscriptions<T>(experiment, result, prev);
+    }
+  }
 
+  private _fireSubscriptions<T>(
+    experiment: Experiment<T>,
+    result: Result<T>,
+    // eslint-disable-next-line
+    prev?: { experiment: Experiment<any>; result: Result<any> },
+  ) {
     // If assigned variation has changed, fire subscriptions
-    const prev = this._assigned.get(key);
     // TODO: what if the experiment definition has changed?
     if (
       !prev ||
       prev.result.inExperiment !== result.inExperiment ||
       prev.result.variationId !== result.variationId
     ) {
-      this._assigned.set(key, { experiment, result });
       this._subscriptions.forEach((cb) => {
         try {
           cb(experiment, result);

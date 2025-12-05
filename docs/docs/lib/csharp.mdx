@@ -10,121 +10,1097 @@ import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # C#
 
-View the full documentation on [GitHub](https://github.com/growthbook/growthbook-c-sharp).
+The GrowthBook C# SDK supports all modern .NET platforms including .NET 6+, .NET Framework 4.6.1+, and .NET Standard 2.0+.
 
 <SdkResources sdk="csharp" />
 
 ## Installation
 
-```csharp
-    dotnet add package growthbook-c-sharp
+Install via NuGet Package Manager:
+
+```bash
+dotnet add package growthbook-c-sharp
 ```
 
-## Quick Usage
+Or via Package Manager Console:
 
-This library is based on the [GrowthBook SDK specs](/lib/build-your-own) and should be compatible with the usage examples in the [GrowthBook docs](/).
+```powershell
+Install-Package growthbook-c-sharp
+```
 
-Down below you'll find two basic examples on how the package works.
+## Quick Start
 
-### Basic
+Get started with GrowthBook in just a few steps:
 
-1. Declare features
+```csharp
+using GrowthBook;
+using Newtonsoft.Json.Linq;
 
-   ```csharp
+// 1. Create a context with user attributes
+var context = new Context
+{
+    Enabled = true,
+    Attributes = new JObject
+    {
+        ["id"] = "user-123",
+        ["country"] = "US",
+        ["plan"] = "premium"
+    }
+};
 
-   var staticFeatures = new Dictionary<string, Feature>
-   {
-       {"firstFeature", new Feature{ DefaultValue = true}},
-       {"secondFeature", new Feature{ DefaultValue = false}}
-   };
-   ```
+// 2. Initialize GrowthBook
+var gb = new GrowthBook.GrowthBook(context);
 
-2. Create a context and add the features
+// 3. Load features from API (async)
+await gb.LoadFeaturesAsync("https://cdn.growthbook.io", "sdk_abc123");
 
-   ```csharp
-   var context = new Context
-   {
-       Enabled = true,
-       Url = "",
-       Features = staticFeatures
-   };
-   ```
+// 4. Evaluate features
+if (gb.IsOn("new-dashboard"))
+{
+    ShowNewDashboard();
+}
 
-3. Create the `GrowthBook` object with the context
+var buttonColor = gb.GetFeatureValue("button-color", "blue");
+var maxRetries = gb.GetFeatureValue("max-retries", 3);
+```
 
-   ```csharp
-   using GrowthBook;
-   //...
+## Loading Features from API
 
-   var GrowthBook = new GrowthBook.GrowthBook(context);
-   ```
+### Basic API Integration
 
-4. Check whether a feature is enabled
+```csharp
+using System.Net.Http;
+using Newtonsoft.Json;
 
-   ```csharp
-   GrowthBook.IsOn("firstFeature") // true
-   GrowthBook.IsOn("secondFeature") // false
-   ```
+public class FeaturesResult
+{
+    public HttpStatusCode Status { get; set; }
+    public IDictionary<string, Feature>? Features { get; set; }
+    public DateTimeOffset? DateUpdated { get; set; }
+}
 
-### Loading feature definitions from an API
+public async Task<GrowthBook.GrowthBook> InitializeGrowthBookAsync()
+{
+    var context = new Context
+    {
+        Enabled = true,
+        Attributes = GetUserAttributes()
+    };
 
-Because feature definitions are typically loaded from API calls or cache, [Json.NET](https://www.nuget.org/packages/Newtonsoft.Json/13.0.2-beta1)
-objects are used to represent arbitrary document types such as Attributes, Conditions, and Feature values.
+    var gb = new GrowthBook.GrowthBook(context);
 
-To load your features from the GrowthBook API use the following example:
+    // Load features from API
+    using var httpClient = new HttpClient();
+    var url = "https://cdn.growthbook.io/api/features/sdk_abc123";
+    var response = await httpClient.GetAsync(url);
 
-1. Create a result model for the API response
+    if (response.IsSuccessStatusCode)
+    {
+        var content = await response.Content.ReadAsStringAsync();
+        var featuresResult = JsonConvert.DeserializeObject<FeaturesResult>(content);
 
-   ```csharp
-   public class FeaturesResult
-   {
-       public HttpStatusCode Status { get; set; }
-       public IDictionary<string, Feature>? Features { get; set; }
-       public DateTimeOffset? DateUpdated { get; set; }
-   }
-   ```
+        // Update context with loaded features
+        context.Features = featuresResult.Features;
+        gb.UpdateContext(context);
+    }
 
-2. call the endpoint and deserialize result
+    return gb;
+}
 
-   ```csharp
-   var url = "YOUR_GROWTHBOOK_URL/api/features/YOUR_API_KEY";
-   var response = await client.GetAsync(url);
+private JObject GetUserAttributes()
+{
+    return new JObject
+    {
+        ["id"] = User.Identity.Name,
+        ["email"] = User.Email,
+        ["country"] = User.Country,
+        ["plan"] = User.SubscriptionPlan
+    };
+}
+```
 
-   if (response.IsSuccessStatusCode)
-   {
-       var content = await response.Content.ReadAsStringAsync();
-       var featuresResult = JsonConvert.DeserializeObject<FeaturesResult>(content);
-   }
-   ```
+### Streaming Updates
 
-3. Construct a context and initialize GrowthBook
+Enable real-time feature updates with Server-Sent Events (SSE):
 
-   ```csharp
-   var GrowthBook = new GrowthBook.GrowthBook(
-       new Context {
-           Enabled = true,
-           Url = "",
-           Features = featuresResult.Features,
-       }
-   );
-   ```
+```csharp
+using System.Threading;
+using System.Threading.Tasks;
 
-#### Generic getters
+public class GrowthBookManager : IDisposable
+{
+    private readonly GrowthBook.GrowthBook _gb;
+    private readonly Timer _refreshTimer;
+    private readonly HttpClient _httpClient;
 
-To make it easier to deal with Feature values, generic getter functions are provided for the following:
+    public GrowthBookManager(Context context)
+    {
+        _gb = new GrowthBook.GrowthBook(context);
+        _httpClient = new HttpClient();
 
-- Experiment:
-  - `GetVariations<T>()`
-- ExperimentResult:
-  - `GetValue<T>()`
-- Feature:
-  - `GetDefaultValue<T>()`
-- FeatureResult:
-  - `GetValue<T>()`
-- Feature Rule:
-  - `GetVariations<T>()`
-- GrowthBook:
-  - `GetFeatureValue<T>(string key, T fallback)`
+        // Poll for updates every 60 seconds
+        _refreshTimer = new Timer(
+            async _ => await RefreshFeaturesAsync(),
+            null,
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(60)
+        );
+    }
+
+    private async Task RefreshFeaturesAsync()
+    {
+        try
+        {
+            var url = "https://cdn.growthbook.io/api/features/sdk_abc123";
+            var response = await _httpClient.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<FeaturesResult>(content);
+
+                // Update features
+                var context = _gb.GetContext();
+                context.Features = result.Features;
+                _gb.UpdateContext(context);
+
+                Console.WriteLine($"Features updated: {result.Features.Count} features loaded");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to refresh features: {ex.Message}");
+        }
+    }
+
+    public GrowthBook.GrowthBook GetGrowthBook() => _gb;
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+        _httpClient?.Dispose();
+    }
+}
+```
+
+## User Attributes
+
+Attributes are used for targeting and experiment assignment:
+
+```csharp
+// Standard attributes
+var attributes = new JObject
+{
+    ["id"] = "user-123",
+    ["email"] = "user@example.com",
+    ["country"] = "US",
+    ["browser"] = "chrome"
+};
+
+// Custom business attributes
+var attributes = new JObject
+{
+    ["id"] = user.Id,
+    ["subscriptionTier"] = user.Tier,
+    ["lifetimeValue"] = user.LifetimeValue,
+    ["accountAge"] = (DateTime.Now - user.CreatedAt).Days,
+    ["isHighValueCustomer"] = user.LifetimeValue > 1000,
+    ["purchasedCategories"] = new JArray(user.Categories),
+    ["enabledFeatures"] = new JArray(user.Features)
+};
+
+var context = new Context
+{
+    Enabled = true,
+    Attributes = attributes
+};
+```
+
+## Evaluating Features
+
+### Feature Result Properties
+
+```csharp
+var result = gb.EvalFeature("my-feature");
+
+// Check if feature is enabled
+if (result.On)
+{
+    ShowNewFeature();
+}
+
+// Get feature value
+var value = result.Value; // JToken
+var typedValue = result.GetValue<string>(); // Typed accessor
+
+// Check the source
+switch (result.Source)
+{
+    case FeatureResult.SourceId.DefaultValue:
+        // Using default value
+        break;
+    case FeatureResult.SourceId.Force:
+        // Forced value
+        break;
+    case FeatureResult.SourceId.Experiment:
+        // Value from experiment
+        var experiment = result.Experiment;
+        var experimentResult = result.ExperimentResult;
+        TrackExperiment(experiment, experimentResult);
+        break;
+}
+```
+
+### Generic Type Accessors
+
+The SDK provides type-safe generic methods:
+
+```csharp
+// Get feature values with type safety
+var isEnabled = gb.GetFeatureValue<bool>("new-feature", false);
+var buttonColor = gb.GetFeatureValue<string>("button-color", "blue");
+var maxRetries = gb.GetFeatureValue<int>("max-retries", 3);
+var timeout = gb.GetFeatureValue<double>("api-timeout", 5.0);
+
+// Complex types
+var config = gb.GetFeatureValue<Dictionary<string, object>>("app-config", null);
+if (config != null)
+{
+    var apiKey = config["apiKey"]?.ToString();
+    var maxConnections = Convert.ToInt32(config["maxConnections"]);
+}
+```
+
+## Running Experiments
+
+### Inline Experiments
+
+```csharp
+var experiment = new Experiment
+{
+    Key = "button-color-test",
+    Variations = new JArray { "blue", "red", "green" },
+    Weights = new List<double> { 0.5, 0.3, 0.2 }
+};
+
+var result = gb.Run(experiment);
+
+if (result.InExperiment)
+{
+    var color = result.GetValue<string>();
+    SetButtonColor(color);
+
+    // Track experiment view
+    TrackExperiment(experiment, result);
+}
+```
+
+### Experiment Configuration
+
+```csharp
+var experiment = new Experiment
+{
+    // Required
+    Key = "pricing-test",
+    Variations = new JArray { 9.99, 14.99, 19.99 },
+
+    // Optional configuration
+    Active = true,
+    Coverage = 0.8, // 80% of users
+    Weights = new List<double> { 0.5, 0.3, 0.2 },
+
+    // Targeting
+    Condition = JObject.Parse(@"{""country"": ""US"", ""plan"": ""premium""}"),
+    HashAttribute = "id",
+
+    // Sticky bucketing
+    BucketVersion = 1,
+    MinBucketVersion = 0,
+    DisableStickyBucketing = false
+};
+
+var result = gb.Run(experiment);
+```
+
+## Encryption & Security
+
+### Encrypted Features
+
+Enable encryption for sensitive feature configurations:
+
+```csharp
+// Load encrypted features
+var decryptionKey = Environment.GetEnvironmentVariable("GROWTHBOOK_DECRYPTION_KEY");
+
+await gb.LoadFeaturesAsync(
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk_abc123",
+    httpClient: new HttpClient(),
+    decryptionKey: decryptionKey
+);
+```
+
+### Secure Attributes
+
+Hash sensitive attributes before sending them to GrowthBook:
+
+```csharp
+using System.Security.Cryptography;
+using System.Text;
+
+public class SecureAttributeHelper
+{
+    private readonly string _salt;
+
+    public SecureAttributeHelper(string salt)
+    {
+        _salt = salt;
+    }
+
+    public string HashAttribute(string value)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(value + _salt);
+        var hash = sha256.ComputeHash(bytes);
+        return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+    }
+
+    public JObject BuildSecureAttributes(User user)
+    {
+        return new JObject
+        {
+            ["id"] = user.Id,
+            // Hash sensitive attributes
+            ["email"] = HashAttribute(user.Email),
+            ["phone"] = HashAttribute(user.Phone),
+            // Non-sensitive attributes remain plain
+            ["country"] = user.Country,
+            ["plan"] = user.Plan
+        };
+    }
+}
+
+// Usage
+var helper = new SecureAttributeHelper(
+    Environment.GetEnvironmentVariable("GROWTHBOOK_SECURE_ATTRIBUTE_SALT")
+);
+
+var context = new Context
+{
+    Enabled = true,
+    Attributes = helper.BuildSecureAttributes(currentUser)
+};
+```
+
+### Security Best Practices
+
+```csharp
+// Store keys securely in configuration
+public class GrowthBookConfiguration
+{
+    public string ClientKey { get; set; }
+    public string DecryptionKey { get; set; }
+    public string SecureAttributeSalt { get; set; }
+}
+
+// In Startup.cs or Program.cs
+services.Configure<GrowthBookConfiguration>(
+    Configuration.GetSection("GrowthBook")
+);
+
+// Use in services
+public class GrowthBookService
+{
+    private readonly GrowthBookConfiguration _config;
+
+    public GrowthBookService(IOptions<GrowthBookConfiguration> config)
+    {
+        _config = config.Value;
+    }
+
+    public async Task<GrowthBook.GrowthBook> CreateGrowthBookAsync()
+    {
+        var context = new Context { Enabled = true };
+        var gb = new GrowthBook.GrowthBook(context);
+
+        await gb.LoadFeaturesAsync(
+            "https://cdn.growthbook.io",
+            _config.ClientKey,
+            decryptionKey: _config.DecryptionKey
+        );
+
+        return gb;
+    }
+}
+```
+
+**Security Recommendations:**
+
+- **Never hardcode** encryption keys or salts in source code
+- **Use configuration** providers (appsettings.json, environment variables, Azure Key Vault)
+- **Rotate keys regularly** and coordinate updates across all environments
+- **Use different keys** for each environment (dev, staging, production)
+
+## Sticky Bucketing
+
+Sticky bucketing ensures consistent experiment variations across sessions:
+
+```csharp
+public interface IStickyBucketService
+{
+    Task<StickyBucketAssignmentDoc> GetAssignmentsAsync(string attributeName, string attributeValue);
+    Task SaveAssignmentsAsync(StickyBucketAssignmentDoc doc);
+    Task<Dictionary<string, StickyBucketAssignmentDoc>> GetAllAssignmentsAsync(Dictionary<string, string> attributes);
+}
+
+public class StickyBucketAssignmentDoc
+{
+    public string AttributeName { get; set; }
+    public string AttributeValue { get; set; }
+    public Dictionary<string, string> Assignments { get; set; }
+}
+```
+
+### Implementation Example
+
+```csharp
+using Microsoft.Extensions.Caching.Memory;
+
+public class MemoryStickyBucketService : IStickyBucketService
+{
+    private readonly IMemoryCache _cache;
+    private readonly string _prefix = "gb_sticky_";
+
+    public MemoryStickyBucketService(IMemoryCache cache)
+    {
+        _cache = cache;
+    }
+
+    public Task<StickyBucketAssignmentDoc> GetAssignmentsAsync(
+        string attributeName,
+        string attributeValue)
+    {
+        var key = $"{_prefix}{attributeName}||{attributeValue}";
+        _cache.TryGetValue(key, out StickyBucketAssignmentDoc doc);
+        return Task.FromResult(doc);
+    }
+
+    public Task SaveAssignmentsAsync(StickyBucketAssignmentDoc doc)
+    {
+        var key = $"{_prefix}{doc.AttributeName}||{doc.AttributeValue}";
+        _cache.Set(key, doc, TimeSpan.FromDays(30));
+        return Task.CompletedTask;
+    }
+
+    public Task<Dictionary<string, StickyBucketAssignmentDoc>> GetAllAssignmentsAsync(
+        Dictionary<string, string> attributes)
+    {
+        var docs = new Dictionary<string, StickyBucketAssignmentDoc>();
+
+        foreach (var (attrName, attrValue) in attributes)
+        {
+            var doc = GetAssignmentsAsync(attrName, attrValue).Result;
+            if (doc != null)
+            {
+                var docKey = $"{doc.AttributeName}||{doc.AttributeValue}";
+                docs[docKey] = doc;
+            }
+        }
+
+        return Task.FromResult(docs);
+    }
+}
+
+// Configure in Startup.cs
+services.AddMemoryCache();
+services.AddSingleton<IStickyBucketService, MemoryStickyBucketService>();
+
+// Use with GrowthBook
+var context = new Context
+{
+    Enabled = true,
+    StickyBucketService = stickyBucketService,
+    Attributes = attributes
+};
+```
+
+## Remote Evaluation
+
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
+
+Remote evaluation evaluates feature flags on a secure server:
+
+```csharp
+public class RemoteEvaluationService
+{
+    private readonly HttpClient _httpClient;
+    private readonly string _apiHost;
+    private readonly string _clientKey;
+
+    public RemoteEvaluationService(HttpClient httpClient, string apiHost, string clientKey)
+    {
+        _httpClient = httpClient;
+        _apiHost = apiHost;
+        _clientKey = clientKey;
+    }
+
+    public async Task<Dictionary<string, FeatureResult>> EvaluateFeaturesAsync(JObject attributes)
+    {
+        var url = $"{_apiHost}/api/eval/{_clientKey}";
+        var payload = new
+        {
+            attributes = attributes
+        };
+
+        var response = await _httpClient.PostAsJsonAsync(url, payload);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadAsAsync<Dictionary<string, FeatureResult>>();
+        return result;
+    }
+}
+```
+
+## Async API Support
+
+The C# SDK now provides comprehensive async APIs for non-blocking operations:
+
+### Async Feature Loading
+
+```csharp
+// Load features asynchronously
+await gb.LoadFeaturesAsync(apiHost, clientKey);
+
+// Load features with custom HTTP client
+using var httpClient = new HttpClient();
+await gb.LoadFeaturesAsync(apiHost, clientKey, httpClient);
+
+// Load encrypted features
+await gb.LoadFeaturesAsync(apiHost, clientKey, httpClient, decryptionKey: "key_abc123");
+```
+
+### Async Feature Refresh
+
+```csharp
+// Refresh features in the background
+await gb.RefreshFeaturesAsync();
+
+// Refresh with custom timeout
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+await gb.RefreshFeaturesAsync(cts.Token);
+```
+
+### Task-Based Patterns
+
+All async operations return `Task` or `Task<T>` for seamless integration with async/await:
+
+```csharp
+public async Task<IActionResult> Index()
+{
+    var gb = GetGrowthBookInstance();
+
+    // Non-blocking feature evaluation
+    var features = await Task.Run(() => new
+    {
+        NewDashboard = gb.IsOn("new-dashboard"),
+        MaxItems = gb.GetFeatureValue("max-items", 10),
+        Theme = gb.GetFeatureValue("theme", "light")
+    });
+
+    return View(features);
+}
+```
+
+## Experiment Tracking
+
+Implement tracking callbacks to send experiment data to your analytics:
+
+```csharp
+public class GrowthBookWithTracking
+{
+    private readonly GrowthBook.GrowthBook _gb;
+    private readonly IAnalyticsService _analytics;
+
+    public GrowthBookWithTracking(Context context, IAnalyticsService analytics)
+    {
+        _gb = new GrowthBook.GrowthBook(context);
+        _analytics = analytics;
+
+        // Subscribe to tracking events
+        context.TrackingCallback = TrackExperiment;
+    }
+
+    private void TrackExperiment(Experiment experiment, ExperimentResult result)
+    {
+        if (result.InExperiment)
+        {
+            _analytics.Track("experiment_viewed", new
+            {
+                experiment_id = experiment.Key,
+                variation_id = result.VariationId,
+                variation_value = result.Value,
+                user_id = result.HashValue
+            });
+        }
+    }
+
+    public GrowthBook.GrowthBook GetGrowthBook() => _gb;
+}
+```
+
+### Tracking with Experiments from Features
+
+```csharp
+var featureResult = gb.EvalFeature("premium-feature");
+
+if (featureResult.Source == FeatureResult.SourceId.Experiment)
+{
+    var experiment = featureResult.Experiment;
+    var result = featureResult.ExperimentResult;
+
+    // Track to analytics
+    analytics.Track("experiment_viewed", new
+    {
+        experiment_id = experiment.Key,
+        variation_id = result.VariationId,
+        feature_id = result.FeatureId,
+        user_id = result.HashValue,
+        in_experiment = result.InExperiment,
+        hash_used = result.HashUsed
+    });
+}
+```
+
+## Troubleshooting & Logging
+
+### Diagnostic Logging
+
+```csharp
+using Microsoft.Extensions.Logging;
+
+public class GrowthBookLogger
+{
+    private readonly ILogger _logger;
+    private readonly GrowthBook.GrowthBook _gb;
+
+    public GrowthBookLogger(GrowthBook.GrowthBook gb, ILogger<GrowthBookLogger> logger)
+    {
+        _gb = gb;
+        _logger = logger;
+    }
+
+    public void LogContext()
+    {
+        var context = _gb.GetContext();
+        _logger.LogInformation(
+            "GrowthBook Context: Enabled={Enabled}, Features={FeatureCount}, URL={Url}",
+            context.Enabled,
+            context.Features?.Count ?? 0,
+            context.Url
+        );
+    }
+
+    public void LogFeatureEvaluation(string featureKey, FeatureResult result)
+    {
+        _logger.LogDebug(
+            "Feature {FeatureKey}: On={On}, Source={Source}, Value={Value}",
+            featureKey,
+            result.On,
+            result.Source,
+            result.Value
+        );
+    }
+
+    public void LogExperiment(Experiment experiment, ExperimentResult result)
+    {
+        _logger.LogInformation(
+            "Experiment {ExperimentKey}: InExperiment={InExperiment}, VariationId={VariationId}, Value={Value}",
+            experiment.Key,
+            result.InExperiment,
+            result.VariationId,
+            result.Value
+        );
+    }
+}
+```
+
+### Common Issues
+
+#### Features Not Loading
+
+```csharp
+public async Task<bool> VerifyFeaturesLoadedAsync()
+{
+    try
+    {
+        var context = _gb.GetContext();
+
+        if (context.Features == null || context.Features.Count == 0)
+        {
+            _logger.LogWarning("No features loaded in GrowthBook context");
+            return false;
+        }
+
+        _logger.LogInformation("Features loaded: {Count}", context.Features.Count);
+        return true;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error verifying features");
+        return false;
+    }
+}
+```
+
+#### Decryption Failures
+
+```csharp
+public async Task<bool> TestDecryptionAsync()
+{
+    try
+    {
+        var decryptionKey = Environment.GetEnvironmentVariable("GROWTHBOOK_DECRYPTION_KEY");
+
+        if (string.IsNullOrEmpty(decryptionKey))
+        {
+            _logger.LogError("GROWTHBOOK_DECRYPTION_KEY not set");
+            return false;
+        }
+
+        await _gb.LoadFeaturesAsync(
+            "https://cdn.growthbook.io",
+            "sdk_abc123",
+            decryptionKey: decryptionKey
+        );
+
+        _logger.LogInformation("Successfully loaded encrypted features");
+        return true;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to load encrypted features");
+        return false;
+    }
+}
+```
+
+### Health Checks
+
+```csharp
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+
+public class GrowthBookHealthCheck : IHealthCheck
+{
+    private readonly GrowthBook.GrowthBook _gb;
+
+    public GrowthBookHealthCheck(GrowthBook.GrowthBook gb)
+    {
+        _gb = gb;
+    }
+
+    public Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gbContext = _gb.GetContext();
+
+            if (!gbContext.Enabled)
+            {
+                return Task.FromResult(
+                    HealthCheckResult.Degraded("GrowthBook is disabled")
+                );
+            }
+
+            var featureCount = gbContext.Features?.Count ?? 0;
+
+            if (featureCount == 0)
+            {
+                return Task.FromResult(
+                    HealthCheckResult.Degraded("No features loaded")
+                );
+            }
+
+            return Task.FromResult(
+                HealthCheckResult.Healthy($"{featureCount} features loaded")
+            );
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(
+                HealthCheckResult.Unhealthy("GrowthBook health check failed", ex)
+            );
+        }
+    }
+}
+
+// Register in Startup.cs
+services.AddHealthChecks()
+    .AddCheck<GrowthBookHealthCheck>("growthbook");
+```
+
+## Integrations
+
+### ASP.NET Core
+
+Integrate GrowthBook with ASP.NET Core for feature flags in your web application:
+
+```csharp
+// Startup.cs or Program.cs
+public class Startup
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+        // Register GrowthBook as singleton
+        services.AddSingleton<GrowthBook.GrowthBook>(sp =>
+        {
+            var context = new Context
+            {
+                Enabled = true,
+                Attributes = new JObject()
+            };
+
+            return new GrowthBook.GrowthBook(context);
+        });
+
+        // Register background service for feature refresh
+        services.AddHostedService<GrowthBookRefreshService>();
+
+        services.AddControllersWithViews();
+    }
+}
+
+// Background service for periodic refresh
+public class GrowthBookRefreshService : BackgroundService
+{
+    private readonly GrowthBook.GrowthBook _gb;
+    private readonly ILogger<GrowthBookRefreshService> _logger;
+
+    public GrowthBookRefreshService(
+        GrowthBook.GrowthBook gb,
+        ILogger<GrowthBookRefreshService> logger)
+    {
+        _gb = gb;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Initial load
+        await RefreshFeaturesAsync();
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
+            await RefreshFeaturesAsync();
+        }
+    }
+
+    private async Task RefreshFeaturesAsync()
+    {
+        try
+        {
+            using var httpClient = new HttpClient();
+            var url = "https://cdn.growthbook.io/api/features/sdk_abc123";
+            var response = await httpClient.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<FeaturesResult>(content);
+
+                var context = _gb.GetContext();
+                context.Features = result.Features;
+                _gb.UpdateContext(context);
+
+                _logger.LogInformation("Features refreshed: {Count}", result.Features.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh features");
+        }
+    }
+}
+
+// Middleware for adding user context
+public class GrowthBookMiddleware
+{
+    private readonly RequestDelegate _next;
+
+    public GrowthBookMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context, GrowthBook.GrowthBook gb)
+    {
+        // Build user attributes from HTTP context
+        var attributes = new JObject
+        {
+            ["id"] = context.User.Identity?.Name,
+            ["country"] = context.Request.Headers["CF-IPCountry"].FirstOrDefault(),
+            ["userAgent"] = context.Request.Headers["User-Agent"].FirstOrDefault(),
+            ["url"] = context.Request.Path.Value
+        };
+
+        // Update GrowthBook context for this request
+        var gbContext = gb.GetContext();
+        gbContext.Attributes = attributes;
+        gb.UpdateContext(gbContext);
+
+        // Store in HttpContext for controller access
+        context.Items["GrowthBook"] = gb;
+
+        await _next(context);
+    }
+}
+
+// Use in controller
+public class HomeController : Controller
+{
+    private readonly GrowthBook.GrowthBook _gb;
+
+    public HomeController(GrowthBook.GrowthBook gb)
+    {
+        _gb = gb;
+    }
+
+    public IActionResult Index()
+    {
+        // Use feature flags
+        var showNewDashboard = _gb.IsOn("new-dashboard");
+        var maxItems = _gb.GetFeatureValue("dashboard-max-items", 10);
+
+        // Track experiment
+        var colorResult = _gb.EvalFeature("dashboard-theme-color");
+        if (colorResult.Source == FeatureResult.SourceId.Experiment)
+        {
+            TrackExperiment(colorResult.Experiment, colorResult.ExperimentResult);
+        }
+
+        return View(new DashboardViewModel
+        {
+            ShowNewDashboard = showNewDashboard,
+            MaxItems = maxItems,
+            ThemeColor = colorResult.GetValue<string>()
+        });
+    }
+
+    private void TrackExperiment(Experiment experiment, ExperimentResult result)
+    {
+        // Track to your analytics service
+        Analytics.Track(User.Identity.Name, "experiment_viewed", new
+        {
+            experiment_id = experiment.Key,
+            variation_id = result.VariationId
+        });
+    }
+}
+```
+
+### Blazor Server
+
+Use GrowthBook with Blazor Server for reactive feature flags:
+
+```csharp
+// Program.cs
+builder.Services.AddSingleton<GrowthBookService>();
+builder.Services.AddScoped<UserGrowthBookService>();
+
+// GrowthBookService.cs
+public class GrowthBookService
+{
+    private readonly GrowthBook.GrowthBook _gb;
+    private readonly ILogger<GrowthBookService> _logger;
+
+    public GrowthBookService(ILogger<GrowthBookService> logger)
+    {
+        _logger = logger;
+        var context = new Context { Enabled = true };
+        _gb = new GrowthBook.GrowthBook(context);
+
+        // Start background refresh
+        _ = RefreshFeaturesAsync();
+    }
+
+    public GrowthBook.GrowthBook GetGrowthBook() => _gb;
+
+    public async Task RefreshFeaturesAsync()
+    {
+        try
+        {
+            using var httpClient = new HttpClient();
+            await _gb.LoadFeaturesAsync(
+                "https://cdn.growthbook.io",
+                "sdk_abc123",
+                httpClient
+            );
+
+            _logger.LogInformation("Features loaded");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load features");
+        }
+    }
+
+    public event EventHandler FeaturesUpdated;
+
+    protected virtual void OnFeaturesUpdated()
+    {
+        FeaturesUpdated?.Invoke(this, EventArgs.Empty);
+    }
+}
+
+// Blazor component
+@page "/dashboard"
+@inject GrowthBookService GrowthBookService
+@implements IDisposable
+
+<h3>Dashboard</h3>
+
+@if (_newDashboard)
+{
+    <NewDashboardComponent MaxItems="@_maxItems" />
+}
+else
+{
+    <LegacyDashboardComponent MaxItems="@_maxItems" />
+}
+
+@code {
+    private bool _newDashboard;
+    private int _maxItems;
+
+    protected override void OnInitialized()
+    {
+        UpdateFeatures();
+        GrowthBookService.FeaturesUpdated += OnFeaturesUpdated;
+    }
+
+    private void OnFeaturesUpdated(object sender, EventArgs e)
+    {
+        UpdateFeatures();
+        StateHasChanged();
+    }
+
+    private void UpdateFeatures()
+    {
+        var gb = GrowthBookService.GetGrowthBook();
+        _newDashboard = gb.IsOn("new-dashboard");
+        _maxItems = gb.GetFeatureValue("max-items", 20);
+    }
+
+    public void Dispose()
+    {
+        GrowthBookService.FeaturesUpdated -= OnFeaturesUpdated;
+    }
+}
+```
 
 ## Supported Features
 

@@ -123,9 +123,25 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       exp.weights = exp.weights.map((w) => {
         // Map the observed percentage traffic to the closest reasonable number
         const p = Math.round((w / totalWeight) * 100);
-        return possibleWeights
+        const closestWeight = possibleWeights
           .map((x) => [x, Math.abs(x - p)])
           .sort((a, b) => a[1] - b[1])[0][0];
+        // bias towards 50/50 if the weight is 45 or 55
+        if (closestWeight === 45) {
+          if (p <= 46) {
+            return 45;
+          } else {
+            return 50;
+          }
+        }
+        if (closestWeight === 55) {
+          if (p >= 54) {
+            return 55;
+          } else {
+            return 50;
+          }
+        }
+        return closestWeight;
       });
 
       // Make sure total weight adds to 1 (if not, increase the control until it does)

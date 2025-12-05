@@ -7,7 +7,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { TaxIdType, StripeAddress } from "shared/src/types";
+import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { useAuth } from "@/services/auth";
@@ -18,7 +18,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
@@ -345,7 +345,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
           <div className="py-4">
             <PaymentElement />
             <p className="pt-3" style={{ marginBottom: "12px" }}>
-              The cost is <strong>$20 per seat per month</strong>. You will be
+              The cost is <strong>$40 per seat per month</strong>. You will be
               charged a pro-rated amount immediately for the remainder of the
               current month and it will renew automatically on the 1st of each
               subsequent month. Cancel anytime.

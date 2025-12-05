@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import { paddedVersionString } from "@growthbook/growthbook";
@@ -217,7 +217,7 @@ rudderstack.getAnonymousId().then((anonymous_id) => {
     } else if (eventTracker === "snowplow") {
       attributesSnippets.push(
         <Box>
-          Snowplow requires an addition step to add the ID attribute from
+          Snowplow requires an additional step to add the ID attribute from
           Snowplow
           <Code
             language="javascript"

@@ -18,11 +18,8 @@ import { MetricParamsInput } from "@/components/PowerCalculation/PowerCalculatio
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Callout from "@/components/Radix/Callout";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import Callout from "@/ui/Callout";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -222,6 +219,7 @@ const PopulationDataQueryInput = ({
       {queryModalOpen ? (
         <AsyncQueriesModal
           queries={populationData?.queries?.map((q) => q.query) ?? []}
+          savedQueries={[]}
           error={populationData?.error}
           close={() => setQueryModalOpen(false)}
         />

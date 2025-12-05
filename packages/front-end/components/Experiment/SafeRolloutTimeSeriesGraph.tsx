@@ -12,11 +12,7 @@ import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { datetime, getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { RadixTheme } from "@/services/RadixTheme";
-import Table, {
-  TableBody,
-  TableRow,
-  TableRowHeaderCell,
-} from "@/components/Radix/Table";
+import Table, { TableBody, TableRow, TableRowHeaderCell } from "@/ui/Table";
 import {
   getExperimentMetricFormatter,
   getMetricFormatter,

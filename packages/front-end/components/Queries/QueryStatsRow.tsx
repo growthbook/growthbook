@@ -2,6 +2,7 @@ import { QueryInterface, QueryStatistics } from "back-end/types/query";
 import { ReactElement } from "react";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -24,19 +25,28 @@ export default function QueryStatsRow({
   queries: QueryInterface[];
   showPipelineMode?: boolean;
 }) {
+  const { hasCommercialFeature } = useUser();
+  const hasOptimizedQueries = hasCommercialFeature("multi-metric-queries");
+
   const queryStats: QueryStatistics[] = queries
     .map((q) => q.statistics)
     .filter((q): q is QueryStatistics => !!q);
 
   if (!queryStats.length) return null;
 
-  const usingPipelineMode = queries.some(
-    (q) => q.queryType === "experimentUnits",
-  );
-  const factTableOptimizedMetrics = queries
-    .filter((q) => q.queryType === "experimentMultiMetric")
-    .map((q) => getNumberOfMetricsInQuery(q))
-    .reduce((sum, n) => sum + n, 0);
+  const usingPipelineMode = queries.some((q) => {
+    if (q.queryType === "experimentUnits") return true;
+    if (q.queryType?.includes("experimentIncrementalRefresh")) return true;
+    return false;
+  });
+
+  const factTableOptimizedMetrics = !hasOptimizedQueries
+    ? 0
+    : queries
+        .filter((q) => q.queryType === "experimentMultiMetric")
+        .map((q) => getNumberOfMetricsInQuery(q))
+        .reduce((sum, n) => sum + n, 0);
+
   const totalMetrics = queries
     .map((q) => getNumberOfMetricsInQuery(q))
     .reduce((sum, n) => sum + n, 0);
@@ -119,6 +129,16 @@ export default function QueryStatsRow({
       <NumericQueryStatDisplay
         stat="Rows Processed"
         values={queryStats.map((q) => q.rowsProcessed)}
+        format="number"
+      />
+      <NumericQueryStatDisplay
+        stat="Physical Written Bytes"
+        values={queryStats.map((q) => q.physicalWrittenBytes)}
+        format="bytes"
+      />
+      <NumericQueryStatDisplay
+        stat="Rows Inserted"
+        values={queryStats.map((q) => q.rowsInserted)}
         format="number"
       />
       <BooleanQueryStatDisplay

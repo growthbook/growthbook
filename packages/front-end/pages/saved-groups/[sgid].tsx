@@ -1,19 +1,20 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
+import { BiShow } from "react-icons/bi";
 import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
   isIdListSupportedAttribute,
 } from "shared/util";
-import Link from "next/link";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isEmpty } from "lodash";
-import { Container, Flex } from "@radix-ui/themes";
+import { Container, Flex, Text } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -22,7 +23,10 @@ import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments, useFeaturesList } from "@/services/features";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
+import {
+  getSavedGroupMessage,
+  getListOfReferences,
+} from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -35,9 +39,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { DocLink } from "@/components/DocLink";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useExperiments } from "@/hooks/useExperiments";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 
 const NUM_PER_PAGE = 10;
 
@@ -55,8 +60,12 @@ export default function EditSavedGroupPage() {
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  const [showReferencesModal, setShowReferencesModal] =
+    useState<boolean>(false);
+  const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
+  const { savedGroupSizeLimit } = useOrgSettings();
 
-  const values = savedGroup?.values || [];
+  const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
   const filteredValues = values.filter((v) => v.match(filter));
@@ -98,19 +107,23 @@ export default function EditSavedGroupPage() {
 
   const referencingFeatures = useMemo(() => {
     if (!savedGroup) return [] as FeatureInterface[];
-    return featuresReferencingSavedGroups({
-      savedGroups: [savedGroup],
-      features,
-      environments,
-    })[savedGroup.id];
+    return (
+      featuresReferencingSavedGroups({
+        savedGroups: [savedGroup],
+        features,
+        environments,
+      })[savedGroup.id] || []
+    );
   }, [savedGroup, features, environments]);
 
   const referencingExperiments = useMemo(() => {
     if (!savedGroup) return [] as ExperimentInterfaceStringDates[];
-    return experimentsReferencingSavedGroups({
-      savedGroups: [savedGroup],
-      experiments,
-    })[savedGroup.id];
+    return (
+      experimentsReferencingSavedGroups({
+        savedGroups: [savedGroup],
+        experiments,
+      })[savedGroup.id] || []
+    );
   }, [savedGroup, experiments]);
 
   const getConfirmationContent = useMemo(() => {
@@ -119,6 +132,14 @@ export default function EditSavedGroupPage() {
 
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey,
+  );
+
+  const listAboveSizeLimit = useMemo(
+    () =>
+      savedGroupSizeLimit
+        ? [...new Set(itemsToAdd.concat(values))].length > savedGroupSizeLimit
+        : false,
+    [savedGroupSizeLimit, itemsToAdd, values],
   );
 
   if (!data || !savedGroup) {
@@ -168,7 +189,10 @@ export default function EditSavedGroupPage() {
               : "Overwrite List Contents"
           }
           cta="Save"
-          ctaEnabled={itemsToAdd.length > 0}
+          ctaEnabled={
+            itemsToAdd.length > 0 &&
+            (!listAboveSizeLimit || adminBypassSizeLimit)
+          }
           submit={async () => {
             let newValues: Set<string>;
             if (importOperation === "append") {
@@ -201,6 +225,10 @@ export default function EditSavedGroupPage() {
               values={itemsToAdd}
               setValues={(newValues) => setItemsToAdd(newValues)}
               openUpgradeModal={() => setUpgradeModal(true)}
+              listAboveSizeLimit={listAboveSizeLimit}
+              bypassSizeLimit={adminBypassSizeLimit}
+              setBypassSizeLimit={setAdminBypassSizeLimit}
+              projects={savedGroup.projects}
             />
           </>
         </Modal>
@@ -214,6 +242,22 @@ export default function EditSavedGroupPage() {
           current={savedGroupForm}
           type="list"
         />
+      )}
+      {showReferencesModal && (
+        <Modal
+          header={`'${savedGroup.groupName}' References`}
+          trackingEventModalType="show-saved-group-references"
+          close={() => setShowReferencesModal(false)}
+          open={showReferencesModal}
+          useRadixButton={true}
+          closeCta="Close"
+        >
+          <Text as="p" mb="3">
+            This saved group is referenced by the following features and
+            experiments.
+          </Text>
+          {getListOfReferences(referencingFeatures, referencingExperiments)}
+        </Modal>
       )}
       <PageHead
         breadcrumb={[
@@ -312,6 +356,30 @@ export default function EditSavedGroupPage() {
             />
           </div>
           <Flex>
+            <Tooltip
+              content="Currently, no active features or experiments reference this Saved Group."
+              enabled={
+                referencingFeatures.length === 0 &&
+                referencingExperiments.length === 0
+              }
+            >
+              <Button
+                variant="ghost"
+                disabled={
+                  referencingFeatures.length === 0 &&
+                  referencingExperiments.length === 0
+                }
+                onClick={() => {
+                  setShowReferencesModal(true);
+                }}
+              >
+                <BiShow />{" "}
+                {referencingFeatures.length + referencingExperiments.length}{" "}
+                reference
+                {referencingFeatures.length + referencingExperiments.length !==
+                  1 && "s"}
+              </Button>
+            </Tooltip>
             <Container mr="4">
               <Button
                 variant="ghost"

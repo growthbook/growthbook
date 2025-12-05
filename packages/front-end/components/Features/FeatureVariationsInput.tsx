@@ -16,7 +16,7 @@ import {
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {

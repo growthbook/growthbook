@@ -69,8 +69,14 @@ tags:
   - name: data-sources
     x-displayName: Data Sources
     description: How GrowthBook connects and queries your data
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: metrics
-    x-displayName: Metrics
+    x-displayName: Metrics (legacy)
     description: Metrics used as goals and guardrails for experiments
   - name: experiments
     x-displayName: Experiments
@@ -99,12 +105,6 @@ tags:
   - name: members
     x-displayName: Members
     description: Members are users who have been invited to an organization.
-  - name: fact-tables
-    x-displayName: Fact Tables
-    description: Fact Tables describe the shape of your data warehouse tables
-  - name: fact-metrics
-    x-displayName: Fact Metrics
-    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: code-references
     x-displayName: Code References
     description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
@@ -117,6 +117,12 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
+  - name: custom-fields
+    x-displayName: Custom Fields
+    description: Custom fields for the organization.
+  - name: attributes
+    x-displayName: Attributes
+    description: Used when targeting feature flags and experiments.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -126,6 +132,9 @@ tags:
   - name: CodeRef_model
     x-displayName: CodeRef
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: CustomField_model
+    x-displayName: CustomField
+    description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -159,6 +168,9 @@ tags:
   - name: FactTable_model
     x-displayName: FactTable
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
+  - name: FactTableColumn_model
+    x-displayName: FactTableColumn
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTableColumn" />
   - name: FactTableFilter_model
     x-displayName: FactTableFilter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
@@ -201,6 +213,9 @@ tags:
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: MetricAnalysis_model
+    x-displayName: MetricAnalysis
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricAnalysis" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -644,6 +659,10 @@ paths:
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -739,6 +758,10 @@ paths:
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -1407,7 +1430,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
-        - dimensions
+        - segments
       summary: Update a single segment
       operationId: updateSegment
       x-codeSamples:
@@ -2110,6 +2133,37 @@ paths:
                   enum:
                     - days
                     - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
+                pinnedMetricSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                    required:
+                      - slices
+                  description: Custom slices that apply to ALL applicable metrics in the experiment
       responses:
         '200':
           content:
@@ -2446,6 +2500,37 @@ paths:
                   enum:
                     - days
                     - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
+                pinnedMetricSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                    required:
+                      - slices
+                  description: Custom slices that apply to ALL applicable metrics in the experiment
       responses:
         '200':
           content:
@@ -2655,7 +2740,7 @@ paths:
                   description: 'ID for the [DataSource](#tag/DataSource_model)'
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only.'
                   enum:
                     - ''
                     - api
@@ -2969,10 +3054,11 @@ paths:
               properties:
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only. Please note that we have deprecated support for setting the managedBy property to "admin". Your existing Legacy Metrics with this value will continue to work, but we suggest migrating to Fact Metrics instead.'
                   enum:
                     - ''
                     - api
+                    - admin
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -4118,6 +4204,8 @@ paths:
                             type: array
                             items:
                               type: string
+                          limitAccessByEnvironment:
+                            type: boolean
       responses:
         '200':
           content:
@@ -4392,12 +4480,16 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   enum:
                     - ''
                     - api
+                    - admin
       responses:
         '200':
           content:
@@ -4479,12 +4571,25 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
+                columns:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FactTableColumn'
+                  description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license.
+                columnsError:
+                  type: string
+                  nullable: true
+                  description: Error message if there was an issue parsing the SQL schema
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   enum:
                     - ''
                     - api
+                    - admin
                 archived:
                   type: boolean
       responses:
@@ -4790,7 +4895,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -4803,6 +4908,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                     aggregateFilterColumn:
                       type: string
                       description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -4820,7 +4932,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -4833,6 +4945,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -4984,6 +5103,12 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
+                metricAutoSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5070,7 +5195,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -5083,6 +5208,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                     aggregateFilterColumn:
                       type: string
                       description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -5100,7 +5232,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -5113,6 +5245,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -5263,8 +5402,14 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
                 archived:
                   type: boolean
+                metricAutoSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5301,6 +5446,74 @@ paths:
                     type: string
                     description: The ID of the deleted fact metric
                     example: fact__123abc
+  '/fact-metrics/{id}/analysis':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The fact metric id to analyze
+        schema:
+          type: string
+    post:
+      tags:
+        - fact-metrics
+      summary: Create a fact metric analysis
+      operationId: postFactMetricAnalysis
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact_1234/analysis \
+              -d '{"lookbackDays":90}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIdType:
+                  type: string
+                  description: 'The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table.'
+                lookbackDays:
+                  type: number
+                  description: Number of days to look back for the analysis. Defaults to 30.
+                  minimum: 1
+                  maximum: 999999
+                populationType:
+                  type: string
+                  enum:
+                    - factTable
+                    - segment
+                  description: 'The type of population to analyze. Defaults to ''factTable'', meaning the analysis will return the metric value for all units found in the fact table.'
+                populationId:
+                  type: string
+                  nullable: true
+                  description: 'The ID of the population (e.g., segment ID) when populationType is not ''factTable''. Defaults to null.'
+                additionalNumeratorFilters:
+                  type: array
+                  items:
+                    type: string
+                  description: 'We support passing in adhoc filters for an analysis that don''t live on the metric itself. These are in addition to the metric''s filters. To use this, you can pass in an array of Fact Table Filter Ids.'
+                additionalDenominatorFilters:
+                  type: array
+                  items:
+                    type: string
+                  description: 'We support passing in adhoc filters for an analysis that don''t live on the metric itself. These are in addition to the metric''s filters. To use this, you can pass in an array of Fact Table Filter Ids.'
+                useCache:
+                  type: boolean
+                  description: Whether to use a cached query if one exists. Defaults to true.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricAnalysis
+                properties:
+                  metricAnalysis:
+                    $ref: '#/components/schemas/MetricAnalysis'
   /bulk-import/facts:
     post:
       parameters: []
@@ -5559,6 +5772,27 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
+  /custom-fields:
+    get:
+      summary: Get list of custom fields
+      tags:
+        - custom-fields
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getCustomFields
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/custom-fields?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomField'
 components:
   parameters:
     id:
@@ -5747,6 +5981,7 @@ components:
             - ''
             - api
             - config
+            - admin
         dateCreated:
           type: string
         dateUpdated:
@@ -6991,6 +7226,33 @@ components:
         customFields:
           type: object
           additionalProperties: true
+        pinnedMetricSlices:
+          type: array
+          items:
+            type: string
+          description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+        customMetricSlices:
+          type: array
+          items:
+            type: object
+            properties:
+              slices:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    column:
+                      type: string
+                    levels:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - column
+                    - levels
+            required:
+              - slices
+          description: Custom slices that apply to ALL applicable metrics in the experiment
     ExperimentSnapshot:
       type: object
       required:
@@ -7546,6 +7808,18 @@ components:
             type: string
         sql:
           type: string
+        eventName:
+          type: string
+          description: The event name used in SQL template variables
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/FactTableColumn'
+          description: Array of column definitions for this fact table
+        columnsError:
+          type: string
+          nullable: true
+          description: Error message if there was an issue parsing the SQL schema
         archived:
           type: boolean
         managedBy:
@@ -7554,12 +7828,86 @@ components:
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time
         dateUpdated:
           type: string
           format: date-time
+    FactTableColumn:
+      type: object
+      required:
+        - column
+        - datatype
+        - deleted
+      properties:
+        column:
+          type: string
+          description: The actual column name in the database/SQL query
+        datatype:
+          type: string
+          enum:
+            - number
+            - string
+            - date
+            - boolean
+            - json
+            - other
+            - ''
+        numberFormat:
+          type: string
+          enum:
+            - ''
+            - currency
+            - 'time:seconds'
+            - 'memory:bytes'
+            - 'memory:kilobytes'
+        jsonFields:
+          type: object
+          description: 'For JSON columns, defines the structure of nested fields'
+          additionalProperties:
+            type: object
+            properties:
+              datatype:
+                type: string
+                enum:
+                  - number
+                  - string
+                  - date
+                  - boolean
+                  - json
+                  - other
+                  - ''
+        name:
+          type: string
+          description: Display name for the column (can be different from the actual column name)
+        description:
+          type: string
+        alwaysInlineFilter:
+          type: boolean
+          description: Whether this column should always be included as an inline filter in queries
+          default: false
+        deleted:
+          type: boolean
+          default: false
+        isAutoSliceColumn:
+          type: boolean
+          description: Whether this column can be used for auto slice analysis. This is an enterprise feature.
+          default: false
+        autoSlices:
+          type: array
+          items:
+            type: string
+          description: Specific slices to automatically analyze for this column.
+        dateCreated:
+          type: string
+          format: date-time
+          readOnly: true
+        dateUpdated:
+          type: string
+          format: date-time
+          readOnly: true
     FactTableFilter:
       type: object
       required:
@@ -7666,6 +8014,13 @@ components:
               description: Array of Fact Table Filter Ids
               items:
                 type: string
+            inlineFilters:
+              type: object
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+              additionalProperties:
+                type: array
+                items:
+                  type: string
             aggregateFilterColumn:
               type: string
               description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -7688,6 +8043,13 @@ components:
               description: Array of Fact Table Filter Ids
               items:
                 type: string
+            inlineFilters:
+              type: object
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+              additionalProperties:
+                type: array
+                items:
+                  type: string
         inverse:
           type: boolean
           description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -7820,6 +8182,7 @@ components:
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time
@@ -7828,6 +8191,25 @@ components:
           format: date-time
         archived:
           type: boolean
+        metricAutoSlices:
+          type: array
+          items:
+            type: string
+          description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
+    MetricAnalysis:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          description: The ID of the created metric analysis
+        status:
+          type: string
+          description: 'The status of the analysis (e.g., "running", "completed", "error")'
+        settings:
+          type: object
     Member:
       type: object
       required:
@@ -8001,7 +8383,6 @@ components:
       properties:
         confidenceLevel:
           type: number
-          nullable: true
         northStar:
           type: object
           nullable: true
@@ -8014,7 +8395,6 @@ components:
                 type: string
         metricDefaults:
           type: object
-          nullable: true
           properties:
             priorSettings:
               type: object
@@ -8042,7 +8422,6 @@ components:
               type: number
         pastExperimentsMinLength:
           type: number
-          nullable: true
         metricAnalysisDays:
           type: number
         updateSchedule:
@@ -8076,7 +8455,6 @@ components:
                 type: string
         statsEngine:
           type: string
-          nullable: true
         pValueThreshold:
           type: number
         regressionAdjustmentEnabled:
@@ -8094,22 +8472,16 @@ components:
             - experimentDuration
         targetMDE:
           type: number
-          nullable: true
         delayHours:
           type: number
-          nullable: true
         windowType:
           type: string
-          nullable: true
         windowHours:
           type: number
-          nullable: true
         winRisk:
           type: number
-          nullable: true
         loseRisk:
           type: number
-          nullable: true
         secureAttributeSalt:
           type: string
         killswitchConfirmation:
@@ -8154,6 +8526,11 @@ components:
         experimentMaxLengthDays:
           type: number
           nullable: true
+        preferredEnvironment:
+          type: string
+          nullable: true
+        maxMetricSliceLevels:
+          type: number
     CodeRef:
       type: object
       required:
@@ -8209,6 +8586,42 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    CustomField:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - section
+        - dateCreated
+        - dateUpdated
+        - active
+        - required
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        section:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        values:
+          type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -8249,6 +8662,8 @@ x-tagGroups:
       - environments
       - features
       - data-sources
+      - fact-tables
+      - fact-metrics
       - metrics
       - experiments
       - snapshots
@@ -8259,17 +8674,18 @@ x-tagGroups:
       - saved-groups
       - organizations
       - members
-      - fact-tables
-      - fact-metrics
       - code-references
       - archetypes
       - queries
       - settings
+      - custom-fields
+      - attributes
   - name: Models
     tags:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
+      - CustomField_model
       - DataSource_model
       - Dimension_model
       - Environment_model
@@ -8281,6 +8697,7 @@ x-tagGroups:
       - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model
+      - FactTableColumn_model
       - FactTableFilter_model
       - Feature_model
       - FeatureDefinition_model
@@ -8295,6 +8712,7 @@ x-tagGroups:
       - FeatureWithRevisions_model
       - Member_model
       - Metric_model
+      - MetricAnalysis_model
       - Organization_model
       - PaginationFields_model
       - Project_model

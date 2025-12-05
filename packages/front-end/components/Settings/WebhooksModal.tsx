@@ -8,7 +8,7 @@ import {
   WebhookPayloadFormat,
 } from "back-end/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -19,7 +19,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const methodTypes: WebhookMethod[] = [
   "GET",
@@ -92,7 +92,7 @@ function getWebhookFromType(
         headers: JSON.stringify({
           Authorization: `Bearer {{ ${inputs.webhookSecretKey} }}`,
         }),
-        payloadFormat: "edgeConfig",
+        payloadFormat: "edgeConfigUnescaped",
         payloadKey: inputs.key,
       };
     case "http":
@@ -439,7 +439,10 @@ export function CreateSDKWebhookModal({
                       value: "standard-no-payload",
                     },
                     { label: "SDK Payload only", value: "sdkPayload" },
-                    { label: "Vercel Edge Config", value: "edgeConfig" },
+                    {
+                      label: "Vercel Edge Config",
+                      value: "edgeConfigUnescaped",
+                    },
                     { label: "None", value: "none" },
                   ]}
                   formatOptionLabel={({ value, label }) => {
@@ -467,7 +470,8 @@ export function CreateSDKWebhookModal({
                   key="http_payload_format"
                 />
 
-                {form.watch("payloadFormat") === "edgeConfig" && (
+                {(form.watch("payloadFormat") === "edgeConfig" ||
+                  form.watch("payloadFormat") === "edgeConfigUnescaped") && (
                   <Field
                     label="Edge Config Key"
                     placeholder="gb_payload"
@@ -660,7 +664,16 @@ const EditSDKWebhooksModal: FC<{
                 value: "standard-no-payload",
               },
               { label: "SDK Payload only", value: "sdkPayload" },
-              { label: "Vercel Edge Config", value: "edgeConfig" },
+              { label: "Vercel Edge Config", value: "edgeConfigUnescaped" },
+              // Only show the old stringified format if it's already selected
+              ...(current?.payloadFormat === "edgeConfig"
+                ? [
+                    {
+                      label: "Vercel Edge Config (escaped payload)",
+                      value: "edgeConfig",
+                    },
+                  ]
+                : []),
               { label: "None", value: "none" },
             ]}
             formatOptionLabel={({ value, label }) => {
@@ -687,7 +700,8 @@ const EditSDKWebhooksModal: FC<{
             }
           />
 
-          {form.watch("payloadFormat") === "edgeConfig" && (
+          {(form.watch("payloadFormat") === "edgeConfig" ||
+            form.watch("payloadFormat") === "edgeConfigUnescaped") && (
             <Field
               label="Edge Config Key"
               placeholder="gb_payload"

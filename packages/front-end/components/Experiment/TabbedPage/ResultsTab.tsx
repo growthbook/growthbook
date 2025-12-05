@@ -6,8 +6,8 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import uniq from "lodash/uniq";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
@@ -17,6 +17,7 @@ import {
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -26,10 +27,11 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
-import Button from "@/components/Radix/Button";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import track from "@/services/track";
 import { AnalysisBarSettings } from "@/components/Experiment/AnalysisSettingsBar";
+import Metadata from "@/ui/Metadata";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -51,6 +53,10 @@ export interface Props {
   setMetricFilter: (m: ResultsMetricFilters) => void;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  sortBy: "metric-tags" | "significance" | "change" | null;
+  setSortBy: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection: "asc" | "desc" | null;
+  setSortDirection: (d: "asc" | "desc" | null) => void;
 }
 
 export default function ResultsTab({
@@ -67,6 +73,10 @@ export default function ResultsTab({
   setAnalysisBarSettings,
   metricFilter,
   setMetricFilter,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: Props) {
   const {
     getDatasourceById,
@@ -74,7 +84,9 @@ export default function ResultsTab({
     getMetricById,
     getProjectById,
     metrics,
+    metricGroups,
     datasources,
+    getSegmentById,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -104,9 +116,16 @@ export default function ResultsTab({
     "regression-adjustment",
   );
 
+  const segment = getSegmentById(experiment.segment || "");
+
+  const activationMetric = getExperimentMetricById(
+    experiment.activationMetric || "",
+  );
+
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m),
@@ -191,6 +210,40 @@ export default function ResultsTab({
         </Callout>
       ) : null}
 
+      <Box>
+        {hasData && (
+          <Flex direction="row" gap="3" mb="4" mt="2">
+            <Metadata
+              label="Engine"
+              value={
+                analysis?.settings?.statsEngine === "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"
+              }
+            />
+            <Metadata
+              label="CUPED"
+              value={
+                analysis?.settings?.regressionAdjusted ? "Enabled" : "Disabled"
+              }
+            />
+            <Metadata
+              label="Sequential"
+              value={
+                analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
+              }
+            />
+            {segment ? <Metadata label="Segment" value={segment.name} /> : null}
+            {activationMetric ? (
+              <Metadata
+                label="Activation Metric"
+                value={activationMetric.name}
+              />
+            ) : null}
+          </Flex>
+        )}
+      </Box>
+
       <div className="appbox">
         {analysisSettingsOpen && (
           <AnalysisForm
@@ -228,7 +281,6 @@ export default function ResultsTab({
                 differenceType: d,
               })
             }
-            differenceType={analysisBarSettings.differenceType}
             reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
@@ -311,6 +363,10 @@ export default function ResultsTab({
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                   setTab={setTab}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortDirection={sortDirection}
+                  setSortDirection={setSortDirection}
                 />
               )}
             </>

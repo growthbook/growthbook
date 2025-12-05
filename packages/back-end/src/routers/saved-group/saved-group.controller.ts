@@ -6,7 +6,7 @@ import {
   ID_LIST_DATATYPES,
   validateCondition,
 } from "shared/util";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -96,15 +96,12 @@ export const postSavedGroup = async (
       );
     }
     uniqValues = [...new Set(values)];
-    if (
-      new Blob([JSON.stringify(uniqValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
-    ) {
-      throw new Error(
-        `The maximum size for a list is ${formatByteSizeString(
-          SAVED_GROUP_SIZE_LIMIT_BYTES,
-        )}.`,
-      );
-    }
+    // Check that the size is within the global limit as well as any limit imposed by the organization
+    validateListSize(
+      uniqValues,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(projects),
+    );
   }
   if (typeof description === "string" && description.length > 100) {
     throw new Error("Description must be at most 100 characters");
@@ -245,15 +242,12 @@ export const postSavedGroupAddItems = async (
     );
   }
   const newValues = [...new Set([...(savedGroup.values || []), ...items])];
-  if (
-    new Blob([JSON.stringify(newValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
-  ) {
-    throw new Error(
-      `The maximum size for a list is ${formatByteSizeString(
-        SAVED_GROUP_SIZE_LIMIT_BYTES,
-      )}. Adding these items to the list would exceed the limit.`,
-    );
-  }
+  // Check that the size is within the global limit as well as any limit imposed by the organization
+  validateListSize(
+    newValues,
+    org.settings?.savedGroupSizeLimit,
+    context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+  );
 
   const changes = await updateSavedGroupById(id, org.id, {
     values: newValues,
@@ -348,6 +342,12 @@ export const postSavedGroupRemoveItems = async (
   const newValues = (savedGroup.values || []).filter(
     (value) => !toRemove.has(value),
   );
+  // Check that the size is within the global limit as well as any limit imposed by the organization
+  validateListSize(
+    newValues,
+    org.settings?.savedGroupSizeLimit,
+    context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+  );
   const changes = await updateSavedGroupById(id, org.id, {
     values: newValues,
   });
@@ -425,6 +425,12 @@ export const putSavedGroup = async (
     !isEqual(values, savedGroup.values)
   ) {
     fieldsToUpdate.values = values;
+    // Check that the size is within the global limit as well as any limit imposed by the organization
+    validateListSize(
+      values,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+    );
   }
   if (
     savedGroup.type === "condition" &&
@@ -566,3 +572,26 @@ export const deleteSavedGroup = async (
 };
 
 // endregion DELETE /saved-groups/:id
+
+export function validateListSize(
+  values: Array<unknown>,
+  savedGroupSizeLimit: number | undefined,
+  canBypassSizeLimit: boolean,
+) {
+  if (
+    savedGroupSizeLimit &&
+    values.length > savedGroupSizeLimit &&
+    !canBypassSizeLimit
+  ) {
+    throw new Error(
+      `Your organization has imposed a maximum list length of ${savedGroupSizeLimit}`,
+    );
+  }
+  if (new Blob([JSON.stringify(values)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
+    throw new Error(
+      `The maximum size for a list is ${formatByteSizeString(
+        SAVED_GROUP_SIZE_LIMIT_BYTES,
+      )}.`,
+    );
+  }
+}

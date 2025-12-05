@@ -16,6 +16,7 @@ import { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
+  DISABLE_API_ROOT_PATH,
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
@@ -81,6 +82,9 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
 );
 
+import * as uploadControllerRaw from "./routers/upload/upload.controller";
+const uploadController = wrapController(uploadControllerRaw);
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -120,6 +124,8 @@ import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
+import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { importingRouter } from "./routers/importing/importing.router";
 
 const app = express();
 
@@ -237,17 +243,21 @@ app.get("/robots.txt", (_req, res) => {
 app.use(compression());
 
 app.get("/", (req, res) => {
-  res.json({
-    name: "GrowthBook API",
-    production: ENVIRONMENT === "production",
-    api_host:
-      process.env.API_HOST ||
-      req.protocol + "://" + req.hostname + ":" + app.get("port"),
-    app_origin: APP_ORIGIN,
-    config_source: usingFileConfig() ? "file" : "db",
-    email_enabled: isEmailEnabled(),
-    build: getBuild(),
-  });
+  if (DISABLE_API_ROOT_PATH) {
+    res.json({ status: 200 });
+  } else {
+    res.json({
+      name: "GrowthBook API",
+      production: ENVIRONMENT === "production",
+      api_host:
+        process.env.API_HOST ||
+        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      app_origin: APP_ORIGIN,
+      config_source: usingFileConfig() ? "file" : "db",
+      email_enabled: isEmailEnabled(),
+      build: getBuild(),
+    });
+  }
 });
 
 app.use(httpLogger);
@@ -336,6 +346,16 @@ app.get(
     origin: "*",
   }),
   experimentsController.getExperimentPublic,
+);
+
+// public image signed URLs for shared experiments
+app.get(
+  "/upload/public-signed-url/:path*",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  uploadController.getSignedPublicImageToken,
 );
 
 // Secret API routes (no JWT or CORS)
@@ -525,6 +545,10 @@ app.post(
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/query/run", datasourcesController.runQuery);
+app.post(
+  "/query/user-exposures",
+  datasourcesController.runUserExperimentExposuresQuery,
+);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
@@ -628,6 +652,10 @@ app.post(
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
+app.get(
+  "/experiment/:id/incremental-refresh",
+  experimentsController.getExperimentIncrementalRefresh,
+);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post(
   "/experiment/:id/targeting",
@@ -690,7 +718,15 @@ app.put(
 );
 app.get(
   "/experiments/launch-checklist",
-  experimentLaunchChecklistController.getExperimentCheckListByOrg,
+  experimentLaunchChecklistController.getExperimentCheckList,
+);
+app.get(
+  "/experiment/:id/launch-checklist/",
+  experimentLaunchChecklistController.getExperimentCheckListByExperiment,
+);
+app.delete(
+  "/experiments/launch-checklist/:checklistId",
+  experimentLaunchChecklistController.deleteProjectScopedExperimentLaunchChecklist,
 );
 app.put(
   "/experiment/:id/launch-checklist",
@@ -870,6 +906,11 @@ if (IS_CLOUD) {
   );
 }
 
+app.post(
+  "/datasource/:id/pipeline/validate",
+  datasourcesController.postValidatePipelineSettings,
+);
+
 // Information Schemas
 app.get(
   "/datasource/:datasourceId/schema/table/:tableId",
@@ -973,6 +1014,12 @@ app.get(
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);
+
+// Custom Hooks
+app.use("/custom-hooks", customHooksRouter);
+
+// 3rd party data importing proxy
+app.use("/importing", importingRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

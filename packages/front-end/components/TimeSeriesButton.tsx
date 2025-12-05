@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { Tooltip } from "@radix-ui/themes";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import { ChartLineExploreIcon } from "./Icons";
 import styles from "./TimeSeriesButton.module.scss";
 

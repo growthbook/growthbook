@@ -17,6 +17,9 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { IdeaInterface } from "shared/types/idea";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
@@ -91,9 +94,7 @@ import {
   ExperimentType,
   Variation,
 } from "back-end/types/experiment";
-import { getMetricMap } from "back-end/src/models/MetricModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
-import { IdeaInterface } from "back-end/types/idea";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
@@ -108,7 +109,6 @@ import {
   SnapshotTriggeredBy,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -128,12 +128,14 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   cosineSimilarity,
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -238,10 +240,9 @@ export async function postAIExperimentAnalysis(
 
   const allMetricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment, false),
+    getAllMetricIdsFromExperiment(experiment, false, allMetricGroups),
     allMetricGroups,
   );
-
   const allOrgMetrics = await getMetricMap(context);
   const experimentMetrics = experimentMetricIds
     .map((id) => allOrgMetrics.get(id))
@@ -753,6 +754,31 @@ export async function getExperiment(
   });
 }
 
+export async function getExperimentIncrementalRefresh(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+
+  const incrementalRefresh =
+    await context.models.incrementalRefresh.getByExperimentId(id);
+
+  return res.status(200).json({
+    status: 200,
+    incrementalRefresh: incrementalRefresh || null,
+  });
+}
+
 export async function getExperimentPublic(
   req: AuthRequest<null, { uid: string }>,
   res: Response,
@@ -1123,6 +1149,8 @@ export async function postExperiments(
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
+    pinnedMetricSlices: data.pinnedMetricSlices,
+    customMetricSlices: data.customMetricSlices,
   };
   const { settings } = getScopedSettings({
     organization: org,
@@ -1318,10 +1346,17 @@ export async function postExperiment(
     }
   }
   // Validate that specified metrics exist and belong to the organization
-  const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
-  const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
-    (m) => !oldMetricIds.includes(m),
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const oldMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    allMetricGroups,
   );
+  const newMetricIds = getAllMetricIdsFromExperiment(
+    data,
+    false,
+    allMetricGroups,
+  ).filter((m) => !oldMetricIds.includes(m));
 
   const metricMap = await getMetricMap(context);
 
@@ -1405,6 +1440,19 @@ export async function postExperiment(
     });
   }
 
+  if (data.defaultDashboardId) {
+    const dashboard = await context.models.dashboards.getById(
+      data.defaultDashboardId,
+    );
+    if (!dashboard) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid dashboard: " + data.defaultDashboardId,
+      });
+      return;
+    }
+  }
+
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -1460,6 +1508,9 @@ export async function postExperiment(
     "analysisSummary",
     "dismissedWarnings",
     "holdoutId",
+    "defaultDashboardId",
+    "pinnedMetricSlices",
+    "customMetricSlices",
   ];
   let changes: Changeset = {};
 
@@ -1476,7 +1527,9 @@ export async function postExperiment(
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
       key === "variations" ||
-      key === "customFields"
+      key === "customFields" ||
+      key === "pinnedMetricSlices" ||
+      key === "customMetricSlices"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
@@ -2744,6 +2797,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  preventStartingAnalysis,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2754,9 +2808,13 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  preventStartingAnalysis?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
-  queryRunner: ExperimentResultsQueryRunner;
+  queryRunner:
+    | ExperimentResultsQueryRunner
+    | ExperimentIncrementalRefreshQueryRunner
+    | ExperimentIncrementalRefreshExploratoryQueryRunner;
 }> {
   const snapshotType =
     type ??
@@ -2782,9 +2840,17 @@ export async function createExperimentSnapshot({
   const statsEngine = settings.statsEngine.value;
 
   const metricMap = await getMetricMap(context);
-  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+  const factTableMap = await getFactTableMap(context);
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
@@ -2813,8 +2879,6 @@ export async function createExperimentSnapshot({
     dimension,
   );
 
-  const factTableMap = await getFactTableMap(context);
-
   const queryRunner = await createSnapshot({
     experiment,
     context,
@@ -2829,6 +2893,7 @@ export async function createExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
+    preventStartingAnalysis,
   });
   const snapshot = queryRunner.model;
 

@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
@@ -36,10 +36,11 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
-import Button from "@/components/Radix/Button";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import Button from "@/ui/Button";
+import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -111,7 +112,9 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "overview",
   );
-  const [tabPath, setTabPath] = useState("");
+  const [tabPath, setTabPath] = useState(
+    window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
+  );
 
   const router = useRouter();
 
@@ -124,6 +127,9 @@ export default function TabbedPage({
   const [featureModal, setFeatureModal] = useState(false);
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
+  const [showDashboardView, setShowDashboardView] = useState(
+    experiment.defaultDashboardId ? true : false,
+  );
 
   // Results tab filters
   const [analysisBarSettings, setAnalysisBarSettings] = useState<{
@@ -144,6 +150,49 @@ export default function TabbedPage({
       filterByTag: false,
     },
   );
+  const [sortBy, setSortBy] = useLocalStorage<
+    "metric-tags" | "significance" | "change" | null
+  >(`experiment-page__${experiment.id}__sort_by`, null);
+  const [sortDirection, setSortDirection] = useLocalStorage<
+    "asc" | "desc" | null
+  >(`experiment-page__${experiment.id}__sort_direction`, null);
+
+  const setSortByWithPriority = (
+    newSortBy: "metric-tags" | "significance" | "change" | null,
+  ) => {
+    if (newSortBy === "significance" || newSortBy === "change") {
+      // When sorting by significance or change, clear tag order to avoid conflicts
+      setMetricFilter((prev) => ({
+        ...(prev || {}),
+        tagOrder: [],
+      }));
+    }
+    setSortBy(newSortBy);
+  };
+
+  const setSortDirectionDirect = (direction: "asc" | "desc" | null) => {
+    setSortDirection(direction);
+  };
+
+  const setMetricFilterWithPriority = (
+    newMetricFilter: ResultsMetricFilters,
+  ) => {
+    // If tagOrder has items and we're not already sorting by metric-tags, switch to metric-tags
+    if (
+      (newMetricFilter.tagOrder?.length ?? 0) > 0 &&
+      sortBy !== "metric-tags"
+    ) {
+      setSortBy("metric-tags");
+    }
+    // If tagOrder is empty and we're sorting by metric-tags, switch to null
+    else if (
+      (newMetricFilter.tagOrder?.length ?? 0) === 0 &&
+      sortBy === "metric-tags"
+    ) {
+      setSortBy(null);
+    }
+    setMetricFilter(newMetricFilter);
+  };
 
   useEffect(() => {
     const handler = () => {
@@ -160,14 +209,30 @@ export default function TabbedPage({
         const tabPath = tabPathSegments.join("/");
         setTab(tabName);
         setTabPath(tabPath);
-        // Drop the tab path from the URL after reading it into state
       }
-      window.history.replaceState({}, "", `#${tabName}`);
     };
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab, dashboardsEnabled]);
+
+  const { dashboards } = useExperimentDashboards(experiment.id);
+
+  // If experiment now has a default dashboard, show the dashboard view
+  useEffect(() => {
+    if (!experiment.defaultDashboardId) {
+      setShowDashboardView(false);
+      return;
+    }
+    const defaultDashboard = dashboards?.find(
+      ({ id }) => id === experiment.defaultDashboardId,
+    );
+    if (!defaultDashboard || defaultDashboard.shareLevel !== "published") {
+      setShowDashboardView(false);
+      return;
+    }
+    setShowDashboardView(true);
+  }, [experiment.defaultDashboardId, dashboards]);
 
   const { phase, setPhase } = useSnapshot();
   const { metricGroups } = useDefinitions();
@@ -183,6 +248,7 @@ export default function TabbedPage({
 
   const setTabAndScroll = (tab: ExperimentTab) => {
     setTab(tab);
+    setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
     window.history.pushState("", "", newUrl);
@@ -191,6 +257,17 @@ export default function TabbedPage({
       behavior: "smooth",
     });
   };
+
+  const persistTabPath = useCallback(
+    (path: string) => {
+      setTabPath(path);
+      const newUrl =
+        window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;
+      if (newUrl === window.location.href) return;
+      window.history.pushState("", "", newUrl);
+    },
+    [tab],
+  );
 
   const handleIncrementHealthNotifications = useCallback(() => {
     setHealthNotificationCount((prev) => prev + 1);
@@ -359,9 +436,15 @@ export default function TabbedPage({
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
         stop={stop}
+        showDashboardView={showDashboardView}
       />
 
-      <div className="container-fluid pagecontents">
+      <div
+        className={clsx(
+          "container-fluid pagecontents",
+          showDashboardView && "pt-0",
+        )}
+      >
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
           <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
@@ -377,9 +460,11 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        {experiment.type !== "holdout" && tab !== "dashboards" && (
-          <CustomMarkdown page={"experiment"} variables={variables} />
-        )}
+        {experiment.type !== "holdout" &&
+          tab !== "dashboards" &&
+          !showDashboardView && (
+            <CustomMarkdown page={"experiment"} variables={variables} />
+          )}
         {showStoppedBanner && (
           <div className="pt-3">
             <StoppedExperimentBanner
@@ -418,10 +503,23 @@ export default function TabbedPage({
               )}
             </div>
           )}
+
+        {showDashboardView && (
+          <DashboardsTab
+            experiment={experiment}
+            initialDashboardId={experiment.defaultDashboardId ?? ""}
+            isTabActive
+            showDashboardView
+            switchToExperimentView={() => setShowDashboardView(false)}
+            updateTabPath={persistTabPath}
+          />
+        )}
         <div
           className={clsx(
             "pt-3",
-            tab === "overview" ? "d-block" : "d-none d-print-block",
+            tab === "overview" && !showDashboardView
+              ? "d-block"
+              : "d-none d-print-block",
           )}
         >
           <SetupTabOverview
@@ -466,7 +564,7 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        {isBandit ? (
+        {isBandit && !showDashboardView ? (
           <div
             className={
               // todo: standardize explore & results tabs across experiment types
@@ -486,7 +584,9 @@ export default function TabbedPage({
       <div
         className={
           // todo: standardize explore & results tabs across experiment types
-          (!isBandit && tab === "results") || (isBandit && tab === "explore")
+          ((!isBandit && tab === "results") ||
+            (isBandit && tab === "explore")) &&
+          !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -521,12 +621,16 @@ export default function TabbedPage({
           metricFilter={metricFilter}
           analysisBarSettings={analysisBarSettings}
           setAnalysisBarSettings={setAnalysisBarSettings}
-          setMetricFilter={setMetricFilter}
+          setMetricFilter={setMetricFilterWithPriority}
+          sortBy={sortBy}
+          setSortBy={setSortByWithPriority}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirectionDirect}
         />
       </div>
       <div
         className={
-          tab === "dashboards"
+          tab === "dashboards" && !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -535,11 +639,13 @@ export default function TabbedPage({
           experiment={experiment}
           initialDashboardId={tabPath}
           isTabActive={tab === "dashboards"}
+          mutateExperiment={mutate}
+          updateTabPath={persistTabPath}
         />
       </div>
       <div
         className={
-          tab === "health"
+          tab === "health" && !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -559,7 +665,7 @@ export default function TabbedPage({
         />
       </div>
 
-      {tab !== "dashboards" && (
+      {tab !== "dashboards" && !showDashboardView && (
         <div className="mt-4 px-4 border-top pb-3">
           <div className="pt-2 pt-4 pb-5 container pagecontents">
             <div className="h3 mb-4">Comments</div>

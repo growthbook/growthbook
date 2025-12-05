@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useEffect } from "react";
+import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -7,7 +7,11 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  generatePinnedSliceKey,
+  SliceLevelsData,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
@@ -22,11 +26,10 @@ import AnalysisSettingsBar, {
   AnalysisBarSettings,
 } from "@/components/Experiment/AnalysisSettingsBar";
 import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
@@ -58,6 +61,10 @@ const Results: FC<{
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
   envs,
@@ -80,8 +87,56 @@ const Results: FC<{
   isTabActive = true,
   setTab,
   holdout,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }) => {
   const { apiCall } = useAuth();
+
+  const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
+    string[]
+  >(experiment.pinnedMetricSlices || []);
+  useEffect(
+    () => setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []),
+    [experiment.pinnedMetricSlices],
+  );
+
+  const togglePinnedMetricSlice = async (
+    metricId: string,
+    sliceLevels: SliceLevelsData[],
+    location?: "goal" | "secondary" | "guardrail",
+  ) => {
+    if (!editMetrics || !mutateExperiment) return;
+
+    const key = generatePinnedSliceKey(
+      metricId,
+      sliceLevels,
+      location || "goal",
+    );
+    const newPinned = optimisticPinnedLevels.includes(key)
+      ? optimisticPinnedLevels.filter((id) => id !== key)
+      : [...optimisticPinnedLevels, key];
+    setOptimisticPinnedLevels(newPinned);
+
+    try {
+      const response = await apiCall<{ pinnedMetricSlices: string[] }>(
+        `/experiment/${experiment.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            pinnedMetricSlices: newPinned,
+          }),
+        },
+      );
+      if (response?.pinnedMetricSlices) {
+        setOptimisticPinnedLevels(response.pinnedMetricSlices);
+      }
+      mutateExperiment();
+    } catch (error) {
+      setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []);
+    }
+  };
 
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
@@ -331,6 +386,7 @@ const Results: FC<{
         />
       ) : showBreakDownResults && snapshot ? (
         <BreakDownResults
+          experimentId={experiment.id}
           key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
           results={analysis?.results ?? []}
           queryStatusData={queryStatusData}
@@ -354,13 +410,17 @@ const Results: FC<{
           status={experiment.status}
           statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
           pValueCorrection={pValueCorrection}
-          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
           settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
           experimentType={experiment.type}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
+          analysisBarSettings={analysisBarSettings}
         />
       ) : showCompactResults ? (
         <>
@@ -374,6 +434,7 @@ const Results: FC<{
             </div>
           )}
           <CompactResults
+            experimentId={experiment.id}
             editMetrics={editMetrics}
             variations={variations}
             variationFilter={analysisBarSettings.variationFilter}
@@ -394,7 +455,6 @@ const Results: FC<{
             id={experiment.id}
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
@@ -403,60 +463,16 @@ const Results: FC<{
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
+            pinnedMetricSlices={optimisticPinnedLevels}
+            togglePinnedMetricSlice={togglePinnedMetricSlice}
+            customMetricSlices={experiment.customMetricSlices}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
+            analysisBarSettings={analysisBarSettings}
           />
         </>
-      ) : null}
-
-      {!draftMode && hasData ? (
-        <div className="row align-items-center mx-2 my-3">
-          <div className="col-auto small" style={{ lineHeight: 1.2 }}>
-            <div className="text-muted mb-1">
-              The above results were computed with:
-            </div>
-            <div>
-              <span className="text-muted">Engine:</span>{" "}
-              <span>
-                {analysis?.settings?.statsEngine === "frequentist"
-                  ? "Frequentist"
-                  : "Bayesian"}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted">
-                <GBCuped size={13} /> CUPED:
-              </span>{" "}
-              <span>
-                {analysis?.settings?.regressionAdjusted
-                  ? "Enabled"
-                  : "Disabled"}
-              </span>
-            </div>
-            {analysis?.settings?.statsEngine === "frequentist" && (
-              <div>
-                <span className="text-muted">
-                  <GBSequential size={13} /> Sequential:
-                </span>{" "}
-                <span>
-                  {analysis?.settings?.sequentialTesting
-                    ? "Enabled"
-                    : "Disabled"}
-                </span>
-              </div>
-            )}
-            <div>
-              <span className="text-muted">Run date:</span>{" "}
-              <span>
-                {getValidDate(snapshot?.dateCreated ?? "").toLocaleString([], {
-                  year: "numeric",
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
       ) : null}
     </>
   );

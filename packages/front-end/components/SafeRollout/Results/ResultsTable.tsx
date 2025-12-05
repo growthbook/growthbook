@@ -2,6 +2,7 @@ import clsx from "clsx";
 import {
   CSSProperties,
   ReactElement,
+  ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -27,15 +28,15 @@ import {
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
-import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
-import { useAnalysisResultPopover } from "@/components/AnalysisResultPopover/useAnalysisResultPopover";
+import { PiPencilSimpleFill } from "react-icons/pi";
+import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
+import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
   ExperimentTableRow,
   getEffectLabel,
   getRowResults,
   RowResults,
 } from "@/services/experiments";
-import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -64,12 +65,17 @@ export type ResultsTableProps = {
   rows: ExperimentTableRow[];
   dimension?: string;
   editMetrics?: () => void;
-  renderLabelColumn: (
-    label: string,
-    metric: ExperimentMetricInterface,
-    row: ExperimentTableRow,
-    maxRows?: number,
-  ) => string | ReactElement;
+  renderLabelColumn: ({
+    label,
+    metric,
+    row,
+    maxRows,
+  }: {
+    label: string | ReactNode;
+    metric: ExperimentMetricInterface;
+    row: ExperimentTableRow;
+    maxRows?: number;
+  }) => string | ReactElement;
   dateCreated: Date;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -272,7 +278,7 @@ export default function ResultsTable({
     setOpenTooltipRowIndex,
     handleRowTooltipMouseEnter,
     handleRowTooltipMouseLeave,
-  } = useAnalysisResultPopover({
+  } = useAnalysisResultSummary({
     orderedVariations,
     rows,
     rowsResults,
@@ -288,7 +294,7 @@ export default function ResultsTable({
   const changeTitle = getEffectLabel(differenceType);
 
   const urlFormattedMetricIds = rows
-    .map((row) => row.metric.id)
+    .map((row) => encodeURIComponent(row.metric.id))
     .join("&metricIds[]=");
   const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
     status: number;
@@ -373,7 +379,7 @@ export default function ResultsTable({
                             editMetrics();
                           }}
                         >
-                          <GBEdit />
+                          <PiPencilSimpleFill />
                         </a>
                       </div>
                     ) : null}
@@ -457,7 +463,11 @@ export default function ResultsTable({
                   {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row",
-                      label: renderLabelColumn(row.label, row.metric, row),
+                      label: renderLabelColumn({
+                        label: row.label,
+                        metric: row.metric,
+                        row,
+                      }),
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -481,11 +491,11 @@ export default function ResultsTable({
                             <>
                               {compactResults ? (
                                 <div className="mb-1">
-                                  {renderLabelColumn(
-                                    row.label,
-                                    row.metric,
+                                  {renderLabelColumn({
+                                    label: row.label,
+                                    metric: row.metric,
                                     row,
-                                  )}
+                                  })}
                                 </div>
                               ) : null}
                               <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
@@ -530,8 +540,20 @@ export default function ResultsTable({
                           side="bottom"
                           sideOffset={-5}
                         >
-                          <AnalysisResultPopover
-                            data={tooltipData}
+                          <AnalysisResultSummary
+                            data={
+                              tooltipData
+                                ? {
+                                    ...tooltipData,
+                                    sliceLevels: tooltipData.sliceLevels?.map(
+                                      (dl) => ({
+                                        dimension: dl.column,
+                                        levels: dl.levels,
+                                      }),
+                                    ),
+                                  }
+                                : undefined
+                            }
                             differenceType={differenceType}
                             isBandit={isBandit}
                             ssrPolyfills={ssrPolyfills}
@@ -567,7 +589,12 @@ export default function ResultsTable({
                                 </span>
                               </div>
                             ) : (
-                              renderLabelColumn(row.label, row.metric, row, 3)
+                              renderLabelColumn({
+                                label: row.label,
+                                metric: row.metric,
+                                row,
+                                maxRows: 3,
+                              })
                             )}
                           </td>
                           {j > 0 &&

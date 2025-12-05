@@ -29,14 +29,9 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 
@@ -230,7 +225,7 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
+          <td colSpan={8} className="bg-light">
             <h3>Summary</h3>
             <div
               className="mb-3 bg-white border p-3"
@@ -498,7 +493,7 @@ function MemberRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
+          <td colSpan={8} className="bg-light">
             <div className="mb-3">
               <h4>Organization Info</h4>
               <div className="row">
@@ -506,22 +501,21 @@ function MemberRow({
                   <div className="col">No organizations found</div>
                 )}
                 {memberOrgs.map((o) => (
-                  <div
-                    className="mb-2 mx-2 col-3 border bg-white p-3 rounded-lg"
-                    key={o.id + member.id}
-                  >
-                    <div>
-                      <span className="font-weight-bold">Name:</span> {o.name}
-                    </div>
-                    <div>
-                      <span className="font-weight-bold">Org Id:</span> {o.id}
-                    </div>
-                    <div>
-                      <span className="font-weight-bold">Members:</span>{" "}
-                      {o.members}
-                    </div>
-                    <div>
-                      <span className="font-weight-bold">Role:</span> {o.role}
+                  <div className="mb-2 col-3" key={o.id + member.id}>
+                    <div className="mx-2  border bg-white p-3 rounded-lg">
+                      <div>
+                        <span className="font-weight-bold">Name:</span> {o.name}
+                      </div>
+                      <div>
+                        <span className="font-weight-bold">Org Id:</span> {o.id}
+                      </div>
+                      <div>
+                        <span className="font-weight-bold">Members:</span>{" "}
+                        {o.members}
+                      </div>
+                      <div>
+                        <span className="font-weight-bold">Role:</span> {o.role}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -927,13 +921,11 @@ const EditMember: FC<{
           />
         </div>
         <div className="mt-4">
-          <label>Verified Email </label>
-          <Toggle
-            label="Verified"
+          <Switch
+            label="Verified Email"
             id="verified"
-            className=" ml-2"
             value={verified}
-            setValue={(e) => setVerified(e)}
+            onChange={(e) => setVerified(e)}
           />
         </div>
       </div>

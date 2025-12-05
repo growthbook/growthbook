@@ -14,7 +14,7 @@ import useApi from "@/hooks/useApi";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Modal from "@/components/Modal";
 import track, { trackSnapshot } from "@/services/track";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioGroup from "@/ui/RadioGroup";
 import {
   CustomDimensionMetadata,
   DimensionSlicesRunner,

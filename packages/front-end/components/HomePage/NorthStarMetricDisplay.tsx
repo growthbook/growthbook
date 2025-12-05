@@ -21,7 +21,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -160,6 +160,8 @@ const NorthStarMetricDisplay = ({
                         lookbackDays: analysisDays,
                         populationType: "factTable",
                         populationId: null,
+                        additionalNumeratorFilters: undefined,
+                        additionalDenominatorFilters: undefined,
                       },
                       endOfToday,
                       source: "northstar",

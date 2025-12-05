@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
@@ -15,7 +15,7 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";

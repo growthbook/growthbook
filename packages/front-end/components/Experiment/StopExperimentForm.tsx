@@ -15,11 +15,11 @@ import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
-import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import { AppFeatures } from "@/types/app-features";
 import { Results } from "./ResultsIndicator";
 
@@ -318,17 +318,14 @@ const StopExperimentForm: FC<{
           <>
             <div className="row">
               <div className="form-group col">
-                <label>Enable Temporary Rollout</label>
-
-                <div>
-                  <Toggle
-                    id="excludeFromPayload"
-                    value={!form.watch("excludeFromPayload")}
-                    setValue={(includeInPayload) => {
-                      form.setValue("excludeFromPayload", !includeInPayload);
-                    }}
-                  />
-                </div>
+                <Checkbox
+                  id="excludeFromPayload"
+                  label="Enable Temporary Rollout"
+                  value={!form.watch("excludeFromPayload")}
+                  setValue={(includeInPayload) => {
+                    form.setValue("excludeFromPayload", !includeInPayload);
+                  }}
+                />
 
                 <small className="form-text text-muted">
                   Keep the {isBandit ? "Bandit" : "Experiment"} running until

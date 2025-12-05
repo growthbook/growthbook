@@ -15,6 +15,7 @@
 @use "./components/max-width-image";
 @use "./components/sdk-resources";
 @use "./components/sdk-supported-features";
+@use "./components/stepper";
 //@use './components/navbar';
 
 // Radix color palette
@@ -31,25 +32,97 @@
   --violet-10: #654dc4;
   --violet-11: #6550b9;
   --violet-12: #2f265f;
-}
+  --violet-a1: #5500aa03;
+  --violet-a2: #4900ff07;
+  --violet-a3: #4400ee0f;
+  --violet-a4: #4300ff1b;
+  --violet-a5: #3600ff26;
+  --violet-a6: #3100fb35;
+  --violet-a7: #2d01dd4a;
+  --violet-a8: #2b00d066;
+  --violet-a9: #2400b7a9;
+  --violet-a10: #2300abb2;
+  --violet-a11: #1f0099af;
+  --violet-a12: #0b0043d9;
+  --slate-a1: #00005503;
+  --slate-a2: #00005506;
+  --slate-a3: #0000330f;
+  --slate-a4: #00002d17;
+  --slate-a5: #0009321f;
+  --slate-a6: #00002f26;
+  --slate-a7: #00062e32;
+  --slate-a8: #00083046;
+  --slate-a9: #00051d74;
+  --slate-a10: #00071b7f;
+  --slate-a11: #0007149f;
+  --slate-a12: #000509e3;
+  --indigo-1: #fdfdfe;
+  --indigo-2: #f7f9ff;
+  --indigo-3: #edf2fe;
+  --indigo-4: #e1e9ff;
+  --indigo-5: #d2deff;
+  --indigo-6: #c1d0ff;
+  --indigo-7: #abbdf9;
+  --indigo-8: #8da4ef;
+  --indigo-9: #3e63dd;
+  --indigo-10: #3358d4;
+  --indigo-11: #3a5bc7;
+  --indigo-12: hsl(226, 50%, 24%);
+  --indigo-a1: #00008002;
+  --indigo-a2: #0040ff08;
+  --indigo-a3: #0047f112;
+  --indigo-a4: #0044ff1e;
+  --indigo-a5: #0044ff2d;
+  --indigo-a6: #003eff3e;
+  --indigo-a7: #0037ed54;
+  --indigo-a8: #0034dc72;
+  --indigo-a9: hsla(226, 100%, 41%, 0.757);
+  --indigo-a10: hsla(226, 100%, 39%, 0.8);
+  --indigo-a11: hsla(226, 100%, 36%, 0.773);
+  --indigo-a12: hsla(226, 100%, 14%, 0.878);
 
-@supports (color: color(display-p3 1 1 1)) {
-  @media (color-gamut: p3) {
-    :root {
-      --violet-1: color(display-p3 0.991 0.988 0.995);
-      --violet-2: color(display-p3 0.978 0.974 0.998);
-      --violet-3: color(display-p3 0.953 0.943 0.993);
-      --violet-4: color(display-p3 0.916 0.897 1);
-      --violet-5: color(display-p3 0.876 0.851 1);
-      --violet-6: color(display-p3 0.825 0.793 0.981);
-      --violet-7: color(display-p3 0.752 0.712 0.943);
-      --violet-8: color(display-p3 0.654 0.602 0.902);
-      --violet-9: color(display-p3 0.417 0.341 0.784);
-      --violet-10: color(display-p3 0.381 0.306 0.741);
-      --violet-11: color(display-p3 0.383 0.317 0.702);
-      --violet-12: color(display-p3 0.179 0.15 0.359);
-    }
-  }
+  --amber-a1: #c0800004;
+  --amber-a2: #f4d10016;
+  --amber-a3: #ffde003d;
+  --amber-a4: #ffd40063;
+  --amber-a5: #f8cf0088;
+  --amber-a6: #eab5008c;
+  --amber-a7: #dc9b009d;
+  --amber-a8: #da8a00c9;
+  --amber-a9: #ffb300c2;
+  --amber-a10: #ffb300e7;
+  --amber-a11: #ab6400;
+  --amber-a12: #341500dd;
+
+  --green-a1: #00c04004;
+  --green-a2: #00a32f0b;
+  --green-a3: #00a43319;
+  --green-a4: #00a83829;
+  --green-a5: #019c393b;
+  --green-a6: #00963c52;
+  --green-a7: #00914071;
+  --green-a8: #00924ba4;
+  --green-a9: #008f4acf;
+  --green-a10: #008647d4;
+  --green-a11: #00713fde;
+  --green-a12: #002616e6;
+
+  --red-a1: #ff000003;
+  --red-a2: #ff000008;
+  --red-a3: #f3000d14;
+  --red-a4: #ff000824;
+  --red-a5: #ff000632;
+  --red-a6: #f8000442;
+  --red-a7: #df000356;
+  --red-a8: #d2000571;
+  --red-a9: #db0007b7;
+  --red-a10: #d10005c1;
+  --red-a11: #c40006d3;
+  --red-a12: #55000de8;
+
+  --color-text-high: var(--indigo-12);
+  --color-text-mid: hsl(226 50% 24% / 85%);
+  --color-contrast: #fff;
 }
 
 [data-theme="dark"] {
@@ -65,37 +138,110 @@
   --violet-10: #7d66d9;
   --violet-11: #baa7ff;
   --violet-12: #e2ddfe;
-}
+  --violet-a1: #4422ff0f;
+  --violet-a2: #853ff916;
+  --violet-a3: #8354fe36;
+  --violet-a4: #7d51fd50;
+  --violet-a5: #845ffd5f;
+  --violet-a6: #8f6cfd6d;
+  --violet-a7: #9879ff83;
+  --violet-a8: #977dfea8;
+  --violet-a9: #8668ffcc;
+  --violet-a10: #9176fed7;
+  --violet-a11: #baa7ff;
+  --violet-a12: #e3defffe;
+  --slate-a1: #00000000;
+  --slate-a2: #d8f4f609;
+  --slate-a3: #ddeaf814;
+  --slate-a4: #d3edf81d;
+  --slate-a5: #d9edfe25;
+  --slate-a6: #d6ebfd30;
+  --slate-a7: #d9edff40;
+  --slate-a8: #d9edff5d;
+  --slate-a9: #dfebfd6d;
+  --slate-a10: #e5edfd7b;
+  --slate-a11: #f1f7feb5;
+  --slate-a12: #fcfdffef;
 
-@supports (color: color(display-p3 1 1 1)) {
-  @media (color-gamut: p3) {
-    [data-theme="dark"] {
-      --violet-1: color(display-p3 0.077 0.071 0.118);
-      --violet-2: color(display-p3 0.101 0.084 0.141);
-      --violet-3: color(display-p3 0.154 0.123 0.256);
-      --violet-4: color(display-p3 0.191 0.148 0.345);
-      --violet-5: color(display-p3 0.226 0.182 0.396);
-      --violet-6: color(display-p3 0.269 0.223 0.449);
-      --violet-7: color(display-p3 0.326 0.277 0.53);
-      --violet-8: color(display-p3 0.399 0.346 0.656);
-      --violet-9: color(display-p3 0.417 0.341 0.784);
-      --violet-10: color(display-p3 0.477 0.402 0.823);
-      --violet-11: color(display-p3 0.72 0.65 1);
-      --violet-12: color(display-p3 0.883 0.867 0.986);
-    }
-  }
+  --indigo-1: #11131f;
+  --indigo-2: #141726;
+  --indigo-3: #182449;
+  --indigo-4: #1d2e62;
+  --indigo-5: #253974;
+  --indigo-6: #304384;
+  --indigo-7: #3a4f97;
+  --indigo-8: #435db1;
+  --indigo-9: #3e63dd;
+  --indigo-10: #5472e4;
+  --indigo-11: #9eb1ff;
+  --indigo-12: #d6e1ff;
+  --indigo-a1: #1133ff0f;
+  --indigo-a2: #3354fa17;
+  --indigo-a3: #2f62ff3c;
+  --indigo-a4: #3566ff57;
+  --indigo-a5: #4171fd6b;
+  --indigo-a6: #5178fd7c;
+  --indigo-a7: #5a7fff90;
+  --indigo-a8: #5b81feac;
+  --indigo-a9: #4671ffdb;
+  --indigo-a10: #5c7efee3;
+  --indigo-a11: #9eb1ff;
+  --indigo-a12: #d6e1ff;
+
+  --amber-a1: #e63c0006;
+  --amber-a2: #fd9b000d;
+  --amber-a3: #fa820022;
+  --amber-a4: #fc820032;
+  --amber-a5: #fd8b0041;
+  --amber-a6: #fd9b0051;
+  --amber-a7: #ffab2567;
+  --amber-a8: #ffae3587;
+  --amber-a9: #ffc53d;
+  --amber-a10: #ffd60a;
+  --amber-a11: #ffca16;
+  --amber-a12: #ffe7b3;
+
+  --green-a1: #00de4505;
+  --green-a2: #29f99d0b;
+  --green-a3: #22ff991e;
+  --green-a4: #11ff992d;
+  --green-a5: #2bffa23c;
+  --green-a6: #44ffaa4b;
+  --green-a7: #50fdac5e;
+  --green-a8: #54ffad73;
+  --green-a9: #44ffa49e;
+  --green-a10: #43fea4ab;
+  --green-a11: #46fea5d4;
+  --green-a12: #bbffd7f0;
+
+  --red-a1: #f4121209;
+  --red-a2: #f22f3e11;
+  --red-a3: #ff173f2d;
+  --red-a4: #fe0a3b44;
+  --red-a5: #ff204756;
+  --red-a6: #ff3e5668;
+  --red-a7: #ff536184;
+  --red-a8: #ff5d61b0;
+  --red-a9: #fe4e54e4;
+  --red-a10: #ff6465eb;
+  --red-a11: #ff9592;
+  --red-a12: #ffd1d9;
+
+  --color-text-high: #fff;
+  --color-text-mid: hsl(0 0% 100% / 0.85);
+  --color-contrast: #fff;
 }
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #7817d3;
-  --ifm-color-primary-dark: #6c15be;
-  --ifm-color-primary-darker: #6614b3;
-  --ifm-color-primary-darkest: #541094;
-  --ifm-color-primary-light: #841be6;
-  --ifm-color-primary-lighter: #8a26e7;
-  --ifm-color-primary-lightest: #9b45eb;
-  --ifm-navbar-link-color: #445b78;
+  --ifm-color-primary: var(--violet-11);
+  --ifm-color-primary-dark: var(--violet-10);
+  --ifm-color-primary-darker: var(--violet-11);
+  --ifm-color-primary-darkest: var(--violet-12);
+  --ifm-color-primary-light: var(--violet-7);
+  --ifm-color-primary-lighter: var(--violet-6);
+  --ifm-color-primary-lightest: var(--violet-5);
+  --ifm-navbar-link-color: var(--color-text-mid);
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --ifm-alert-border-color: #8a26e7;
@@ -104,27 +250,31 @@
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme="dark"] {
-  --ifm-color-primary: #ba8cf2;
-  --ifm-color-primary-dark: #a56aee;
-  --ifm-color-primary-darker: #9b59ec;
-  --ifm-color-primary-darkest: #7c25e6;
-  --ifm-color-primary-light: #cfaef6;
-  --ifm-color-primary-lighter: #d9bff8;
-  --ifm-color-primary-lightest: #f8f3fe;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
-  --ifm-navbar-link-color: #e7d6ff;
-  --color-border: #d9edfe25;
-}
+// [data-theme="dark"] {
+//   --ifm-color-primary: #ba8cf2;
+//   --ifm-color-primary-dark: #a56aee;
+//   --ifm-color-primary-darker: #9b59ec;
+//   --ifm-color-primary-darkest: #7c25e6;
+//   --ifm-color-primary-light: #cfaef6;
+//   --ifm-color-primary-lighter: #d9bff8;
+//   --ifm-color-primary-lightest: #f8f3fe;
+//   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+//   --ifm-navbar-link-color: #e7d6ff;
+//   --color-border: #d9edfe25;
+// }
 
-html {
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  font-smoothing: antialiased;
-}
+// html {
+//   -moz-osx-font-smoothing: grayscale;
+//   -webkit-font-smoothing: antialiased;
+//   text-rendering: optimizeLegibility;
+//   font-smoothing: antialiased;
+// }
 
 [data-theme="light"] img[src$="#gh-dark-mode-only"],
 [data-theme="dark"] img[src$="#gh-light-mode-only"] {
   display: none;
+}
+
+[class^="docItemContainer"] {
+  max-width: 688px;
 }

@@ -25,15 +25,18 @@ import {
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
   DashboardSnapshotContext,
+  useDashboardMetricAnalysis,
   useDashboardSnapshot,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -55,12 +58,15 @@ import {
   BlockObjectMissing,
   BlockRenderError,
 } from "./BlockErrorStates";
+import MetricExplorerBlock from "./MetricExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
   experimentId: ExperimentInterfaceStringDates;
   metricIds: ExperimentMetricInterface[];
+  factMetricId: FactMetricInterface;
   savedQueryId: SavedQuery;
+  metricAnalysisId: MetricAnalysisInterface;
 }
 type ObjectProps<Block> = {
   [K in keyof BlockIdFieldToObjectMap as K extends keyof Block
@@ -76,7 +82,7 @@ type ObjectProps<Block> = {
 export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
-  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<T>>;
+  setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
   analysis: ExperimentSnapshotAnalysis;
   mutate: () => void;
@@ -87,7 +93,6 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
-  dashboardExperiment: ExperimentInterfaceStringDates;
   isFocused: boolean;
   isEditing: boolean;
   editingBlock: boolean;
@@ -95,7 +100,9 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isFirstBlock: boolean;
   isLastBlock: boolean;
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
-  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
+  setBlock:
+    | undefined
+    | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
@@ -113,6 +120,7 @@ const BLOCK_COMPONENTS: {
   "experiment-time-series": ExperimentTimeSeriesBlock,
   "experiment-traffic": ExperimentTrafficBlock,
   "sql-explorer": SqlExplorerBlock,
+  "metric-explorer": MetricExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
@@ -136,6 +144,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const {
     getExperimentMetricById,
     metricGroups,
+    getFactMetricById,
     ready: definitionsReady,
   } = useDefinitions();
   const [moveBlockOpen, setMoveBlockOpen] = useState(false);
@@ -148,6 +157,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const { savedQueriesMap, loading: dashboardContextLoading } = useContext(
     DashboardSnapshotContext,
   );
+  const { metricAnalysis, loading: metricAnalysisLoading } =
+    useDashboardMetricAnalysis(block, setBlock);
   const blockHasSavedQuery = blockHasFieldOfType(
     block,
     "savedQueryId",
@@ -156,16 +167,37 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
 
   const [editTitle, setEditTitle] = useState(false);
 
+  // Type guards for sql-explorer blocks
+  const isSqlExplorerWithDataVizIndex = (
+    b: typeof block,
+  ): b is typeof block & { dataVizConfigIndex: number } => {
+    return (
+      b.type === "sql-explorer" &&
+      blockHasFieldOfType(b, "dataVizConfigIndex", isNumber)
+    );
+  };
+
+  const isSqlExplorerWithBlockConfig = (
+    b: typeof block,
+  ): b is typeof block & { blockConfig: string[] } => {
+    return b.type === "sql-explorer" && "blockConfig" in b;
+  };
+
   // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
-  const shouldRun = () =>
+  const shouldFetchSavedQuery = () =>
     blockHasSavedQuery && !savedQueriesMap.has(block.savedQueryId);
   const { data: savedQueryData, isLoading: savedQueryLoading } = useApi<{
     status: number;
     savedQuery: SavedQuery;
   }>(`/saved-queries/${blockHasSavedQuery ? block.savedQueryId : ""}`, {
-    shouldRun,
+    shouldRun: shouldFetchSavedQuery,
   });
 
+  const blockHasMetricAnalysis = blockHasFieldOfType(
+    block,
+    "metricAnalysisId",
+    isString,
+  );
   const BlockComponent = BLOCK_COMPONENTS[block.type] as React.FC<
     BlockProps<T>
   >;
@@ -221,6 +253,28 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     };
   }
 
+  if (blockHasMetricAnalysis) {
+    objectProps = {
+      ...objectProps,
+      metricAnalysis,
+    };
+  }
+
+  const blockHasFactMetric = blockHasFieldOfType(
+    block,
+    "factMetricId",
+    isString,
+  );
+  const blockFactMetric = blockHasFactMetric
+    ? getFactMetricById(block.factMetricId)
+    : undefined;
+  if (blockHasFactMetric) {
+    objectProps = {
+      ...objectProps,
+      factMetric: blockFactMetric,
+    };
+  }
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBlock = () => {
     if (scrollRef.current && scrollAreaRef && scrollAreaRef.current) {
@@ -245,9 +299,18 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       block.dimensionId.length === 0) ||
     (blockHasSavedQuery &&
       (block.savedQueryId.length === 0 || !blockSavedQuery)) ||
-    (blockHasFieldOfType(block, "dataVizConfigIndex", isNumber) &&
-      (block.dataVizConfigIndex === -1 ||
-        !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]));
+    (blockHasSavedQuery &&
+      block.type === "sql-explorer" &&
+      (isSqlExplorerWithDataVizIndex(block)
+        ? block.dataVizConfigIndex === -1 ||
+          !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]
+        : isSqlExplorerWithBlockConfig(block)
+          ? !block.blockConfig || block.blockConfig.length === 0
+          : true)) ||
+    (blockHasFactMetric &&
+      (block.factMetricId.length === 0 || !blockFactMetric)) ||
+    (blockHasMetricAnalysis &&
+      (block.metricAnalysisId.length === 0 || !metricAnalysis));
 
   const blockMissingHealthCheck =
     block.type === "experiment-traffic" &&
@@ -255,6 +318,19 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     !snapshot?.health?.traffic;
 
   const canEditTitle = isEditing && disableBlock === "none" && !isFocused;
+
+  // Only experiment-result blocks require experiment snapshots/analysis.
+  // Non-experiment blocks (e.g., markdown, experiment-metadata) should not show
+  // "No data yet" just because there's no snapshot.
+  const experimentResultBlockTypes = [
+    "experiment-metric",
+    "experiment-dimension",
+    "experiment-time-series",
+    "experiment-traffic",
+  ] as const;
+  const requiresSnapshot = (
+    experimentResultBlockTypes as readonly string[]
+  ).includes(block.type as string);
 
   return (
     <Flex
@@ -289,7 +365,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           }}
         ></div>
       )}
-
       {isEditing && (
         <DropdownMenu
           open={moveBlockOpen}
@@ -336,7 +411,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         </DropdownMenu>
       )}
       <Flex align="center" mb="2" mr="3">
-        {canEditTitle && editTitle ? (
+        {canEditTitle && editTitle && setBlock ? (
           <Field
             autoFocus
             defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}
@@ -381,7 +456,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             >
               {block.title || BLOCK_TYPE_INFO[block.type].name}
             </h4>
-
             {canEditTitle && (
               <a
                 href="#"
@@ -453,17 +527,19 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         )}
       </Flex>
       <Text>{block.description}</Text>
-
       {/* Check for possible error states to ensure block component has all necessary data */}
       {!definitionsReady ||
       experimentsLoading ||
       dashboardSnapshotLoading ||
+      metricAnalysisLoading ||
       dashboardContextLoading ||
-      (blockHasSavedQuery && savedQueryLoading) ? (
+      (blockHasSavedQuery && savedQueryLoading) ||
+      (blockHasMetricAnalysis && metricAnalysisLoading) ? (
         <BlockLoadingSnapshot />
       ) : blockNeedsConfiguration ? (
         <BlockNeedsConfiguration block={block} />
-      ) : !snapshot || !analysis || !analysis.results[0] ? (
+      ) : requiresSnapshot &&
+        (!snapshot || !analysis || !analysis.results[0]) ? (
         <BlockMissingData />
       ) : blockMissingHealthCheck ? (
         <BlockMissingHealthCheck />
@@ -481,8 +557,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             block={block}
             setBlock={setBlock}
             isEditing={isEditing}
-            snapshot={snapshot}
-            analysis={analysis}
+            snapshot={
+              requiresSnapshot
+                ? (snapshot as ExperimentSnapshotInterface)
+                : ({} as ExperimentSnapshotInterface)
+            }
+            analysis={
+              requiresSnapshot
+                ? (analysis as ExperimentSnapshotAnalysis)
+                : ({} as ExperimentSnapshotAnalysis)
+            }
             mutate={mutate}
             // objectProps should be validated above to actually contain all the keys and not be Partial
             {...(objectProps as unknown as ObjectProps<T>)}

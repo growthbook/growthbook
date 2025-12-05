@@ -19,7 +19,7 @@ import type {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useRouter } from "next/router";
 import {
   createContext,
@@ -93,9 +93,11 @@ export interface UserContextValue {
   ready?: boolean;
   userId?: string;
   name?: string;
+  pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
   license?: Partial<LicenseInterface> | null;
+  installationName?: string;
   subscription: SubscriptionInfo | null;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
@@ -133,6 +135,7 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
@@ -498,6 +501,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
+        pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
         updateUser,
         user,
@@ -509,6 +513,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
         license,
+        installationName: currentOrg?.installationName || undefined,
         subscription,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,

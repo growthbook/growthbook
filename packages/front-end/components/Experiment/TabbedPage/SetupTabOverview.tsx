@@ -3,8 +3,8 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import React, { useState } from "react";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
@@ -16,12 +16,12 @@ import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Frame from "@/components/Radix/Frame";
-import Button from "@/components/Radix/Button";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import Frame from "@/ui/Frame";
+import Button from "@/ui/Button";
+import PremiumCallout from "@/ui/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import Callout from "@/components/Radix/Callout";
-import Link from "@/components/Radix/Link";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import {
@@ -18,12 +17,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Link from "@/ui/Link";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups?: FeatureInterface[],
@@ -33,59 +28,75 @@ export const getSavedGroupMessage = (
 ) => {
   return async () => {
     if (
-      !isEmpty(featuresUsingSavedGroups) ||
-      !isEmpty(experimentsUsingSavedGroups)
+      isEmpty(featuresUsingSavedGroups) &&
+      isEmpty(experimentsUsingSavedGroups)
     ) {
-      return (
-        <div>
-          <p className="alert alert-danger">
-            <strong>Whoops!</strong> Before you can delete this saved group, you
-            will need to update the item
-            {(featuresUsingSavedGroups?.length || 0) +
-              (experimentsUsingSavedGroups?.length || 0) >
-              1 && "s"}{" "}
-            listed below by removing any targeting conditions that rely on this
-            saved group.
-          </p>
-          <ul
-            className="border rounded bg-light pt-3 pb-3 overflow-auto"
-            style={{ maxHeight: "200px" }}
-          >
-            {(featuresUsingSavedGroups || []).map((feature) => {
-              return (
-                <li key={feature.id}>
-                  <div className="d-flex">
-                    <Link
-                      href={`/features/${feature.id}`}
-                      className="btn btn-link pt-1 pb-1"
-                    >
-                      {feature.id}
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-
-            {(experimentsUsingSavedGroups || []).map((experiment) => {
-              return (
-                <li key={experiment.id}>
-                  <div className="d-flex">
-                    <Link
-                      href={`/experiment/${experiment.id}`}
-                      className="btn btn-link pt-1 pb-1"
-                    >
-                      {experiment.name}
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      );
+      return null;
     }
-    return null;
+
+    return (
+      <div>
+        <p className="alert alert-danger">
+          <strong>Whoops!</strong> Before you can delete this saved group, you
+          will need to update the item
+          {(featuresUsingSavedGroups?.length || 0) +
+            (experimentsUsingSavedGroups?.length || 0) >
+            1 && "s"}{" "}
+          listed below by removing any targeting conditions that rely on this
+          saved group.
+        </p>
+        {getListOfReferences(
+          featuresUsingSavedGroups,
+          experimentsUsingSavedGroups,
+        )}
+      </div>
+    );
   };
+};
+
+export const getListOfReferences = (
+  featuresUsingSavedGroups?: FeatureInterface[],
+  experimentsUsingSavedGroups?: Array<
+    ExperimentInterface | ExperimentInterfaceStringDates
+  >,
+) => {
+  if (
+    isEmpty(featuresUsingSavedGroups) &&
+    isEmpty(experimentsUsingSavedGroups)
+  ) {
+    return null;
+  }
+
+  return (
+    <ul
+      className="border rounded bg-light pt-3 pb-3 overflow-auto"
+      style={{ maxHeight: "200px" }}
+    >
+      {(featuresUsingSavedGroups || []).map((feature) => {
+        return (
+          <li key={feature.id}>
+            <div className="d-flex">
+              <Link href={`/features/${feature.id}`} className="pt-1 pb-1">
+                {feature.id}
+              </Link>
+            </div>
+          </li>
+        );
+      })}
+
+      {(experimentsUsingSavedGroups || []).map((experiment) => {
+        return (
+          <li key={experiment.id}>
+            <div className="d-flex">
+              <Link href={`/experiment/${experiment.id}`} className="pt-1 pb-1">
+                {experiment.name}
+              </Link>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
 };
 
 export default function SavedGroupsPage() {

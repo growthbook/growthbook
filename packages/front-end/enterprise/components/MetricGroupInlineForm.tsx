@@ -4,8 +4,8 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import track from "@/services/track";
 
 export default function MetricGroupInlineForm({

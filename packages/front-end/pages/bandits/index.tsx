@@ -13,7 +13,7 @@ import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
@@ -26,10 +26,10 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useExperimentSearch } from "@/services/experiments";
 
@@ -305,15 +305,14 @@ const ExperimentsPage = (): React.ReactElement => {
                   <TagsFilter filter={tagsFilter} items={items} />
                 </div>
                 <div className="col-auto ml-auto">
-                  <Toggle
+                  <Switch
                     id="my-experiments-toggle"
-                    type="toggle"
+                    label="My Bandits Only"
                     value={showMineOnly}
-                    setValue={(value) => {
+                    onChange={(value) => {
                       setShowMineOnly(value);
                     }}
-                  />{" "}
-                  My Bandits Only
+                  />
                 </div>
               </div>
 

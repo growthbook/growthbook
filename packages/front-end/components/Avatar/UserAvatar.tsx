@@ -1,5 +1,5 @@
 import { ReactElement } from "react";
-import Avatar, { Props as AvatarProps } from "@/components/Radix/Avatar";
+import Avatar, { Props as AvatarProps } from "@/ui/Avatar";
 
 type Props = {
   name: string;

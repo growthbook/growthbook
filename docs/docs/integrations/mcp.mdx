@@ -26,17 +26,17 @@ We cover how to connect the GrowthBook MCP server for the most popular tools bel
 
 Configuration includes 4 environment variables. Here's what they mean:
 
-| Variable Name | Status   | Description                                                                                |
-| ------------- | -------- | ------------------------------------------------------------------------------------------ |
-| GB_API_KEY    | Required | A GrowthBook API key.                                                                      |
-| GB_EMAIL      | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments. |
-| GB_API_URL    | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                          |
-| GB_APP_ORIGIN | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                           |
+| Variable Name | Status   | Description                                                                                           |
+| ------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| GB_API_KEY    | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
+| GB_EMAIL      | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
+| GB_API_URL    | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
+| GB_APP_ORIGIN | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
 
 <br />
 
-:::tip
-GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
+:::tip On GrowthBook Cloud?
+You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 :::
 
 ### Cursor
@@ -331,17 +331,17 @@ A hammer icon will appear in the chat window, indicating that your GrowthBook MC
 ### Feature Flags
 
 - `create_feature_flag`: Create, add, or wrap an element with a feature flag. Accepts key, type, default value, and other metadata.
-- `get_feature_flags`: List all feature flags in your GrowthBook instance.
+- `get_feature_flags`: List feature flags in your GrowthBook instance.
 - `get_single_feature_flag`: Fetch details for a specific feature flag by ID.
-- `get_stale_safe_rollouts`: List all safe rollout rules that have been rolled back or released. This tools is helpful for removing stale flags from your codebase.
+- `get_stale_safe_rollouts`: List safe rollout rules that have been rolled back or released. This tools is helpful for removing stale flags from your codebase.
 - `create_force_rule`: Create a feature flag with a targeting condition (e.g., `country = CA`).
 - `generate_flag_types`: Generate TypeScript types for feature flags.
 
 ### Experiments
 
-- `get_experiments`: List all experiments in GrowthBook.
+- `get_experiments`: List experiments in GrowthBook.
 - `get_experiment`: Fetch details for a specific experiment by ID.
-- `get_attributes`: List all user attributes tracked in GrowthBook (useful for targeting).
+- `get_attributes`: List user attributes tracked in GrowthBook (useful for targeting).
 - `create_experiment`: Creates a feature-flag linked experiment. Note that this tool calls `get_defaults`, which provides a sampling of previous experiments to help the AI agent create the experiment correctly. For better performance, these defaults are saved to the local file system and periodically updated.
 - `get_defaults`: Get default values for experiments including hypothesis, description, datasource, and assignment query. (Runs automatically when the create experiment tool is called.)
 - `create_defaults`: Set custom default values for experiments that will be used when creating new experiments.
@@ -357,8 +357,13 @@ A hammer icon will appear in the chat window, indicating that your GrowthBook MC
 
 ### SDK Connections
 
-- `get_sdk_connections`: List all SDK connections (how GrowthBook connects to your apps).
+- `get_sdk_connections`: List SDK connections (how GrowthBook connects to your apps).
 - `create_sdk_connection`: Create a new SDK connection for your app, specifying language and environment.
+
+### Metrics
+
+- `get_metrics`: List fact and legacy metrics (useful for better understanding experiments).
+- `get_metric`: Fetch a specific fact or legacy metric by ID.
 
 ### Documentation Search
 

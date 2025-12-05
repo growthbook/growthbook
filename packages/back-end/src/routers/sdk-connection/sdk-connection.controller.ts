@@ -1,5 +1,11 @@
 import type { Response } from "express";
 import { pick } from "lodash";
+import {
+  SDKConnectionInterface,
+  CreateSDKConnectionParams,
+  EditSDKConnectionParams,
+  ProxyTestResult,
+} from "shared/types/sdk-connection";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
@@ -15,12 +21,6 @@ import {
 } from "back-end/src/models/WebhookModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import {
-  SDKConnectionInterface,
-  CreateSDKConnectionParams,
-  EditSDKConnectionParams,
-  ProxyTestResult,
-} from "back-end/types/sdk-connection";
 import {
   createSDKConnection,
   deleteSDKConnectionById,

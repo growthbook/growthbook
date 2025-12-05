@@ -23,6 +23,7 @@ properties:
       - ""
       - api
       - config
+      - admin
   dateCreated:
     type: string
   dateUpdated:
@@ -101,36 +102,36 @@ properties:
         type: number
         deprecated: true
       windowSettings:
-          type: object
-          description: Controls the conversion window for the metric
-          required:
-            - type
-          properties:
-            type:
-              type: string
-              enum:
-                - "none"
-                - "conversion"
-                - "lookback"
-            delayValue:
-              type: number
-              description: Wait this long after experiment exposure before counting conversions
-            delayUnit:
-              type: string
-              enum:
-                - "minutes"
-                - "hours"
-                - "days"
-                - "weeks"
-            windowValue:
-              type: number
-            windowUnit:
-              type: string
-              enum:
-                - "minutes"
-                - "hours"
-                - "days"
-                - "weeks"
+        type: object
+        description: Controls the conversion window for the metric
+        required:
+          - type
+        properties:
+          type:
+            type: string
+            enum:
+              - "none"
+              - "conversion"
+              - "lookback"
+          delayValue:
+            type: number
+            description: Wait this long after experiment exposure before counting conversions
+          delayUnit:
+            type: string
+            enum:
+              - "minutes"
+              - "hours"
+              - "days"
+              - "weeks"
+          windowValue:
+            type: number
+          windowUnit:
+            type: string
+            enum:
+              - "minutes"
+              - "hours"
+              - "days"
+              - "weeks"
       priorSettings:
         type: object
         description: Controls the bayesian prior for the metric.

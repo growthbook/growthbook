@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   ReportInterface,
 } from "back-end/types/report";
@@ -11,8 +11,8 @@ import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { IdeaInterface } from "back-end/types/idea";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { IdeaInterface } from "shared/types/idea";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
@@ -31,11 +31,10 @@ import {
 } from "@/components/Icons";
 import ConfigureLegacyReport from "@/components/Report/ConfigureLegacyReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -47,12 +46,7 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
 export default function LegacyReportPage({
@@ -70,7 +64,7 @@ export default function LegacyReportPage({
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -100,9 +94,6 @@ export default function LegacyReportPage({
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment",
-  );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
 
@@ -147,12 +138,6 @@ export default function LegacyReportPage({
 
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
-
-  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
-  const regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature &&
-    regressionAdjustmentAvailable &&
-    !!report.args.regressionAdjustmentEnabled;
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
@@ -208,20 +193,15 @@ export default function LegacyReportPage({
                 value={form.watch("description")}
               />
             </div>
-            Publish:{" "}
-            <Toggle
+            <Switch
               id="toggle-status"
               value={form.watch("status") === "published"}
-              label="published"
-              setValue={(value) => {
+              label="Publish"
+              description="A published report will be visible to other users of your team"
+              onChange={(value) => {
                 const newStatus = value ? "published" : "private";
                 form.setValue("status", newStatus);
               }}
-            />
-            <Tooltip
-              body={
-                "A published report will be visible to other users of your team"
-              }
             />
           </Modal>
         )}
@@ -440,8 +420,8 @@ export default function LegacyReportPage({
                       metrics={getAllMetricIdsFromExperiment(
                         report.args,
                         false,
+                        metricGroups,
                       )}
-                      differenceType={report.args.differenceType ?? "relative"}
                       trackingKey={report.title}
                       dimension={report.args.dimension ?? undefined}
                       project={experimentData?.experiment.project || ""}
@@ -499,6 +479,7 @@ export default function LegacyReportPage({
                   />
                 ) : (
                   <BreakDownResults
+                    experimentId={report.experimentId ?? ""}
                     isLatestPhase={true}
                     phase={
                       (experimentData?.experiment?.phases?.length ?? 1) - 1
@@ -523,7 +504,6 @@ export default function LegacyReportPage({
                       report.args.statsEngine || DEFAULT_STATS_ENGINE
                     }
                     pValueCorrection={pValueCorrection}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                     settingsForSnapshotMetrics={
                       report.args.settingsForSnapshotMetrics
                     }
@@ -537,7 +517,7 @@ export default function LegacyReportPage({
                   unknownVariations={report.results?.unknownVariations || []}
                   isUpdating={status === "running"}
                   setVariationIds={async (ids) => {
-                    const args: ExperimentReportArgs = {
+                    const args: LegacyExperimentReportArgs = {
                       ...report.args,
                       variations: report.args.variations.map((v, i) => {
                         return {
@@ -573,6 +553,7 @@ export default function LegacyReportPage({
                 report.results?.dimensions?.[0] !== undefined && (
                   <div className="mt-0 mb-3">
                     <CompactResults
+                      experimentId={report.experimentId ?? ""}
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}
@@ -596,7 +577,6 @@ export default function LegacyReportPage({
                         report.args.statsEngine || DEFAULT_STATS_ENGINE
                       }
                       pValueCorrection={pValueCorrection}
-                      regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                       settingsForSnapshotMetrics={
                         report.args.settingsForSnapshotMetrics
                       }

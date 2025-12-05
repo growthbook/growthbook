@@ -268,10 +268,11 @@ function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
     condition: getDateRangeCondition(
       sim.startDate,
       sim.runLengthDays,
-      0.45,
-      0.75,
+      0.0,
+      1.0,
     ),
   });
+  trackExperiment(data, res, "add-to-cart-cta", sim);
 
   advanceTime(sim.currentDate, 20);
   if (Math.random() < res.value) {
@@ -608,6 +609,7 @@ const {
 
 const runLengthDays = Number(daysArg);
 const numUsers = Number(userCountArg);
+const messyData = messyDataArg.toLowerCase() === "true";
 
 const startDate = (() => {
   if (startDateArg) return new Date(startDateArg);
@@ -621,7 +623,7 @@ const params = {
   runLengthDays,
   outputDir: csvDirArg,
   numUsers,
-  messyData: !!messyDataArg,
+  messyData,
   expKeyPrefix: keyPrefixArg,
 };
 

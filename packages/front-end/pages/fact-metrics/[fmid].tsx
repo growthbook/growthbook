@@ -15,8 +15,10 @@ import {
 } from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -44,15 +46,11 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import DataList, { DataListItem } from "@/components/Radix/DataList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
+import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSliceSelector";
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
 import Modal from "@/components/Modal";
@@ -60,7 +58,13 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
+import { useUser } from "@/services/UserContext";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -164,12 +168,16 @@ export default function FactMetricPage() {
   const [auditModal, setAuditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
     "analysis",
   );
   const { apiCall } = useAuth();
+
+  const { hasCommercialFeature, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -196,6 +204,10 @@ export default function FactMetricPage() {
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
 
+  const isMetricSlicesFeatureEnabled =
+    growthbook?.isOn("metric-slices") || false;
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+
   if (!ready) return <LoadingOverlay />;
 
   const factMetric = getFactMetricById(fmid as string);
@@ -209,11 +221,16 @@ export default function FactMetricPage() {
     );
   }
 
-  const canEdit =
-    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-    !factMetric.managedBy;
-  const canDelete =
-    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
+  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
+  let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+
+  if (
+    factMetric.managedBy &&
+    ["api", "config"].includes(factMetric.managedBy)
+  ) {
+    canEdit = false;
+    canDelete = false;
+  }
 
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
@@ -269,7 +286,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.numerator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.numerator.column,
+                  : factMetric.numerator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.numerator.column,
           },
         ]
       : []),
@@ -349,7 +368,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.denominator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.denominator.column,
+                  : factMetric.denominator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.denominator.column,
           },
           ...(!factMetric.denominator.column.startsWith("$$")
             ? [
@@ -377,6 +398,22 @@ export default function FactMetricPage() {
         >
           <HistoryTable type="metric" id={factMetric.id} />
         </Modal>
+      )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Fact Metric"
+          source="fact-metric-page"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "admin",
+              }),
+            });
+            await mutateDefinitions();
+          }}
+        />
       )}
       {showDeleteModal && (
         <Modal
@@ -474,6 +511,26 @@ export default function FactMetricPage() {
           { display: factMetric.name },
         ]}
       />
+
+      {factMetric.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id),
+      ) && (
+        <Callout status="info" contentsAs="div" mb="2">
+          <Flex align="center" justify="between">
+            <Text>
+              This Fact Metric is part of our sample dataset. You can safely
+              delete this once you are done exploring.
+            </Text>
+            <Box ml="auto">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/metrics")}
+                source="fact-metric"
+              />
+            </Box>
+          </Flex>
+        </Callout>
+      )}
+
       {factMetric.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This metric is archived.</strong> Existing references will
@@ -484,7 +541,7 @@ export default function FactMetricPage() {
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
-            <MetricName id={factMetric.id} />
+            <MetricName id={factMetric.id} officialBadgePosition="right" />
           </h1>
         </div>
         <div className="ml-auto mr-2">
@@ -514,6 +571,19 @@ export default function FactMetricPage() {
                 Edit Metric
               </DropdownMenuItem>
             )}
+            {canEdit &&
+            !factMetric.managedBy &&
+            permissionsUtil.canCreateOfficialResources(factMetric) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowConvertToOfficialModal(true);
+                }}
+              >
+                Convert to Official Metric
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem
               onClick={() => {
                 setOpenDropdown(false);
@@ -687,6 +757,53 @@ export default function FactMetricPage() {
                 <DataList data={denominatorData} header="Denominator" />
               </div>
             ) : null}
+
+            {isMetricSlicesFeatureEnabled && (
+              <div className="appbox p-3 mb-3">
+                <h4>
+                  Auto Slices
+                  <PaidFeatureBadge
+                    commercialFeature="metric-slices"
+                    premiumText="This is an Enterprise feature"
+                    variant="outline"
+                    ml="2"
+                  />
+                </h4>
+                <Text
+                  as="p"
+                  className="mb-2"
+                  style={{ color: "var(--color-text-mid)" }}
+                >
+                  Choose metric breakdowns to automatically analyze in your
+                  experiments.{" "}
+                  <DocLink docSection="autoSlices">
+                    Learn More <PiArrowSquareOut />
+                  </DocLink>
+                </Text>
+                <div className="mt-2">
+                  <FactTableAutoSliceSelector
+                    factMetric={factMetric}
+                    factTableId={factMetric.numerator.factTableId}
+                    canEdit={
+                      permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+                      !factMetric.managedBy &&
+                      hasMetricSlicesFeature
+                    }
+                    onUpdate={async (metricAutoSlices) => {
+                      await apiCall(`/fact-metrics/${factMetric.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          metricAutoSlices,
+                        }),
+                      });
+                      mutateDefinitions();
+                    }}
+                    compactButtons={false}
+                    containerWidth="auto"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mb-4">

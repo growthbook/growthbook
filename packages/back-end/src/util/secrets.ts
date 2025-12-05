@@ -96,6 +96,8 @@ if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
   );
 }
 
+export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
+
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
 export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
@@ -209,6 +211,7 @@ const webhooksValidator = z.array(
           "standard-no-payload",
           "sdkPayload",
           "edgeConfig",
+          "edgeConfigUnescaped",
           "vercelNativeIntegration",
           "none",
         ])
@@ -278,6 +281,11 @@ export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
 export const CLICKHOUSE_DEV_PREFIX =
   process.env.CLICKHOUSE_DEV_PREFIX || "test_";
+
+// Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
+export const DISABLE_API_ROOT_PATH = stringToBoolean(
+  process.env.DISABLE_API_ROOT_PATH,
+);
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,

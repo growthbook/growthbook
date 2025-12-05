@@ -3,7 +3,7 @@ import { CreateSafeRolloutInterface } from "back-end/src/validators/safe-rollout
 
 export type PostFeatureRuleBody = {
   rule: FeatureRule;
-  environment: string;
+  environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
 };
 

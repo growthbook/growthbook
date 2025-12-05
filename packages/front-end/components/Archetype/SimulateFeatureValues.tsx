@@ -10,7 +10,7 @@ import React, {
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "back-end/types/archetype";
+} from "shared/types/archetype";
 import { FeatureTestResult } from "back-end/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
@@ -36,7 +36,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 

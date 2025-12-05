@@ -20,8 +20,12 @@ import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
 
 export interface Props {
@@ -68,6 +72,11 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
+            styles={{
+              contentText: {
+                wordBreak: "break-all",
+              },
+            }}
           />
         </div>
       )}
@@ -96,16 +105,11 @@ export default function DraftModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
+  const envIds = environments.map((e) => e.id);
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(
-      liveRevision,
-      baseRevision,
-      revision,
-      environments.map((e) => e.id),
-      {},
-    );
-  }, [revision, baseRevision, liveRevision]);
+    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
+  }, [revision, baseRevision, liveRevision, envIds]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -120,36 +124,18 @@ export default function DraftModal({
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
-  const resultDiffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
-
-    if (!mergeResult) return diffs;
-    if (!mergeResult.success) return diffs;
-
-    const result = mergeResult.result;
-
-    if (result.defaultValue !== undefined) {
-      diffs.push({
-        title: "Default Value",
-        a: feature.defaultValue,
-        b: result.defaultValue,
-      });
-    }
-    if (result.rules) {
-      environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(liveRules, null, 2),
-            b: JSON.stringify(result.rules[env.id], null, 2),
-          });
+  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const resultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: mergeResult?.success
+      ? {
+          // Use current values as fallback when merge result doesn't have changes
+          defaultValue:
+            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
+          rules: mergeResult.result.rules ?? currentRevisionData.rules,
         }
-      });
-    }
-
-    return diffs;
-  }, [mergeResult]);
+      : currentRevisionData,
+  });
 
   if (!revision || !mergeResult) return null;
 

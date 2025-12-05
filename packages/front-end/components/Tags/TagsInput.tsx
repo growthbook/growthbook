@@ -5,7 +5,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
-import { RadixColor } from "@/components/Radix/HelperText";
+import { RadixColor } from "@/ui/HelperText";
 
 export interface ColorOption {
   readonly value: string;

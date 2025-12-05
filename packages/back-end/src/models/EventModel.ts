@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import z from "zod";
+import { z } from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { isEqual } from "lodash";
@@ -20,6 +20,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/organization";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
+import { DiffResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;
@@ -154,6 +155,7 @@ export type CreateEventData<
   ? {
       object: Payload;
       previous_object: Payload;
+      changes?: DiffResult;
     } & NotificationEventPayloadExtraAttributes<Resource, Event>
   : { object: Payload } & NotificationEventPayloadExtraAttributes<
       Resource,
@@ -186,9 +188,10 @@ const diffData = <
       Payload
     >;
 
-  const { object, previous_object, ...remainingData } = data as {
+  const { object, previous_object, changes, ...remainingData } = data as {
     object: Record<string, unknown>;
     previous_object: Record<string, unknown>;
+    changes?: DiffResult;
   };
 
   return {
@@ -208,6 +211,7 @@ const diffData = <
       }),
       {},
     ),
+    changes,
   } as unknown as NotificationEventPayloadDataType<Resource, Event, Payload>;
 };
 
@@ -257,7 +261,14 @@ export const createEvent = async <
             email: context.email,
             name: context.userName || "",
           }
-        : null,
+        : context.apiKey
+          ? {
+              type: "api_key",
+              apiKey: context.apiKey,
+            }
+          : {
+              type: "system",
+            },
     },
     organizationId: context.org.id,
     ...(objectId ? { objectId } : {}),

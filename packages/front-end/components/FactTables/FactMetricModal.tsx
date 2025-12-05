@@ -3,7 +3,7 @@ import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -28,8 +28,9 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
-import { PiPlus } from "react-icons/pi";
+import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -50,14 +51,9 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
@@ -66,12 +62,16 @@ import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/Metri
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
-import Checkbox from "@/components/Radix/Checkbox";
-import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
+import { DocLink } from "../DocLink";
 
 export interface Props {
   close?: () => void;
@@ -174,9 +174,11 @@ function getColumnOptions({
   datasource,
   includeCount = true,
   includeCountDistinct = false,
+  includeDistinctDates = false,
   includeNumericColumns = true,
   includeStringColumns = false,
   includeJSONFields = false,
+  includeBooleanColumns = false,
   showColumnsAsSums = false,
   excludeColumns,
   groupPrefix = "",
@@ -185,8 +187,10 @@ function getColumnOptions({
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
+  includeDistinctDates?: boolean;
   includeNumericColumns?: boolean;
   includeStringColumns?: boolean;
+  includeBooleanColumns?: boolean;
   includeJSONFields?: boolean;
   showColumnsAsSums?: boolean;
   excludeColumns?: Set<string>;
@@ -212,6 +216,12 @@ function getColumnOptions({
       value: "$$count",
     });
   }
+  if (includeDistinctDates) {
+    specialColumnOptions.push({
+      label: "Distinct Dates",
+      value: "$$distinctDates",
+    });
+  }
 
   const stringColumnOptions: SingleValue[] = [];
   const stringColumns = factTable?.columns.filter(
@@ -220,6 +230,19 @@ function getColumnOptions({
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
+        label: col.name,
+        value: col.column,
+      })),
+    );
+  }
+
+  const booleanColumnOptions: SingleValue[] = [];
+  const booleanColumns = factTable?.columns.filter(
+    (col) => col.datatype === "boolean" && !col.deleted,
+  );
+  if (booleanColumns) {
+    booleanColumnOptions.push(
+      ...booleanColumns.map((col) => ({
         label: col.name,
         value: col.column,
       })),
@@ -281,6 +304,14 @@ function getColumnOptions({
     ret.push({
       label: `${groupPrefix}String Columns`,
       options: stringColumnOptions.filter((v) => !excludeColumns?.has(v.value)),
+    });
+  }
+  if (includeBooleanColumns && booleanColumnOptions.length > 0) {
+    ret.push({
+      label: `${groupPrefix}Boolean Columns`,
+      options: booleanColumnOptions.filter(
+        (v) => !excludeColumns?.has(v.value),
+      ),
     });
   }
   return ret;
@@ -373,6 +404,7 @@ function ColumnRefSelector({
   setValue,
   setDatasource,
   includeCountDistinct,
+  includeDistinctDates,
   aggregationType = "unit",
   includeColumn,
   datasource,
@@ -385,6 +417,7 @@ function ColumnRefSelector({
   setDatasource: (datasource: string) => void;
   value: ColumnRef;
   includeCountDistinct?: boolean;
+  includeDistinctDates?: boolean;
   includeColumn?: boolean;
   aggregationType?: "unit" | "event";
   datasource: DataSourceInterfaceWithParams;
@@ -402,6 +435,7 @@ function ColumnRefSelector({
     factTable,
     datasource,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
+    includeDistinctDates: includeDistinctDates && aggregationType === "unit",
     includeCount: aggregationType === "unit",
     includeNumericColumns: true,
     includeStringColumns:
@@ -442,6 +476,7 @@ function ColumnRefSelector({
     includeCountDistinct: false,
     includeNumericColumns: false,
     includeStringColumns: true,
+    includeBooleanColumns: true,
     includeJSONFields: true,
     showColumnsAsSums: false,
     excludeColumns: new Set([...(factTable?.userIdTypes || [])]),
@@ -451,14 +486,14 @@ function ColumnRefSelector({
       factTable ? canInlineFilterColumn(factTable, option.value) : false,
     );
 
-  const unfilteredStringColumns = eligibleColumns.filter(
+  const unfilteredEligibleColumns = eligibleColumns.filter(
     (c) => !value.inlineFilters?.[c.value]?.length,
   );
 
-  if (unfilteredStringColumns.length > 0) {
+  if (unfilteredEligibleColumns.length > 0) {
     addFilterOptions.push({
       label: "Filter by Column",
-      options: unfilteredStringColumns.map((o) => ({
+      options: unfilteredEligibleColumns.map((o) => ({
         label: o.label,
         value: `col::${o.value}`,
       })),
@@ -619,12 +654,12 @@ function ColumnRefSelector({
                       className="border rounded mr-1 d-flex align-items-center bg-white"
                       key={k}
                     >
-                      {colAlert && unfilteredStringColumns.length > 0 ? (
+                      {colAlert && unfilteredEligibleColumns.length > 0 ? (
                         <SelectField
                           value={k}
                           options={[
                             { label: col?.name || k, value: k },
-                            ...unfilteredStringColumns,
+                            ...unfilteredEligibleColumns,
                           ]}
                           onChange={(newKey) => {
                             if (k === newKey || !value.inlineFilters) return;
@@ -653,7 +688,19 @@ function ColumnRefSelector({
                           {colAlert}
                         </span>
                       )}
-                      {col?.topValues?.length ? (
+                      {col?.datatype === "boolean" ? (
+                        <SelectField
+                          value={v?.[0] + ""}
+                          onChange={(val) => onValuesChange(val ? [val] : [])}
+                          options={[
+                            { label: "Remove", value: "" },
+                            { label: "Is True", value: "true" },
+                            { label: "Is False", value: "false" },
+                          ]}
+                          sort={false}
+                          autoFocus
+                        />
+                      ) : col?.topValues?.length ? (
                         <MultiSelectField
                           value={v}
                           onChange={onValuesChange}
@@ -678,6 +725,7 @@ function ColumnRefSelector({
                           value={v}
                           onChange={onValuesChange}
                           placeholder="Any"
+                          delimiters={["Enter", "Tab"]}
                           autoFocus
                         />
                       )}
@@ -693,11 +741,19 @@ function ColumnRefSelector({
                         onChange={(v) => {
                           if (v) {
                             if (v.startsWith("col::")) {
+                              const column = v.replace("col::", "");
+                              const dataType = getSelectedColumnDatatype({
+                                factTable,
+                                column,
+                              });
+
                               setValue({
                                 ...value,
                                 inlineFilters: {
                                   ...value.inlineFilters,
-                                  [v.replace("col::", "")]: [""],
+                                  [column]: [
+                                    dataType === "boolean" ? "true" : "",
+                                  ],
                                 },
                               });
                             } else {
@@ -885,14 +941,15 @@ function getWHERE({
 }) {
   const whereParts =
     factTable && columnRef
-      ? getColumnRefWhereClause(
+      ? getColumnRefWhereClause({
           factTable,
           columnRef,
-          (s) => s.replace(/'/g, "''"),
-          // This isn't real SQL syntax, but it should get the point across
-          (jsonCol, path) => `${jsonCol}.${path}`,
-          true,
-        )
+          escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          // This isn't real SQL syntax for most dialects, but it should get the point across
+          jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+          evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+          showSourceComment: true,
+        })
       : [];
 
   if (type === "retention") {
@@ -981,22 +1038,26 @@ function getPreviewSQL({
       ? "COUNT(*)"
       : numerator.column === "$$distinctUsers"
         ? "1"
-        : numerator.aggregation === "count distinct"
-          ? `COUNT(DISTINCT ${numerator.column})`
-          : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
-              numerator.column
-            })`;
+        : numerator.column === "$$distinctDates"
+          ? `COUNT(DISTINCT DATE(timestamp))`
+          : numerator.aggregation === "count distinct"
+            ? `COUNT(DISTINCT ${numerator.column})`
+            : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
+                numerator.column
+              })`;
 
   const denominatorCol =
     denominator?.column === "$$count"
       ? "COUNT(*)"
       : denominator?.column === "$$distinctUsers"
         ? "1"
-        : numerator.aggregation === "count distinct"
-          ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
-          : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
-              denominator?.column
-            })`;
+        : denominator?.column === "$$distinctDates"
+          ? `COUNT(DISTINCT DATE(timestamp))`
+          : denominator?.aggregation === "count distinct"
+            ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
+            : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
+                denominator?.column
+              })`;
 
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
@@ -1234,7 +1295,10 @@ function FieldMappingModal({
 
   const stringColumnOptions =
     factTable?.columns
-      ?.filter((c) => canInlineFilterColumn(factTable, c.column))
+      ?.filter(
+        (c) =>
+          canInlineFilterColumn(factTable, c.column) && c.datatype === "string",
+      )
       .map((c) => ({
         label: c.name || c.column,
         value: c.column,
@@ -1461,7 +1525,12 @@ export default function FactMetricModal({
 
   const settings = useOrgSettings();
 
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, permissionsUtil } = useUser();
+  const { disableLegacyMetricCreation } = settings;
+
+  const growthbook = useGrowthBook();
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   // TODO: We may want to hide this from non-technical users in the future
   const showSQLPreview = true;
@@ -1474,7 +1543,10 @@ export default function FactMetricModal({
     project,
     getFactTableById,
     mutateDefinitions,
+    metrics,
   } = useDefinitions();
+
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -1482,6 +1554,14 @@ export default function FactMetricModal({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
+
+  const filteredMetrics = metrics
+    .filter((f) => !datasource || f.datasource === datasource)
+    .filter((f) => isProjectListValidForProject(f.projects, project))
+    .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
+
+  const showSwitchToLegacy =
+    filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
@@ -1492,6 +1572,7 @@ export default function FactMetricModal({
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
+    managedBy: existing?.managedBy,
   });
 
   // Multiple percent values by 100 for the UI
@@ -1730,16 +1811,20 @@ export default function FactMetricModal({
               ? "count"
               : values.numerator.column === "$$distinctUsers"
                 ? "distinct_users"
-                : values.numerator.aggregation || "sum",
+                : values.numerator.column === "$$distinctDates"
+                  ? "distinct_dates"
+                  : values.numerator.aggregation || "sum",
           numerator_filters: values.numerator.filters.length,
           denominator_agg:
             values.denominator?.column === "$$count"
               ? "count"
               : values.denominator?.column === "$$distinctUsers"
                 ? "distinct_users"
-                : values.denominator?.column
-                  ? values.denominator?.aggregation || "sum"
-                  : "none",
+                : values.denominator?.column === "$$distinctDates"
+                  ? "distinct_dates"
+                  : values.denominator?.column
+                    ? values.denominator?.aggregation || "sum"
+                    : "none",
           denominator_filters: values.denominator?.filters?.length || 0,
           ratio_same_fact_table:
             values.metricType === "ratio" &&
@@ -1747,6 +1832,18 @@ export default function FactMetricModal({
         };
 
         if (!isNew) {
+          // Track auto slices changes
+          const previousSlices = existing.metricAutoSlices || [];
+          const newSlices = values.metricAutoSlices || [];
+          if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
+            track("metric-auto-slices-updated", {
+              metricId: existing.id,
+              previousSlices: previousSlices,
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
+            });
+          }
+
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
@@ -1757,6 +1854,15 @@ export default function FactMetricModal({
           track("Edit Fact Metric", trackProps);
           await mutateDefinitions();
         } else {
+          // Track auto slices for new metrics
+          const newSlices = values.metricAutoSlices || [];
+          if (newSlices.length > 0) {
+            track("metric-auto-slices-updated", {
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
+            });
+          }
+
           const createPayload: CreateFactMetricProps = {
             ...values,
             projects:
@@ -1780,7 +1886,7 @@ export default function FactMetricModal({
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
-          {switchToLegacy && (
+          {showSwitchToLegacy && switchToLegacy && (
             <Callout status="info" mb="3">
               You are creating a Fact Table Metric.{" "}
               <a
@@ -2047,6 +2153,7 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     setDatasource={setDatasource}
+                    includeDistinctDates={true}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     allowChangingDatasource={!datasource}
@@ -2062,14 +2169,15 @@ export default function FactMetricModal({
               ) : type === "quantile" ? (
                 <div>
                   <div className="form-group">
-                    <Toggle
+                    <Switch
                       id="quantileTypeSelector"
                       label="Aggregate by User First"
+                      description="Aggregate by Experiment User before taking quantile?"
                       value={
                         !canUseEventQuantile ||
                         quantileSettings.type !== "event"
                       }
-                      setValue={(unit) => {
+                      onChange={(unit) => {
                         // Event-level quantiles must select a numeric column
                         if (!unit && numerator?.column?.startsWith("$$")) {
                           const column =
@@ -2086,12 +2194,6 @@ export default function FactMetricModal({
                       }}
                       disabled={!canUseEventQuantile}
                     />
-                    <label
-                      htmlFor="quantileTypeSelector"
-                      className="ml-2 cursor-pointer"
-                    >
-                      Aggregate by Experiment User before taking quantile?
-                    </label>
                   </div>
                   <label>
                     {quantileSettings.type === "unit"
@@ -2105,6 +2207,7 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     aggregationType={quantileSettings.type}
+                    includeDistinctDates={true}
                     setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
@@ -2130,10 +2233,10 @@ export default function FactMetricModal({
                                 />
                               </label>
                               <div style={{ padding: "6px 0" }}>
-                                <Toggle
+                                <Switch
                                   id="quantileIgnoreZeros"
                                   value={quantileSettings.ignoreZeros}
-                                  setValue={(ignoreZeros) =>
+                                  onChange={(ignoreZeros) =>
                                     form.setValue("quantileSettings", {
                                       ...quantileSettings,
                                       ignoreZeros,
@@ -2177,6 +2280,7 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      includeDistinctDates={true}
                       setDatasource={setDatasource}
                       datasource={selectedDataSource}
                       disableFactTableSelector={!!initialFactTable}
@@ -2202,6 +2306,7 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      includeDistinctDates={true}
                       setDatasource={setDatasource}
                       allowChangingDatasource={false}
                       datasource={selectedDataSource}
@@ -2239,6 +2344,74 @@ export default function FactMetricModal({
                 ]}
               />
 
+              {isMetricSlicesFeatureEnabled &&
+                hasMetricSlicesFeature &&
+                (() => {
+                  const factTableId = form.watch("numerator.factTableId");
+                  const factTable = getFactTableById(factTableId);
+                  const availableSlices =
+                    factTable?.columns?.filter(
+                      (col) => col.isAutoSliceColumn && !col.deleted,
+                    ) || [];
+
+                  return (
+                    <div className="mt-3 mb-4">
+                      <label className="font-weight-bold mb-1">
+                        Auto Slices
+                        <PaidFeatureBadge
+                          commercialFeature="metric-slices"
+                          premiumText="This is an Enterprise feature"
+                          variant="outline"
+                          ml="2"
+                        />
+                      </label>
+                      <Text
+                        as="p"
+                        className="mb-2"
+                        style={{ color: "var(--color-text-mid)" }}
+                      >
+                        Choose metric breakdowns to automatically analyze in
+                        your experiments.{" "}
+                        <DocLink docSection="autoSlices">
+                          Learn More <PiArrowSquareOut />
+                        </DocLink>
+                      </Text>
+                      {hasMetricSlicesFeature && (
+                        <div className="mt-2">
+                          {availableSlices.length > 0 ? (
+                            <MultiSelectField
+                              value={form.watch("metricAutoSlices") || []}
+                              onChange={(metricAutoSlices) => {
+                                form.setValue(
+                                  "metricAutoSlices",
+                                  metricAutoSlices,
+                                );
+                              }}
+                              options={availableSlices.map((col) => ({
+                                label: col.name || col.column,
+                                value: col.column,
+                              }))}
+                              placeholder="Select auto slice columns..."
+                            />
+                          ) : (
+                            <Text
+                              as="span"
+                              style={{
+                                color: "var(--color-text-low)",
+                                fontStyle: "italic",
+                              }}
+                              size="1"
+                            >
+                              No slices available. Configure your fact table to
+                              enable auto slices.
+                            </Text>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
               {!advancedOpen && (
                 <a
                   href="#"
@@ -2254,281 +2427,301 @@ export default function FactMetricModal({
                 </a>
               )}
               {advancedOpen && (
-                <Tabs defaultValue="query">
-                  <TabsList>
-                    <TabsTrigger value="query">Analysis Settings</TabsTrigger>
-                    <TabsTrigger value="display">Display Settings</TabsTrigger>
-                    <div className="ml-auto">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setAdvancedOpen(false);
-                        }}
-                        style={{ verticalAlign: "middle" }}
-                        title="Hide advanced settings"
-                      >
-                        <FaTimes /> Hide
-                      </a>
-                    </div>
-                  </TabsList>
-
-                  <Box py="3">
-                    <TabsContent value="query">
-                      {type !== "retention" ? (
-                        <MetricDelaySettings form={form} />
-                      ) : null}
-                      {type !== "quantile" &&
-                      type !== "proportion" &&
-                      type !== "retention" ? (
-                        <MetricCappingSettingsForm
-                          form={form}
-                          datasourceType={selectedDataSource.type}
-                          metricType={type}
-                        />
-                      ) : null}
-
-                      <Field
-                        label="Target MDE"
-                        type="number"
-                        step="any"
-                        append="%"
-                        {...form.register("targetMDE", {
-                          valueAsNumber: true,
-                        })}
-                        helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
-                          metricDefaults.targetMDE * 100
-                        }%)`}
-                      />
-
-                      <MetricPriorSettingsForm
-                        priorSettings={form.watch("priorSettings")}
-                        setPriorSettings={(priorSettings) =>
-                          form.setValue("priorSettings", priorSettings)
-                        }
-                        metricDefaults={metricDefaults}
-                      />
-
-                      <PremiumTooltip commercialFeature="regression-adjustment">
-                        <label className="mb-1">
-                          <GBCuped /> Regression Adjustment (CUPED)
-                        </label>
-                      </PremiumTooltip>
-                      <div className="px-3 py-2 pb-0 mb-2 border rounded">
-                        {regressionAdjustmentAvailableForMetric ? (
-                          <>
-                            <Box mt="1">
-                              <Checkbox
-                                label="Override organization-level settings"
-                                value={form.watch(
-                                  "regressionAdjustmentOverride",
-                                )}
-                                setValue={(v) =>
-                                  form.setValue(
-                                    "regressionAdjustmentOverride",
-                                    v === true,
-                                  )
-                                }
-                                disabled={!hasRegressionAdjustmentFeature}
-                              />
-                            </Box>
-                            <div
-                              style={{
-                                display: form.watch(
-                                  "regressionAdjustmentOverride",
-                                )
-                                  ? "block"
-                                  : "none",
-                              }}
-                            >
-                              <div className="d-flex my-2 border-bottom"></div>
-                              <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                                <label
-                                  className="mr-1"
-                                  htmlFor="toggle-regressionAdjustmentEnabled"
-                                >
-                                  Apply regression adjustment for this metric
-                                </label>
-                                <Toggle
-                                  id={"toggle-regressionAdjustmentEnabled"}
-                                  value={
-                                    !!form.watch("regressionAdjustmentEnabled")
-                                  }
-                                  setValue={(value) => {
-                                    form.setValue(
-                                      "regressionAdjustmentEnabled",
-                                      value,
-                                    );
-                                  }}
-                                  disabled={!hasRegressionAdjustmentFeature}
-                                />
-                                <small className="form-text text-muted">
-                                  (organization default:{" "}
-                                  {settings.regressionAdjustmentEnabled
-                                    ? "On"
-                                    : "Off"}
-                                  )
-                                </small>
-                              </div>
-                              <div
-                                className="form-group mt-3 mb-1 mr-2"
-                                style={{
-                                  opacity: form.watch(
-                                    "regressionAdjustmentEnabled",
-                                  )
-                                    ? "1"
-                                    : "0.5",
-                                }}
-                              >
-                                <Field
-                                  label="Pre-exposure lookback period (days)"
-                                  type="number"
-                                  style={{
-                                    borderColor:
-                                      regressionAdjustmentDaysHighlightColor,
-                                    backgroundColor:
-                                      regressionAdjustmentDaysHighlightColor
-                                        ? regressionAdjustmentDaysHighlightColor +
-                                          "15"
-                                        : "",
-                                  }}
-                                  className="ml-2"
-                                  containerClassName="mb-0 form-inline"
-                                  inputGroupClassName="d-inline-flex w-150px"
-                                  append="days"
-                                  min="0"
-                                  max="100"
-                                  disabled={!hasRegressionAdjustmentFeature}
-                                  helpText={
-                                    <>
-                                      <span className="ml-2">
-                                        (organization default:{" "}
-                                        {settings.regressionAdjustmentDays ??
-                                          DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
-                                        )
-                                      </span>
-                                    </>
-                                  }
-                                  {...form.register(
-                                    "regressionAdjustmentDays",
-                                    {
-                                      valueAsNumber: true,
-                                      validate: (v) => {
-                                        v = v || 0;
-                                        return !(v <= 0 || v > 100);
-                                      },
-                                    },
-                                  )}
-                                />
-                                {regressionAdjustmentDaysWarningMsg && (
-                                  <small
-                                    style={{
-                                      color:
-                                        regressionAdjustmentDaysHighlightColor,
-                                    }}
-                                  >
-                                    {regressionAdjustmentDaysWarningMsg}
-                                  </small>
-                                )}
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-muted">
-                            <FaTimes className="text-danger" />{" "}
-                            {regressionAdjustmentAvailableForMetricReason}
-                          </div>
-                        )}
+                <>
+                  <Tabs defaultValue="query">
+                    <TabsList>
+                      <TabsTrigger value="query">Analysis Settings</TabsTrigger>
+                      <TabsTrigger value="display">
+                        Display Settings
+                      </TabsTrigger>
+                      <div className="ml-auto">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setAdvancedOpen(false);
+                          }}
+                          style={{ verticalAlign: "middle" }}
+                          title="Hide advanced settings"
+                        >
+                          <FaTimes /> Hide
+                        </a>
                       </div>
-                    </TabsContent>
+                    </TabsList>
 
-                    <TabsContent value="display">
-                      <div className="form-group">
-                        <label>{`Minimum ${
-                          quantileMetricType
-                            ? `${capitalizeFirstLetter(
-                                quantileMetricType,
-                              )} Count`
-                            : `${
-                                type === "ratio" ? "Numerator" : "Metric"
-                              } Total`
-                        }`}</label>
-                        <input
+                    <Box py="3">
+                      <TabsContent value="query">
+                        {type !== "retention" ? (
+                          <MetricDelaySettings form={form} />
+                        ) : null}
+                        {type !== "quantile" &&
+                        type !== "proportion" &&
+                        type !== "retention" ? (
+                          <MetricCappingSettingsForm
+                            form={form}
+                            datasourceType={selectedDataSource.type}
+                            metricType={type}
+                          />
+                        ) : null}
+
+                        <Field
+                          label="Target MDE"
                           type="number"
-                          className="form-control"
-                          {...form.register("minSampleSize", {
+                          step="any"
+                          append="%"
+                          {...form.register("targetMDE", {
                             valueAsNumber: true,
                           })}
+                          helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                            metricDefaults.targetMDE * 100
+                          }%)`}
                         />
-                        <small className="text-muted">
-                          The{" "}
-                          {type === "proportion"
-                            ? "number of conversions"
-                            : type === "ratio"
-                              ? "total numerator sum"
-                              : quantileMetricType
-                                ? `number of ${quantileMetricType}s`
-                                : "total metric sum"}{" "}
-                          required in an experiment variation before showing
-                          results (default{" "}
-                          {type === "proportion"
-                            ? metricDefaults.minimumSampleSize
-                            : formatNumber(metricDefaults.minimumSampleSize)}
-                          )
-                        </small>
-                      </div>
-                      <Field
-                        label="Max Percent Change"
-                        type="number"
-                        step="any"
-                        append="%"
-                        {...form.register("maxPercentChange", {
-                          valueAsNumber: true,
-                        })}
-                        helpText={`An experiment that changes the metric by more than this percent will
+
+                        <MetricPriorSettingsForm
+                          priorSettings={form.watch("priorSettings")}
+                          setPriorSettings={(priorSettings) =>
+                            form.setValue("priorSettings", priorSettings)
+                          }
+                          metricDefaults={metricDefaults}
+                        />
+
+                        <PremiumTooltip commercialFeature="regression-adjustment">
+                          <label className="mb-1">
+                            <GBCuped /> Regression Adjustment (CUPED)
+                          </label>
+                        </PremiumTooltip>
+                        <div className="px-3 py-2 pb-0 mb-2 border rounded">
+                          {regressionAdjustmentAvailableForMetric ? (
+                            <>
+                              <Box mt="1">
+                                <Checkbox
+                                  label="Override organization-level settings"
+                                  value={form.watch(
+                                    "regressionAdjustmentOverride",
+                                  )}
+                                  setValue={(v) =>
+                                    form.setValue(
+                                      "regressionAdjustmentOverride",
+                                      v === true,
+                                    )
+                                  }
+                                  disabled={!hasRegressionAdjustmentFeature}
+                                />
+                              </Box>
+                              <div
+                                style={{
+                                  display: form.watch(
+                                    "regressionAdjustmentOverride",
+                                  )
+                                    ? "block"
+                                    : "none",
+                                }}
+                              >
+                                <div className="d-flex my-2 border-bottom"></div>
+                                <Flex
+                                  direction="column"
+                                  className="form-group mt-3 mb-0 mr-2"
+                                >
+                                  <Switch
+                                    id={"toggle-regressionAdjustmentEnabled"}
+                                    label="Apply regression adjustment for this metric"
+                                    value={
+                                      !!form.watch(
+                                        "regressionAdjustmentEnabled",
+                                      )
+                                    }
+                                    onChange={(value) => {
+                                      form.setValue(
+                                        "regressionAdjustmentEnabled",
+                                        value,
+                                      );
+                                    }}
+                                    disabled={!hasRegressionAdjustmentFeature}
+                                  />
+                                  <small className="form-text text-muted">
+                                    (organization default:{" "}
+                                    {settings.regressionAdjustmentEnabled
+                                      ? "On"
+                                      : "Off"}
+                                    )
+                                  </small>
+                                </Flex>
+                                <div
+                                  className="form-group mt-3 mb-1 mr-2"
+                                  style={{
+                                    opacity: form.watch(
+                                      "regressionAdjustmentEnabled",
+                                    )
+                                      ? "1"
+                                      : "0.5",
+                                  }}
+                                >
+                                  <Field
+                                    label="Pre-exposure lookback period (days)"
+                                    type="number"
+                                    style={{
+                                      borderColor:
+                                        regressionAdjustmentDaysHighlightColor,
+                                      backgroundColor:
+                                        regressionAdjustmentDaysHighlightColor
+                                          ? regressionAdjustmentDaysHighlightColor +
+                                            "15"
+                                          : "",
+                                    }}
+                                    className="ml-2"
+                                    containerClassName="mb-0 form-inline"
+                                    inputGroupClassName="d-inline-flex w-150px"
+                                    append="days"
+                                    min="0"
+                                    max="100"
+                                    disabled={!hasRegressionAdjustmentFeature}
+                                    helpText={
+                                      <>
+                                        <span className="ml-2">
+                                          (organization default:{" "}
+                                          {settings.regressionAdjustmentDays ??
+                                            DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
+                                          )
+                                        </span>
+                                      </>
+                                    }
+                                    {...form.register(
+                                      "regressionAdjustmentDays",
+                                      {
+                                        valueAsNumber: true,
+                                        validate: (v) => {
+                                          v = v || 0;
+                                          return !(v <= 0 || v > 100);
+                                        },
+                                      },
+                                    )}
+                                  />
+                                  {regressionAdjustmentDaysWarningMsg && (
+                                    <small
+                                      style={{
+                                        color:
+                                          regressionAdjustmentDaysHighlightColor,
+                                      }}
+                                    >
+                                      {regressionAdjustmentDaysWarningMsg}
+                                    </small>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-muted">
+                              <FaTimes className="text-danger" />{" "}
+                              {regressionAdjustmentAvailableForMetricReason}
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="display">
+                        <div className="form-group">
+                          <label>{`Minimum ${
+                            quantileMetricType
+                              ? `${capitalizeFirstLetter(
+                                  quantileMetricType,
+                                )} Count`
+                              : `${
+                                  type === "ratio" ? "Numerator" : "Metric"
+                                } Total`
+                          }`}</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            {...form.register("minSampleSize", {
+                              valueAsNumber: true,
+                            })}
+                          />
+                          <small className="text-muted">
+                            The{" "}
+                            {type === "proportion"
+                              ? "number of conversions"
+                              : type === "ratio"
+                                ? "total numerator sum"
+                                : quantileMetricType
+                                  ? `number of ${quantileMetricType}s`
+                                  : "total metric sum"}{" "}
+                            required in an experiment variation before showing
+                            results (default{" "}
+                            {type === "proportion"
+                              ? metricDefaults.minimumSampleSize
+                              : formatNumber(metricDefaults.minimumSampleSize)}
+                            )
+                          </small>
+                        </div>
+                        <Field
+                          label="Max Percent Change"
+                          type="number"
+                          step="any"
+                          append="%"
+                          {...form.register("maxPercentChange", {
+                            valueAsNumber: true,
+                          })}
+                          helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               metricDefaults.maxPercentageChange * 100
             }%)`}
-                      />
-                      <Field
-                        label="Min Percent Change"
-                        type="number"
-                        step="any"
-                        append="%"
-                        {...form.register("minPercentChange", {
-                          valueAsNumber: true,
-                        })}
-                        helpText={`An experiment that changes the metric by less than this percent will be
+                        />
+                        <Field
+                          label="Min Percent Change"
+                          type="number"
+                          step="any"
+                          append="%"
+                          {...form.register("minPercentChange", {
+                            valueAsNumber: true,
+                          })}
+                          helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
             }%)`}
-                      />
+                        />
 
-                      <RiskThresholds
-                        winRisk={form.watch("winRisk")}
-                        loseRisk={form.watch("loseRisk")}
-                        winRiskRegisterField={form.register("winRisk")}
-                        loseRiskRegisterField={form.register("loseRisk")}
-                        riskError={riskError}
-                      />
-                      {type === "ratio" ? (
-                        <Box mb="1">
-                          <Checkbox
-                            label="Format ratio as a percentage"
-                            value={form.watch("displayAsPercentage") ?? false}
-                            setValue={(v) =>
-                              form.setValue("displayAsPercentage", v === true)
-                            }
-                          />
-                          <Box className="text-muted small">
-                            Will render variation means as a percentage rather
-                            than a proportion (e.g. 34% instead of 0.34).
+                        <RiskThresholds
+                          winRisk={form.watch("winRisk")}
+                          loseRisk={form.watch("loseRisk")}
+                          winRiskRegisterField={form.register("winRisk")}
+                          loseRiskRegisterField={form.register("loseRisk")}
+                          riskError={riskError}
+                        />
+                        {type === "ratio" ? (
+                          <Box mb="1">
+                            <Checkbox
+                              label="Format ratio as a percentage"
+                              value={form.watch("displayAsPercentage") ?? false}
+                              setValue={(v) =>
+                                form.setValue("displayAsPercentage", v === true)
+                              }
+                            />
+                            <Box className="text-muted small">
+                              Will render variation means as a percentage rather
+                              than a proportion (e.g. 34% instead of 0.34).
+                            </Box>
                           </Box>
-                        </Box>
-                      ) : null}
-                    </TabsContent>
-                  </Box>
-                </Tabs>
+                        ) : null}
+                      </TabsContent>
+                    </Box>
+                  </Tabs>
+                  {permissionsUtil.canUpdateOfficialResources(
+                    { projects: form.watch("projects") },
+                    {},
+                  ) && hasCommercialFeature("manage-official-resources") ? (
+                    <Checkbox
+                      label="Mark as Official Metric"
+                      disabled={form.watch("managedBy") === "api"}
+                      disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
+                      description="Official Metrics can only be modified by Admins or users
+                      with the ManageOfficialResources policy."
+                      value={form.watch("managedBy") === MANAGED_BY_ADMIN}
+                      setValue={(value) => {
+                        form.setValue("managedBy", value ? "admin" : "");
+                      }}
+                    />
+                  ) : null}
+                </>
               )}
             </>
           )}

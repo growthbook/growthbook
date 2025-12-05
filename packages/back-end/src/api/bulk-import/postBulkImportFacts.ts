@@ -110,7 +110,6 @@ export const postBulkImportFacts = createApiRequestHandler(
       // Create new fact table
       else {
         const factTable: CreateFactTableProps = {
-          columns: [],
           eventName: "",
           id: id,
           description: "",

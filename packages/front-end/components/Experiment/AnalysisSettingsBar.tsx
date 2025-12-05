@@ -25,7 +25,7 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { GBCuped } from "@/components/Icons";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -91,7 +91,7 @@ export default function AnalysisSettingsBar({
     setDimension: setSnapshotDimension,
     setSnapshotType,
   } = useSnapshot();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
@@ -251,10 +251,11 @@ export default function AnalysisSettingsBar({
                   >
                     <GBCuped />
                     <span className="mx-1 font-weight-bold">CUPED</span>
-                    <Toggle
+                    <Switch
+                      color="teal"
                       id="toggle-experiment-regression-adjustment"
                       value={!!regressionAdjustmentEnabled}
-                      setValue={(value) => {
+                      onChange={(value) => {
                         if (
                           onRegressionAdjustmentChange &&
                           hasRegressionAdjustmentFeature
@@ -264,8 +265,6 @@ export default function AnalysisSettingsBar({
                           });
                         }
                       }}
-                      className={`teal m-0`}
-                      style={{ transform: "scale(0.8)" }}
                       disabled={
                         !hasRegressionAdjustmentFeature ||
                         !canEditAnalysisSettings
@@ -353,9 +352,6 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={
-                  analysis?.settings?.differenceType ?? "relative"
-                }
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {
@@ -389,7 +385,11 @@ export default function AnalysisSettingsBar({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={getAllMetricIdsFromExperiment(experiment, false)}
+                metrics={getAllMetricIdsFromExperiment(
+                  experiment,
+                  false,
+                  metricGroups,
+                )}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}
@@ -507,7 +507,7 @@ export function isOutdated({
   const snapshotMetrics = Array.from(
     new Set(
       expandMetricGroups(
-        getAllMetricIdsFromExperiment(snapshotSettings, false),
+        getAllMetricIdsFromExperiment(snapshotSettings, false, metricGroups),
         metricGroups,
       ),
     ),
@@ -515,7 +515,7 @@ export function isOutdated({
   let experimentMetrics = Array.from(
     new Set(
       expandMetricGroups(
-        getAllMetricIdsFromExperiment(experiment, false),
+        getAllMetricIdsFromExperiment(experiment, false, metricGroups),
         metricGroups,
       ),
     ),

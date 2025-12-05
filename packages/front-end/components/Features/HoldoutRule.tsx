@@ -9,10 +9,10 @@ import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
-import Callout from "../Radix/Callout";
 import HoldoutSummary from "./HoldoutSummary";
 import ConditionDisplay from "./ConditionDisplay";
 
@@ -77,9 +77,15 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
               <Box>
                 <Badge label={<>1</>} radius="full" color="gray" />
               </Box>
-              <Box flexGrow="1" flexShrink="5" overflowX="auto">
-                <Flex align="center" mb="3" flexGrow="1">
-                  <Box flexGrow="1">
+              <Box flexGrow="1" pr="2">
+                <Flex align="center" justify="between" mb="3" flexGrow="1">
+                  <Flex
+                    flexGrow="1"
+                    gap="3"
+                    justify="between"
+                    mr="3"
+                    align="center"
+                  >
                     <Heading as="h4" size="3" weight="medium" mb="0">
                       <Flex gap="3" align="center">
                         <div>Holdout: </div>
@@ -92,17 +98,49 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                         />
                       </Flex>
                     </Heading>
-                  </Box>
-                  {isInactive && (
-                    <Badge
-                      color="amber"
-                      label={
-                        <>
-                          <PiArrowBendRightDown />
-                          Skipped
-                        </>
-                      }
-                    />
+                    {isInactive && (
+                      <Badge
+                        color="amber"
+                        label={
+                          <>
+                            <PiArrowBendRightDown />
+                            Skipped
+                          </>
+                        }
+                      />
+                    )}
+                  </Flex>
+                  {canEdit && (
+                    <Flex>
+                      <MoreMenu useRadix={true} size={14}>
+                        <a
+                          href="#"
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setRuleModal();
+                          }}
+                        >
+                          Edit
+                        </a>
+                        {/* Do we want to delete holdouts? Do we want a confirmation modal? */}
+                        <DeleteButton
+                          className="dropdown-item"
+                          displayName="Rule"
+                          useIcon={false}
+                          text="Delete"
+                          onClick={async () => {
+                            await apiCall(
+                              `/holdout/${feature.holdout?.id}/feature/${feature.id}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            await mutate();
+                          }}
+                        />
+                      </MoreMenu>
+                    </Flex>
                   )}
                 </Flex>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
@@ -155,38 +193,6 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                   </Box>
                 )}
               </Box>
-              <Flex>
-                {canEdit && (
-                  <MoreMenu useRadix={true} size={14}>
-                    <a
-                      href="#"
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRuleModal();
-                      }}
-                    >
-                      Edit
-                    </a>
-                    {/* Do we want to delete holdouts? Do we want a confirmation modal? */}
-                    <DeleteButton
-                      className="dropdown-item"
-                      displayName="Rule"
-                      useIcon={false}
-                      text="Delete"
-                      onClick={async () => {
-                        await apiCall(
-                          `/holdout/${feature.holdout?.id}/feature/${feature.id}`,
-                          {
-                            method: "DELETE",
-                          },
-                        );
-                        await mutate();
-                      }}
-                    />
-                  </MoreMenu>
-                )}
-              </Flex>
             </Flex>
           </Card>
         </Box>

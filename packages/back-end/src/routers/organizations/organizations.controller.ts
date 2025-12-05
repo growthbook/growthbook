@@ -19,6 +19,7 @@ import {
   findSdkWebhookById,
   updateSdkWebhook,
 } from "back-end/src/models/WebhookModel";
+import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -122,6 +123,10 @@ import {
   findAllAuditsByEntityTypeParent,
   findAuditByEntity,
   findAuditByEntityParent,
+  countAuditByEntity,
+  countAuditByEntityParent,
+  countAllAuditsByEntityType,
+  countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
 import { EntityType } from "back-end/src/types/Audit";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
@@ -145,6 +150,10 @@ import {
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
 import { AgreementType } from "back-end/src/validators/agreements";
+import {
+  getInstallation,
+  setInstallationName,
+} from "back-end/src/models/InstallationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -251,11 +260,13 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 }
 
 export async function getAllHistory(
-  req: AuthRequest<null, { type: string }>,
+  req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
+  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -264,38 +275,81 @@ export async function getAllHistory(
     });
   }
 
+  // Get total count for display
+  const [entityCount, parentCount] = await Promise.all([
+    countAllAuditsByEntityType(org.id, type),
+    countAllAuditsByEntityTypeParent(org.id, type),
+  ]);
+  const total = entityCount + parentCount;
+
+  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
+  const fetchLimit = limit;
+
   const events = await Promise.all([
-    findAllAuditsByEntityType(org.id, type),
-    findAllAuditsByEntityTypeParent(org.id, type),
+    findAllAuditsByEntityType(
+      org.id,
+      type,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
+    findAllAuditsByEntityTypeParent(
+      org.id,
+      type,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
   ]);
 
+  // Merge and sort by dateCreated descending
   const merged = [...events[0], ...events[1]];
-
   merged.sort((a, b) => {
     if (b.dateCreated > a.dateCreated) return 1;
     else if (b.dateCreated < a.dateCreated) return -1;
     return 0;
   });
 
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  // Take only the requested limit
+  const paginatedEvents = merged.slice(0, limit);
+
+  if (paginatedEvents.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history",
     });
   }
 
+  // The next cursor is the dateCreated of the last event
+  const nextCursor =
+    paginatedEvents.length > 0
+      ? paginatedEvents[paginatedEvents.length - 1].dateCreated
+      : null;
+
   res.status(200).json({
     status: 200,
-    events: merged,
+    events: paginatedEvents,
+    total,
+    nextCursor,
   });
 }
 
 export async function getHistory(
-  req: AuthRequest<null, { type: string; id: string }>,
+  req: AuthRequest<
+    null,
+    { type: string; id: string },
+    { cursor?: string; limit?: string }
+  >,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
+  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -304,29 +358,69 @@ export async function getHistory(
     });
   }
 
+  // Get total count for display
+  const [entityCount, parentCount] = await Promise.all([
+    countAuditByEntity(org.id, type, id),
+    countAuditByEntityParent(org.id, type, id),
+  ]);
+  const total = entityCount + parentCount;
+
+  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
+
+  const fetchLimit = limit;
+
   const events = await Promise.all([
-    findAuditByEntity(org.id, type, id),
-    findAuditByEntityParent(org.id, type, id),
+    findAuditByEntity(
+      org.id,
+      type,
+      id,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
+    findAuditByEntityParent(
+      org.id,
+      type,
+      id,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
   ]);
 
+  // Merge and sort by dateCreated descending
   const merged = [...events[0], ...events[1]];
-
   merged.sort((a, b) => {
     if (b.dateCreated > a.dateCreated) return 1;
     else if (b.dateCreated < a.dateCreated) return -1;
     return 0;
   });
 
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  // Take only the requested limit
+  const paginatedEvents = merged.slice(0, limit);
+
+  if (paginatedEvents.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history for this",
     });
   }
 
+  // The next cursor is the dateCreated of the last event
+  const nextCursor =
+    paginatedEvents.length > 0
+      ? paginatedEvents[paginatedEvents.length - 1].dateCreated
+      : null;
+
   res.status(200).json({
     status: 200,
-    events: merged,
+    events: paginatedEvents,
+    total,
+    nextCursor,
   });
 }
 
@@ -701,6 +795,8 @@ export async function getOrganization(
     }
   }
 
+  const installationName = (await getLicenseMetaData())?.installationName;
+
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
     context.permissions.canReadMultiProjectResource(attribute.projects),
   );
@@ -765,6 +861,7 @@ export async function getOrganization(
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     watching: {
@@ -1322,10 +1419,17 @@ export async function putOrganization(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, ownerEmail, settings, connections, externalId, licenseKey } =
-    req.body;
+  const {
+    name,
+    installationName,
+    ownerEmail,
+    settings,
+    connections,
+    externalId,
+    licenseKey,
+  } = req.body;
 
-  if (connections || name || ownerEmail) {
+  if (connections || name || ownerEmail || installationName) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
@@ -1373,6 +1477,25 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (installationName && !IS_CLOUD) {
+      const installation = await getInstallation();
+      const currentName = installation.name;
+      if (installationName && currentName !== installationName) {
+        await req.audit({
+          event: "installation.update",
+          entity: {
+            object: "installation",
+            id: installation.id,
+          },
+          details: auditDetailsUpdate(
+            { name: currentName },
+            { name: installationName },
+          ),
+        });
+
+        await setInstallationName(installationName);
+      }
     }
     if (ownerEmail && ownerEmail !== org.ownerEmail) {
       // the owner email is being changed
@@ -2053,7 +2176,7 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: string }>,
+  req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2068,22 +2191,40 @@ export async function putDefaultRole(
     );
   }
 
-  if (!isRoleValid(defaultRole, org)) {
-    throw new Error("Invalid role");
-  }
-
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
+  }
+
+  const { memberIsValid, reason } = validateRoleAndEnvs(
+    org,
+    defaultRole.role,
+    defaultRole.limitAccessByEnvironment,
+    defaultRole.environments,
+  );
+
+  if (!memberIsValid) {
+    throw new Error(reason);
+  }
+
+  if (defaultRole.projectRoles?.length) {
+    defaultRole.projectRoles.forEach((p) => {
+      const { memberIsValid, reason } = validateRoleAndEnvs(
+        org,
+        p.role,
+        p.limitAccessByEnvironment,
+        p.environments,
+      );
+
+      if (!memberIsValid) {
+        throw new Error(reason);
+      }
+    });
   }
 
   updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      defaultRole: {
-        role: defaultRole,
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
+      defaultRole,
     },
   });
 

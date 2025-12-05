@@ -14,7 +14,7 @@ import clsx from "clsx";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
+import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -32,8 +32,10 @@ export interface TooltipData {
   metricRow: number;
   metric: ExperimentMetricInterface;
   metricSnapshotSettings?: MetricSnapshotSettings;
-  dimensionName?: string;
-  dimensionValue?: string;
+  sliceLevels?: Array<{
+    dimension: string;
+    levels: string[];
+  }>;
   variation: ExperimentReportVariationWithIndex;
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -151,7 +153,7 @@ export default function ResultsTableTooltip({
         </a>
 
         {/*tooltip contents*/}
-        <AnalysisResultPopover
+        <AnalysisResultSummary
           data={data}
           ssrPolyfills={ssrPolyfills}
           differenceType={differenceType}

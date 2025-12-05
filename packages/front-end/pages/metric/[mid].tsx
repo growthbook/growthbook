@@ -12,14 +12,14 @@ import { FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -30,12 +30,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { getMetricFormatter } from "@/services/metrics";
 import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
-import {
-  TabsList,
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { TabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
 import RunQueriesButton, {
@@ -56,7 +51,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -138,11 +133,18 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canDuplicateMetric = permissionsUtil.canCreateMetric(metric);
-  const canEditMetric =
-    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
-  const canDeleteMetric =
-    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
+  const canDuplicateMetric = permissionsUtil.canCreateMetric({
+    // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+    projects: metric.projects,
+  });
+  let canEditMetric = permissionsUtil.canUpdateMetric(metric, {});
+  let canDeleteMetric = permissionsUtil.canDeleteMetric(metric);
+
+  // Additional check if managed by api or config
+  if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+    canEditMetric = false;
+    canDeleteMetric = false;
+  }
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -316,6 +318,8 @@ const MetricPage: FC = () => {
           currentMetric={{
             ...metric,
             name: metric.name + " (copy)",
+            // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+            managedBy: "",
           }}
           close={() => setDuplicateModalOpen(false)}
           source="metrics-detail"
@@ -772,24 +776,27 @@ const MetricPage: FC = () => {
                               </div>
                               <div className="col">
                                 <div className="float-right mr-2">
-                                  <label
-                                    className="small my-0 mr-2 text-right align-middle"
-                                    htmlFor="toggle-group-by-avg"
-                                  >
-                                    Smoothing
-                                    <br />
-                                    (7 day trailing)
-                                  </label>
-                                  <Toggle
-                                    value={smoothByAvg === "week"}
-                                    setValue={() =>
-                                      setSmoothByAvg(
-                                        smoothByAvg === "week" ? "day" : "week",
-                                      )
-                                    }
-                                    id="toggle-group-by-avg"
-                                    className="align-middle"
-                                  />
+                                  <Flex align="center" gap="1">
+                                    <Switch
+                                      value={smoothByAvg === "week"}
+                                      onChange={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week",
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                    />
+                                    <label
+                                      className="small my-0 mr-2 text-right align-middle"
+                                      htmlFor="toggle-group-by-avg"
+                                    >
+                                      Smoothing
+                                      <br />
+                                      (7 day trailing)
+                                    </label>
+                                  </Flex>
                                 </div>
                               </div>
                             </div>
@@ -847,24 +854,25 @@ const MetricPage: FC = () => {
                           </div>
                           <div className="col">
                             <div className="float-right mr-2">
-                              <label
-                                className="small my-0 mr-2 text-right align-middle"
-                                htmlFor="toggle-group-by-sum"
-                              >
-                                Smoothing
-                                <br />
-                                (7 day trailing)
-                              </label>
-                              <Toggle
-                                value={smoothBySum === "week"}
-                                setValue={() =>
-                                  setSmoothBySum(
-                                    smoothBySum === "week" ? "day" : "week",
-                                  )
-                                }
-                                id="toggle-group-by-sum"
-                                className="align-middle"
-                              />
+                              <Flex align="center" gap="1">
+                                <Switch
+                                  value={smoothBySum === "week"}
+                                  onChange={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week",
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                />
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                              </Flex>
                             </div>
                           </div>
                         </div>

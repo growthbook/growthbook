@@ -1,37 +1,51 @@
-import { Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   blockHasFieldOfType,
   isDifferenceType,
   isMetricSelector,
   metricSelectors,
+  BLOCK_CONFIG_ITEM_TYPES,
+  pinSources,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
-import Callout from "@/components/Radix/Callout";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
-import Checkbox from "@/components/Radix/Checkbox";
-import Avatar from "@/components/Radix/Avatar";
-import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import Avatar from "@/ui/Avatar";
+import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { BLOCK_TYPE_INFO } from "..";
+import {
+  useDashboardSnapshot,
+  DashboardSnapshotContext,
+} from "../../DashboardSnapshotProvider";
+import MetricExplorerSettings from "./MetricExplorerSettings";
+import {
+  ExperimentMetricBlockContext,
+  ExperimentTimeSeriesBlockContext,
+} from "./types";
+import { useBlockContext } from "./useBlockContext";
 
 type RequiredField = {
   field: string;
@@ -58,10 +72,6 @@ const REQUIRED_FIELDS: {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
     },
-    {
-      field: "dataVizConfigIndex",
-      validation: (idx) => typeof idx === "number" && idx >= 0,
-    },
   ],
 };
 
@@ -75,7 +85,9 @@ const metricSelectorLabels: {
 };
 
 interface Props {
-  experiment: ExperimentInterfaceStringDates;
+  projects: string[];
+  dashboardId: string;
+  experiment: ExperimentInterfaceStringDates | null;
   cancel: () => void;
   submit: () => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
@@ -83,18 +95,66 @@ interface Props {
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
   >;
 }
+
+function isBlockConfigItemSelected(
+  blockConfig: string[] | undefined,
+  itemId: string,
+): boolean {
+  return !!blockConfig?.includes(itemId);
+}
+
+function toggleBlockConfigItem(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >,
+  itemId: string,
+  value: boolean,
+) {
+  // Only handle blockConfig for sql-explorer blocks
+  if (block.type !== "sql-explorer") return;
+
+  // Type guard to ensure we have a sql-explorer block with blockConfig
+  if (!("blockConfig" in block)) return;
+
+  const currentBlockConfig = block.blockConfig;
+  // Remove dataVizConfigIndex from legacy blocks so the new config format takes effect
+  const { dataVizConfigIndex: _, ...blockToSet } = block;
+
+  if (value) {
+    // Add item to blockConfig
+    const newBlockConfig = [...currentBlockConfig, itemId];
+    setBlock({
+      ...blockToSet,
+      blockConfig: newBlockConfig,
+    });
+  } else {
+    // Remove item from blockConfig
+    const filteredBlockConfig = currentBlockConfig.filter(
+      (id: string) => id !== itemId,
+    );
+    setBlock({
+      ...blockToSet,
+      blockConfig: filteredBlockConfig,
+    });
+  }
+}
+
 export default function EditSingleBlock({
+  dashboardId,
   experiment,
   cancel,
   submit,
   block,
   setBlock,
+  projects,
 }: Props) {
   const {
     dimensions,
     metricGroups,
     getExperimentMetricById,
     getDatasourceById,
+    factMetrics,
   } = useDefinitions();
   const {
     data: savedQueriesData,
@@ -104,22 +164,62 @@ export default function EditSingleBlock({
     status: number;
     savedQueries: SavedQuery[];
   }>(`/saved-queries/`);
+  const [sqlExplorerType, setSqlExplorerType] = useState<"existing" | "create">(
+    "existing",
+  );
 
   const metricGroupMap = useMemo(
     () => new Map(metricGroups.map((group) => [group.id, group])),
     [metricGroups],
   );
 
-  const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
-
-  const dimensionValueOptions =
-    snapshot?.dimension && analysis?.results
-      ? analysis.results.map(({ name }) => ({ value: name, label: name }))
-      : [];
-
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
+  const [selectedMetricIdForPinning, setSelectedMetricIdForPinning] =
+    useState<string>("");
+
+  const { analysis } = useDashboardSnapshot(block, setBlock);
+  const { defaultSnapshot, dimensionless, updateAllSnapshots } = useContext(
+    DashboardSnapshotContext,
+  );
+
+  const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
+
+  // Get block context from workspace level
+  const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
+  const blockContext = useBlockContext(blockId);
+
+  // TODO: does this need to handle metric groups
+  const factMetricOptions = useMemo(
+    () =>
+      factMetrics
+        // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
+        .filter((factMetric) => {
+          if (!projects.length || !factMetric.projects.length) {
+            return true;
+          }
+
+          // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
+          if (
+            blockHasFieldOfType(block, "factMetricId", isString) &&
+            factMetric.id === block.factMetricId
+          ) {
+            return true;
+          }
+
+          return projects.every((project) =>
+            factMetric.projects.includes(project),
+          );
+        })
+        .map((m) => ({ label: m.name, value: m.id })),
+    [block, factMetrics, projects],
+  );
 
   const metricOptions = useMemo(() => {
+    // For general dashboards without experiment, return empty options
+    if (!experiment) {
+      return [];
+    }
+
     const getMetrics = (metricOrGroupIds: string[]) => {
       const metricIds = expandMetricGroups(metricOrGroupIds, metricGroups);
       return metricIds.map(getExperimentMetricById).filter(isDefined);
@@ -182,9 +282,185 @@ export default function EditSingleBlock({
     ];
   }, [experiment, getExperimentMetricById, metricGroups, metricGroupMap]);
 
+  // Filtered metric options based on the block's metricSelector
+  const filteredMetricOptions = useMemo(() => {
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
+      return metricOptions;
+    }
+
+    const selector = block.metricSelector;
+
+    // For custom selector, show all metrics that are in the block's metricIds
+    if (selector === "custom") {
+      const customMetricIds = expandMetricGroups(
+        block.metricIds ?? [],
+        metricGroups,
+      );
+      return metricOptions
+        .map((group) => ({
+          ...group,
+          options: group.options.filter((option) =>
+            customMetricIds.includes(option.value),
+          ),
+        }))
+        .filter((group) => group.options.length > 0);
+    }
+
+    // For specific selectors, filter to only show metrics from that category
+    if (selector === "experiment-goal") {
+      return metricOptions.filter((group) => group.label === "Goal Metrics");
+    }
+    if (selector === "experiment-secondary") {
+      return metricOptions.filter(
+        (group) => group.label === "Secondary Metrics",
+      );
+    }
+    if (selector === "experiment-guardrail") {
+      return metricOptions.filter(
+        (group) => group.label === "Guardrail Metrics",
+      );
+    }
+
+    return metricOptions;
+  }, [metricOptions, block, metricGroups]);
+
+  // Reset selectedMetricIdForPinning if it's no longer allowed by the current metricSelector
+  useEffect(() => {
+    if (!selectedMetricIdForPinning) return;
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) return;
+
+    const selector = block.metricSelector;
+    let isAllowed = false;
+
+    // Check if the selected metric is allowed by the current selector
+    if (experiment) {
+      if (selector === "custom") {
+        isAllowed = expandMetricGroups(
+          block.metricIds ?? [],
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      } else if (selector === "experiment-goal") {
+        isAllowed = expandMetricGroups(
+          experiment.goalMetrics,
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      } else if (selector === "experiment-secondary") {
+        isAllowed = expandMetricGroups(
+          experiment.secondaryMetrics,
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      } else if (selector === "experiment-guardrail") {
+        isAllowed = expandMetricGroups(
+          experiment.guardrailMetrics,
+          metricGroups,
+        ).includes(selectedMetricIdForPinning);
+      }
+    }
+
+    if (!isAllowed) {
+      setSelectedMetricIdForPinning("");
+    }
+  }, [block, selectedMetricIdForPinning, experiment, metricGroups]);
+
+  const getSliceOptions = (metricId: string) => {
+    if (!metricId) return [];
+
+    // If we have context with sliceData, use it
+    if (
+      blockContext &&
+      "sliceData" in blockContext &&
+      Array.isArray(blockContext.sliceData)
+    ) {
+      // Filter slice data for the selected metric
+      const metricSliceData = (
+        blockContext as
+          | ExperimentMetricBlockContext
+          | ExperimentTimeSeriesBlockContext
+      ).sliceData.filter((slice) => {
+        // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
+        const sliceMetricId = slice.value.split("?")[0];
+        return sliceMetricId === metricId;
+      });
+      return metricSliceData;
+    }
+
+    return [];
+  };
+
+  const isSlicePinned = (pinKey: string) => {
+    if (!block) return false;
+
+    // If we have context with isSlicePinned function, use it
+    if (
+      blockContext &&
+      "isSlicePinned" in blockContext &&
+      typeof blockContext.isSlicePinned === "function"
+    ) {
+      return blockContext.isSlicePinned(pinKey) || false;
+    }
+
+    return false;
+  };
+
+  const toggleSlicePin = (pinKey: string, checked: boolean) => {
+    if (
+      !block ||
+      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
+    )
+      return;
+
+    const newPinnedSlices = checked
+      ? [...block.pinnedMetricSlices, pinKey]
+      : block.pinnedMetricSlices.filter((id) => id !== pinKey);
+
+    setBlock({
+      ...block,
+      pinnedMetricSlices: newPinnedSlices,
+    } as typeof block);
+  };
+
+  const getSelectAllState = () => {
+    if (
+      !block ||
+      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
+    )
+      return false;
+
+    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
+    const pinnedCount = sliceOptions.filter((slice) =>
+      block.pinnedMetricSlices.includes(slice.value),
+    ).length;
+
+    if (pinnedCount === 0) return false;
+    if (pinnedCount === sliceOptions.length) return true;
+    return "indeterminate";
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (!block) return;
+
+    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
+    const pinKeys = sliceOptions.map((slice) => slice.value);
+
+    setBlock({
+      ...block,
+      pinnedMetricSlices: checked ? pinKeys : [],
+    } as typeof block);
+  };
+
   const dimensionOptions = useMemo(() => {
+    // For general dashboards without experiment, return empty options
+    if (!experiment) {
+      return [];
+    }
+
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
+      incrementalRefresh,
+      precomputedDimensions: getPrecomputedDimensions(
+        defaultSnapshot,
+        dimensionless,
+      ),
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
@@ -197,15 +473,53 @@ export default function EditSingleBlock({
         (option) => option.value !== "pre:date",
       ),
     }));
-  }, [experiment, dimensions, getDatasourceById]);
+  }, [
+    experiment,
+    dimensions,
+    getDatasourceById,
+    defaultSnapshot,
+    dimensionless,
+    incrementalRefresh,
+  ]);
+
+  const savedQueryId = blockHasFieldOfType(block, "savedQueryId", isString)
+    ? block.savedQueryId
+    : undefined;
+
+  const savedQueryOptions = useMemo(
+    () =>
+      savedQueriesData?.savedQueries
+        ?.filter((savedQuery) => {
+          return (
+            savedQuery.linkedDashboardIds?.includes(dashboardId) ||
+            savedQueryId === savedQuery.id
+          );
+        })
+        .map(({ id, name }) => ({
+          value: id,
+          label: name,
+        })) || [],
+    [savedQueriesData?.savedQueries, dashboardId, savedQueryId],
+  );
+
+  useEffect(() => {
+    if (
+      block?.type === "sql-explorer" &&
+      sqlExplorerType === "existing" &&
+      !savedQueryOptions.length &&
+      !savedQueryId
+    ) {
+      setSqlExplorerType("create");
+      setShowSqlExplorerModal(true);
+    }
+  }, [block?.type, savedQueryId, savedQueryOptions.length, sqlExplorerType]);
+
+  const dimensionValueOptions = analysis?.results
+    ? analysis.results.map(({ name }) => ({ value: name, label: name }))
+    : [];
 
   if (isLoading) return <LoadingSpinner />;
 
-  const savedQueryOptions =
-    savedQueriesData?.savedQueries?.map(({ id, name }) => ({
-      value: id,
-      label: name,
-    })) || [];
   const savedQuery = blockHasFieldOfType(block, "savedQueryId", isString)
     ? savedQueriesData?.savedQueries?.find(
         (q: SavedQuery) => q.id === block.savedQueryId,
@@ -220,17 +534,18 @@ export default function EditSingleBlock({
   const baselineIndex = blockHasFieldOfType(block, "baselineRow", isNumber)
     ? block.baselineRow
     : 0;
-  const baselineVariation =
-    experiment.variations.find((_, i) => i === baselineIndex) ||
-    experiment.variations[0];
-  const variationOptions = (
-    requireBaselineVariation
-      ? experiment.variations.filter((_, i) => i !== baselineIndex)
-      : experiment.variations
-  ).map((variation) => ({
-    label: variation.name,
-    value: variation.id,
-  }));
+  // Only compute baseline/variation options when the block type depends on an experiment
+  const hasExperimentContext = !!experiment && requireBaselineVariation;
+  const baselineVariation = hasExperimentContext
+    ? experiment.variations.find((_, i) => i === baselineIndex) ||
+      experiment.variations[0]
+    : null;
+  const variationOptions = hasExperimentContext
+    ? (requireBaselineVariation
+        ? experiment.variations.filter((_, i) => i !== baselineIndex)
+        : experiment.variations
+      ).map((variation) => ({ label: variation.name, value: variation.id }))
+    : [];
   const setVariations = (
     block: Extract<
       DashboardBlockInterfaceOrData<DashboardBlockInterface>,
@@ -241,7 +556,7 @@ export default function EditSingleBlock({
     setBlock({
       ...block,
       variationIds:
-        requireBaselineVariation && value.length > 0
+        requireBaselineVariation && value.length > 0 && baselineVariation?.id
           ? [...value, baselineVariation.id]
           : value,
     });
@@ -256,7 +571,50 @@ export default function EditSingleBlock({
           }}
           mutate={mutateQuery}
           initial={savedQuery}
+          projects={projects}
           id={savedQuery?.id}
+          dashboardId={dashboardId}
+          onSave={async ({
+            savedQueryId,
+            name,
+            newVisualizationIds,
+            allVisualizationIds,
+          }) => {
+            if (!block || block.type !== "sql-explorer" || !savedQueryId)
+              return;
+
+            // Start with existing block config
+            let newBlockConfig = [...(block.blockConfig || [])];
+
+            // No visualizations: always show results table
+            if (allVisualizationIds.length === 0) {
+              newBlockConfig = [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE];
+            } else {
+              // Add all new visualizations to existing block config
+              newBlockConfig.push(...newVisualizationIds);
+
+              // Filter out any visualizations that no longer exist
+              newBlockConfig = newBlockConfig.filter((itemId) => {
+                if (itemId === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE) {
+                  return true;
+                }
+                return allVisualizationIds.includes(itemId);
+              });
+
+              // Remove duplicates (this should never happen, but just in case)
+              newBlockConfig = Array.from(new Set(newBlockConfig));
+            }
+
+            setBlock({
+              ...block,
+              savedQueryId,
+              title: name || "SQL Query",
+              blockConfig: newBlockConfig,
+            });
+            setSqlExplorerType("existing");
+            await mutateQuery();
+            await updateAllSnapshots();
+          }}
         />
       )}
       {block && (
@@ -362,20 +720,45 @@ export default function EditSingleBlock({
                 </Grid>
               </>
             )}
-            {/* Unused since no blocks currently allow a single metric */}
-            {/* {blockHasFieldOfType(block, "metricId", isString) && (
+            {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
-                label="Metric"
-                labelClassName="font-weight-bold"
-                value={block.metricId}
+                label={
+                  <Text as="label" size="3" weight="medium">
+                    Metric
+                  </Text>
+                }
+                labelClassName="mb-0"
+                value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
-                  setBlock({ ...block, metricId: value });
+                  const isMetricExplorer = block.type === "metric-explorer";
+                  setBlock({
+                    ...block,
+                    title:
+                      factMetricOptions.find((option) => option.value === value)
+                        ?.label || "Metric",
+                    factMetricId: value,
+                    ...(isMetricExplorer && {
+                      metricAnalysisId: "",
+                      analysisSettings: (() => {
+                        const {
+                          additionalNumeratorFilters:
+                            _additionalNumeratorFilters,
+                          additionalDenominatorFilters:
+                            _additionalDenominatorFilters,
+                          ...restSettings
+                        } = block.analysisSettings;
+                        return {
+                          ...restSettings,
+                          populationId: "",
+                          populationType: "factTable",
+                          userIdType: "",
+                        };
+                      })(),
+                    }),
+                  });
                 }}
-                // Can't select metric groups for a single metric block
-                options={metricOptions.filter(
-                  ({ label }) => label !== "Metric Groups",
-                )}
+                options={factMetricOptions}
                 formatOptionLabel={({ value }, { context }) => (
                   <MetricName
                     id={value}
@@ -384,7 +767,7 @@ export default function EditSingleBlock({
                   />
                 )}
               />
-            )} */}
+            )}
             {blockHasFieldOfType(block, "metricSelector", isMetricSelector) && (
               <>
                 <SelectField
@@ -459,6 +842,7 @@ export default function EditSingleBlock({
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, dimensionId: value })}
                 options={dimensionOptions}
+                sort={false}
               />
             )}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
@@ -495,10 +879,14 @@ export default function EditSingleBlock({
                 onChange={(value) =>
                   setBlock({ ...block, baselineRow: parseInt(value) })
                 }
-                options={experiment.variations.map((variation, i) => ({
-                  label: variation.name,
-                  value: i.toString(),
-                }))}
+                options={
+                  experiment
+                    ? experiment.variations.map((variation, i) => ({
+                        label: variation.name,
+                        value: i.toString(),
+                      }))
+                    : []
+                }
                 formatOptionLabel={({ value, label }) => (
                   <div
                     className={`variation variation${value} with-variation-label d-flex align-items-center`}
@@ -533,9 +921,9 @@ export default function EditSingleBlock({
                 disabled={variationOptions.length < 2}
                 options={variationOptions}
                 formatOptionLabel={({ value, label }) => {
-                  const varIndex = experiment.variations.findIndex(
-                    ({ id }) => id === value,
-                  );
+                  const varIndex = experiment
+                    ? experiment.variations.findIndex(({ id }) => id === value)
+                    : -1;
                   return (
                     <div
                       className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
@@ -560,6 +948,168 @@ export default function EditSingleBlock({
                 }}
               />
             )}
+            {blockHasFieldOfType(block, "pinSource", isString) ? (
+              <SelectField
+                label="Pin slice rows"
+                containerClassName="mb-2"
+                value={block.pinSource || "experiment"}
+                onChange={(value) =>
+                  setBlock({
+                    ...block,
+                    pinSource: value as (typeof pinSources)[number],
+                    // Reset pinnedMetricSlices when switching to experiment or none
+                    pinnedMetricSlices:
+                      value === "custom" ? block.pinnedMetricSlices || [] : [],
+                  } as DashboardBlockInterface & { pinSource: string })
+                }
+                options={pinSources.map((source) => ({
+                  value: source,
+                  label:
+                    source === "experiment"
+                      ? "Use Experiment"
+                      : source === "custom"
+                        ? "Custom"
+                        : "None",
+                }))}
+                sort={false}
+              />
+            ) : null}
+            {blockHasFieldOfType(block, "pinSource", isString) &&
+              block.pinSource === "custom" && (
+                <div className="border rounded mb-2">
+                  <div className="px-3 pt-2 pb-1 border-bottom">
+                    <PiPushPinFill className="mr-1" style={{ marginTop: -2 }} />
+                    <Text weight="medium">Custom Pin Selection</Text>
+
+                    <SelectField
+                      label="Select Metric"
+                      containerClassName="mt-3"
+                      value={selectedMetricIdForPinning || ""}
+                      onChange={(value) => setSelectedMetricIdForPinning(value)}
+                      options={filteredMetricOptions}
+                      sort={false}
+                      formatOptionLabel={({ label, value }) => (
+                        <Flex align="center" justify="between" gap="3">
+                          <Box
+                            flexGrow="1"
+                            overflow="hidden"
+                            style={{ textOverflow: "ellipsis" }}
+                          >
+                            <Text>{label}</Text>
+                          </Box>
+                          <Box flexShrink="0">
+                            <Text size="1" color="gray">
+                              {
+                                getSliceOptions(value)
+                                  .map((slice) => isSlicePinned(slice.value))
+                                  .filter(Boolean).length
+                              }{" "}
+                              of {getSliceOptions(value).length} pinned
+                            </Text>
+                          </Box>
+                        </Flex>
+                      )}
+                    />
+                  </div>
+                  {selectedMetricIdForPinning ? (
+                    <div
+                      className="p-3"
+                      style={{ maxHeight: 200, overflowY: "auto" }}
+                    >
+                      {getSliceOptions(selectedMetricIdForPinning).length >
+                      0 ? (
+                        <>
+                          <Checkbox
+                            label="Select All"
+                            value={getSelectAllState()}
+                            setValue={handleSelectAll}
+                            size="sm"
+                            mb="4"
+                          />
+                          <Flex direction="column" gap="0.5">
+                            {getSliceOptions(selectedMetricIdForPinning).map(
+                              (slice) => {
+                                // Generate label from column + level pairs
+                                const labelParts = slice.sliceLevels.map(
+                                  (sl) => {
+                                    if (sl.datatype === "boolean") {
+                                      const value =
+                                        sl.levels.length === 0
+                                          ? "null"
+                                          : sl.levels[0] === "true"
+                                            ? "true"
+                                            : "false";
+                                      return (
+                                        <span key={sl.column}>
+                                          {sl.column}:{" "}
+                                          <span
+                                            style={{
+                                              fontVariant: "small-caps",
+                                              fontWeight: 600,
+                                              fontSize: "16px",
+                                            }}
+                                          >
+                                            {value}
+                                          </span>
+                                        </span>
+                                      );
+                                    } else {
+                                      const value =
+                                        sl.levels.length === 0
+                                          ? "other"
+                                          : sl.levels[0];
+                                      return `${sl.column}: ${value}`;
+                                    }
+                                  },
+                                );
+
+                                const label =
+                                  labelParts.length === 1
+                                    ? labelParts[0]
+                                    : labelParts.reduce((acc, curr, index) => {
+                                        if (index === 0) return acc;
+                                        return (
+                                          <span key={index}>
+                                            {acc} + {curr}
+                                          </span>
+                                        );
+                                      });
+
+                                return (
+                                  <Checkbox
+                                    key={slice.value}
+                                    label={label}
+                                    value={isSlicePinned(slice.value)}
+                                    setValue={(checked) =>
+                                      toggleSlicePin(slice.value, checked)
+                                    }
+                                    size="sm"
+                                    weight="regular"
+                                  />
+                                );
+                              },
+                            )}
+                          </Flex>
+                        </>
+                      ) : (
+                        <Text
+                          weight="regular"
+                          color="gray"
+                          as="p"
+                          mx="4"
+                          my="2"
+                        >
+                          No slices available for this metric
+                        </Text>
+                      )}
+                    </div>
+                  ) : (
+                    <Text weight="regular" color="gray" as="p" mx="4" my="2">
+                      No metric selected
+                    </Text>
+                  )}
+                </div>
+              )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"
@@ -632,75 +1182,152 @@ export default function EditSingleBlock({
                 />
               </div>
             )}
-            {block.type === "sql-explorer" &&
-              (!savedQueriesData?.savedQueries ? (
-                <Callout status="error">
-                  Failed to load saved queries, try again later
-                </Callout>
-              ) : (
-                <>
-                  <SelectField
-                    required
-                    label={
-                      <Flex justify="between" align="center">
-                        <Text weight="bold">
-                          Saved Query
-                          <span className="text-danger ml-1">*</span>
-                        </Text>
-                        <IconButton
-                          onClick={() => setShowSqlExplorerModal(true)}
-                          variant="soft"
-                          size="1"
-                        >
-                          {savedQuery ? <PiPencilSimpleFill /> : <PiPlus />}
-                        </IconButton>
-                      </Flex>
-                    }
-                    labelClassName="flex-grow-1"
-                    containerClassName="mb-0"
-                    value={block.savedQueryId}
-                    placeholder="Choose a saved query"
-                    options={savedQueryOptions}
-                    onChange={(val) =>
+            {block.type === "sql-explorer" && (
+              <Flex direction="column" gap="2" width="100%" my="3">
+                {!block.savedQueryId ? (
+                  <RadioGroup
+                    value={sqlExplorerType}
+                    setValue={(value: "create" | "existing") => {
+                      // Reset the saved query id if the type changes
                       setBlock({
                         ...block,
-                        savedQueryId: val,
-                        dataVizConfigIndex: -1,
-                      })
-                    }
-                    isClearable
-                    autoFocus
+                        savedQueryId: "",
+                      });
+                      setSqlExplorerType(value);
+                    }}
+                    options={[
+                      {
+                        label: "Select existing query",
+                        value: "existing",
+                        disabled: !savedQueryOptions.length,
+                      },
+                      {
+                        label: "Create new query",
+                        value: "create",
+                      },
+                    ]}
                   />
+                ) : null}
 
-                  <SelectField
-                    required
-                    markRequired
-                    label="Data Visualization"
-                    labelClassName="font-weight-bold"
-                    containerClassName="mb-0"
-                    forceUndefinedValueToNull
-                    value={block.dataVizConfigIndex.toString()}
-                    placeholder={
-                      (savedQuery?.dataVizConfig || []).length === 0
-                        ? "No data visualizations"
-                        : "Choose a data visualization to display"
-                    }
-                    disabled={(savedQuery?.dataVizConfig?.length || 0) === 0}
-                    options={(savedQuery?.dataVizConfig || []).map(
-                      ({ title }, i) => ({
-                        label: title || `Visualization ${i}`,
-                        value: i.toString(),
-                      }),
+                {sqlExplorerType === "create" ? (
+                  <Button
+                    variant="soft"
+                    onClick={() => setShowSqlExplorerModal(true)}
+                  >
+                    <span className="w-100">
+                      <PiPencilSimpleFill /> Edit query
+                    </span>
+                  </Button>
+                ) : (
+                  <>
+                    <SelectField
+                      required
+                      labelClassName="flex-grow-1"
+                      containerClassName="mb-0"
+                      value={savedQuery?.id || ""}
+                      placeholder="Choose a saved query"
+                      label={
+                        <Flex justify="between" align="center">
+                          <Text weight="bold">Saved Query</Text>
+                          <IconButton
+                            disabled={!block.savedQueryId}
+                            variant="soft"
+                            size="1"
+                            onClick={() => setShowSqlExplorerModal(true)}
+                          >
+                            <PiPencilSimpleFill />
+                          </IconButton>
+                        </Flex>
+                      }
+                      options={savedQueryOptions}
+                      onChange={(val) => {
+                        setBlock({
+                          ...block,
+                          title:
+                            savedQueryOptions.find(
+                              (option) => option.value === val,
+                            )?.label || "SQL Query",
+                          savedQueryId: val,
+                          blockConfig: [],
+                        });
+                      }}
+                      isClearable
+                    />
+                  </>
+                )}
+                {savedQuery ? (
+                  <>
+                    {savedQuery?.results.error ? (
+                      <Callout status="error">
+                        <p>
+                          There is an error with your query. Click the pencil
+                          icon to edit.
+                        </p>
+                        <strong>Error:</strong> {savedQuery?.results.error}
+                      </Callout>
+                    ) : (
+                      <>
+                        <Separator size="4" my="4" />
+                        <Flex direction="column" gap="2">
+                          <Text
+                            size="1"
+                            style={{ color: "var(--color-text-mid)" }}
+                            weight="medium"
+                            className="text-uppercase"
+                          >
+                            Customize Display
+                          </Text>
+                          {savedQuery?.dataVizConfig?.map((config, index) => {
+                            const title =
+                              config.title || `Visualization ${index + 1}`;
+                            const configId = config.id || title; // Fallback to title for backward compatibility
+                            return (
+                              <Checkbox
+                                key={index}
+                                label={title}
+                                size="md"
+                                value={isBlockConfigItemSelected(
+                                  block.blockConfig,
+                                  configId,
+                                )}
+                                setValue={(value) =>
+                                  toggleBlockConfigItem(
+                                    block,
+                                    setBlock,
+                                    configId,
+                                    value,
+                                  )
+                                }
+                              />
+                            );
+                          })}
+                          <Checkbox
+                            key="results-table"
+                            label="Query results table"
+                            size="md"
+                            value={isBlockConfigItemSelected(
+                              block.blockConfig,
+                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                            )}
+                            setValue={(value) =>
+                              toggleBlockConfigItem(
+                                block,
+                                setBlock,
+                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                                value,
+                              )
+                            }
+                          />
+                        </Flex>
+                      </>
                     )}
-                    onChange={(value) =>
-                      setBlock({
-                        ...block,
-                        dataVizConfigIndex: parseInt(value),
-                      })
-                    }
-                  />
-                </>
-              ))}
+                  </>
+                ) : null}
+              </Flex>
+            )}
+            {block.type === "metric-explorer" && (
+              <MetricExplorerSettings block={block} setBlock={setBlock} />
+            )}
           </Flex>
           <Flex gap="3" align="center" justify="center">
             <Button

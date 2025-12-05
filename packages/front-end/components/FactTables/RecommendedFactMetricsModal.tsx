@@ -66,6 +66,7 @@ export function getRecommendedFactMetrics(
     (column) =>
       column.alwaysInlineFilter &&
       canInlineFilterColumn(factTable, column.column) &&
+      column.datatype === "string" &&
       column.topValues?.length,
   );
 

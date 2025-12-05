@@ -4,10 +4,12 @@
 
 a,
 .btn-link {
-  color: var(--text-link-color);
+  color: var(--accent-a11);
+  text-decoration-color: var(--accent-a5);
 
   &:hover {
-    color: var(--text-link-hover-color);
+    color: var(--accent-a10);
+    text-decoration: underline;
   }
 }
 
@@ -88,7 +90,7 @@ pre {
   background-color: var(--surface-background-color);
   border-color: var(--border-color-200);
 }
-.dark {
+.dark-theme {
   .card {
     .card-header {
       background-color: var(--surface-background-color-alt);

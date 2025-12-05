@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
-  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "back-end/src/types/Integration";
-import { TemplateVariables } from "back-end/types/sql";
+import { TemplateVariables } from "shared/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { SQL_ROW_LIMIT } from "shared/sql";
@@ -17,7 +17,7 @@ import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
-import RadixButton from "@/components/Radix/Button";
+import RadixButton from "@/ui/Button";
 import {
   usesEventName,
   usesValueColumn,
@@ -32,12 +32,9 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Checkbox from "../Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import { AreaWithHeader } from "./SqlExplorerModal";
 import styles from "./EditSqlModal.module.scss";
@@ -62,6 +59,16 @@ export interface Props {
     eventName?: string;
     valueColumn?: string;
   };
+  sqlObjectInfo: {
+    objectType:
+      | "Dimension"
+      | "Fact Table"
+      | "Identity Join"
+      | "Experiment Assignment Query"
+      | "Metric"
+      | "Segment";
+    objectName?: string;
+  };
 }
 
 export default function EditSqlModal({
@@ -74,6 +81,7 @@ export default function EditSqlModal({
   validateResponseOverride,
   templateVariables,
   setTemplateVariables,
+  sqlObjectInfo: modalInfo,
 }: Props) {
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
@@ -81,7 +89,7 @@ export default function EditSqlModal({
   const [apply5RowLimit, setApply5RowLimit] = useState(true);
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterface | undefined
+    InformationSchemaInterfaceWithPaths | undefined
   >();
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
@@ -223,7 +231,7 @@ export default function EditSqlModal({
       }
       try {
         const response = await apiCall<{
-          informationSchema: InformationSchemaInterface;
+          informationSchema: InformationSchemaInterfaceWithPaths;
         }>(`/datasource/${datasourceId}/schema`);
         setInformationSchema(response.informationSchema);
       } catch (error) {
@@ -253,7 +261,17 @@ export default function EditSqlModal({
     <Modal
       trackingEventModalType=""
       open
-      header="Edit SQL"
+      header={
+        <span>
+          Edit SQL for {modalInfo.objectType}
+          {modalInfo.objectName && (
+            <>
+              {" "}
+              <i>{modalInfo.objectName}</i>
+            </>
+          )}
+        </span>
+      }
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
           let res: TestQueryResults;

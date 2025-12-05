@@ -16,6 +16,69 @@ This SDK supports the following platforms and versions:
 - Apple TvOS 12 and above
 - Apple WatchOS 5.0 and above
 
+## Technical Specifications
+
+### Platform Support
+
+The GrowthBook Swift SDK provides comprehensive support for all Apple platforms:
+
+- **iOS**: 12.0+ (iPhone, iPad)
+- **macOS**: 10.15+ (Catalina and later)
+- **tvOS**: 12.0+ (Apple TV)
+- **watchOS**: 5.0+ (Apple Watch)
+- **visionOS**: 1.0+ (Apple Vision Pro)
+
+### Performance Characteristics
+
+- **Lightweight**: Minimal memory footprint and fast initialization
+- **Offline-First**: Works without network connectivity using cached features
+- **Efficient Caching**: Intelligent cache management with automatic cleanup
+- **Background Sync**: Real-time updates via Server-Sent Events (SSE)
+- **Low Latency**: Sub-millisecond feature evaluation performance
+
+### Implementation Details
+
+#### Architecture
+
+- **Native Swift**: Built entirely in Swift for optimal performance
+- **Protocol-Oriented**: Uses Swift protocols for extensibility and testability
+- **Memory Safe**: Leverages Swift's memory safety features
+- **Concurrent**: Thread-safe implementation with proper synchronization
+
+#### Dependencies
+
+- **No External Dependencies**: Zero third-party dependencies for maximum reliability
+- **Foundation Framework**: Uses only Apple's Foundation framework
+- **CryptoKit**: Leverages Apple's CryptoKit for encryption operations
+- **Network Framework**: Uses modern URLSession for networking
+
+#### Data Formats
+
+- **JSON**: Native JSON parsing and serialization
+- **Base64**: Standard Base64 encoding for encrypted payloads
+- **UTF-8**: Full Unicode support for international applications
+
+#### Network Protocol
+
+- **HTTPS**: Secure communication with GrowthBook servers
+- **REST API**: Standard HTTP/HTTPS for feature fetching
+- **SSE**: Server-Sent Events for real-time updates
+- **Retry Logic**: Exponential backoff for failed requests
+
+### Memory Management
+
+- **ARC**: Automatic Reference Counting for memory management
+- **Weak References**: Prevents retain cycles in callbacks
+- **Lazy Loading**: Features are loaded on-demand to minimize memory usage
+- **Cache Limits**: Configurable cache size limits to prevent memory bloat
+
+### Thread Safety
+
+- **Concurrent Access**: Safe for use across multiple threads
+- **Atomic Operations**: Thread-safe attribute updates and feature evaluation
+- **Queue Management**: Proper dispatch queue usage for background operations
+- **Lock-Free**: Minimal locking for optimal performance
+
 <SdkResources sdk="swift" />
 
 ## Installation
@@ -48,141 +111,61 @@ dependencies: [
 ]
 ```
 
-## Quick Usage
+## Quick Start
+
+### 1) Configure
 
 ```swift
-// First, create a GrowthBook instance using your unique API host and client key
 var gb: GrowthBookSDK = GrowthBookBuilder(
   // Your GrowthBook API host
   apiHost: "https://cdn.growthbook.io",
   // Your client key
   clientKey: "sdk-abc123",
-  // User attributes for targeting
+  // Optional: encryption key if your features are encrypted
+  encryptionKey: "abcdef98765",
+  // Required user attributes for targeting (can be empty initially)
   attributes: [:],
-  // Tracking callback for experiments
+  // Required: called whenever someone is put into an experiment
   trackingCallback: { experiment, result in
-    // Track experiment exposures
+    // Track experiment exposures in your analytics
   },
-  // Enable/disable background sync for real-time updates
-  backgroundSync: false
+  // Optional: real-time updates via SSE
+  backgroundSync: false,
+  // Optional: called when features are refreshed (SSE or manual refresh)
+  refreshHandler: { success in
+    // Update UI or trigger re-render if needed
+  }
 ).initializer()
+```
 
-// Then, add targeting attributes so you can control the release of your features
+### 2) Set attributes
+
+```swift
 var attrs = [
-  "id": "12345",
-  "deviceId": "abc123",
+  "id": "12345",         // stable user id for bucketing
+  "deviceId": "abc123",  // fallback identifier if user id is unavailable
   "loggedIn": true,
   "country": "US"
 ]
 gb.setAttributes(attrs)
+```
 
-// Finally, start feature flagging!
+### 3) Start feature flagging
 
-// Boolean (On/Off) Feature Flag
+```swift
 if gb.isOn(feature: "feature-usage-code") {
   // Feature is enabled!
 }
 
-// String/Number/JSON Feature Flag with a fallback
 import Foundation // For JSON type
-var value = gb.getFeatureValue(feature: "button-color", default: JSON("blue"))
-print(value)
+let value = gb.getFeatureValue(feature: "button-color", default: JSON("blue"))
 ```
 
-## Loading Features
+### 4) Wait for features to load
 
-In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
-
-### Built-in Fetching and Caching
-
-If you pass an `apiHost` and `clientKey` into GrowthBookBuilder, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in an `encryptionKey` and it will decrypt feature flags automatically.
-
-```swift
-var gb: GrowthBookSDK = GrowthBookBuilder(
-  // Your GrowthBook API host
-  apiHost: "https://cdn.growthbook.io",
-  // Your client key
-  clientKey: "sdk-abc123",
-  // Encryption key if your features are encrypted
-  encryptionKey: "abcdef98765",
-  // Required user attributes for targeting (can be empty initially)
-  attributes: [:],
-  // Required tracking callback for experiments
-  trackingCallback: { experiment, result in
-    // Track experiments
-  },
-  // Enable/disable background sync with SSE
-  backgroundSync: false
-).initializer()
-```
-
-If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshCache()`.
-
-### Custom Integration
-
-If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres on your back-end and send it down to your app as part of an initial bootstrap API call.
-
-```swift
-// Create JSON data for features
-let featuresJSON = """
-{
-  "feature1": {
-    "defaultValue": true
-  }
-}
-"""
-let featuresData = featuresJSON.data(using: .utf8)!
-
-// Initialize with features data
-var gb: GrowthBookSDK = GrowthBookBuilder(
-  // Your feature definitions as Data object
-  features: featuresData,
-  // Required user attributes for targeting (can be empty initially)
-  attributes: [:],
-  // Required tracking callback for experiments
-  trackingCallback: { experiment, result in
-    // Track experiments
-  },
-  // Enable/disable background sync
-  backgroundSync: false
-).initializer()
-```
-
-## Experimentation (A/B Testing)
-
-In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
-
-```swift
-var gb: GrowthBookSDK = GrowthBookBuilder(
-  // Your GrowthBook API host
-  apiHost: "https://cdn.growthbook.io",
-  // Your client key
-  clientKey: "sdk-abc123",
-  // Required user attributes for targeting (can be empty initially)
-  attributes: [:],
-  // Called whenever someone is put into an experiment
-  trackingCallback: { experiment, experimentResult in
-    // TODO: Track in your real analytics system
-    print("Viewed Experiment")
-    print("Experiment Id: ", experiment.key)
-    print("Variation Id: ", experimentResult.variationId)
-  },
-  // Enable/disable background sync
-  backgroundSync: false
-).initializer()
-```
-
-## Background Sync
-
-The Swift SDK supports real-time feature flag updates using Server-Sent Events (SSE). This is controlled through the `backgroundSync` parameter when initializing the SDK.
-
-When `backgroundSync` is set to `true`, the SDK will establish an SSE connection to receive real-time updates whenever your feature flags change. This eliminates the need to manually refresh the cache.
-
-When `backgroundSync` is set to `false`, you'll need to call `gb.refreshCache()` manually whenever you want to fetch the latest feature flags.
-
-### Refresh Handler
-
-You can set a refresh handler to be notified when features are updated, either through background sync or manual refresh:
+- With background sync off, call `gb.refreshCache()` at app start or navigation points and show a loading state until complete.
+- With background sync on, initial cache loads synchronously if present and updates stream in via SSE.
+- Use `refreshHandler` to re-render when new features arrive.
 
 ```swift
 var gb: GrowthBookSDK = GrowthBookBuilder(
@@ -202,6 +185,497 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
   },
   backgroundSync: true
 ).initializer()
+```
+
+## Loading Features
+
+### Built-in fetching and refresh mechanisms
+
+If you pass an `apiHost` and `clientKey` into `GrowthBookBuilder`, the SDK handles network requests, caching, retry/backoff, and decryption (when `encryptionKey` is provided). Use `gb.refreshCache()` to manually refresh on navigation or app resume.
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { _, _ in },
+  // Optional: decrypt encrypted payloads
+  encryptionKey: "abcdef98765",
+  // Optional: real-time updates can be enabled later
+  backgroundSync: false
+).initializer()
+
+// Refresh on demand (e.g., app start or navigation)
+_ = gb.refreshCache()
+```
+
+### Secure requests: custom HTTP headers
+
+Add custom headers for API requests (e.g., auth tokens, custom user-agent). Provide default headers for the standard feature fetches and separate headers for SSE streaming if needed.
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { _, _ in }
+)
+  // Sent with feature fetch requests to the apiHost
+  .setApiHostRequestHeaders([
+    "Authorization": "Bearer <token>",
+    "X-App-Version": "1.2.3"
+  ])
+  // Sent with SSE connections to the streaming host
+  .setStreamingHostRequestHeaders([
+    "Authorization": "Bearer <token>",
+    "X-Device": "iPhone15,3"
+  ])
+  .initializer()
+```
+
+### Streaming updates (SSE)
+
+Enable `backgroundSync: true` to receive real-time updates via SSE. The SDK reconnects automatically when network conditions change. Use `refreshHandler` to update UI when features change.
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { _, _ in },
+  refreshHandler: { success in
+    // Trigger UI updates when features change
+  },
+  backgroundSync: true
+).initializer()
+```
+
+Monitor the SSE lifecycle using your app logs/telemetry. On transient network errors, the SDK will attempt automatic reconnects with backoff.
+
+#### SSE resume support (Last-Event-Id)
+
+When using `backgroundSync: true`, the SDK connects via SSE. To resume after interruptions without duplicating events, you can provide the last received event id so the server continues from that point.
+
+```swift
+// Persist and restore lastEventId yourself (e.g., UserDefaults) if you need fine-grained control
+let lastEventId = UserDefaults.standard.string(forKey: "gb_last_event_id")
+
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { _, _ in },
+  backgroundSync: true
+)
+  .setStreamingHostRequestHeaders(["Last-Event-Id": lastEventId ?? ""]) // optional
+  .initializer()
+
+// Somewhere in your SSE handler, update lastEventId when new events arrive
+// UserDefaults.standard.set(newEventId, forKey: "gb_last_event_id")
+```
+
+## Caching
+
+The SDK persists downloaded feature payloads and related metadata to disk. By default, it will:
+
+- Use a platform-specific system directory
+  - iOS/watchOS/macOS: **Application Support** (`.applicationSupport`)
+  - tvOS: **Caches** (`.caches`), since Application Support is not available on tvOS
+- Create the cache folder automatically on first use
+- Isolate data per `clientKey` by nesting under a client-specific subfolder
+- Generate deterministic cache file names by hashing keys with **SHA256** and prefixing file names with the first 5 characters of the hash for readability
+
+You can fully customize where and how the SDK caches data:
+
+```swift
+// Cache configuration
+var gb: GrowthBookSDK = GrowthBookBuilder(...)
+  // Choose a system directory (defaults shown below)
+  .setSystemCacheDirectory(
+    // Default: .applicationSupport for iOS/watchOS/macOS; .caches for tvOS
+    #if os(tvOS)
+    .caches
+    #else
+    .applicationSupport
+    #endif
+  )
+  // Or, provide an absolute custom path. The SDK will create it if missing.
+  .setCustomCacheDirectory("/path/to/custom/cache")
+  .initializer()
+
+// Cache management
+// Removes all on-disk cache for this SDK instance (scoped to the configured client key)
+gb.clearCache()
+```
+
+:::note Cache management
+
+- The cache directory will be created automatically if it does not exist.
+- Cache file keys are SHA256-hashed with a 5-character prefix for human-friendly diagnostics while avoiding path-length and special-character issues.
+- Multiple environments/apps can safely share the same parent directory; per-`clientKey` subfolders prevent collisions.
+
+:::
+
+#### Cache Key Hashing
+
+The SDK uses **SHA-256** for generating deterministic cache file names:
+
+- **Purpose**: Create unique, collision-resistant cache file identifiers
+- **Format**: First 5 characters of SHA-256 hash for human-readable diagnostics
+- **Isolation**: Per-client-key subfolders prevent cross-environment collisions
+
+### Custom integration (local evaluation)
+
+If you prefer to control network and caching yourself, pass features as a JSON `Data` blob into the builder. This enables fully local evaluation and works offline-first.
+
+```swift
+// Create JSON data for features
+let featuresJSON = """
+{
+  "feature1": { "defaultValue": true }
+}
+"""
+let featuresData = featuresJSON.data(using: .utf8)!
+
+// Initialize with features data (local evaluation)
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  features: featuresData,
+  attributes: [:],
+  trackingCallback: { _, _ in },
+  backgroundSync: false
+).initializer()
+```
+
+## Remote evaluation vs. local evaluation
+
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
+
+- Local evaluation loads a full feature payload into the SDK (e.g., via built-in fetching or a bundled JSON) and evaluates rules on-device.
+- Remote evaluation delegates evaluation to GrowthBook and downloads already-evaluated feature values for the current attributes. This reduces payload size and can simplify privacy controls.
+- Choose based on privacy, payload size, and offline requirements.
+
+Local evaluation (bundled JSON):
+
+```swift
+let featuresJSON = """{ "feature1": { "defaultValue": true } }"""
+let featuresData = featuresJSON.data(using: .utf8)!
+let gbLocal = GrowthBookBuilder(
+  features: featuresData,
+  attributes: ["id": "12345"],
+  trackingCallback: { _, _ in }
+).initializer()
+```
+
+Remote evaluation (standard fetching):
+
+```swift
+let gbRemote = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: ["id": "12345"],
+  trackingCallback: { _, _ in }
+).initializer()
+```
+
+### Manual remote evaluation
+
+If you use remote evaluation mode, you can trigger a re-fetch of evaluated payloads when user attributes or context change without waiting for the standard refresh cadence.
+
+```swift
+// When user attributes change significantly, trigger a remote eval refresh
+gb.setAttributes(["id": "user_123", "plan": "pro"])
+gb.refreshForRemoteEval()
+```
+
+#### Custom payload structure:
+
+When using remote evaluation, ensure the attributes you send include all fields required by your targeting rules. You may also include metadata your edge or proxy expects (e.g., headers added via `setApiHostRequestHeaders`).
+
+```swift
+// Attributes control what the remote evaluator returns
+gb.setAttributes([
+  "id": "user_123",
+  "country": "US",
+  "appVersion": "1.3.0",
+  "plan": "pro"
+])
+
+// Then manually trigger remote evaluation
+gb.refreshForRemoteEval()
+```
+
+## Encrypted features
+
+The Swift SDK uses **AES-CBC (Advanced Encryption Standard - Cipher Block Chaining)** encryption for securing feature payloads:
+
+- **Algorithm**: AES-CBC with 128-bit key length
+- **Key Format**: Base64-encoded encryption key
+- **IV (Initialization Vector)**: 16-byte random IV generated for each encryption operation
+- **Payload Format**: `{base64_iv}.{base64_encrypted_data}`
+
+GrowthBook uses **Server-Side Encryption** to encrypt feature payloads using AES-CBC before transmission. The Swift SDK automatically decrypts payloads when the `encryptionKey` is provided in the initialization. See below example:
+
+```swift
+let gbEncrypted = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  encryptionKey: "abcdef98765",
+  attributes: [:],
+  trackingCallback: { _, _ in }
+).initializer()
+```
+
+Decrypted features are cached **securely** on the device. If decryption fails, the SDK gracefully falls back to default feature values.
+
+:::warning Security Considerations
+While encryption adds a layer of security, remember that:
+
+- The decryption key is accessible within the client-side application
+- For highly sensitive information, consider using [Remote Evaluation](#remote-evaluation-vs-local-evaluation) instead
+- Encryption keys should be managed securely and rotated regularly
+  :::
+
+## Sticky bucketing
+
+Sticky bucketing ensures that once a user is assigned to a variation in an experiment or feature rule configured as “Sticky,” they will continue to see the same variation on subsequent evaluations. Read more about [Sticky bucketing Feature](https://docs.growthbook.io/app/sticky-bucketing)
+
+How to enable:
+
+- In GrowthBook, enable Sticky bucketing on the experiment or on the feature rule.
+- In the SDK, provide a stable identity attribute (commonly `id`). If no `id` is available (e.g., logged out), use a device-scoped fallback such as `deviceId` until login.
+
+By default, when a sticky rule runs the SDK will:
+
+- Look up an existing sticky assignment for the current identity key
+- If found, return the same variation without re-assigning
+- If not found, evaluate the rule normally, persist the chosen variation locally, and return it
+- Persist across app restarts and feature refreshes; changing non-identity attributes (e.g., `country`) will not change the sticky result. Changing the identity (e.g., user logs in/out) causes a lookup under the new identity key
+
+```swift
+gb.setAttributes([
+  "id": "user_123",        // stable across sessions
+  "deviceId": "abcd-efgh"  // fallback when logged out
+])
+```
+
+### Custom Sticky Bucket Service with custom storage
+
+Use this to control how and where sticky assignments are persisted. Provide a prefix to namespace data (e.g., by app or environment) and a storage backend that implements simple key/value get-set-delete semantics (e.g., `UserDefaults`, Keychain, SQLite, or your own cache layer). If not provided, the SDK uses its built-in persistent storage to remember sticky assignments.
+
+```swift
+// Custom Sticky Bucket Service with custom storage
+let customStorage = MyCachingManager()
+let stickyService = StickyBucketService(
+  prefix: "myapp_sticky_",
+  localStorage: customStorage
+)
+
+var gb: GrowthBookSDK = GrowthBookBuilder(...)
+  .setStickyBucketService(stickyBucketService: stickyService)
+  .initializer()
+```
+
+Tips:
+
+- Use a unique `prefix` per environment (e.g., `prod_`, `staging_`) to avoid cross-environment bleed.
+- To “forget” a user’s sticky assignment on logout, either switch the identity you send in `attributes` (e.g., from `id` to `deviceId`) or clear the underlying storage used by your sticky service.
+
+## Prerequisites
+
+Flags can depend on other flags via prerequisites. If a prerequisite is not met, the dependent flag will resolve to its fallback value. Ensure attributes satisfy prerequisite rules before evaluating. Read more about [Prerequisite features](https://docs.growthbook.io/features/prerequisites)
+
+```swift
+let enabled = gb.isOn(feature: "child-feature")
+```
+
+## SemVer targeting
+
+Map your app version/build into attributes and target with semver rules (e.g., rollouts to ">=1.2.0").
+
+```swift
+import Foundation
+
+let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+var attrs = gb.getAttributes()
+attrs["appVersion"] = appVersion
+gb.setAttributes(attrs)
+```
+
+## v2 hashing
+
+The SDK supports v2 hashing for cross-SDK parity and consistent bucketing. When migrating, verify exposure stability during QA across platforms.
+
+### Hashing Algorithms
+
+The Swift SDK implements sophisticated hashing algorithms for consistent user bucketing and secure attribute handling:
+
+#### FNV32a Hashing (Fowler-Noll-Vo)
+
+The SDK uses the **FNV32a** algorithm for user bucketing and experiment assignment:
+
+- **Algorithm**: Fowler-Noll-Vo hash function (fnv32a variant)
+- **Purpose**: Consistent user bucketing across all SDK platforms
+- **Output**: 32-bit unsigned integer converted to float between 0 and 1
+- **Cross-Platform**: Ensures identical bucketing behavior across iOS, Android, Web, and server-side SDKs
+
+#### Hash Version 2 (Recommended)
+
+The SDK supports **v2 hashing** which fixes bias issues present in the original algorithm:
+
+```swift
+// v2 hashing formula (unbiased)
+n = fnv32a(fnv32a(seed + value) + "")
+return (n % 10000) / 10000
+```
+
+:::info V2 Hashing
+
+V2 Hashing is:
+
+- **Unbiased**: Eliminates parallel experiment bias.
+- **Higher Precision**: Uses 10,000 buckets instead of 1,000
+- **Consistent**: Identical behavior across all GrowthBook SDKs
+
+:::
+
+## Experimentation and tracking
+
+Set `trackingCallback` to capture exposures whenever a user is assigned to a variation. Send these to your analytics provider. The callback provides `experiment.key` and `experimentResult.variationId`.
+
+#### Generic example:
+
+```swift
+let gbTracking = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { experiment, result in
+    print("Viewed Experiment", experiment.key, "variation:", result.variationId)
+  }
+).initializer()
+```
+
+#### Firebase Analytics example:
+
+```swift
+import FirebaseAnalytics
+
+let gbFirebase = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { experiment, result in
+    Analytics.logEvent("gb_exposure", parameters: [
+      "experiment_key": experiment.key,
+      "variation_id": result.variationId
+    ])
+  }
+).initializer()
+```
+
+### Experiment Result subscriptions
+
+Subscribe to the experiments to receive callbacks for every experiment run.
+
+```swift
+// Subscribe to experiment results
+gb.subscribe { experiment, result in
+  print("Experiment: \(experiment.key), Variation: \(result.variationId)")
+}
+
+// Clear all subscriptions when done
+gb.clearSubscriptions()
+```
+
+## Security Features
+
+The Swift SDK implements comprehensive security measures to protect sensitive data and ensure secure feature flag evaluation:
+
+### Secure Attributes
+
+When **secure attribute hashing** is enabled in your SDK Connection, you must manually hash sensitive attributes before passing them to the SDK. This allows you to safely target users based on sensitive data without exposing it to the client.
+
+- **Manual Hashing Required**: You must hash `secureString` or `secureString[]` attributes using SHA-256
+- **Salt Protection**: Use your organization's secure attribute salt for additional security
+- **Privacy Compliance**: Enables targeting based on sensitive data without exposing it to the client
+- **GDPR/CCPA Ready**: Helps maintain compliance with data protection regulations
+- **Format**: `SHA256(attribute_value + organization_salt)`
+- **Implementation**: Use Apple's CryptoKit framework for SHA-256 hashing
+
+```swift
+import CryptoKit
+
+// Helper function to hash secure attributes
+func hashSecureAttribute(_ value: String, salt: String) -> String {
+    let data = (value + salt).data(using: .utf8)!
+    let hash = SHA256.hash(data: data)
+    return hash.compactMap { String(format: "%02x", $0) }.joined()
+}
+
+// Your organization's secure attribute salt (set in Organization Settings)
+let salt = "your_organization_salt"
+
+// Hash sensitive attributes before passing to SDK
+let email = "user@example.com"
+let phone = "+1234567890"
+
+gb.setAttributes([
+  "id": "user_123",
+  "email": hashSecureAttribute(email, salt: salt),  // Must be manually hashed
+  "phone": hashSecureAttribute(phone, salt: salt),  // Must be manually hashed
+  "country": "US"  // Regular attribute, not hashed
+])
+```
+
+:::note Secure attribute hashing
+**Important**: When secure attribute hashing is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. You must manually hash these attributes using your organization's secure attribute salt.
+:::
+
+### Remote Evaluation Security
+
+For maximum security, use **Remote Evaluation** mode:
+
+- **Server-Side Processing**: Feature evaluation happens on your secure servers
+- **No Client Exposure**: Targeting rules and unused variations never reach the client
+- **Minimal Payload**: Only evaluated results are transmitted
+- **Enhanced Privacy**: Sensitive business logic remains server-side
+
+```swift
+// Remote evaluation for maximum security
+let gbSecure = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: ["id": "user_123"],
+  trackingCallback: { _, _ in },
+  remoteEval: true  // Enable remote evaluation
+).initializer()
+```
+
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information.
+
+## Troubleshooting and debugging
+
+- Comprehensive logging
+  - Set your app/logger to debug or trace during integration to observe evaluation decisions, cache reads/writes, and SSE state changes.
+    - Log levels: `.debug`, `.info`, `.warning`, `.error` are supported and use `setLogLevel()` to configure the level.
+  - Built-in OS logging integration (uses `os.Logger` on iOS 14+ and `OSLog` on older versions)
+  - QA Mode (`setQAMode()`) functionality and use cases
+  - Be mindful to disable verbose logs in production.
+- Network errors
+  - The SDK retries transient failures with backoff when fetching or streaming. Inspect your networking layer logs and verify headers/hosts.
+  - Confirm that custom headers are accepted by your proxy/CDN and not stripped.
+- SSE connection status monitoring
+  - Use your own telemetry around `refreshHandler` or UI updates to infer connectivity. Consider persisting the last event id to resume streams as shown above.
+
+```swift
+// Example: simple log wrapper
+func log(_ message: String) {
+  #if DEBUG
+  print("[GrowthBook] \(message)")
+  #endif
+}
 ```
 
 ## Reference

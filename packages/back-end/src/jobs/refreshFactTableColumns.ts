@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -52,7 +53,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     updates.columnsError = e.message;
   }
 
-  await updateFactTableColumns(factTable, updates);
+  await updateFactTableColumns(factTable, updates, context);
 };
 
 export async function runColumnTopValuesQuery(
@@ -77,12 +78,40 @@ export async function runColumnTopValuesQuery(
   const sql = integration.getColumnTopValuesQuery({
     factTable,
     column,
-    limit: 100,
+    limit: Math.max(
+      100,
+      context.org.settings?.maxMetricSliceLevels ??
+        DEFAULT_MAX_METRIC_SLICE_LEVELS,
+    ),
   });
-
   const result = await integration.runColumnTopValuesQuery(sql);
 
   return result.rows.map((r) => r.value);
+}
+
+export function populateAutoSlices(
+  col: ColumnInterface,
+  topValues: string[],
+  maxValues?: number,
+): string[] {
+  if (col.datatype === "boolean") {
+    return ["true", "false"];
+  }
+
+  // Use existing autoSlices if they exist, otherwise use topValues up to the max
+  if (col.autoSlices && col.autoSlices.length > 0) {
+    return col.autoSlices;
+  }
+  const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
+  const autoSlices: string[] = [];
+  for (const value of topValues) {
+    if (autoSlices.length >= maxSliceLevels) break;
+    if (!autoSlices.includes(value)) {
+      autoSlices.push(value);
+    }
+  }
+
+  return autoSlices;
 }
 
 export async function runRefreshColumnsQuery(
@@ -116,7 +145,37 @@ export async function runRefreshColumnsQuery(
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
-  determineColumnTypes(result.results).forEach((col) => {
+
+  result.columns?.forEach((col) => {
+    // If the underlying SQL engine returned the datatype, use it
+    if (col.dataType !== undefined) {
+      // For JSON, only return if we have the field information, otherwise skip
+      // so we can infer from the returned data
+      if (
+        col.dataType === "json" &&
+        col.fields !== undefined &&
+        col.fields.length > 0
+      ) {
+        typeMap.set(col.name, "json");
+        jsonMap.set(
+          col.name,
+          col.fields.reduce(
+            (acc, field) => ({
+              ...acc,
+              [field.name]: {
+                datatype: field.dataType,
+              },
+            }),
+            {},
+          ),
+        );
+      } else if (col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    }
+  });
+
+  determineColumnTypes(result.results, typeMap).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
       jsonMap.set(col.column, col.jsonFields);
@@ -185,20 +244,39 @@ export async function runRefreshColumnsQuery(
   });
 
   for (const col of columns) {
-    if (
-      col.alwaysInlineFilter &&
-      canInlineFilterColumn(factTable, col.column)
+    if (col.numberFormat === undefined) {
+      col.numberFormat = "";
+    }
+
+    if (col.datatype === "boolean" && col.isAutoSliceColumn) {
+      col.autoSlices = ["true", "false"];
+    } else if (
+      (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
+      canInlineFilterColumn(factTable, col.column) &&
+      col.datatype === "string"
     ) {
       try {
-        col.topValues = await runColumnTopValuesQuery(
+        const topValues = await runColumnTopValuesQuery(
           context,
           datasource,
           factTable,
           col,
         );
+
+        col.topValues = topValues;
         col.topValuesDate = new Date();
+
+        if (col.isAutoSliceColumn) {
+          col.autoSlices = populateAutoSlices(
+            col,
+            topValues,
+            context.org.settings?.maxMetricSliceLevels,
+          );
+        }
       } catch (e) {
-        logger.error(e, "Error running top values query");
+        logger.error(e, "Error running top values query", {
+          column: col.column,
+        });
       }
     }
   }

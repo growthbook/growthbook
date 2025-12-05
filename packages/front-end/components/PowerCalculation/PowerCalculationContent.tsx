@@ -21,11 +21,11 @@ import {
 } from "@visx/tooltip";
 import { ParentSize } from "@visx/responsive";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 import PowerCalculationStatsEngineSettingsModal, {
   alphaToChanceToWin,
   StatsEngineSettingsWithAlpha,

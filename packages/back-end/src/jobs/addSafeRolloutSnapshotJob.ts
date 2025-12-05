@@ -73,6 +73,7 @@ const updateSingleSafeRolloutSnapshot = async (
     await createSafeRolloutSnapshot({
       context,
       safeRollout,
+      customFields: feature.customFields,
       triggeredBy: "schedule",
     });
   } catch (e) {

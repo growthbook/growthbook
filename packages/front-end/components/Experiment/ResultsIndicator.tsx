@@ -1,5 +1,5 @@
 import { FC } from "react";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 
 export type Results = "won" | "lost" | "dnf" | "inconclusive";
 

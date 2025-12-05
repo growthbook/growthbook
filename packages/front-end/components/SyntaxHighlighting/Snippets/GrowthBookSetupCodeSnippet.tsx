@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import React from "react";
@@ -40,7 +40,53 @@ export default function GrowthBookSetupCodeSnippet({
   if (language.match(/^nocode/)) {
     return (
       <>
-        {eventTracker === "GA4" ? (
+        {eventTracker.startsWith("growthbook") ? (
+          <div>
+            Flag and experiment exposure events are tracked automatically.
+            <br />
+            <br />
+            You will need to implement additional tracking for other events. See
+            our guide to{" "}
+            <DocLink docSection="managedWarehouseTracking">
+              custom event tracking with GrowthBook Managed Warehouse
+            </DocLink>
+            <br />
+            <br />
+            <>
+              To add generic events like page views:
+              <Code
+                language="html"
+                code={`
+<script>
+  // Ensure the global variable exists
+  window.gbEvents = window.gbEvents || [];
+
+  // Simple (no properties)
+  window.gbEvents.push("Page View");
+</script>
+          `.trim()}
+              />
+              or for custom events with properties:
+              <Code
+                language="html"
+                code={`
+<script>
+  // Ensure the global variable exists
+  window.gbEvents = window.gbEvents || [];
+
+  window.gbEvents.push({
+      eventName: "Purchase",
+      properties: {
+        amount: "10.00"
+        product: product_id,
+      }
+    });
+</script>
+          `.trim()}
+              />
+            </>
+          </div>
+        ) : eventTracker === "GA4" ? (
           <div>
             Events are tracked to Google Analytics automatically. No
             configuration needed.
@@ -101,6 +147,29 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             includeInit: true,
           })}
         />
+        {eventTracker === "growthbook" && (
+          <>
+            <br />
+            If you want to use GrowthBook for experiments (and metrics), you
+            will need to log events you care about. Read more about our{" "}
+            <DocLink docSection="managedWarehouseTracking">
+              managed warehouse tracking
+            </DocLink>
+            . Here are some examples:
+            <Code
+              language="javascript"
+              code={`
+// Simple (no properties)
+gb.logEvent("Page View");
+
+// With custom properties
+gb.logEvent("Button Click", {
+  button: "Sign Up",
+});
+              `}
+            />
+          </>
+        )}
       </>
     );
   }
@@ -160,6 +229,30 @@ export default function MyApp() {
         </a>{" "}
         with examples of using GrowthBook with SSR, API routes, static pages,
         and more.
+        {eventTracker === "growthbook" && (
+          <>
+            <br />
+            <br />
+            If you want to use GrowthBook for experiments (and metrics), you
+            will need to log events you care about. Read more about our{" "}
+            <DocLink docSection="managedWarehouseTracking">
+              managed warehouse tracking
+            </DocLink>
+            . Here are some examples:
+            <Code
+              language="javascript"
+              code={`
+// Simple (no properties)
+gb.logEvent("Page View");
+
+// With custom properties
+gb.logEvent("Button Click", {
+  button: "Sign Up",
+});
+              `}
+            />
+          </>
+        )}
       </>
     );
   }
@@ -1346,7 +1439,27 @@ const getJSCodeSnippet = ({
         ? `["ga4", "gtm"]`
         : `["${eventTracker}"]`;
 
-    jsCode = `
+    if (eventTracker === "growthbook") {
+      jsCode = `
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+  enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
+  plugins: [
+    autoAttributesPlugin(),
+    growthbookTrackingPlugin()
+  ],
+});`;
+    } else {
+      jsCode = `
 import { GrowthBook } from "@growthbook/growthbook";
 import { 
   thirdPartyTrackingPlugin,
@@ -1364,6 +1477,7 @@ const growthbook = new GrowthBook({
     thirdPartyTrackingPlugin({ trackers: ${pluginTrackers} }),
   ],
 });`;
+    }
   }
   // Supports plugins, but with a different tracker
   else if (usePlugins) {

@@ -1,4 +1,5 @@
 import React, { FC, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -10,11 +11,11 @@ import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Checkbox from "@/ui/Checkbox";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -222,6 +223,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
             form.setValue("query", userEnteredQuery);
           }}
           validateResponseOverride={validateResponse}
+          sqlObjectInfo={{
+            objectType: "Experiment Assignment Query",
+            objectName: form.watch("name"),
+          }}
         />
       )}
 
@@ -300,22 +305,17 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 {showAdvancedMode && (
                   <div>
                     <div>
-                      <div className="mt-3 mb-3">
-                        <Toggle
+                      <Flex gap="1" my="3">
+                        <Checkbox
                           id="userEnteredNameCol"
+                          label="Use Name columns"
                           value={form.watch("hasNameCol") || false}
                           setValue={(value) => {
                             form.setValue("hasNameCol", value);
                           }}
                         />
-                        <label
-                          className="mr-2 mb-0"
-                          htmlFor="exposure-query-toggle"
-                        >
-                          Use Name Columns
-                        </label>
                         <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-                      </div>
+                      </Flex>
                       <StringArrayField
                         label="Dimension Columns"
                         value={userEnteredDimensions}

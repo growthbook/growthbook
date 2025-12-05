@@ -15,6 +15,7 @@ import {
   ExperimentTemplateInterface,
   MetricOverride,
 } from "back-end/types/experiment";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isNil, omit } from "lodash";
@@ -35,6 +36,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+import { ReactElement } from "react";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
@@ -44,6 +46,106 @@ import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+
+export const compareRows = (
+  a: ExperimentTableRow,
+  b: ExperimentTableRow,
+  options: {
+    sortBy: "significance" | "change";
+    variationFilter: number[];
+    metricDefaults: MetricDefaults;
+    sortDirection: "asc" | "desc";
+  },
+) => {
+  const { sortBy, variationFilter, metricDefaults, sortDirection } = options;
+
+  const aVisibleVariations =
+    a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+  const bVisibleVariations =
+    b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+
+  const aBaseline = a?.variations?.[0];
+  const bBaseline = b?.variations?.[0];
+
+  const aVariationsWithEnoughData = aVisibleVariations.filter((v) => {
+    const originalIndex = a?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(aBaseline, v, a?.metric, metricDefaults)
+    );
+  });
+  const bVariationsWithEnoughData = bVisibleVariations.filter((v) => {
+    const originalIndex = b?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(bBaseline, v, b?.metric, metricDefaults)
+    );
+  });
+
+  if (
+    aVariationsWithEnoughData.length === 0 &&
+    bVariationsWithEnoughData.length === 0
+  )
+    return 0;
+  if (aVariationsWithEnoughData.length === 0) return 1;
+  if (bVariationsWithEnoughData.length === 0) return -1;
+
+  const aSignificanceValues = aVariationsWithEnoughData.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
+  });
+  const bSignificanceValues = bVariationsWithEnoughData.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
+  });
+
+  if (aSignificanceValues.length === 0 && bSignificanceValues.length === 0)
+    return 0;
+  if (aSignificanceValues.length === 0) return 1;
+  if (bSignificanceValues.length === 0) return -1;
+
+  const aAggregatedValue =
+    sortBy === "change"
+      ? Math.max(...aSignificanceValues)
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...aSignificanceValues)
+        : Math.max(...aSignificanceValues);
+  const bAggregatedValue =
+    sortBy === "change"
+      ? Math.max(...bSignificanceValues)
+      : bVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...bSignificanceValues)
+        : Math.max(...bSignificanceValues);
+
+  const comparisonResult =
+    sortBy === "change"
+      ? bAggregatedValue - aAggregatedValue
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? aAggregatedValue - bAggregatedValue
+        : bAggregatedValue - aAggregatedValue;
+
+  return sortDirection === "desc" ? -comparisonResult : comparisonResult;
+};
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
@@ -58,7 +160,7 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 }
 
 export type ExperimentTableRow = {
-  label: string;
+  label: string | ReactElement;
   metric: ExperimentMetricInterface;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
@@ -66,6 +168,19 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
+  numSlices?: number;
+  // Slice row properties
+  isSliceRow?: boolean;
+  parentRowId?: string;
+  sliceId?: string;
+  sliceLevels?: Array<{
+    column: string;
+    datatype: "string" | "boolean";
+    levels: string[];
+  }>;
+  allSliceLevels?: string[];
+  isHiddenByFilter?: boolean; // True if this row should be hidden due to slice level filtering
+  isPinned?: boolean; // True if this slice level row is pinned
 };
 
 export function getRisk(
@@ -167,6 +282,11 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
+    // Skip metric slice rows that are hidden (not expanded or pinned)
+    if (row.isHiddenByFilter) {
+      return;
+    }
+
     const baseline = row.variations[variations[0].index];
     if (!baseline) return;
     variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
@@ -306,6 +426,7 @@ export function useExperimentSearch({
     getProjectById,
     getDatasourceById,
     getSavedGroupById,
+    metricGroups,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
@@ -355,20 +476,7 @@ export function useExperimentSearch({
     defaultSortField,
     defaultSortDir,
     updateSearchQueryOnChange: true,
-    searchFields: [
-      "name^3",
-      "trackingKey^2",
-      "id",
-      "hypothesis^2",
-      "description",
-      "tags",
-      "status",
-      "ownerName",
-      "metricNames",
-      "results",
-      "analysis",
-      "isWatched",
-    ],
+    searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];
@@ -433,7 +541,7 @@ export function useExperimentSearch({
       datasource: (item) => item.datasource,
       metric: (item) => [
         ...(item.metricNames ?? []),
-        ...getAllMetricIdsFromExperiment(item),
+        ...getAllMetricIdsFromExperiment(item, true, metricGroups),
       ],
       savedgroup: (item) => item.savedGroups || [],
       goal: (item) => [...(item.metricNames ?? []), ...item.goalMetrics],
@@ -872,4 +980,32 @@ export function convertExperimentToTemplate(
     },
   };
   return template;
+}
+
+export function getIsExperimentIncludedInIncrementalRefresh(
+  datasource: DataSourceInterfaceWithParams | undefined,
+  experimentId: string | undefined,
+): boolean {
+  const isPipelineIncrementalEnabled =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  if (!isPipelineIncrementalEnabled) {
+    return false;
+  }
+
+  const includedExperimentIds =
+    datasource?.settings.pipelineSettings?.includedExperimentIds;
+  const excludedExperimentIds =
+    datasource?.settings.pipelineSettings?.excludedExperimentIds;
+
+  if (experimentId && excludedExperimentIds?.includes(experimentId)) {
+    return false;
+  }
+
+  // If no specific experiment IDs are set, all experiments are included
+  // If experimentId is not provided, consider it included for the New Experiment form
+  if (includedExperimentIds === undefined || !experimentId) {
+    return true;
+  }
+
+  return includedExperimentIds.includes(experimentId);
 }

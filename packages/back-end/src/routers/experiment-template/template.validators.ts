@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { statsEngines } from "shared/constants";
 import {
   featurePrerequisite,
   savedGroupTargeting,
 } from "back-end/src/validators/shared";
-import { statsEngines } from "back-end/src/util/constants";
+import { customMetricSlice } from "back-end/src/validators/experiments";
 
 export const experimentTemplateInterface = z
   .object({
@@ -47,6 +48,9 @@ export const experimentTemplateInterface = z
       prerequisites: z.array(featurePrerequisite).optional(),
       condition: z.string().default("{}"),
     }),
+
+    customMetricSlices: z.array(customMetricSlice).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentTemplateInterface = z.infer<

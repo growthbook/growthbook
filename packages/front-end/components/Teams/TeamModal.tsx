@@ -5,6 +5,8 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { Team } from "@/services/UserContext";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function TeamModal({
   existing,
@@ -17,10 +19,17 @@ export default function TeamModal({
   onSuccess?: () => Promise<unknown>;
   managedByIdp?: boolean;
 }) {
+  const { projects } = useDefinitions();
+  const availableProjects: SingleValue[] = projects
+    .slice()
+    .sort((a, b) => (a.name > b.name ? 1 : -1))
+    .map((p) => ({ value: p.id, label: p.name }));
+
   const form = useForm<{
     name: string;
     description: string;
     roleInfo: MemberRoleWithProjects;
+    defaultProject: string;
   }>({
     defaultValues: {
       name: existing.name || "",
@@ -31,6 +40,7 @@ export default function TeamModal({
         environments: existing.environments || [],
         projectRoles: existing.projectRoles || [],
       },
+      defaultProject: existing.defaultProject || "",
     },
   });
   const { apiCall } = useAuth();
@@ -48,6 +58,7 @@ export default function TeamModal({
             name: value.name,
             description: value.description,
             permissions: { ...value.roleInfo },
+            defaultProject: value.defaultProject || "",
           }),
         });
         onSuccess && (await onSuccess());
@@ -69,9 +80,21 @@ export default function TeamModal({
         {...form.register("description")}
       />
       {!existing.id && (
-        <RoleSelector
-          value={form.watch("roleInfo")}
-          setValue={(value) => form.setValue("roleInfo", value)}
+        <div className="mb-3">
+          <RoleSelector
+            value={form.watch("roleInfo")}
+            setValue={(value) => form.setValue("roleInfo", value)}
+          />
+        </div>
+      )}
+      {availableProjects.length > 0 && (
+        <SelectField
+          label="Default Project"
+          value={form.watch("defaultProject")}
+          onChange={(p) => form.setValue("defaultProject", p)}
+          name="project"
+          initialOption="All Projects"
+          options={availableProjects}
         />
       )}
     </Modal>

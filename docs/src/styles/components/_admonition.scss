@@ -1,167 +1,74 @@
-html[data-theme="light"] {
-  --admonition-note-c-bg: #faf5ea;
-  --admonition-info-c-bg: #f6effd;
-  --admonition-important-c-bg: #e5f8ed;
-  --admonition-tip-c-bg: #e5edfb;
-  --admonition-caution-c-bg: #fbe9d6;
-  --admonition-danger-c-bg: #fa383e26;
+// note, tip, info, warning, danger
 
-  --admonition-code-note-c-bg: var(--c-yellow-30);
-  --admonition-code-info-c-bg: var(--c-blue-10);
-  --admonition-code-tip-c-bg: var(--c-green-20);
-  --admonition-code-caution-c-bg: var(--c-orange-20);
-  --admonition-code-danger-c-bg: var(--c-red-10);
-  --admonition-bar-tip-border-color: #0d56d3;
-  --admonition-bar-info-border-color: #4f0dd3;
-  --admonition-bar-important-border-color: #0dd33b;
-  --admonition-bar-note-border-color: #d3c90d;
-  --admonition-bar-caution-border-color: #f87a34;
-  --admonition-bar-warning-border-color: #f85134;
-  --admonition-bar-danger-border-color: #d30d0d;
-}
-
-html[data-theme="dark"] {
-  --admonition-note-c-bg: rgba(95, 215, 230, 0.13);
-  --admonition-info-c-bg: #000d24;
-  --admonition-important-c-bg: #000d24;
-  --admonition-tip-c-bg: rgba(1, 33, 120, 0.47);
-  --admonition-caution-c-bg: #240b00;
-  --admonition-danger-c-bg: #240002;
-
-  --admonition-code-note-c-bg: #3d2900;
-  --admonition-code-info-c-bg: #00163d;
-  --admonition-code-tip-c-bg: #003d11;
-  --admonition-code-caution-c-bg: #3d1200;
-  --admonition-code-danger-c-bg: #3d0003;
-  --admonition-bar-tip-border-color: #0d56d3;
-  --admonition-bar-info-border-color: #4f0dd3;
-  --admonition-bar-important-border-color: #0fb035;
-  --admonition-bar-note-border-color: #d3c90d;
-  --admonition-bar-caution-border-color: #f87a34;
-  --admonition-bar-warning-border-color: #f85134;
-  --admonition-bar-danger-border-color: #d30d0d;
-}
-
-:root {
-  --admonition-bar-note-c-bg: var(--c-yellow-80);
-  --admonition-bar-info-c-bg: var(--c-blue-80);
-  --admonition-bar-tip-c-bg: var(--c-green-80);
-  --admonition-bar-caution-c-bg: var(--c-orange-80);
-  --admonition-bar-danger-c-bg: var(--c-red-60);
-
-  --admonition-link-note-c: var(--c-yellow-90);
-  --admonition-link-info-c: var(--c-blue-90);
-  --admonition-link-tip-c: var(--c-green-90);
-  --admonition-link-caution-c: var(--c-orange-90);
-  --admonition-link-danger-c: var(--c-red-90);
-}
-
+// Based on the callout design pattern
 .theme-admonition {
-  position: relative;
   border: none;
+  border-radius: 6px;
+  box-shadow: none;
+  padding: 1rem;
 
-  --ifm-alert-color: var(--ifm-font-color-base);
-  --ifm-alert-padding-horizontal: 2rem;
-  --ifm-alert-padding-vertical: 1.5rem;
+  [class^="admonitionHeading"] {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block-end: 0.25rem;
+    line-height: 20px;
+  }
 
-  .admonition-heading h5 {
-    text-transform: unset;
+  [class^="admonitionIcon"] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
 
-    &:first-letter {
+    svg {
+      fill: currentColor;
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  a {
+    color: inherit;
+    text-decoration-color: currentColor;
+  }
+
+  p {
+    margin-inline-start: 24px;
+    line-height: 1.5 !important;
+    font-size: 0.875rem !important;
+  }
+
+  &.uppercase {
+    [class^="admonitionHeading"] {
       text-transform: uppercase;
     }
   }
+}
 
-  .admonition-content {
-    p {
-      a {
-        color: var(--admonition-link-c);
-        text-decoration: underline;
-      }
+.theme-admonition-note,
+.theme-admonition-info {
+  background-color: var(--violet-a3);
+  color: var(--violet-a11);
+}
 
-      code {
-        background: var(--admonition-code-c-bg);
-      }
-    }
-  }
+.theme-admonition-tip {
+  background-color: var(--green-a3);
+  color: var(--green-a11);
+}
 
-  &-icon {
-    display: none;
-  }
+.theme-admonition-caution {
+  background-color: var(--amber-a3);
+  color: var(--amber-a12);
 
-  &-heading {
-    font-size: 1rem;
-    line-height: 1.6;
-  }
-
-  &::before {
-    content: "";
-    position: absolute;
-    z-index: 2;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 5px;
-    background: var(--admonition-bar-c-bg);
-    border-radius: 4px 0 0 4px;
-  }
-  &-note {
-    color: var(--ifm-font-color-base);
-    border-left: 4px solid var(--admonition-bar-note-border-color);
-    --ifm-alert-background-color: var(--admonition-note-c-bg);
-    --admonition-bar-c-bg: var(--admonition-bar-note-c-bg);
-    --admonition-code-c-bg: var(--admonition-code-note-c-bg);
-    --admonition-link-c: var(--admonition-link-note-c);
-  }
-  &-info {
-    color: var(--ifm-font-color-base);
-    border-left: 4px solid var(--admonition-bar-info-border-color);
-    --ifm-alert-background-color: var(--admonition-info-c-bg);
-    --admonition-bar-c-bg: var(--admonition-bar-info-c-bg);
-    --admonition-code-c-bg: var(--admonition-code-info-c-bg);
-    --admonition-link-c: var(--admonition-link-info-c);
-  }
-  &-important {
-    border-left: 4px solid var(--admonition-bar-important-border-color);
-    --ifm-alert-background-color: var(--admonition-important-c-bg);
-    --admonition-bar-c-bg: var(--admonition-bar-important-c-bg);
-    --admonition-code-c-bg: var(--admonition-code-important-c-bg);
-    --admonition-link-c: var(--admonition-link-important-c);
-  }
-  &-tip {
-    color: var(--ifm-font-color-base);
-    border-left: 4px solid var(--admonition-bar-tip-border-color);
-    --ifm-alert-background-color: var(--admonition-tip-c-bg);
-    --admonition-bar-c-bg: var(--admonition-bar-tip-c-bg);
-    --admonition-code-c-bg: var(--admonition-code-tip-c-bg);
-    --admonition-link-c: var(--admonition-link-tip-c);
-  }
-  &-caution {
-    border-left: 4px solid var(--admonition-bar-caution-border-color);
-    --ifm-alert-background-color: var(--admonition-caution-c-bg);
-    --admonition-bar-c-bg: var(--admonition-bar-caution-c-bg);
-    --admonition-code-c-bg: var(--admonition-code-caution-c-bg);
-    --admonition-link-c: var(--admonition-link-caution-c);
-  }
-  &-warning {
-    border-left: 4px solid var(--admonition-bar-warning-border-color);
-  }
-  &-danger {
-    border-left: 4px solid var(--admonition-bar-danger-border-color);
-    --ifm-alert-background-color: var(--admonition-danger-c-bg);
-    --admonition-bar-c-bg: var(--admonition-bar-danger-c-bg);
-    --admonition-code-c-bg: var(--admonition-code-danger-c-bg);
-    --admonition-link-c: var(--admonition-link-danger-c);
+  svg {
+    fill: var(--amber-a11) !important;
   }
 }
 
-[class^="admonitionHeading_"] {
-  font-size: 0.875rem !important;
-}
-[class^="admonitionContent_"] {
-  line-height: 150%;
-}
-
-.alert--secondary {
-  color: var(--ifm-font-color-base);
+.theme-admonition-danger {
+  background-color: var(--red-a3);
+  color: var(--red-a11);
 }

@@ -5,6 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { VisualChange } from "shared/types/visual-changeset";
 import {
   Changeset,
   ExperimentInterface,
@@ -13,7 +14,6 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { ReqContext } from "back-end/types/organization";
-import { VisualChange } from "back-end/types/visual-changeset";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -44,6 +44,10 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
+import {
+  DiffResult,
+  getObjectDiff,
+} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -310,6 +314,20 @@ const experimentSchema = new mongoose.Schema({
   },
   dismissedWarnings: [String],
   holdoutId: String,
+  defaultDashboardId: String,
+  pinnedMetricSlices: [String],
+  customMetricSlices: [
+    {
+      _id: false,
+      slices: [
+        {
+          _id: false,
+          column: String,
+          levels: [String],
+        },
+      ],
+    },
+  ],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -944,6 +962,36 @@ export const logExperimentUpdated = async ({
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
+  let changes: DiffResult | undefined;
+  try {
+    changes = getObjectDiff(previousApiExperiment, currentApiExperiment, {
+      ignoredKeys: ["dateUpdated"],
+      nestedObjectConfigs: [
+        {
+          key: "phases",
+          idField: "__index",
+          ignoredKeys: [
+            "dateStarted",
+            "dateEnded",
+            "bucketVersion",
+            "minBucketVersion",
+          ],
+        },
+        {
+          key: "variations",
+          idField: "variationId",
+          ignoredKeys: ["screenshots"],
+        },
+        {
+          key: "metricOverrides",
+          idField: "id",
+        },
+      ],
+    });
+  } catch (e) {
+    logger.error(e, "error creating change patch");
+  }
+
   await createEvent({
     context,
     object: "experiment",
@@ -952,6 +1000,7 @@ export const logExperimentUpdated = async ({
     data: {
       object: currentApiExperiment,
       previous_object: previousApiExperiment,
+      changes,
     },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project]),
@@ -1331,11 +1380,18 @@ export async function getExperimentMapForFeature(
 
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string,
+  projects?: string[],
 ): Promise<Map<string, ExperimentInterface>> {
+  const projectFilter =
+    !projects || !projects.length
+      ? {}
+      : projects.length === 1
+        ? { project: projects[0] }
+        : { project: { $in: projects } };
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...(project ? { project } : {}),
+    ...projectFilter,
     archived: { $ne: true },
     $or: [
       {

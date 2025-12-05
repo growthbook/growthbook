@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Switch, Tooltip } from "@radix-ui/themes";
+import { Tooltip } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
+import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
@@ -12,7 +13,6 @@ export interface Props {
   environment: string;
   mutate: () => void;
   id?: string;
-  className?: string;
 }
 
 export default function EnvironmentToggle({
@@ -20,7 +20,6 @@ export default function EnvironmentToggle({
   environment,
   mutate,
   id = "",
-  className = "mr-1",
 }: Props) {
   const [toggling, setToggling] = useState(false);
 
@@ -69,10 +68,9 @@ export default function EnvironmentToggle({
   const switchElement = (
     <Switch
       id={id}
-      className={className}
       disabled={isDisabled}
-      checked={env?.enabled ?? false}
-      onCheckedChange={async (on) => {
+      value={env?.enabled ?? false}
+      onChange={async (on) => {
         if (toggling) return;
         if (on && env?.enabled) return;
         if (!on && !env?.enabled) return;
@@ -84,6 +82,7 @@ export default function EnvironmentToggle({
           await submit(feature, environment, on);
         }
       }}
+      size="3"
     />
   );
 

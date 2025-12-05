@@ -1,8 +1,8 @@
-import React, { useState, useEffect, ReactElement } from "react";
+import React, { useState, useEffect, ReactElement, useCallback } from "react";
 import {
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import {
   FaAngleDown,
   FaAngleRight,
@@ -28,7 +28,10 @@ import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snipp
 import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
-import Callout from "../Radix/Callout";
+import Callout from "@/ui/Callout";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import {
   getPackageRepositoryName,
@@ -78,7 +81,7 @@ export default function CodeSnippetModal({
   allowChangingConnection?: boolean;
 }) {
   const [currentConnectionId, setCurrentConnectionId] = useState("");
-
+  const { apiCall } = useAuth();
   useEffect(() => {
     setCurrentConnectionId(
       currentConnectionId || sdkConnection?.id || connections?.[0]?.id || "",
@@ -99,12 +102,41 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
-  const [eventTracker, setEventTracker] = useState("");
+  const [eventTracker, setEventTracker] = useState(
+    currentConnection?.eventTracker || "",
+  );
+
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
 
+  const permissionsUtil = usePermissionsUtil();
+  const canUpdate = currentConnection
+    ? permissionsUtil.canUpdateSDKConnection(currentConnection, {})
+    : false;
+  const updateEventTracker = useCallback(
+    async (value: string) => {
+      try {
+        track("Event Tracker Selected", {
+          eventTracker,
+          language: currentConnection?.languages || [],
+        });
+        if (canUpdate && currentConnectionId) {
+          await apiCall(`/sdk-connections/${currentConnectionId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              eventTracker: value,
+            }),
+          });
+        }
+        setEventTracker(value);
+      } catch (e) {
+        setEventTracker(value);
+      }
+    },
+    [currentConnectionId, setEventTracker],
+  );
   useEffect(() => {
     if (!currentConnection) return;
 
@@ -116,6 +148,7 @@ export default function CodeSnippetModal({
         : undefined) ?? getLatestSDKVersion(language);
     setLanguage(language);
     setVersion(version);
+    setEventTracker(currentConnection?.eventTracker || "");
   }, [currentConnection]);
 
   if (!currentConnection) {
@@ -178,6 +211,7 @@ export default function CodeSnippetModal({
         inline={inline}
         size={"max"}
         header="Implementation Instructions"
+        autoFocusSelector=""
         autoCloseOnSubmit={false}
         submit={
           includeCheck
@@ -373,7 +407,7 @@ export default function CodeSnippetModal({
                   <InstallationCodeSnippet
                     language={language}
                     eventTracker={eventTracker}
-                    setEventTracker={setEventTracker}
+                    setEventTracker={updateEventTracker}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
@@ -424,7 +458,7 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
-                    setEventTracker={setEventTracker}
+                    setEventTracker={updateEventTracker}
                   />
                 </div>
               )}

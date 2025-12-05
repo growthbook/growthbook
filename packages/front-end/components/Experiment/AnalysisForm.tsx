@@ -10,10 +10,12 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
+import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import Collapsible from "react-collapsible";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -30,12 +32,16 @@ import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
+import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
@@ -147,6 +153,8 @@ const AnalysisForm: FC<{
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
+      customMetricSlices: experiment.customMetricSlices || [],
+      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -216,6 +224,12 @@ const AnalysisForm: FC<{
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
 
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
+
   if (upgradeModal) {
     return (
       <UpgradeModal
@@ -230,6 +244,15 @@ const AnalysisForm: FC<{
     form.watch("goalMetrics").length > 0 ||
     form.watch("guardrailMetrics").length > 0 ||
     form.watch("secondaryMetrics").length > 0;
+
+  // Check if any advanced settings should be shown
+  const hasAdvancedSettings =
+    !isBandit &&
+    !isHoldout &&
+    (datasourceProperties?.experimentSegments ||
+      datasourceProperties?.separateExperimentResultQueries ||
+      datasourceProperties?.queryLanguage === "sql" ||
+      hasMetrics);
 
   return (
     <Modal
@@ -509,90 +532,57 @@ const AnalysisForm: FC<{
           </div>
         )}
         {!!datasource && !isBandit && !isHoldout && (
-          <MetricSelector
-            datasource={form.watch("datasource")}
-            exposureQueryId={exposureQueryId}
-            project={experiment.project}
-            includeFacts={true}
-            labelClassName="font-weight-bold"
-            label={
-              <>
-                Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
-              </>
-            }
-            initialOption="None"
-            onlyBinomial
-            value={form.watch("activationMetric")}
-            onChange={(value) => form.setValue("activationMetric", value || "")}
-            helpText="Users must convert on this metric before being included"
-          />
-        )}
-        {datasourceProperties?.experimentSegments &&
-          !isBandit &&
-          !isHoldout && (
-            <SelectField
-              label="Segment"
-              labelClassName="font-weight-bold"
-              value={form.watch("segment")}
-              onChange={(value) => form.setValue("segment", value || "")}
-              initialOption="None (All Users)"
-              options={filteredSegments.map((s) => {
-                return {
-                  label: s.name,
-                  value: s.id,
-                };
-              })}
-              helpText="Only users in this segment will be included"
-            />
-          )}
-        {datasourceProperties?.separateExperimentResultQueries &&
-          !isBandit &&
-          !isHoldout && (
-            <SelectField
-              label="Metric Conversion Windows"
-              labelClassName="font-weight-bold"
-              value={form.watch("skipPartialData")}
-              onChange={(value) => form.setValue("skipPartialData", value)}
-              options={[
-                {
-                  label: "Include In-Progress Conversions",
-                  value: "loose",
-                },
-                {
-                  label: "Exclude In-Progress Conversions",
-                  value: "strict",
-                },
-              ]}
-              helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-            />
-          )}
-        {datasourceProperties?.separateExperimentResultQueries &&
-          !isBandit &&
-          !isHoldout && (
-            <SelectField
-              label={
-                <AttributionModelTooltip>
-                  <strong>Conversion Window Override</strong>{" "}
-                  <FaQuestionCircle />
-                </AttributionModelTooltip>
+          <>
+            <Tooltip
+              shouldDisplay={
+                isExperimentIncludedInIncrementalRefresh &&
+                form.watch("activationMetric") === ""
               }
-              value={form.watch("attributionModel")}
-              onChange={(value) => {
-                const model = value as AttributionModel;
-                form.setValue("attributionModel", model);
-              }}
-              options={[
-                {
-                  label: "Respect Conversion Windows",
-                  value: "firstExposure",
-                },
-                {
-                  label: "Ignore Conversion Windows",
-                  value: "experimentDuration",
-                },
-              ]}
-            />
-          )}
+              body="Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
+            >
+              <MetricSelector
+                disabled={isExperimentIncludedInIncrementalRefresh}
+                datasource={form.watch("datasource")}
+                exposureQueryId={exposureQueryId}
+                project={experiment.project}
+                includeFacts={true}
+                labelClassName="font-weight-bold"
+                label={
+                  <>
+                    Activation Metric
+                    {!isExperimentIncludedInIncrementalRefresh ? (
+                      <>
+                        {" "}
+                        <MetricsSelectorTooltip onlyBinomial={true} />
+                      </>
+                    ) : null}
+                  </>
+                }
+                initialOption="None"
+                onlyBinomial
+                value={form.watch("activationMetric")}
+                onChange={(value) =>
+                  form.setValue("activationMetric", value || "")
+                }
+                helpText="Users must convert on this metric before being included"
+              />
+            </Tooltip>
+            {isExperimentIncludedInIncrementalRefresh &&
+              form.watch("activationMetric") !== "" && (
+                <Callout status="warning" mb="2">
+                  Activation metrics are not yet supported with Incremental
+                  Refresh. Please{" "}
+                  <Link
+                    style={{ display: "inline" }}
+                    onClick={() => form.setValue("activationMetric", "")}
+                  >
+                    click to remove it
+                  </Link>
+                  .
+                </Callout>
+              )}
+          </>
+        )}
         <StatsEngineSelect
           label={
             isBandit ? (
@@ -726,44 +716,11 @@ const AnalysisForm: FC<{
               </div>
             </div>
           )}
-        {datasourceProperties?.queryLanguage === "sql" &&
-          !isBandit &&
-          !isHoldout && (
-            <div className="row">
-              <div className="col">
-                <Field
-                  label="Custom SQL Filter"
-                  labelClassName="font-weight-bold"
-                  {...form.register("queryFilter")}
-                  textarea
-                  placeholder="e.g. user_id NOT IN ('123', '456')"
-                  helpText="WHERE clause to add to the default experiment query"
-                />
-              </div>
-              <div className="pt-2 border-left col-sm-4 col-lg-6">
-                Available columns:
-                <div className="mb-2 d-flex flex-wrap">
-                  {["timestamp", "variation_id"]
-                    .concat(exposureQuery ? [exposureQuery.userIdType] : [])
-                    .concat(exposureQuery?.dimensions || [])
-                    .map((d) => {
-                      return (
-                        <div className="mr-2 mb-2 border px-1" key={d}>
-                          <code>{d}</code>
-                        </div>
-                      );
-                    })}
-                </div>
-                <div>
-                  <strong>Tip:</strong> Use a subquery inside an <code>IN</code>{" "}
-                  or <code>NOT IN</code> clause for more advanced filtering.
-                </div>
-              </div>
-            </div>
-          )}
         {editMetrics && (
           <>
             <ExperimentMetricsSelector
+              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+              excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               project={experiment.project}
@@ -786,37 +743,199 @@ const AnalysisForm: FC<{
               noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
+              experimentId={experiment.id}
             />
 
-            {hasMetrics && !isBandit && !isHoldout && (
-              <div className="form-group mb-2">
-                <PremiumTooltip commercialFeature="override-metrics">
-                  <label className="font-weight-bold mb-1">
-                    Metric Overrides
-                  </label>
-                </PremiumTooltip>
-                <small className="form-text text-muted mb-2">
-                  Override metric behaviors within this experiment. Leave any
-                  fields empty that you do not want to override.
-                </small>
-                <MetricsOverridesSelector
-                  experiment={experiment}
-                  form={
-                    form as unknown as UseFormReturn<EditMetricsFormInterface>
+            <CustomMetricSlicesSelector
+              goalMetrics={form.watch("goalMetrics")}
+              secondaryMetrics={form.watch("secondaryMetrics")}
+              guardrailMetrics={form.watch("guardrailMetrics")}
+              customMetricSlices={form.watch("customMetricSlices") || []}
+              setCustomMetricSlices={(slices) =>
+                form.setValue("customMetricSlices", slices)
+              }
+              pinnedMetricSlices={form.watch("pinnedMetricSlices") || []}
+              setPinnedMetricSlices={(slices) =>
+                form.setValue("pinnedMetricSlices", slices)
+              }
+            />
+
+            {hasAdvancedSettings && (
+              <>
+                <hr className="mt-4" />
+
+                <Collapsible
+                  trigger={
+                    <div className="link-purple font-weight-bold mt-4 mb-2">
+                      <PiCaretRightFill className="chevron mr-1" />
+                      Advanced Settings
+                    </div>
                   }
-                  disabled={!hasOverrideMetricsFeature}
-                  setHasMetricOverrideRiskError={(v: boolean) =>
-                    setHasMetricOverrideRiskError(v)
-                  }
-                />
-                {!hasOverrideMetricsFeature && (
-                  <UpgradeMessage
-                    showUpgradeModal={() => setUpgradeModal(true)}
-                    commercialFeature="override-metrics"
-                    upgradeMessage="override metrics"
-                  />
-                )}
-              </div>
+                  transitionTime={100}
+                >
+                  <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+                    {datasourceProperties?.experimentSegments && (
+                      <div className="form-group mb-2">
+                        <SelectField
+                          label="Segment"
+                          labelClassName="font-weight-bold"
+                          value={form.watch("segment")}
+                          onChange={(value) =>
+                            form.setValue("segment", value || "")
+                          }
+                          initialOption="None (All Users)"
+                          options={filteredSegments.map((s) => {
+                            return {
+                              label: s.name,
+                              value: s.id,
+                            };
+                          })}
+                          helpText="Only users in this segment will be included"
+                        />
+                      </div>
+                    )}
+                    {datasourceProperties?.separateExperimentResultQueries && (
+                      <div className="form-group mb-2">
+                        <Tooltip
+                          shouldDisplay={
+                            isExperimentIncludedInIncrementalRefresh
+                          }
+                          body="In-progress Conversions is not supported with Incremental Refresh while in beta"
+                        >
+                          <SelectField
+                            label="Metric Conversion Windows"
+                            labelClassName="font-weight-bold"
+                            value={form.watch("skipPartialData")}
+                            onChange={(value) =>
+                              form.setValue("skipPartialData", value)
+                            }
+                            options={[
+                              {
+                                label: "Include In-Progress Conversions",
+                                value: "loose",
+                              },
+                              {
+                                label: "Exclude In-Progress Conversions",
+                                value: "strict",
+                              },
+                            ]}
+                            isOptionDisabled={(option) =>
+                              isExperimentIncludedInIncrementalRefresh &&
+                              "value" in option &&
+                              option.value === "strict"
+                            }
+                            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                          />
+                        </Tooltip>
+                      </div>
+                    )}
+                    {datasourceProperties?.separateExperimentResultQueries && (
+                      <div className="form-group mb-2">
+                        <SelectField
+                          label={
+                            <AttributionModelTooltip>
+                              <strong>Conversion Window Override</strong>{" "}
+                              <FaQuestionCircle />
+                            </AttributionModelTooltip>
+                          }
+                          value={form.watch("attributionModel")}
+                          onChange={(value) => {
+                            const model = value as AttributionModel;
+                            form.setValue("attributionModel", model);
+                          }}
+                          options={[
+                            {
+                              label: "Respect Conversion Windows",
+                              value: "firstExposure",
+                            },
+                            {
+                              label: "Ignore Conversion Windows",
+                              value: "experimentDuration",
+                            },
+                          ]}
+                        />
+                      </div>
+                    )}
+                    {datasourceProperties?.queryLanguage === "sql" && (
+                      <div className="form-group mb-2">
+                        <div className="row">
+                          <div className="col">
+                            <Field
+                              label="Custom SQL Filter"
+                              labelClassName="font-weight-bold"
+                              {...form.register("queryFilter")}
+                              textarea
+                              placeholder="e.g. user_id NOT IN ('123', '456')"
+                              helpText="WHERE clause to add to the default experiment query"
+                            />
+                          </div>
+                          <div className="pt-2 border-left col-sm-4 col-lg-6">
+                            Available columns:
+                            <div className="mb-2 d-flex flex-wrap">
+                              {["timestamp", "variation_id"]
+                                .concat(
+                                  exposureQuery
+                                    ? [exposureQuery.userIdType]
+                                    : [],
+                                )
+                                .concat(exposureQuery?.dimensions || [])
+                                .map((d) => {
+                                  return (
+                                    <div
+                                      className="mr-2 mb-2 border px-1"
+                                      key={d}
+                                    >
+                                      <code>{d}</code>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                            <div>
+                              <strong>Tip:</strong> Use a subquery inside an{" "}
+                              <code>IN</code> or <code>NOT IN</code> clause for
+                              more advanced filtering.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {hasMetrics && (
+                      <div className="form-group mb-2">
+                        <PremiumTooltip commercialFeature="override-metrics">
+                          <label className="font-weight-bold mb-1">
+                            Metric Overrides
+                          </label>
+                        </PremiumTooltip>
+                        <small className="form-text text-muted mb-2">
+                          Override metric behaviors within this experiment.
+                          Leave any fields empty that you do not want to
+                          override.
+                        </small>
+                        <MetricsOverridesSelector
+                          experiment={experiment}
+                          form={
+                            form as unknown as UseFormReturn<EditMetricsFormInterface>
+                          }
+                          disabled={
+                            !hasOverrideMetricsFeature ||
+                            isExperimentIncludedInIncrementalRefresh
+                          }
+                          setHasMetricOverrideRiskError={(v: boolean) =>
+                            setHasMetricOverrideRiskError(v)
+                          }
+                        />
+                        {!hasOverrideMetricsFeature && (
+                          <UpgradeMessage
+                            showUpgradeModal={() => setUpgradeModal(true)}
+                            commercialFeature="override-metrics"
+                            upgradeMessage="override metrics"
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Collapsible>
+              </>
             )}
           </>
         )}

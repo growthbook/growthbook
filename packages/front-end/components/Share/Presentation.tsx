@@ -22,6 +22,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "@/components/Markdown/Markdown";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import CompactResults from "@/components/Experiment/CompactResults";
+import AuthorizedImage from "@/components/AuthorizedImage";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 
 export interface Props {
@@ -53,6 +54,11 @@ const Presentation = ({
 }: Props): ReactElement => {
   const { getExperimentMetricById } = useDefinitions();
   const orgSettings = useOrgSettings();
+
+  // Image cache for AuthorizedImage component
+  const [imageCache] = React.useState<
+    Record<string, { url: string; expiresAt: string }>
+  >({});
 
   // Interval to force the results table to redraw (currently needed for window-size-based rendering)
   // - ideally would have rerendered on slide number, but spectacle doesn't seem to expose this
@@ -198,10 +204,11 @@ const Presentation = ({
               >
                 <h4>{v.name}</h4>
                 {v?.screenshots[0]?.path && (
-                  <img
+                  <AuthorizedImage
                     className="expimage border"
                     src={v.screenshots[0].path}
                     alt={v.name}
+                    imageCache={imageCache}
                   />
                 )}
                 {v.description && (
@@ -281,6 +288,7 @@ const Presentation = ({
             }}
           >
             <CompactResults
+              experimentId={experiment.id}
               variations={experiment.variations.map((v, i) => {
                 return {
                   id: v.key || i + "",
@@ -303,9 +311,6 @@ const Presentation = ({
               id={experiment.id}
               statsEngine={snapshot?.analyses[0]?.settings.statsEngine}
               pValueCorrection={orgSettings?.pValueCorrection}
-              regressionAdjustmentEnabled={
-                snapshot?.analyses[0]?.settings?.regressionAdjusted
-              }
               settingsForSnapshotMetrics={settingsForSnapshotMetrics}
               sequentialTestingEnabled={
                 snapshot?.analyses[0]?.settings?.sequentialTesting

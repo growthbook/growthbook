@@ -13,7 +13,7 @@ import Modal from "@/components/Modal";
 import CopyToClipboard from "@/components/CopyToClipboard";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] =
@@ -137,7 +137,7 @@ const PresentationPage = (): React.ReactElement => {
     presList = [];
     p.presentations.map((pres, i) => {
       presList.push(
-        <Card className="card" key={`pres-exp-${i}`} mb="3">
+        <Card key={`pres-exp-${i}`} mb="3">
           <Flex p="2" gap="2">
             <div className="col flex-grow-1">
               <h4 className="mb-0">{pres.title}</h4>

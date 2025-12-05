@@ -3,11 +3,14 @@ import fs from "fs";
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
-import { getInstallationId } from "back-end/src/models/InstallationModel";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getInstallation } from "back-end/src/models/InstallationModel";
+import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { getInstallationDatasources } from "back-end/src/models/DataSourceModel";
 import { DefaultMemberRole, OrgMemberInfo } from "back-end/types/organization";
-import { getAllOrgMemberInfoInDb } from "back-end/src/models/OrganizationModel";
+import {
+  getAllOrgMemberInfoInDb,
+  getSelfHostedOrganization,
+} from "back-end/src/models/OrganizationModel";
 import {
   getUserIdsAndEmailsForAllUsersInDb,
   getUsersByIds,
@@ -21,13 +24,26 @@ import { TeamInterface } from "back-end/types/team";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";
+  let installationName = "unknown";
   let gitSha = "";
   let gitCommitDate = "";
   let sdkLanguages: string[] = [];
   let dataSourceTypes: string[] = [];
   let eventTrackers: string[] = [];
   try {
-    installationId = await getInstallationId();
+    const installation = await getInstallation();
+    installationId = installation.id;
+    if (IS_CLOUD) {
+      installationName = "cloud";
+    } else {
+      if (IS_MULTI_ORG) {
+        installationName = installation.name || installationId;
+      } else {
+        const org = await getSelfHostedOrganization();
+        installationName = org?.name || installationId;
+      }
+    }
+
     const rootPath = path.join(__dirname, "..", "..", "..", "..");
 
     if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
@@ -63,6 +79,7 @@ export async function getLicenseMetaData() {
 
   return {
     installationId,
+    installationName,
     gitSha,
     gitCommitDate,
     sdkLanguages: sdkLanguages,

@@ -1,4 +1,4 @@
-import { DataSourceInterface } from "back-end/types/datasource";
+import { DataSourceInterface, DataSourceType } from "back-end/types/datasource";
 import {
   createInformationSchema,
   updateInformationSchemaById,
@@ -6,6 +6,7 @@ import {
 import {
   InformationSchema,
   InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
 } from "back-end/src/types/Integration";
 import { updateDataSource } from "back-end/src/models/DataSourceModel";
 import { removeDeletedInformationSchemaTables } from "back-end/src/models/InformationSchemaTablesModel";
@@ -301,4 +302,144 @@ export async function updateDatasourceInformationSchema(
     refreshMS,
     dateUpdated: new Date(),
   });
+}
+
+/**
+ * Generates a table path for use in SQL queries based on the data source type.
+ * This logic was moved from the backend to frontend to avoid storing computed data.
+ */
+export function getTablePath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+    schema: string;
+    tableName: string;
+  },
+): string {
+  const { catalog, schema, tableName } = params;
+  const pathArray = [catalog, schema, tableName];
+  const returnValue = pathArray.join(".");
+
+  switch (dataSourceType) {
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
+    case "mysql":
+    case "clickhouse":
+      return [schema, tableName]
+        .map((part) => "`" + part + "`") // Wrap each path part in backticks for safety
+        .join(".");
+
+    case "bigquery":
+      return "`" + returnValue + "`"; // BigQuery requires backticks around the full path
+    case "growthbook_clickhouse":
+      return tableName; // Only return the table name
+
+    default:
+      return returnValue;
+  }
+}
+
+export function getSchemaPath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+    schema: string;
+  },
+): string {
+  const { catalog, schema } = params;
+  const pathArray = [catalog, schema];
+  const returnValue = pathArray.join(".");
+
+  switch (dataSourceType) {
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
+    case "mysql":
+    case "clickhouse":
+      return "`" + schema + "`";
+
+    case "bigquery":
+      return "`" + returnValue; // BigQuery requires backticks around the full path, but since this is a partial path, only add backticks at the beginning
+    case "growthbook_clickhouse":
+      return ""; // Only return the table name
+
+    default:
+      return returnValue;
+  }
+}
+
+export function getDatabasePath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+  },
+): string {
+  const { catalog } = params;
+
+  switch (dataSourceType) {
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
+    case "mysql":
+    case "clickhouse":
+      return "";
+
+    case "bigquery":
+      return "`" + catalog; // BigQuery requires backticks around the full path, but since this is a partial path, only add backticks at the beginning
+    case "growthbook_clickhouse":
+      return ""; // Only return the table name
+
+    default:
+      return catalog;
+  }
+}
+
+export function getInformationSchemaWithPaths(
+  informationSchema: InformationSchemaInterface,
+  datasourceType: DataSourceType,
+): InformationSchemaInterfaceWithPaths {
+  // Create the enriched databases array with path properties
+  const enrichedDatabases = informationSchema.databases.map((db) => {
+    const path = getDatabasePath(datasourceType, {
+      catalog: db.databaseName,
+    });
+
+    const enrichedSchemas = db.schemas.map((schema) => {
+      const path = getSchemaPath(datasourceType, {
+        catalog: db.databaseName,
+        schema: schema.schemaName,
+      });
+
+      const enrichedTables = schema.tables.map((table) => {
+        const path = getTablePath(datasourceType, {
+          catalog: db.databaseName,
+          schema: schema.schemaName,
+          tableName: table.tableName,
+        });
+
+        return {
+          ...table,
+          path,
+        };
+      });
+
+      return {
+        ...schema,
+        path,
+        tables: enrichedTables,
+      };
+    });
+
+    return {
+      ...db,
+      path,
+      schemas: enrichedSchemas,
+    };
+  });
+
+  // Return the complete enriched information schema
+  const result = {
+    ...informationSchema,
+    databases: enrichedDatabases,
+  };
+
+  return result;
 }

@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import {
   FactMetricInterface,
   FactMetricType,
@@ -49,6 +49,7 @@ export async function getUpdateFactMetricPropsFromBody(
   if (numerator) {
     updates.numerator = {
       filters: [],
+      inlineFilters: {},
       ...numerator,
       column:
         metricType === "proportion" || metricType === "retention"
@@ -77,6 +78,7 @@ export async function getUpdateFactMetricPropsFromBody(
   if (denominator) {
     updates.denominator = {
       filters: [],
+      inlineFilters: {},
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
@@ -140,6 +142,15 @@ export const updateFactMetric = createApiRequestHandler(
   if (!factMetric) {
     throw new Error("Could not find factMetric with that id");
   }
+
+  if (
+    req.body.metricAutoSlices &&
+    req.body.metricAutoSlices.length > 0 &&
+    !req.context.hasPremiumFeature("metric-slices")
+  ) {
+    throw new Error("Metric slices require an enterprise license");
+  }
+
   const lookupFactTable = async (id: string) => getFactTable(req.context, id);
   const updates = await getUpdateFactMetricPropsFromBody(
     req.body,

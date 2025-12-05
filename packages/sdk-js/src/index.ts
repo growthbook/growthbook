@@ -14,6 +14,7 @@ export type {
   FeatureApiResponse,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
+  DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
   FeatureRule,

@@ -15,9 +15,9 @@ import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
-import Checkbox from "../Radix/Checkbox";
-import Callout from "../Radix/Callout";
-import Link from "../Radix/Link";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 function validateUrl(urlString: string): {
   isValid: boolean;

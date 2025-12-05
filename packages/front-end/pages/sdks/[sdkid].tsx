@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
@@ -17,7 +17,7 @@ import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 export default function SDKConnectionPage() {

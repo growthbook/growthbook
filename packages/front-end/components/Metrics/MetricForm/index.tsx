@@ -1,6 +1,8 @@
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   Condition,
+  ManagedBy,
   MetricInterface,
   MetricType,
   Operator,
@@ -35,7 +37,7 @@ import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
@@ -48,14 +50,18 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Callout from "@/components/Radix/Callout";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelaySettings } from "./MetricDelaySettings";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
+
+// ManagedBy constants to avoid type assertions
+export const MANAGED_BY_ADMIN: ManagedBy = "admin";
+const MANAGED_BY_EMPTY: ManagedBy = "";
 
 export type MetricFormProps = {
   initialStep?: number;
@@ -356,6 +362,7 @@ const MetricForm: FC<MetricFormProps> = ({
           mean: 0,
           stddev: DEFAULT_PROPER_PRIOR_STDDEV,
         }),
+      managedBy: current.managedBy || MANAGED_BY_EMPTY,
     },
   });
 
@@ -618,6 +625,7 @@ const MetricForm: FC<MetricFormProps> = ({
       {supportsSQL && sqlOpen && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
+          sqlObjectInfo={{ objectType: "Metric", objectName: value.name }}
           datasourceId={value.datasource}
           placeholder={
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
@@ -1376,17 +1384,15 @@ const MetricForm: FC<MetricFormProps> = ({
                       }}
                     >
                       <div className="d-flex my-2 border-bottom"></div>
-                      <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                        <label
-                          className="mr-1"
-                          htmlFor="toggle-regressionAdjustmentEnabled"
-                        >
-                          Apply regression adjustment for this metric
-                        </label>
-                        <Toggle
+                      <Flex
+                        direction="column"
+                        className="form-group mt-3 mb-0 mr-2"
+                      >
+                        <Switch
                           id={"toggle-regressionAdjustmentEnabled"}
+                          label="Apply regression adjustment for this metric"
                           value={!!form.watch("regressionAdjustmentEnabled")}
-                          setValue={(value) => {
+                          onChange={(value) => {
                             form.setValue("regressionAdjustmentEnabled", value);
                           }}
                           disabled={!hasRegressionAdjustmentFeature}
@@ -1395,7 +1401,8 @@ const MetricForm: FC<MetricFormProps> = ({
                           (organization default:{" "}
                           {settings.regressionAdjustmentEnabled ? "On" : "Off"})
                         </small>
-                      </div>
+                      </Flex>
+
                       <div
                         className="form-group mt-3 mb-1 mr-2"
                         style={{

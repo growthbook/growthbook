@@ -88,6 +88,11 @@ const sidebars = {
           id: "features/approval-flows",
           label: "Approval Flows",
         },
+        {
+          type: "doc",
+          id: "features/custom-hooks",
+          label: "Custom Hooks",
+        },
       ],
     },
     {
@@ -291,6 +296,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/sql-templates",
+          label: "SQL Templates",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
@@ -298,7 +308,16 @@ const sidebars = {
           type: "doc",
           id: "experimentation-analysis/managed-warehouse",
           label: "Managed Warehouse",
-          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/event-forwarder",
+          label: "Event Forwarder",
+        },
+        {
+          type: "doc",
+          id: "official-resources",
+          label: "Official Resources",
         },
       ],
     },
@@ -408,6 +427,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/experiment-dashboards",
+          label: "Experiment Dashboards",
+        },
+        {
+          type: "doc",
           id: "importing-experiments",
           label: "Importing External Experiments",
         },
@@ -466,6 +490,12 @@ const sidebars = {
       label: "Insights",
     },
     {
+      type: "doc",
+      id: "product-analytics",
+      label: "Product Analytics",
+      className: "pill-new",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -500,6 +530,12 @@ const sidebars = {
               label: "C#",
             },
             { type: "doc", id: "lib/go", label: "Go" },
+            {
+              type: "doc",
+              id: "lib/rust",
+              label: "Rust",
+              className: "pill-new",
+            },
             {
               type: "doc",
               id: "lib/elixir",
@@ -560,17 +596,20 @@ const sidebars = {
       type: "category",
       label: "Self-Hosting",
       collapsed: true,
-      link: {
-        type: "doc",
-        id: "self-host/index",
-      },
       items: [
+        "self-host/index",
         "self-host/environment-variables",
-        "self-host/config-yml",
         "self-host/production",
+        "self-host/kubernetes",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        {
+          type: "doc",
+          id: "self-host/remote-evaluation",
+          label: "Remote Evaluation",
+        },
         { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
+        "self-host/config-yml",
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
@@ -685,7 +724,6 @@ const sidebars = {
     {
       type: "category",
       label: "Security",
-      collapsed: false,
       items: [
         {
           type: "doc",
@@ -721,6 +759,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/migrate-from-statsig",
+          label: "Migrate from Statsig",
+        },
         {
           type: "doc",
           id: "guide/sanity",

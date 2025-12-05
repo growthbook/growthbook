@@ -6,6 +6,7 @@ import {
   DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
+
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -71,6 +72,7 @@ export interface AnalysisSettingsForStatsEngine {
   traffic_percentage: number;
   num_goal_metrics: number;
   one_sided_intervals?: boolean;
+  post_stratification_enabled?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -174,6 +176,7 @@ export function getAnalysisSettingsForStatsEngine(
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    post_stratification_enabled: !!settings.postStratificationEnabled,
   };
 
   return analysisData;
@@ -460,7 +463,10 @@ export function getMetricsAndQueryDataForStatsEngine(
   else {
     queryData.forEach((query, key) => {
       // Multi-metric query
-      if (key.match(/group_/)) {
+      if (
+        key.match(/group_/) ||
+        query.queryType === "experimentIncrementalRefreshStatistics"
+      ) {
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
