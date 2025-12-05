@@ -1,7 +1,7 @@
 import {
   HoldoutInterface,
   holdoutValidator,
-} from "back-end/src/routers/holdout/holdout.validators";
+} from "shared/src/validators/holdout";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";

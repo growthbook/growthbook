@@ -8,6 +8,7 @@ import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/types/groups";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
+import { HoldoutInterface } from "shared/src/validators/holdout";
 import {
   FeatureInterface,
   FeatureRule,
@@ -20,7 +21,6 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(

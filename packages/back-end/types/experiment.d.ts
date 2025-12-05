@@ -8,8 +8,8 @@ import {
   BanditEvent,
   ExperimentDecisionFrameworkSettings,
 } from "shared/src/validators/experiments";
+import { HoldoutInterface } from "shared/src/validators/holdout";
 import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
