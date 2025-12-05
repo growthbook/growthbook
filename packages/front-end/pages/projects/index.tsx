@@ -1,5 +1,4 @@
 import React, { useState, FC } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -9,12 +8,13 @@ import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -26,10 +26,11 @@ const ProjectsPage: FC = () => {
     null,
   );
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-
   const permissionsUtil = usePermissionsUtil();
   const canCreateProjects = permissionsUtil.canCreateProjects();
+
+  const [deleteProjectResources, setDeleteProjectResources] =
+    useState<boolean>(true);
 
   return (
     <div className="container-fluid  pagecontents">
@@ -146,21 +147,30 @@ const ProjectsPage: FC = () => {
                           text="Delete"
                           useIcon={false}
                           onClick={async () => {
-                            await apiCall(`/projects/${p.id}`, {
-                              method: "DELETE",
-                            });
+                            await apiCall(
+                              `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
                             mutateDefinitions();
                           }}
                           additionalMessage={
-                            sdkConnectionsData?.connections?.find((c) =>
-                              c.projects.includes(p.id),
-                            ) ? (
-                              <div className="alert alert-danger px-2 py-1">
-                                <FaExclamationTriangle /> This project is in use
-                                by one or more SDK Connections. Deleting it will
-                                cause those connections to stop working.
-                              </div>
-                            ) : null
+                            <>
+                              <Checkbox
+                                value={deleteProjectResources}
+                                setValue={(v) => setDeleteProjectResources(v)}
+                                label="Also delete all of this project's resources (features, experiments, etc.)"
+                              />
+
+                              {!deleteProjectResources && (
+                                <Callout status="warning" mt="3">
+                                  <strong>Warning:</strong> You may end up with
+                                  orphaned resources that will need to be
+                                  cleaned up manually.
+                                </Callout>
+                              )}
+                            </>
                           }
                         />
                       ) : null}
