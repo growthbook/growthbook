@@ -38,7 +38,7 @@ import {
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import {
   ApiReqContext,
   AutoExperimentWithProject,

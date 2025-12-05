@@ -4,7 +4,7 @@ import {
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
-} from "shared/src/validators/shared";
+} from "shared/validators";
 import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import { eventUser } from "./events";
 

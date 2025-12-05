@@ -10,7 +10,7 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { ExperimentAnalysisSummary } from "shared/src/validators/experiments";
+import { ExperimentAnalysisSummary } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";

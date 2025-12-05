@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { CustomHookInterface } from "shared/src/validators/custom-hooks";
+import { CustomHookInterface } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";

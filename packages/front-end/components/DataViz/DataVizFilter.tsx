@@ -1,4 +1,4 @@
-import { FilterConfiguration } from "shared/src/validators/saved-queries";
+import { FilterConfiguration } from "shared/validators";
 import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";

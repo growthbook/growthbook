@@ -4,7 +4,7 @@ import {
   getHealthSettings,
   getStatusIndicatorData,
 } from "shared/enterprise";
-import { ExperimentInterfaceExcludingHoldouts } from "shared/src/validators/experiments";
+import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import { GetExperimentResponse } from "back-end/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";

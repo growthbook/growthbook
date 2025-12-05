@@ -15,7 +15,7 @@ import {
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
-import { SavedQuery } from "shared/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
 import Button from "@/ui/Button";

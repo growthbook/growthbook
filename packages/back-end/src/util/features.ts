@@ -8,7 +8,7 @@ import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/types/groups";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import {
   FeatureInterface,
   FeatureRule,

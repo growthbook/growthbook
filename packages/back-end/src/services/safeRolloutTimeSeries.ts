@@ -5,7 +5,7 @@ import {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
-} from "shared/src/validators/metric-time-series";
+} from "shared/validators";
 import { ReqContext } from "back-end/types/organization";
 import {
   FactMetricInterface,

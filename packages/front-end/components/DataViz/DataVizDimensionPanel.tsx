@@ -2,10 +2,7 @@ import Collapsible from "react-collapsible";
 import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import { PiNetwork, PiTrash } from "react-icons/pi";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
-import {
-  DataVizConfig,
-  dimensionAxisConfiguration,
-} from "shared/src/validators/saved-queries";
+import { DataVizConfig, dimensionAxisConfiguration } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import Badge from "@/ui/Badge";

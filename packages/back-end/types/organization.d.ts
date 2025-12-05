@@ -15,7 +15,7 @@ import {
 } from "shared/enterprise";
 import { TiktokenModel } from "@dqbd/tiktoken";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { AgreementType } from "shared/src/validators/agreements";
+import { AgreementType } from "shared/validators";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";

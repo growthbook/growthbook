@@ -7,7 +7,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
-import { baseSchema } from "shared/src/validators/base-model";
+import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";

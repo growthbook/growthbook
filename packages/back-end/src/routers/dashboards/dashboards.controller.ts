@@ -7,7 +7,7 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
-import { SavedQuery } from "shared/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import {
   AuthRequest,
   ResponseWithStatusAndError,

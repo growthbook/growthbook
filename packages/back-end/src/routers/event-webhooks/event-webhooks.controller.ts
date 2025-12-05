@@ -2,7 +2,7 @@ import type { Response } from "express";
 import {
   CreateWebhookSecretProps,
   UpdateWebhookSecretProps,
-} from "shared/src/validators/webhook-secrets";
+} from "shared/validators";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   EventWebHookInterface,

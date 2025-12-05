@@ -12,7 +12,7 @@ import {
   DataVizConfig,
   SavedQuery,
   QueryExecutionResult,
-} from "shared/src/validators/saved-queries";
+} from "shared/validators";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";

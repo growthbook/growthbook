@@ -2,7 +2,7 @@ import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
-} from "shared/src/validators/incremental-refresh";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";

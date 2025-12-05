@@ -6,7 +6,7 @@ import {
   yAxisAggregationType,
   BigValueFormat,
   xAxisConfiguration,
-} from "shared/src/validators/saved-queries";
+} from "shared/validators";
 import { PiWrench } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";

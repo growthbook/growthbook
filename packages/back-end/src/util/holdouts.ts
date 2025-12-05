@@ -1,4 +1,4 @@
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getSDKPayloadKeys } from "./features";
 

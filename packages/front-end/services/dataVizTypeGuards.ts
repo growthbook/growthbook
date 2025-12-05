@@ -5,7 +5,7 @@ import {
   LineChart,
   PivotTable,
   ScatterChart,
-} from "shared/src/validators/saved-queries";
+} from "shared/validators";
 
 /**
  * Type guard to check if a DataVizConfig requires an xAxis

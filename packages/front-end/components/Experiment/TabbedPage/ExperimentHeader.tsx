@@ -20,7 +20,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "back-end/types/report";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";

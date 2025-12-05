@@ -10,7 +10,7 @@ import {
   IncrementalRefreshInterface,
   IncrementalRefreshMetricCovariateSourceInterface,
   IncrementalRefreshMetricSourceInterface,
-} from "shared/src/validators/incremental-refresh";
+} from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,

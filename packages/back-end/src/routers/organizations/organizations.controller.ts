@@ -10,7 +10,7 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType } from "shared/src/validators/agreements";
+import { AgreementType } from "shared/validators";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,

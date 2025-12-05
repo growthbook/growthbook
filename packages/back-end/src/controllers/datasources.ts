@@ -10,7 +10,7 @@ import {
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { TemplateVariables } from "shared/types/sql";
-import { factTableColumnTypes } from "shared/src/validators/fact-table";
+import { factTableColumnTypes } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {

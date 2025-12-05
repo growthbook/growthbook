@@ -1,5 +1,5 @@
 import { ExperimentMetricInterface, SliceLevelsData } from "shared/experiments";
-import { ExperimentDecisionFrameworkSettings } from "shared/src/validators/experiments";
+import { ExperimentDecisionFrameworkSettings } from "shared/validators";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";

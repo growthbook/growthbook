@@ -1,4 +1,4 @@
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";

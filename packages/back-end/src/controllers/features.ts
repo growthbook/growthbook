@@ -17,7 +17,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import {
   ExperimentRefRule,
   FeatureInterface,

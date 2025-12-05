@@ -11,7 +11,7 @@ import {
   mergeRevision,
 } from "shared/util";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";

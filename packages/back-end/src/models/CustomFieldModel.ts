@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-} from "shared/src/validators/custom-fields";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

@@ -6,7 +6,7 @@ import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
-import { ExperimentInterfaceExcludingHoldouts } from "shared/src/validators/experiments";
+import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,

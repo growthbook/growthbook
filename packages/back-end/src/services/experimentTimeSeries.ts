@@ -9,14 +9,12 @@ import {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
-} from "shared/src/validators/metric-time-series";
-import {
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentInterface,
   GoalMetricStatus,
   GuardrailMetricStatus,
-} from "shared/src/validators/experiments";
+} from "shared/validators";
 import { ReqContext } from "back-end/types/organization";
 import {
   ExperimentSnapshotAnalysisSettings,

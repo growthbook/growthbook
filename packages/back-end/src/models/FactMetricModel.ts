@@ -5,7 +5,7 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator } from "shared/src/validators/fact-table";
+import { factMetricValidator } from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,

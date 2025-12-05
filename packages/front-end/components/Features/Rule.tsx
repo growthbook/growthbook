@@ -11,7 +11,7 @@ import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {

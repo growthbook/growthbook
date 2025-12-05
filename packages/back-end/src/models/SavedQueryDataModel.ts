@@ -1,8 +1,5 @@
 import { UpdateProps } from "shared/types/base-model";
-import {
-  SavedQuery,
-  savedQueryValidator,
-} from "shared/src/validators/saved-queries";
+import { SavedQuery, savedQueryValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

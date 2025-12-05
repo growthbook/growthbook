@@ -2,7 +2,7 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   Variation,
-} from "shared/src/validators/experiments";
+} from "shared/validators";
 import { UpdateExperimentResponse } from "back-end/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {

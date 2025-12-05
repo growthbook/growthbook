@@ -3,8 +3,8 @@ import { statsEngines } from "shared/constants";
 import {
   featurePrerequisite,
   savedGroupTargeting,
-} from "shared/src/validators/shared";
-import { customMetricSlice } from "shared/src/validators/experiments";
+  customMetricSlice,
+} from "shared/validators";
 
 export const experimentTemplateInterface = z
   .object({

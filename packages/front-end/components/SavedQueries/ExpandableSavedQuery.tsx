@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { FaExclamationTriangle, FaCheck } from "react-icons/fa";
-import { SavedQuery } from "shared/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import { formatDuration } from "date-fns";
 import { datetime } from "shared/dates";
 import Code from "@/components/SyntaxHighlighting/Code";

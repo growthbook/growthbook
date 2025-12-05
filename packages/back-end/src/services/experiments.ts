@@ -55,7 +55,7 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
-} from "shared/src/validators/experiments";
+} from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";

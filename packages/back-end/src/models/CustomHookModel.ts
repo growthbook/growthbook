@@ -2,7 +2,7 @@ import {
   CustomHookInterface,
   CustomHookType,
   customHookValidator,
-} from "shared/src/validators/custom-hooks";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

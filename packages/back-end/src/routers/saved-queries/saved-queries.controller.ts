@@ -7,7 +7,7 @@ import {
   SavedQuery,
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
-} from "shared/src/validators/saved-queries";
+} from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {

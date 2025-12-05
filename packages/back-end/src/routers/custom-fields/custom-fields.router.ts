@@ -4,7 +4,7 @@ import {
   createCustomFieldsValidator,
   redorderFieldsValidator,
   updateCustomFieldsValidator,
-} from "shared/src/validators/custom-fields";
+} from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawCustomFieldController from "./custom-fields.controller";

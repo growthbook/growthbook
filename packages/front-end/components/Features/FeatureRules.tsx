@@ -10,7 +10,7 @@ import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";

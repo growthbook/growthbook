@@ -6,7 +6,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { useState } from "react";
 import { Heading, Text } from "@radix-ui/themes";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { FeatureInterface } from "back-end/types/feature";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";

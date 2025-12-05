@@ -8,7 +8,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";

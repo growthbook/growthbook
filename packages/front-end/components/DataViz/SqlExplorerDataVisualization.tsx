@@ -8,7 +8,7 @@ import {
   xAxisDateAggregationUnit,
   yAxisAggregationType,
   dimensionAxisConfiguration,
-} from "shared/src/validators/saved-queries";
+} from "shared/validators";
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";

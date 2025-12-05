@@ -1,7 +1,4 @@
-import {
-  HoldoutInterface,
-  holdoutValidator,
-} from "shared/src/validators/holdout";
+import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";

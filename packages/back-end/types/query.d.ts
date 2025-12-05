@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  queryPointerValidator,
-  queryStatusValidator,
-} from "shared/src/validators/queries";
+import { queryPointerValidator, queryStatusValidator } from "shared/validators";
 import { QueryLanguage } from "./datasource";
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;

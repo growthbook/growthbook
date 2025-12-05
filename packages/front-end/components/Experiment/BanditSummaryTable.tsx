@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { BanditEvent } from "shared/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import clsx from "clsx";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";

@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import {
   getRules,

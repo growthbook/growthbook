@@ -22,7 +22,7 @@ import {
   columnAggregationValidator,
   legacyWindowSettingsValidator,
   jsonColumnFieldsValidator,
-} from "shared/src/validators/fact-table";
+} from "shared/validators";
 import { TestQueryRow } from "back-end/src/types/Integration";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;

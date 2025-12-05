@@ -23,7 +23,7 @@ import { SavedGroupInterface } from "shared/types/groups";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "back-end/types/experiment";
-import { WebhookSecretFrontEndInterface } from "shared/src/validators/webhook-secrets";
+import { WebhookSecretFrontEndInterface } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";

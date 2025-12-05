@@ -1,4 +1,4 @@
-import { ExperimentInterfaceExcludingHoldouts } from "shared/src/validators/experiments";
+import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import { GetVisualChangesetResponse } from "back-end/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {

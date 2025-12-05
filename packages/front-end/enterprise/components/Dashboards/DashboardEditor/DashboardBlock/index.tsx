@@ -18,7 +18,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "shared/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,

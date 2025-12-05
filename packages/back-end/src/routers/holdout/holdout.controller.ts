@@ -4,7 +4,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,

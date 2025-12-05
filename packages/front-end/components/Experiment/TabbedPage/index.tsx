@@ -11,7 +11,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { FeatureInterface } from "back-end/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";

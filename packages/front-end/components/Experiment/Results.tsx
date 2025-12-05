@@ -14,7 +14,7 @@ import {
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";

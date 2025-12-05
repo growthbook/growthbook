@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import { AgreementType } from "shared/src/validators/agreements";
+import { AgreementType } from "shared/validators";
 import { PiCaretRight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

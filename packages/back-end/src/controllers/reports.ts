@@ -4,7 +4,7 @@ import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import uniqid from "uniqid";
-import { experimentAnalysisSettings } from "shared/src/validators/experiments";
+import { experimentAnalysisSettings } from "shared/validators";
 import {
   ExperimentReportAnalysisSettings,
   ExperimentReportInterface,

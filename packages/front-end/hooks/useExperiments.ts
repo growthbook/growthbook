@@ -3,7 +3,7 @@ import {
   ExperimentType,
 } from "back-end/types/experiment";
 import { useMemo } from "react";
-import { HoldoutInterface } from "shared/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import useApi from "./useApi";
 
 export function useExperiments(

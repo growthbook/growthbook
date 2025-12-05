@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  CustomHookInterface,
-  CustomHookType,
-} from "shared/src/validators/custom-hooks";
+import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";

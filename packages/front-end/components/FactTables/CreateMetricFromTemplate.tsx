@@ -5,7 +5,7 @@ import {
   metricTypeValidator,
   quantileSettingsValidator,
   windowSettingsValidator,
-} from "shared/src/validators/fact-table";
+} from "shared/validators";
 import { z } from "zod";
 import { ReactNode, useState } from "react";
 import dJSON from "dirty-json";

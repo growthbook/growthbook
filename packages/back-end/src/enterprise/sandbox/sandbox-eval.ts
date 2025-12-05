@@ -1,9 +1,6 @@
 import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
 import { RequestInit } from "node-fetch";
-import {
-  CustomHookInterface,
-  CustomHookType,
-} from "shared/src/validators/custom-hooks";
+import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { FeatureInterface } from "back-end/types/feature";
