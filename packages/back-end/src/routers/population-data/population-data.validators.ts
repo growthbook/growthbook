@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryPointerValidator } from "back-end/src/validators/queries";
+import { queryPointerValidator } from "shared/src/validators/queries";
 
 export const populationDataSourceTypeValidator = z.enum([
   "segment",

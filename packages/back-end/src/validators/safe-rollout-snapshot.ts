@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { MidExperimentPowerCalculationResultValidator } from "shared/enterprise";
+import { queryPointerValidator } from "shared/src/validators/queries";
 import {
   cappingSettingsValidator,
   priorSettingsValidator,
   windowSettingsValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEnginesValidator } from "back-end/src/models/ProjectModel";
-import { queryPointerValidator } from "./queries";
 
 const metricStatsObject = z.object({
   users: z.number(),
