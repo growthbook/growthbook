@@ -2,7 +2,7 @@ import {
   CustomHookInterface,
   CustomHookType,
   customHookValidator,
-} from "back-end/src/routers/custom-hooks/custom-hooks.validators";
+} from "shared/src/validators/custom-hooks";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

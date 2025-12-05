@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   CustomHookInterface,
   CustomHookType,
-} from "back-end/src/routers/custom-hooks/custom-hooks.validators";
+} from "shared/src/validators/custom-hooks";
 import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";

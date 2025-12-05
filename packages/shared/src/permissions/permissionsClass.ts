@@ -22,8 +22,8 @@ import {
 } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { CustomHookInterface } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
+import { CustomHookInterface } from "shared/src/validators/custom-hooks";
 import { UpdateProps } from "shared/types/base-model";
 import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";

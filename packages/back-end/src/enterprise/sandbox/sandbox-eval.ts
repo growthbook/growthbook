@@ -1,11 +1,11 @@
 import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
 import { RequestInit } from "node-fetch";
-import { cancellableFetch } from "back-end/src/util/http.util";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   CustomHookInterface,
   CustomHookType,
-} from "back-end/src/routers/custom-hooks/custom-hooks.validators";
+} from "shared/src/validators/custom-hooks";
+import { cancellableFetch } from "back-end/src/util/http.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { FeatureInterface } from "back-end/types/feature";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
