@@ -4,7 +4,7 @@ import { PiPencilSimpleFill, PiX } from "react-icons/pi";
 import { Text, Flex, IconButton } from "@radix-ui/themes";
 import { isFactMetric, SliceLevelsData } from "shared/experiments";
 import { FactMetricInterface } from "back-end/types/fact-table";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {

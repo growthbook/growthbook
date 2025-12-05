@@ -4,7 +4,7 @@ import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import { FactTableInterface } from "back-end/types/fact-table";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
