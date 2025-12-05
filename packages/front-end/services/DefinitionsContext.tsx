@@ -13,7 +13,7 @@ import {
   ReactElement,
   useEffect,
 } from "react";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import {
   FactMetricInterface,
   FactTableInterface,
