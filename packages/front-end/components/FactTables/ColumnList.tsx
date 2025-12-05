@@ -16,6 +16,14 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Avatar from "@/ui/Avatar";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {
@@ -115,20 +123,20 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
       )}
       {columns.length > 0 ? (
         <>
-          <table className="table table-tiny appbox gbtable mt-2 mb-0">
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}></th>
+          <Table variant="standard" className="table-tiny appbox mt-2 mb-0">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
                 <SortableTH field="column">Column</SortableTH>
-                <th></th>
+                <TableColumnHeader></TableColumnHeader>
                 <SortableTH field="type">Type</SortableTH>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+                <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((col) => (
-                <tr key={col.column}>
-                  <td>
+                <TableRow key={col.column}>
+                  <TableCell>
                     <div
                       className="d-flex align-items-center"
                       style={{ minHeight: 32 }}
@@ -215,10 +223,10 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         </Tooltip>
                       )}
                     </div>
-                  </td>
-                  <td>{col.column}</td>
-                  <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{col.column}</TableCell>
+                  <TableCell>{col.name !== col.column ? `"${col.name}"` : ""}</TableCell>
+                  <TableCell>
                     {col.datatype || "unknown"}{" "}
                     {col.datatype === "number" && col.numberFormat && (
                       <>({col.numberFormat})</>
@@ -228,8 +236,8 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         <FaTriangleExclamation className="text-danger" />
                       </Tooltip>
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <div className="d-flex align-items-center px-1">
                       {canEdit && (
                         <IconButton
@@ -243,12 +251,12 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         </IconButton>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={4} align={"center"}>
+                <TableRow>
+                  <TableCell colSpan={4} align={"center"}>
                     No matching columns.{" "}
                     <a
                       href="#"
@@ -259,11 +267,11 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                     >
                       Clear search field
                     </a>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {pagination}
         </>
       ) : (

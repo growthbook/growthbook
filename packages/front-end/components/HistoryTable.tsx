@@ -7,6 +7,14 @@ import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
@@ -114,7 +122,7 @@ export function HistoryTableRow({
 
   return (
     <>
-      <tr
+      <TableRow
         style={{ cursor: event.details ? "pointer" : "" }}
         className={open ? "highlight" : event.details ? "hover-highlight" : ""}
         onClick={(e) => {
@@ -127,29 +135,29 @@ export function HistoryTableRow({
           setOpen(!open);
         }}
       >
-        <td title={datetime(event.dateCreated)}>
+        <TableCell title={datetime(event.dateCreated)}>
           {datetime(event.dateCreated)}
-        </td>
-        {showType && <td>{event.entity.object}</td>}
+        </TableCell>
+        {showType && <TableCell>{event.entity.object}</TableCell>}
         {showName && (
-          <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
+          <TableCell>{url ? <Link href={url}>{displayName}</Link> : displayName}</TableCell>
         )}
-        <td>{userDisplay}</td>
-        <td>{event.event}</td>
-        <td style={{ width: 30 }}>
+        <TableCell>{userDisplay}</TableCell>
+        <TableCell>{event.event}</TableCell>
+        <TableCell style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
       {open && event.details && (
-        <tr>
-          <td colSpan={colSpanNum} className="bg-light p-3">
+        <TableRow>
+          <TableCell colSpan={colSpanNum} className="bg-light p-3">
             <EventDetails
               eventType={event.event}
               details={event.details}
               reason={event.reason}
             />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
@@ -209,18 +217,18 @@ const HistoryTable: FC<{
           </Button>
         </div>
       </div>
-      <table className="table appbox">
-        <thead>
-          <tr>
-            <th>Date</th>
-            {showType && <th>Type</th>}
-            {showName && <th>Name</th>}
-            <th>User</th>
-            <th>Event</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table variant="standard" className="appbox">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Date</TableColumnHeader>
+            {showType && <TableColumnHeader>Type</TableColumnHeader>}
+            {showName && <TableColumnHeader>Name</TableColumnHeader>}
+            <TableColumnHeader>User</TableColumnHeader>
+            <TableColumnHeader>Event</TableColumnHeader>
+            <TableColumnHeader></TableColumnHeader>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {events.map((event) => (
             <HistoryTableRow
               event={event}
@@ -233,8 +241,8 @@ const HistoryTable: FC<{
               }}
             />
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </>
   );
 };

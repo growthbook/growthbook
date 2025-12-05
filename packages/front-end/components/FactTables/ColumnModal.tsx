@@ -34,6 +34,14 @@ import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import { DocLink } from "../DocLink";
 
 export interface Props {
@@ -383,21 +391,21 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               style={{ height: "200px", overflowY: "auto" }}
               className="border mb-2"
             >
-              <table className="table table-sm appbox gbtable mb-0">
-                <thead>
-                  <tr>
-                    <th style={{ position: "sticky", top: -1 }}>Field</th>
-                    <th style={{ position: "sticky", top: -1 }}>Data Type</th>
-                    <th style={{ position: "sticky", top: -1 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table variant="standard" className="table-sm appbox mb-0">
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader style={{ position: "sticky", top: -1 }}>Field</TableColumnHeader>
+                    <TableColumnHeader style={{ position: "sticky", top: -1 }}>Data Type</TableColumnHeader>
+                    <TableColumnHeader style={{ position: "sticky", top: -1 }}></TableColumnHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {Object.entries(form.watch("jsonFields") || {}).map(
                     ([key, value]) => (
-                      <tr key={key}>
-                        <td>{key}</td>
-                        <td>{value.datatype}</td>
-                        <td>
+                      <TableRow key={key}>
+                        <TableCell>{key}</TableCell>
+                        <TableCell>{value.datatype}</TableCell>
+                        <TableCell>
                           <a
                             href="#"
                             onClick={(e) => {
@@ -409,13 +417,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                           >
                             <PiX />
                           </a>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ),
                   )}
                   {newJSONField.adding ? (
-                    <tr>
-                      <td colSpan={3}>
+                    <TableRow>
+                      <TableCell colSpan={3}>
                         <Flex gap="3" align="center">
                           <input
                             type="text"
@@ -490,11 +498,11 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                             </Button>
                           </Flex>
                         </Flex>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : null}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           ) : null}
           {!newJSONField.adding && (

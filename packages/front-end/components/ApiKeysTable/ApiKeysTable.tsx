@@ -3,6 +3,14 @@ import { ApiKeyInterface } from "back-end/types/apikey";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -20,20 +28,20 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onReveal,
 }) => {
   return (
-    <table className="table mb-3 appbox gbtable">
-      <thead>
-        <tr>
-          <th style={{ width: 150 }}>Description</th>
-          <th>Key</th>
-          <th>Role</th>
-          {canDeleteKeys && <th style={{ width: 30 }}></th>}
-        </tr>
-      </thead>
-      <tbody>
+    <Table variant="standard" className="mb-3 appbox">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader style={{ width: 150 }}>Description</TableColumnHeader>
+          <TableColumnHeader>Key</TableColumnHeader>
+          <TableColumnHeader>Role</TableColumnHeader>
+          {canDeleteKeys && <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {keys.map((key) => (
-          <tr key={key.id}>
-            <td>{key.description}</td>
-            <td style={{ minWidth: 295 }}>
+          <TableRow key={key.id}>
+            <TableCell>{key.description}</TableCell>
+            <TableCell style={{ minWidth: 295 }}>
               {canCreateKeys ? (
                 <ClickToReveal
                   valueWhenHidden="secret_abcdefghijklmnop123"
@@ -42,10 +50,10 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               ) : (
                 <em>hidden</em>
               )}
-            </td>
-            <td>{key.role || "-"}</td>
+            </TableCell>
+            <TableCell>{key.role || "-"}</TableCell>
             {canDeleteKeys && (
-              <td>
+              <TableCell>
                 <MoreMenu>
                   <DeleteButton
                     onClick={onDelete(key.id)}
@@ -54,11 +62,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     text="Delete key"
                   />
                 </MoreMenu>
-              </td>
+              </TableCell>
             )}
-          </tr>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 };

@@ -16,6 +16,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { AppFeatures } from "@/types/app-features";
 import Link from "@/ui/Link";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import { useAuth } from "@/services/auth";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
@@ -312,33 +320,33 @@ export const DimensionSlicesResults: FC<{
 
   return (
     <>
-      <table className="table appbox gbtable mt-2 mb-0">
-        <thead>
-          <tr>
-            <th>Dimension</th>
-            <th>% of Traffic</th>
-            <th>
+      <Table variant="standard" className="appbox mt-2 mb-0">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Dimension</TableColumnHeader>
+            <TableColumnHeader>% of Traffic</TableColumnHeader>
+            <TableColumnHeader>
               Dimension Values{" "}
               <Tooltip body="Dimension values are the levels of a dimension used for pre-computed dimension analysis (currently only used on the Experiment Health Tab). Values not in this list will be grouped into the '__Other__' bucket."></Tooltip>
-            </th>
+            </TableColumnHeader>
             {growthbook.isOn("pre-computed-dimensions") ? (
-              <th>
+              <TableColumnHeader>
                 Priority{" "}
                 <Tooltip body="Higher priority dimensions are used first when choosing which dimensions to pre-compute for fast slicing and dicing."></Tooltip>
-              </th>
+              </TableColumnHeader>
             ) : null}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {customDimensionMetadata.map((metadata) => {
             const dimensionValueResult = dimensionSlices?.results.find(
               (d) => d.dimension === metadata.dimension,
             );
             let totalPercent = 0;
             return (
-              <tr key={metadata.dimension}>
-                <td>{metadata.dimension}</td>
-                <td>
+              <TableRow key={metadata.dimension}>
+                <TableCell>{metadata.dimension}</TableCell>
+                <TableCell>
                   {dimensionValueResult ? (
                     <>
                       <div>
@@ -388,8 +396,8 @@ export const DimensionSlicesResults: FC<{
                             : ""}
                     </div>
                   )}
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <div className="d-flex flex-column">
                     {metadata?.customSlicesArray ? (
                       <>
@@ -444,9 +452,9 @@ export const DimensionSlicesResults: FC<{
                       </Flex>
                     )}
                   </div>
-                </td>
+                </TableCell>
                 {growthbook.isOn("pre-computed-dimensions") ? (
-                  <td>
+                  <TableCell>
                     <SelectField
                       value={metadata.priority?.toString() ?? "0"}
                       onChange={(value) =>
@@ -459,13 +467,13 @@ export const DimensionSlicesResults: FC<{
                         }),
                       )}
                     />
-                  </td>
+                  </TableCell>
                 ) : null}
-              </tr>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </>
   );
 };

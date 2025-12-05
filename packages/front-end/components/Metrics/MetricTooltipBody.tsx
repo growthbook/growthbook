@@ -17,6 +17,12 @@ import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import { getPercentileLabel } from "@/services/metrics";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/ui/Table";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 
@@ -229,13 +235,13 @@ const MetricTooltipBody = ({
         />
       </h4>
       {extraInfo}
-      <table className="table gbtable mb-0">
-        <tbody>
+      <Table variant="standard" className="mb-0">
+        <TableBody>
           {metricInfo
             .filter((i) => i.show)
             .map(({ label, body, markdown }, index) => (
-              <tr key={`metricInfo${index}`}>
-                <td
+              <TableRow key={`metricInfo${index}`}>
+                <TableCell
                   className="text-right font-weight-bold py-2 align-middle"
                   style={{
                     width: 140,
@@ -243,8 +249,8 @@ const MetricTooltipBody = ({
                     fontSize: "12px",
                     lineHeight: "14px",
                   }}
-                >{`${label}`}</td>
-                <td
+                >{`${label}`}</TableCell>
+                <TableCell
                   className="py-2 align-middle"
                   style={{
                     minWidth: 180,
@@ -262,11 +268,11 @@ const MetricTooltipBody = ({
                   ) : (
                     <span className="font-weight-normal">{body}</span>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 };

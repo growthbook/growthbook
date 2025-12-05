@@ -11,6 +11,14 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {
@@ -87,27 +95,27 @@ export default function FactFilterList({ factTable }: Props) {
       </div>
       {factTable.filters.length > 0 && (
         <>
-          <table className="table appbox gbtable mt-2 mb-0">
-            <thead>
-              <tr>
+          <Table variant="standard" className="appbox mt-2 mb-0">
+            <TableHeader>
+              <TableRow>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="value">Filter SQL</SortableTH>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+                <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((filter) => (
-                <tr key={filter.id}>
-                  <td style={{ verticalAlign: "top" }}>
+                <TableRow key={filter.id}>
+                  <TableCell style={{ verticalAlign: "top" }}>
                     {filter.name}
                     <OfficialBadge type="filter" managedBy={filter.managedBy} />
-                  </td>
-                  <td style={{ verticalAlign: "top" }}>
+                  </TableCell>
+                  <TableCell style={{ verticalAlign: "top" }}>
                     <div style={{ marginTop: 2 }}>
                       <InlineCode language="sql" code={filter.value} />
                     </div>
-                  </td>
-                  <td style={{ verticalAlign: "top" }}>
+                  </TableCell>
+                  <TableCell style={{ verticalAlign: "top" }}>
                     <MoreMenu>
                       {canAddAndEdit && !filter.managedBy ? (
                         <button
@@ -141,12 +149,12 @@ export default function FactFilterList({ factTable }: Props) {
                         />
                       ) : null}
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={3} align={"center"}>
+                <TableRow>
+                  <TableCell colSpan={3} align={"center"}>
                     No matching filters.{" "}
                     <a
                       href="#"
@@ -157,11 +165,11 @@ export default function FactFilterList({ factTable }: Props) {
                     >
                       Clear search field
                     </a>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {pagination}
         </>
       )}

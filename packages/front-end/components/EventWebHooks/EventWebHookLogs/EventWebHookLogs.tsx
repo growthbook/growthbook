@@ -3,6 +3,13 @@ import _ from "lodash";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import { useRouter } from "next/router";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+} from "@/ui/Table";
 import { EventWebHookLogItem } from "./EventWebHookLogItem/EventWebHookLogItem";
 import { EventWebHookLogActiveItem } from "./EventWebHookLogActiveItem/EventWebHookLogActiveItem";
 
@@ -28,15 +35,15 @@ export const EventWebHookLogs: FC<EventWebHookLogsProps> = ({
       ) : (
         <div className="row">
           <div className="col-xs-12 col-md-6">
-            <table className="table appbox gbtable table-hover">
-              <thead>
-                <tr>
-                  <th className="text-left">Timestamp</th>
-                  <th className="text-left">Event</th>
-                  <th className="text=left">Result</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table variant="standard" hover className="appbox">
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader className="text-left">Timestamp</TableColumnHeader>
+                  <TableColumnHeader className="text-left">Event</TableColumnHeader>
+                  <TableColumnHeader className="text=left">Result</TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {logs.map((log) => (
                   <EventWebHookLogItem
                     key={log.id}
@@ -45,8 +52,8 @@ export const EventWebHookLogs: FC<EventWebHookLogsProps> = ({
                     activeLogId={activeLog?.id || null}
                   />
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           <div className="col-xs-12 col-md-6">

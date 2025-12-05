@@ -26,6 +26,14 @@ import Callout from "@/ui/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 import Frame from "@/ui/Frame";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import PowerCalculationStatsEngineSettingsModal, {
   alphaToChanceToWin,
   StatsEngineSettingsWithAlpha,
@@ -218,15 +226,15 @@ const SampleSizeAndRuntime = ({
 
       <div className="row">
         <div className="col-7">
-          <table className="table appbox">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Effect Size</th>
-                <th>Needed Sample</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table variant="standard" className="appbox">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Metric</TableColumnHeader>
+                <TableColumnHeader>Effect Size</TableColumnHeader>
+                <TableColumnHeader>Needed Sample</TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {Object.keys(sampleSizeAndRuntime).map((id) => {
                 const target = sampleSizeAndRuntime[id];
 
@@ -235,7 +243,7 @@ const SampleSizeAndRuntime = ({
                 );
 
                 return (
-                  <tr
+                  <TableRow
                     key={id}
                     className={clsx(
                       "power-analysis-row",
@@ -243,26 +251,26 @@ const SampleSizeAndRuntime = ({
                     )}
                     onClick={() => setSelectedRow(id)}
                   >
-                    <td>
+                    <TableCell>
                       <div className="font-weight-bold">{name}</div>
                       <div className="small">
                         {type === "binomial" ? "Proportion" : "Mean"}
                       </div>
-                    </td>
-                    <td>{percentFormatter(effectSize, { digits: 4 })}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell>{percentFormatter(effectSize, { digits: 4 })}</TableCell>
+                    <TableCell>
                       {target
                         ? `${formatWeeks({
                             weeks: target.weeks,
                             nWeeks: params.nWeeks,
                           })}; ${numberFormatter(target.users)} users`
                         : formatWeeks({ nWeeks: params.nWeeks })}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <div className="col-5">
           <div className="card alert alert-info">
@@ -344,12 +352,12 @@ const MinimumDetectableEffect = ({
         targetPower={params.targetPower}
       />
 
-      <table className="table appbox">
-        <thead>
-          <tr>
-            <th>Metric</th>
+      <Table variant="standard" className="appbox">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Metric</TableColumnHeader>
             {results.weeks.map(({ users }, idx) => (
-              <th
+              <TableColumnHeader
                 key={idx}
                 className={clsx(
                   results.weekThreshold === idx + 1 &&
@@ -384,18 +392,18 @@ const MinimumDetectableEffect = ({
 
                   return content;
                 })()}
-              </th>
+              </TableColumnHeader>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {Object.keys(results.weeks[0]?.metrics).map((id, pos) => (
-            <tr key={id}>
-              <td>
+            <TableRow key={id}>
+              <TableCell>
                 <MetricLabel {...ensureAndReturn(params.metrics[id])} />
-              </td>
+              </TableCell>
               {results.weeks.map(({ metrics }, idx) => (
-                <td
+                <TableCell
                   key={`${id}-${idx}`}
                   className={clsx(
                     ensureAndReturn(metrics[id]).isThreshold &&
@@ -437,12 +445,12 @@ const MinimumDetectableEffect = ({
 
                     return content;
                   })()}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <Box className="appbox p-3">
         <PowerLineGraph
           weeks={results.weeks}
@@ -473,12 +481,12 @@ const PowerOverTime = ({
       targetPower={params.targetPower}
     />
 
-    <table className="table appbox">
-      <thead>
-        <tr>
-          <th>Metric</th>
+    <Table variant="standard" className="appbox">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>Metric</TableColumnHeader>
           {results.weeks.map(({ users }, idx) => (
-            <th
+            <TableColumnHeader
               key={idx}
               className={clsx(
                 results.weekThreshold === idx + 1 &&
@@ -513,18 +521,18 @@ const PowerOverTime = ({
 
                 return content;
               })()}
-            </th>
+            </TableColumnHeader>
           ))}
-        </tr>
-      </thead>
-      <tbody>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {Object.keys(results.weeks[0]?.metrics).map((id, pos) => (
-          <tr key={id}>
-            <td>
+          <TableRow key={id}>
+            <TableCell>
               <MetricLabel {...ensureAndReturn(params.metrics[id])} />
-            </td>
+            </TableCell>
             {results.weeks.map(({ metrics }, idx) => (
-              <td
+              <TableCell
                 key={`${id}-${idx}`}
                 className={clsx(
                   ensureAndReturn(metrics[id]).isThreshold &&
@@ -566,12 +574,12 @@ const PowerOverTime = ({
 
                   return content;
                 })()}
-              </td>
+              </TableCell>
             ))}
-          </tr>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
     <Box className="appbox p-3">
       <PowerLineGraph
         weeks={results.weeks}

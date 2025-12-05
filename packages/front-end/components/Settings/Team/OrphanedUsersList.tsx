@@ -5,6 +5,14 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
 const OrphanedUsersList: FC<{
@@ -54,21 +62,21 @@ const OrphanedUsersList: FC<{
         />
       )}
       <h5>Orphaned Users{` (${users.length})`}</h5>
-      <table className="table appbox gbtable">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
+      <Table variant="standard" className="appbox">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader>Email</TableColumnHeader>
+            <TableColumnHeader />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {Array.from(users).map(({ id, email, name }) => {
             return (
-              <tr key={id}>
-                <td>{name}</td>
-                <td>{email}</td>
-                <td style={{ width: 30 }}>
+              <TableRow key={id}>
+                <TableCell>{name}</TableCell>
+                <TableCell>{email}</TableCell>
+                <TableCell style={{ width: 30 }}>
                   {(enableAdd && (
                     <MoreMenu>
                       <button
@@ -108,12 +116,12 @@ const OrphanedUsersList: FC<{
                       }}
                     />
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 };

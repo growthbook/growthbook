@@ -18,6 +18,12 @@ import Badge from "@/ui/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import {
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/ui/Table";
 import { StripeProvider } from "../Billing/StripeProvider";
 import AddPaymentMethodModal from "./AddPaymentMethodModal";
 
@@ -190,12 +196,12 @@ export default function PaymentInfo() {
                     <Text as="label">No payment methods added</Text>
                   </Flex>
                 ) : (
-                  <table className="table mb-3 appbox gbtable table-hover">
-                    <tbody>
+                  <Table variant="standard" hover className="mb-3 appbox">
+                    <TableBody>
                       {paymentMethods.map((method) => {
                         return (
-                          <tr key={method.id}>
-                            <td>
+                          <TableRow key={method.id}>
+                            <TableCell>
                               {method.brand}
                               {method.last4 ? (
                                 <Text as="span" className="px-2" align="center">
@@ -218,8 +224,8 @@ export default function PaymentInfo() {
                                   <Badge label={method.wallet} color="green" />
                                 ) : null}
                               </span>
-                            </td>
-                            <td>
+                            </TableCell>
+                            <TableCell>
                               <Flex align="center" justify="end">
                                 {method.type === "card"
                                   ? `Expires ${method.expMonth}/${method.expYear}`
@@ -253,12 +259,12 @@ export default function PaymentInfo() {
                                   </Tooltip>
                                 </MoreMenu>
                               </Flex>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 )}
               </>
             )}
