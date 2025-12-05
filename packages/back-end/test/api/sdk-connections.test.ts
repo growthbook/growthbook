@@ -206,7 +206,8 @@ describe("sdk-connections API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [language] Required",
+      message:
+        "Request body: [language] Invalid input: expected string, received undefined",
     });
   });
 

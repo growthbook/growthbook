@@ -1,5 +1,5 @@
 import { Request, RequestHandler } from "express";
-import z, { Schema, ZodNever } from "zod";
+import { z, Schema, ZodNever, output } from "zod";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import { ApiPaginationFields } from "back-end/types/openapi";
@@ -20,13 +20,13 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-function validate<T>(
-  schema: Schema<T>,
+function validate<T extends Schema>(
+  schema: T,
   value: unknown,
 ):
   | {
       success: true;
-      data: T;
+      data: output<T>;
     }
   | {
       success: false;

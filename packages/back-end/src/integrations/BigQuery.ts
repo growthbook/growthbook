@@ -4,7 +4,7 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";

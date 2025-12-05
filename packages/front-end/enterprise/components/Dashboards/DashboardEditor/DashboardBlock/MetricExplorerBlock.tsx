@@ -1,8 +1,9 @@
 import { MetricExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCurrency } from "@/hooks/useCurrency";
 import { getExperimentMetricFormatter } from "@/services/metrics";
@@ -11,6 +12,8 @@ import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import HelperText from "@/ui/HelperText";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
@@ -342,10 +345,14 @@ export default function MetricExplorerBlock({
         axisPointer: {
           type: "shadow",
         },
+        valueFormatter: (value: number) => {
+          return formatter(value);
+        },
       },
       xAxis: {
         type: "category",
         nameLocation: "middle",
+        scale: true,
         nameTextStyle: {
           fontSize: 14,
           fontWeight: "bold",
@@ -360,6 +367,7 @@ export default function MetricExplorerBlock({
       },
       yAxis: {
         type: "value",
+        scale: true,
         nameLocation: "middle",
         nameTextStyle: {
           fontSize: 14,
@@ -422,9 +430,30 @@ export default function MetricExplorerBlock({
           </Text>
         </Box>
       ) : metricAnalysis.status === "error" ? (
-        <Callout status="error">
-          {metricAnalysis.error || "There was an error with the analysis"}
-        </Callout>
+        <Box
+          p="4"
+          overflow="scroll"
+          style={{
+            backgroundColor: "var(--red-a3)",
+            borderRadius: "var(--radius-4)",
+          }}
+        >
+          <Flex align="center" gap="4" justify="between">
+            <HelperText status="error">
+              {metricAnalysis.error || "There was an error with the analysis"}
+            </HelperText>
+            <ViewAsyncQueriesButton
+              queries={metricAnalysis.queries.map((q) => q.query)}
+              error={metricAnalysis.error}
+              display="View error(s)"
+              color="danger"
+              status="failed"
+              icon={<FaExclamationTriangle className="mr-2" />}
+              condensed={true}
+              hideQueryCount={true}
+            />
+          </Flex>
+        </Box>
       ) : ["running", "queued"].includes(metricAnalysis.status || "") ? (
         <LoadingOverlay />
       ) : "dataset" in chartData &&

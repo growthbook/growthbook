@@ -1,8 +1,5 @@
 import { Box, Flex, Separator, Text } from "@radix-ui/themes";
-import {
-  DataVizConfig,
-  FilterConfiguration,
-} from "back-end/src/validators/saved-queries";
+import { DataVizConfig, FilterConfiguration } from "shared/validators";
 import { useEffect, useState } from "react";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { PiSlidersHorizontal } from "react-icons/pi";

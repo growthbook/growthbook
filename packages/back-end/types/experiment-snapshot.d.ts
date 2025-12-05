@@ -1,10 +1,10 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
-import { BanditResult } from "back-end/src/validators/experiments";
+import { PhaseSQLVar } from "shared/types/sql";
+import { BanditResult } from "shared/validators";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
 } from "back-end/src/services/stats";
-import { PhaseSQLVar } from "back-end/types/sql";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import {
@@ -123,6 +123,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
   regressionAdjusted?: boolean;
+  postStratificationEnabled?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
   differenceType: DifferenceType;

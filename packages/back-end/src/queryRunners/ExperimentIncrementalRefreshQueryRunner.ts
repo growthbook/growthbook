@@ -5,6 +5,12 @@ import {
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
+import { SegmentInterface } from "shared/types/segment";
+import {
+  IncrementalRefreshInterface,
+  IncrementalRefreshMetricCovariateSourceInterface,
+  IncrementalRefreshMetricSourceInterface,
+} from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
@@ -32,11 +38,6 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import {
-  IncrementalRefreshInterface,
-  IncrementalRefreshMetricCovariateSourceInterface,
-  IncrementalRefreshMetricSourceInterface,
-} from "back-end/src/validators/incremental-refresh";
-import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -44,7 +45,6 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/services/experimentTimeSeries";
-import { SegmentInterface } from "back-end/types/segment";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
 import { getExperimentById } from "../models/ExperimentModel";

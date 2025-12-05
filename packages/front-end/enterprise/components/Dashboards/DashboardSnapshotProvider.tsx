@@ -21,7 +21,7 @@ import {
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,

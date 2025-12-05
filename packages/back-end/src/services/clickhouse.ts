@@ -2,6 +2,7 @@ import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
 import generator from "generate-password";
 import { AIPromptType } from "shared/ai";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -19,7 +20,6 @@ import {
 } from "back-end/types/datasource";
 import { DailyUsage, ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import {
   getFactTablesForDatasource,

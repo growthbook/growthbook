@@ -9,7 +9,7 @@ import {
   SliceLevelsData,
 } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

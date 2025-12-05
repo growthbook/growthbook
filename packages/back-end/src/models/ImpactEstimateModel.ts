@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { getConversionWindowHours } from "shared/experiments";
+import { SegmentInterface } from "shared/types/segment";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { SegmentInterface } from "back-end/types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { processMetricValueQueryResponse } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ReqContext } from "back-end/types/organization";

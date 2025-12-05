@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual, omit } from "lodash";
+import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
@@ -17,6 +17,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -135,7 +136,6 @@ import {
 } from "back-end/types/feature-rule";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutRule } from "back-end/src/validators/features";
-import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -2166,7 +2166,7 @@ export async function postFeatureMoveRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
   const rules = changes.rules[environment];
   if (!rules || !rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
@@ -2244,7 +2244,7 @@ export async function deleteFeatureRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
   const rules = changes.rules[environment];
   if (!rules || !rules[i]) {
     throw new Error("Invalid rule index");

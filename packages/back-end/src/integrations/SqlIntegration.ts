@@ -37,7 +37,13 @@ import {
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
 } from "shared/sql";
-import { FormatDialect } from "shared/src/types";
+import {
+  PhaseSQLVar,
+  SQLVars,
+  TemplateVariables,
+  FormatDialect,
+} from "shared/types/sql";
+import { SegmentInterface } from "shared/types/segment";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -121,7 +127,6 @@ import {
   CovariatePhaseStartSettings,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
@@ -133,7 +138,6 @@ import {
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "back-end/types/experiment-snapshot";
-import { PhaseSQLVar, SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -590,7 +594,7 @@ export default abstract class SqlIntegration
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn({
+    const aggregate = this.getAggregateMetricColumnLegacyMetrics({
       metric: params.metric,
     });
 
@@ -983,6 +987,13 @@ export default abstract class SqlIntegration
           percentileTableIndices.add(m.denominatorSourceIndex);
         }
       });
+    // const numeratorAggFns = this.getAggregationMetadata({
+    //   metric,
+    // });
+    // const denominatorAggFns = this.getAggregationMetadata({
+    //   metric,
+    //   useDenominator: true,
+    // });
 
     // TODO check if query broken if segment has template variables
     // TODO return cap numbers
@@ -1010,8 +1021,10 @@ export default abstract class SqlIntegration
               .map((m) => {
                 return `
                 , ${this.castToString(`'${m.metric.id}'`)} AS ${m.alias}_id
-                , ${m.aggFns.partialAggregationFunction(`f.${m.alias}_value`)} AS ${m.alias}_value
-                ${m.ratioMetric && m.denomAggFns ? `, ${m.denomAggFns.partialAggregationFunction(`f.${m.alias}_denominator`)} AS ${m.alias}_denominator` : ""}
+                , ${m.aggFns.fullAggregationFunction(`f.${m.alias}_value`)} AS ${m.alias}_value
+                , ${m.aggFns.partialAggregationFunction(`f.${m.alias}_value`)} AS ${m.alias}_value_for_reaggregation
+                ${m.ratioMetric && m.denomAggFns ? `, ${m.denomAggFns.fullAggregationFunction(`f.${m.alias}_denominator`)} AS ${m.alias}_denominator` : ""}
+                ${m.ratioMetric && m.denomAggFns ? `, ${m.denomAggFns.partialAggregationFunction(`f.${m.alias}_denominator`)} AS ${m.alias}_denominator_for_reaggregation` : ""}
                 `;
               })
               .join("\n")}
@@ -1062,6 +1075,9 @@ export default abstract class SqlIntegration
             date
             , MAX(${this.castToString("'date'")}) AS data_type
             , COUNT(*) as units
+            , ${this.castToString(
+              `'${baseMetric.cappingSettings?.type ? "capped" : "uncapped"}'`,
+            )} AS capped
             ${metricData
               .map((m) => {
                 return `
@@ -1106,6 +1122,9 @@ export default abstract class SqlIntegration
             ${this.castToDate("NULL")} AS date
             , MAX(${this.castToString("'overall'")}) AS data_type
             , COUNT(*) as units
+            , ${this.castToString(
+              `'${baseMetric.cappingSettings?.type ? "capped" : "uncapped"}'`,
+            )} AS capped
             ${metricData
               .map((m) => {
                 return `
@@ -1128,7 +1147,6 @@ export default abstract class SqlIntegration
             `;
               })
               .join("\n")}
-            
           FROM __userMetricOverall m
         ${percentileData.length > 0 ? "CROSS JOIN __capValue cap" : ""}
         )
@@ -2829,6 +2847,7 @@ export default abstract class SqlIntegration
     sourceIndex: number;
   }): string {
     const suffix = `${sourceIndex === 0 ? "" : sourceIndex}`;
+
     return `
       SELECT 
         d.variation AS variation
@@ -3889,9 +3908,8 @@ export default abstract class SqlIntegration
           ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, umj.bandit_period AS bandit_period` : ""}
           , umj.${baseIdType}
-          , ${this.getAggregateMetricColumn({
+          , ${this.getAggregateMetricColumnLegacyMetrics({
             metric,
-            valueColumn: "umj.value",
           })} as value
         FROM
           __userMetricJoin umj
@@ -3938,9 +3956,8 @@ export default abstract class SqlIntegration
                     : ""
                 }
                 , d.${baseIdType} AS ${baseIdType}
-                , ${this.getAggregateMetricColumn({
+                , ${this.getAggregateMetricColumnLegacyMetrics({
                   metric: denominator,
-                  useDenominator: true,
                 })} as value
               FROM
                 __distinctUsers d
@@ -3997,7 +4014,7 @@ export default abstract class SqlIntegration
             d.variation AS variation
             ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
             , d.${baseIdType} AS ${baseIdType}
-            , ${this.getAggregateMetricColumn({ metric })} as value
+            , ${this.getAggregateMetricColumnLegacyMetrics({ metric })} as value
           FROM
             __distinctUsers d
           JOIN __metric m ON (
@@ -5955,78 +5972,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     )}`;
   }
 
-  private getAggregateMetricColumn({
+  private getAggregateMetricColumnLegacyMetrics({
     metric,
-    useDenominator,
-    valueColumn = "value",
-    quantileColumn = "qm.quantile",
-    willReaggregate,
   }: {
-    metric: ExperimentMetricInterface;
-    useDenominator?: boolean;
-    valueColumn?: string;
-    quantileColumn?: string;
-    willReaggregate?: boolean;
+    metric: MetricInterface;
   }) {
-    // Fact Metrics
-    if (isFactMetric(metric)) {
-      const columnRef = useDenominator ? metric.denominator : metric.numerator;
-
-      const hasAggregateFilter =
-        getAggregateFilters({
-          columnRef: columnRef,
-          column: columnRef?.column || "",
-          ignoreInvalid: true,
-        }).length > 0;
-
-      const column = hasAggregateFilter
-        ? columnRef?.aggregateFilterColumn
-        : columnRef?.column;
-
-      const nullIfZero =
-        metric.quantileSettings?.ignoreZeros &&
-        metric.quantileSettings?.type === "unit";
-
-      if (
-        !hasAggregateFilter &&
-        (isBinomialMetric(metric) || column === "$$distinctUsers")
-      ) {
-        return `COALESCE(MAX(${valueColumn}), 0)`;
-      } else if (column === "$$count") {
-        const aggColumn = `COUNT(${valueColumn})`;
-        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      } else if (
-        metric.metricType === "quantile" &&
-        metric.quantileSettings?.type === "event"
-      ) {
-        return `SUM(${this.ifElse(
-          `${valueColumn} <= ${quantileColumn}`,
-          "1",
-          "0",
-        )})`;
-      } else if (
-        !columnRef?.column.startsWith("$$") &&
-        columnRef?.aggregation === "count distinct"
-      ) {
-        if (willReaggregate) {
-          return this.hllAggregate(valueColumn);
-        }
-        const aggColumn = this.hllCardinality(this.hllAggregate(valueColumn));
-        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      } else if (
-        !columnRef?.column.startsWith("$$") &&
-        columnRef?.aggregation === "max"
-      ) {
-        const aggColumn = `COALESCE(MAX(${valueColumn}), 0)`;
-        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      } else {
-        const aggColumn = `SUM(COALESCE(${valueColumn}, 0))`;
-        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      }
-    }
-
-    // Non-fact Metrics
-
     // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
       return `MAX(COALESCE(value, 0))`;
@@ -6066,65 +6016,73 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
-  private getReaggregateMetricColumn(
-    metric: ExperimentMetricInterface,
-    useDenominator?: boolean,
-    valueColumn: string = "value",
-  ) {
-    if (quantileMetricType(metric)) {
-      throw new Error("Quantile metrics are not supported for reaggregation");
-    }
-    // Fact Metrics
-    if (isFactMetric(metric)) {
-      const columnRef = useDenominator ? metric.denominator : metric.numerator;
+  // TODO(sql): remove this and replace usage with getAggregationMetadata
+  // This method is not used for incremental refresh or fact metric standalone analyses
+  // only fact metric experiment analyses and should be superseded by the getAggregationMetadata method
+  // at some point
+  private getAggregateMetricColumn({
+    metric,
+    useDenominator,
+    valueColumn = "value",
+    quantileColumn = "qm.quantile",
+  }: {
+    metric: FactMetricInterface;
+    useDenominator?: boolean;
+    valueColumn?: string;
+    quantileColumn?: string;
+  }) {
+    const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
-      const hasAggregateFilter =
-        getAggregateFilters({
-          columnRef: columnRef,
-          column: columnRef?.column || "",
-          ignoreInvalid: true,
-        }).length > 0;
+    const hasAggregateFilter =
+      getAggregateFilters({
+        columnRef: columnRef,
+        column: columnRef?.column || "",
+        ignoreInvalid: true,
+      }).length > 0;
 
-      const column = hasAggregateFilter
-        ? columnRef?.aggregateFilterColumn
-        : columnRef?.column;
+    const column = hasAggregateFilter
+      ? columnRef?.aggregateFilterColumn
+      : columnRef?.column;
 
-      if (
-        !hasAggregateFilter &&
-        (isBinomialMetric(metric) || column === "$$distinctUsers")
-      ) {
-        return `MAX(COALESCE(${valueColumn}, 0))`;
-      } else if (
-        !columnRef?.column.startsWith("$$") &&
-        columnRef?.aggregation === "count distinct"
-      ) {
-        return this.hllCardinality(this.hllReaggregate(valueColumn));
-      } else if (
-        !columnRef?.column.startsWith("$$") &&
-        columnRef?.aggregation === "max"
-      ) {
-        return `MAX(COALESCE(${valueColumn}, 0))`;
-      } else {
-        return `SUM(COALESCE(${valueColumn}, 0))`;
-      }
-    }
+    const nullIfZero =
+      metric.quantileSettings?.ignoreZeros &&
+      metric.quantileSettings?.type === "unit";
 
-    // Non-fact Metrics
-    throw new Error("Non-fact metrics are not supported for reaggregation");
-  }
-
-  private getValueFromAggregateColumns(
-    col: string,
-    columnRef?: ColumnRef | null,
-  ): string {
     if (
+      !hasAggregateFilter &&
+      (isBinomialMetric(metric) || column === "$$distinctUsers")
+    ) {
+      return `COALESCE(MAX(${valueColumn}), 0)`;
+    } else if (column === "$$distinctDates") {
+      return `COUNT(DISTINCT ${valueColumn})`;
+    } else if (column === "$$count") {
+      const aggColumn = `COUNT(${valueColumn})`;
+      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
+    } else if (
+      metric.metricType === "quantile" &&
+      metric.quantileSettings?.type === "event"
+    ) {
+      return `SUM(${this.ifElse(
+        `${valueColumn} <= ${quantileColumn}`,
+        "1",
+        "0",
+      )})`;
+    } else if (
       !columnRef?.column.startsWith("$$") &&
       columnRef?.aggregation === "count distinct"
     ) {
-      return this.hllCardinality(col);
+      const aggColumn = this.hllCardinality(this.hllAggregate(valueColumn));
+      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
+    } else if (
+      !columnRef?.column.startsWith("$$") &&
+      columnRef?.aggregation === "max"
+    ) {
+      const aggColumn = `COALESCE(MAX(${valueColumn}), 0)`;
+      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
+    } else {
+      const aggColumn = `SUM(COALESCE(${valueColumn}, 0))`;
+      return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
     }
-
-    return col;
   }
 
   private getFactMetricColumn(
@@ -6144,28 +6102,34 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ? columnRef?.aggregateFilterColumn
       : columnRef?.column;
 
+    const timestampColumn = `${alias}.timestamp`;
+
     const value =
       (!hasAggregateFilter && isBinomialMetric(metric)) ||
       !columnRef ||
       column === "$$distinctUsers" ||
       column === "$$count"
         ? "1"
-        : factTable && column
-          ? getColumnExpression(
-              column,
-              factTable,
-              this.extractJSONField.bind(this),
-              alias,
-            )
-          : `${alias}.${column}`;
+        : column === "$$distinctDates"
+          ? this.dateTrunc(timestampColumn)
+          : factTable && column
+            ? getColumnExpression(
+                column,
+                factTable,
+                this.extractJSONField.bind(this),
+                alias,
+              )
+            : `${alias}.${column}`;
 
     return {
-      timestamp: `${alias}.timestamp`,
+      timestamp: timestampColumn,
       value,
     };
   }
 
   // TODO(sql): refactor to change metric type to legacy only
+  // currently this is used for activation metrics even if they are
+  // fact metrics
   private getMetricColumns(
     metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,
@@ -6197,9 +6161,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       const value =
         (!hasAggregateFilter && isBinomialMetric(metric)) ||
+        // TODO(sql): remove when switching this method to only be used by legacy metrics
         !columnRef ||
         column === "$$distinctUsers" ||
-        column === "$$count"
+        column === "$$count" ||
+        column === "$$distinctDates"
           ? "1"
           : factTable && column
             ? getColumnExpression(
@@ -6415,6 +6381,23 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       return {
         intermediateDataType: "integer",
         partialAggregationFunction: (column: string) => `COUNT(${column})`,
+        finalDataType: "integer",
+        reAggregationFunction,
+        fullAggregationFunction,
+      };
+    }
+
+    if (column === "$$distinctDates") {
+      // Column here should be a date (a timestamp truncated to date)
+      const reAggregationFunction = nullIfZero
+        ? (column: string) => `NULLIF(COUNT(DISTINCT ${column}), 0)`
+        : (column: string) => `COUNT(DISTINCT ${column})`;
+      const fullAggregationFunction = nullIfZero
+        ? (column: string) => `NULLIF(COUNT(DISTINCT ${column}), 0)`
+        : (column: string) => `COUNT(DISTINCT ${column})`;
+      return {
+        intermediateDataType: "date",
+        partialAggregationFunction: (column: string) => `MAX(${column})`,
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
@@ -6759,7 +6742,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         , __filteredNewExposures AS (
           SELECT 
             ${this.castToString(`${baseIdType}`)} AS ${baseIdType}
-            , variation_id AS variation
+            , ${this.castToString(`variation_id`)} AS variation
             , timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions

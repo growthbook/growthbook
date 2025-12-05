@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";

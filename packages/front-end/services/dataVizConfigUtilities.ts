@@ -6,7 +6,7 @@ import {
   ScatterChart,
   dimensionAxisConfiguration,
   xAxisConfiguration,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
 import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
 
 // Helper to format slice label

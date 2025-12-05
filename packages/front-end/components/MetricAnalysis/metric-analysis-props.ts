@@ -32,5 +32,7 @@ export function getMetricAnalysisProps({
     source: source ?? "metric",
     additionalNumeratorFilters: [],
     additionalDenominatorFilters: [],
+    metricAutoSlices: [],
+    customMetricSlices: [],
   };
 }

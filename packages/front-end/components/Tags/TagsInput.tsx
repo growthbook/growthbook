@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

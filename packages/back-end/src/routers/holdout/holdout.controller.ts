@@ -4,6 +4,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -42,7 +43,6 @@ import { PrivateApiErrorResponse } from "back-end/types/api";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { refreshSDKPayloadCache } from "back-end/src/services/features";
-import { HoldoutInterface } from "./holdout.validators";
 
 /**
  * GET /holdout/:id

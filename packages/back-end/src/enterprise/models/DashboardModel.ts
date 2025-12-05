@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
+import { UpdateProps } from "shared/types/base-model";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -8,7 +9,6 @@ import {
 import {
   MakeModelClass,
   ScopedFilterQuery,
-  UpdateProps,
 } from "back-end/src/models/BaseModel";
 import {
   getCollection,
@@ -332,7 +332,7 @@ export function migrateBlock(
     case "experiment-time-series":
       return {
         ...doc,
-        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
+        metricIds: doc.metricId ? [doc.metricId] : (doc.metricIds ?? undefined),
         metricId: undefined,
         metricSelector: doc.metricSelector || "custom",
         pinSource: doc.pinSource || "experiment",
@@ -376,6 +376,12 @@ export function migrateBlock(
         showTable: true,
         showTimeseries: false,
       };
+    case "sql-explorer": {
+      return {
+        ...doc,
+        blockConfig: doc.blockConfig ?? [],
+      };
+    }
     default:
       return doc;
   }

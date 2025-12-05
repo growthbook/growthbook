@@ -5,7 +5,7 @@ import {
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import { isDefined } from "shared/util";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";

@@ -1,6 +1,6 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { useState } from "react";
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";

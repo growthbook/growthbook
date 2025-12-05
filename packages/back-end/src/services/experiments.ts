@@ -46,8 +46,8 @@ import {
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SegmentInterface } from "shared/types/segment";
 import {
   ExperimentAnalysisSummaryVariationStatus,
   BanditResult,
@@ -55,7 +55,9 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
-} from "back-end/src/validators/experiments";
+} from "shared/validators";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -92,7 +94,6 @@ import {
   MetricStats,
   Operator,
 } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   Changeset,
   ExperimentInterface,
@@ -131,7 +132,6 @@ import {
   putMetricValidator,
   updateExperimentValidator,
 } from "back-end/src/validators/openapi";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -382,6 +382,9 @@ export function getDefaultExperimentAnalysisSettings(
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
+  const hasPostStratificationFeature = organization
+    ? orgHasPremiumFeature(organization, "post-stratification")
+    : false;
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
@@ -393,6 +396,9 @@ export function getDefaultExperimentAnalysisSettings(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
+    postStratificationEnabled:
+      hasPostStratificationFeature &&
+      !(organization.settings?.postStratificationDisabled ?? false),
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&

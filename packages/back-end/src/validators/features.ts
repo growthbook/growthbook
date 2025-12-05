@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { statsEngines } from "back-end/src/util/constants";
-import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
+import { statsEngines } from "shared/constants";
 import {
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
-} from "back-end/src/validators/shared";
+} from "shared/validators";
+import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -122,7 +122,7 @@ const experimentRule = baseRule
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
     templateId: z.string().optional(),
-    customFields: z.record(z.any()).optional(),
+    customFields: z.record(z.string(), z.any()).optional(),
   })
   .strict();
 
@@ -262,7 +262,7 @@ export const featureInterface = z
     environmentSettings: z.record(z.string(), featureEnvironment),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
-    customFields: z.record(z.any()).optional(),
+    customFields: z.record(z.string(), z.any()).optional(),
 
     /** @deprecated */
     legacyDraft: z.union([featureRevisionInterface, z.null()]).optional(),

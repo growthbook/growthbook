@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";

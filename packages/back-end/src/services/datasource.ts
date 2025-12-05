@@ -1,5 +1,6 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
+import { TemplateVariables } from "shared/types/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -25,7 +26,6 @@ import {
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { TemplateVariables } from "back-end/types/sql";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { QueryStatistics } from "back-end/types/query";

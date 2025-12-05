@@ -1,8 +1,8 @@
 import type { Response } from "express";
+import { TagInterface } from "shared/types/tag";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { TagInterface } from "back-end/types/tag";
 import { addTag, removeTag } from "back-end/src/models/TagModel";
 import { removeTagInMetrics } from "back-end/src/models/MetricModel";
 import { removeTagInFeature } from "back-end/src/models/FeatureModel";

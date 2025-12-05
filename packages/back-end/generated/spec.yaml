@@ -4895,7 +4895,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -4932,7 +4932,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -5195,7 +5195,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -5232,7 +5232,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'

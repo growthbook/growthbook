@@ -5,14 +5,17 @@ import {
   expandAllSliceMetricsInMap,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import { ReqContext } from "back-end/types/organization";
 import {
+  CreateMetricTimeSeriesSingleDataPoint,
+  MetricTimeSeriesValue,
+  MetricTimeSeriesVariation,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentInterface,
   GoalMetricStatus,
   GuardrailMetricStatus,
-} from "back-end/src/validators/experiments";
+} from "shared/validators";
+import { ReqContext } from "back-end/types/organization";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -20,11 +23,6 @@ import {
   MetricForSnapshot,
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
-import {
-  CreateMetricTimeSeriesSingleDataPoint,
-  MetricTimeSeriesValue,
-  MetricTimeSeriesVariation,
-} from "back-end/src/validators/metric-time-series";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -221,6 +219,8 @@ function getExperimentSettingsHash(
     dimensions: snapshotAnalysisSettings.dimensions,
     statsEngine: snapshotAnalysisSettings.statsEngine,
     regressionAdjusted: snapshotAnalysisSettings.regressionAdjusted,
+    postStratificationEnabled:
+      snapshotAnalysisSettings.postStratificationEnabled,
     sequentialTesting: snapshotAnalysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       snapshotAnalysisSettings.sequentialTestingTuningParameter,
