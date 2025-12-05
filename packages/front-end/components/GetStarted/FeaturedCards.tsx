@@ -15,6 +15,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { isCloud } from "@/services/env";
 import styles from "./FeaturedCards.module.scss";
 
 export function FeatureFlagFeatureCard({ title = "Create Feature Flags" }) {
@@ -76,7 +77,7 @@ export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
         project: ProjectInterface;
         experimentId: string;
       }>(
-        gb.isOn("new-sample-data")
+        isCloud() && gb.isOn("new-sample-data")
           ? "/demo-datasource-project/new"
           : "/demo-datasource-project",
         {

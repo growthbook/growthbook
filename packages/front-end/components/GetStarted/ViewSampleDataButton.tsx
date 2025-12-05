@@ -7,6 +7,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import { isCloud } from "@/services/env";
 
 const ViewSampleDataButton = ({
   resource = "experiment",
@@ -23,7 +24,6 @@ const ViewSampleDataButton = ({
   const { mutateDefinitions } = useDefinitions();
 
   const gb = useGrowthBook();
-  const useNewSampleData = gb.isOn("new-sample-data");
 
   const openSample = async () => {
     if (exists && demoExperimentId) {
@@ -40,7 +40,7 @@ const ViewSampleDataButton = ({
         project: ProjectInterface;
         experimentId: string;
       }>(
-        useNewSampleData
+        isCloud() && gb.isOn("new-sample-data")
           ? "/demo-datasource-project/new"
           : "/demo-datasource-project",
         {
