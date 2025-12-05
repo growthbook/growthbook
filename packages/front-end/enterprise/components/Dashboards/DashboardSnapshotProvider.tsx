@@ -476,6 +476,8 @@ export function useDashboardMetricAnalysis(
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
       source: "metric",
+      metricAutoSlices: block.analysisSettings.metricAutoSlices,
+      customMetricSlices: block.analysisSettings.customMetricSlices,
       additionalNumeratorFilters:
         block.analysisSettings.additionalNumeratorFilters,
       additionalDenominatorFilters:
@@ -520,6 +522,8 @@ export function useDashboardMetricAnalysis(
           block.analysisSettings.additionalNumeratorFilters ?? [],
         additionalDenominatorFilters:
           block.analysisSettings.additionalDenominatorFilters ?? [],
+        metricAutoSlices: block.analysisSettings.metricAutoSlices ?? [],
+        customMetricSlices: block.analysisSettings.customMetricSlices ?? [],
       };
       const metricAnalysisSettings = {
         ...metricAnalysis.settings,
@@ -530,8 +534,10 @@ export function useDashboardMetricAnalysis(
           metricAnalysis.settings.additionalNumeratorFilters ?? [],
         additionalDenominatorFilters:
           metricAnalysis.settings.additionalDenominatorFilters ?? [],
+        metricAutoSlices: metricAnalysis.settings.metricAutoSlices ?? [],
+        customMetricSlices: metricAnalysis.settings.customMetricSlices ?? [],
       };
-      // Check if analysisSettings match (including filters)
+      // Check if analysisSettings match (including slices and filters)
       if (isEqual(blockSettings, metricAnalysisSettings)) {
         return; // Skip refresh if everything matches
       }

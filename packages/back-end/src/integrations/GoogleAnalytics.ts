@@ -102,7 +102,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   getMetricAnalysisQuery(
-    _metric: FactMetricInterface,
+    _metrics: FactMetricInterface[],
     _params: Omit<MetricAnalysisParams, "metric">,
   ): string {
     throw new Error("Method not implemented.");

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryPointerValidator } from "shared/validators";
+import { customMetricSlice, queryPointerValidator } from "shared/validators";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([
   "metric",
@@ -21,6 +21,8 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
     additionalNumeratorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
     additionalDenominatorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
   })
@@ -44,6 +46,8 @@ export const createMetricAnalysisPropsValidator = z
     force: z.boolean().optional(),
     additionalNumeratorFilters: z.array(z.string()).optional(),
     additionalDenominatorFilters: z.array(z.string()).optional(),
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
   })
   .strict();
 
@@ -73,6 +77,21 @@ export const metricAnalysisResultValidator = z
           stddev: z.number().optional(),
           numerator: z.number().optional(),
           denominator: z.number().optional(),
+          // Per-slice metrics for this date (supports multi-dimension slices)
+          slices: z
+            .array(
+              z
+                .object({
+                  slice: z.record(z.string(), z.string().nullable()).optional(), // Map of column -> value for slices
+                  units: z.number(),
+                  mean: z.number(),
+                  stddev: z.number().optional(),
+                  numerator: z.number().optional(),
+                  denominator: z.number().optional(),
+                })
+                .strict(),
+            )
+            .optional(),
         }),
       )
       .optional(),

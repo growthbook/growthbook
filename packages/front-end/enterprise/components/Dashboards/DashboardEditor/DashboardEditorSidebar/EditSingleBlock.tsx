@@ -746,6 +746,8 @@ export default function EditSingleBlock({
                             _additionalNumeratorFilters,
                           additionalDenominatorFilters:
                             _additionalDenominatorFilters,
+                          metricAutoSlices: _metricAutoSlices,
+                          customMetricSlices: _customMetricSlices,
                           ...restSettings
                         } = block.analysisSettings;
                         return {

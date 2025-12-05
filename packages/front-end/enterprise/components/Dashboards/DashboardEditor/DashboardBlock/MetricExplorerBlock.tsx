@@ -11,6 +11,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
+import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import HelperText from "@/ui/HelperText";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
@@ -33,9 +34,17 @@ export default function MetricExplorerBlock({
     [displayCurrency],
   );
 
-  const chartData = useMemo(() => {
-    const data: { x: string | number | Date; y: number }[] = [];
+  const hiddenSeriesIds = useMemo(() => {
+    const hidden = new Set<string>();
+    block.displaySettings?.seriesOverrides?.forEach((override) => {
+      if (override.hidden === true) {
+        hidden.add(override.seriesId);
+      }
+    });
+    return hidden;
+  }, [block.displaySettings?.seriesOverrides]);
 
+  const chartData = useMemo(() => {
     const rawFormatter = getExperimentMetricFormatter(
       factMetric,
       getFactTableById,
@@ -43,17 +52,22 @@ export default function MetricExplorerBlock({
     );
     const formatter = (value: number) => rawFormatter(value, formatterOptions);
 
-    const rows = (metricAnalysis.result?.dates || [])
-      .map((r) => {
-        return { ...r, date: getValidDate(r.date) };
-      })
-      .filter((d) => {
-        if (d.date < analysisSettings.startDate) return false;
-        if (d.date > analysisSettings.endDate) return false;
-        return true;
-      });
+    // Check if we have slices (from dates[].slices)
+    const hasSlices = (metricAnalysis.result?.dates || []).some(
+      (d) => d.slices && d.slices.length > 0,
+    );
 
     if (visualizationType === "bigNumber") {
+      const rows = (metricAnalysis.result?.dates || [])
+        .map((r) => {
+          return { ...r, date: getValidDate(r.date) };
+        })
+        .filter((d) => {
+          if (d.date < analysisSettings.startDate) return false;
+          if (d.date > analysisSettings.endDate) return false;
+          return true;
+        });
+
       const sum = rows.reduce((acc, curr) => {
         const value =
           valueType === "avg" ? curr.mean || 0 : curr.mean * (curr.units || 0);
@@ -68,13 +82,196 @@ export default function MetricExplorerBlock({
       visualizationType === "histogram" &&
       factMetric.metricType === "mean"
     ) {
+      const data: { x: string; y: number }[] = [];
       metricAnalysis.result?.histogram?.forEach((row) => {
         data.push({
           x: `${formatter(row.start)} - ${formatter(row.end)}`,
           y: row.units,
         });
       });
+
+      return {
+        tooltip: {
+          appendTo: "body",
+          trigger: "axis",
+          axisPointer: {
+            type: "shadow",
+          },
+        },
+        xAxis: {
+          type: "category",
+          nameLocation: "middle",
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [10, 0],
+            color: textColor,
+          },
+          axisLabel: {
+            color: textColor,
+            rotate: -45,
+            hideOverlap: true,
+          },
+        },
+        yAxis: {
+          type: "value",
+          nameLocation: "middle",
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [40, 0],
+            color: textColor,
+          },
+          axisLabel: {
+            color: textColor,
+          },
+        },
+        dataset: [
+          {
+            source: data,
+          },
+        ],
+        series: [
+          {
+            type: "bar",
+            encode: {
+              x: "x",
+              y: "y",
+            },
+          },
+        ],
+      };
     } else if (visualizationType === "timeseries") {
+      const rows = (metricAnalysis.result?.dates || [])
+        .map((r) => {
+          return { ...r, date: getValidDate(r.date) };
+        })
+        .filter((d) => {
+          if (d.date < analysisSettings.startDate) return false;
+          if (d.date > analysisSettings.endDate) return false;
+          return true;
+        });
+
+      // If we have slices, create multi-series chart
+      if (hasSlices) {
+        // Build slice series map from dates[].slices
+        const sliceSeriesMap = new Map<
+          string,
+          { date: Date; value: number }[]
+        >();
+
+        rows.forEach((r) => {
+          (r.slices || []).forEach((s) => {
+            const label = formatSliceLabel(s.slice || {});
+            const mean = s.mean ?? 0;
+            const units = s.units ?? 0;
+            const value =
+              valueType === "sum" && factMetric.metricType !== "ratio"
+                ? mean * units
+                : mean;
+
+            if (typeof value === "number" && !isNaN(value) && isFinite(value)) {
+              if (!sliceSeriesMap.has(label)) {
+                sliceSeriesMap.set(label, []);
+              }
+              sliceSeriesMap.get(label)!.push({ date: r.date, value });
+            }
+          });
+        });
+
+        // Get all unique dates across all slice series
+        const allDates = new Set<Date>();
+        sliceSeriesMap.forEach((points) =>
+          points.forEach((p) => allDates.add(p.date)),
+        );
+        const sortedDates = Array.from(allDates).sort(
+          (a, b) => a.getTime() - b.getTime(),
+        );
+
+        // Build series names from the map keys, filtering out hidden series
+        const seriesNames = Array.from(sliceSeriesMap.keys()).filter(
+          (name) => !hiddenSeriesIds.has(name),
+        );
+
+        // Build dataset: one row per date with columns for each slice
+        const datasetSource = sortedDates.map((date) => {
+          const row: Record<string, unknown> = { x: date };
+          seriesNames.forEach((name) => {
+            const point = sliceSeriesMap
+              .get(name)!
+              .find((p) => p.date.getTime() === date.getTime());
+            if (point) {
+              row[name] = point.value;
+            }
+          });
+          return row;
+        });
+
+        // Create series for each slice
+        const series = seriesNames.map((name) => ({
+          name,
+          type: "line",
+          encode: {
+            x: "x",
+            y: name,
+          },
+        }));
+
+        return {
+          tooltip: {
+            appendTo: "body",
+            trigger: "axis",
+            axisPointer: {
+              type: "line",
+            },
+          },
+          legend: {
+            show: true,
+            data: seriesNames,
+            textStyle: {
+              color: textColor,
+            },
+          },
+          xAxis: {
+            type: "time",
+            nameLocation: "middle",
+            nameTextStyle: {
+              fontSize: 14,
+              fontWeight: "bold",
+              padding: [10, 0],
+              color: textColor,
+            },
+            axisLabel: {
+              color: textColor,
+              rotate: -45,
+              hideOverlap: true,
+            },
+          },
+          yAxis: {
+            type: "value",
+            nameLocation: "middle",
+            nameTextStyle: {
+              fontSize: 14,
+              fontWeight: "bold",
+              padding: [40, 0],
+              color: textColor,
+            },
+            axisLabel: {
+              color: textColor,
+              formatter,
+            },
+          },
+          dataset: [
+            {
+              source: datasetSource,
+            },
+          ],
+          series,
+        };
+      }
+
+      // No slices - use single series (original behavior)
+      const data: { x: Date; y: number }[] = [];
       rows.forEach((row) => {
         if (valueType === "sum" && factMetric.metricType !== "ratio") {
           data.push({ x: row.date, y: (row.mean || 0) * (row.units || 0) });
@@ -85,9 +282,63 @@ export default function MetricExplorerBlock({
           });
         }
       });
+
+      return {
+        tooltip: {
+          appendTo: "body",
+          trigger: "axis",
+          axisPointer: {
+            type: "shadow",
+          },
+        },
+        xAxis: {
+          type: "time",
+          nameLocation: "middle",
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [10, 0],
+            color: textColor,
+          },
+          axisLabel: {
+            color: textColor,
+            rotate: -45,
+            hideOverlap: true,
+          },
+        },
+        yAxis: {
+          type: "value",
+          nameLocation: "middle",
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [40, 0],
+            color: textColor,
+          },
+          axisLabel: {
+            color: textColor,
+            formatter,
+          },
+        },
+        dataset: [
+          {
+            source: data,
+          },
+        ],
+        series: [
+          {
+            type: "line",
+            encode: {
+              x: "x",
+              y: "y",
+            },
+          },
+        ],
+      };
     }
 
-    const option = {
+    // Fallback for other visualization types (should not be reached for timeseries/histogram/bigNumber)
+    return {
       tooltip: {
         appendTo: "body",
         trigger: "axis",
@@ -99,7 +350,7 @@ export default function MetricExplorerBlock({
         },
       },
       xAxis: {
-        type: visualizationType === "timeseries" ? "time" : "category",
+        type: "category",
         nameLocation: "middle",
         scale: true,
         nameTextStyle: {
@@ -126,17 +377,17 @@ export default function MetricExplorerBlock({
         },
         axisLabel: {
           color: textColor,
-          formatter: visualizationType !== "histogram" ? formatter : undefined,
+          formatter,
         },
       },
       dataset: [
         {
-          source: data,
+          source: [],
         },
       ],
       series: [
         {
-          type: visualizationType === "histogram" ? "bar" : "line",
+          type: "line",
           encode: {
             x: "x",
             y: "y",
@@ -144,7 +395,6 @@ export default function MetricExplorerBlock({
         },
       ],
     };
-    return option;
   }, [
     factMetric,
     valueType,
@@ -155,7 +405,10 @@ export default function MetricExplorerBlock({
     textColor,
     formatterOptions,
     getFactTableById,
+    hiddenSeriesIds,
   ]);
+
+  console.log("chartData", chartData);
 
   return (
     <Box

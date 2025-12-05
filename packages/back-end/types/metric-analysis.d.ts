@@ -27,12 +27,16 @@ export type MetricAnalysisResultDate = {
   units: number;
   mean: number;
   stddev?: number;
-};
-
-export type MetricAnalysisCappingResult = {
-  cappingValue: number;
-  unitsCapped: number;
-  uncappedHistogram: MetricAnalysisHistogram;
+  numerator?: number;
+  denominator?: number;
+  slices?: Array<{
+    slice?: Record<string, string | null>;
+    units: number;
+    mean: number;
+    stddev?: number;
+    numerator?: number;
+    denominator?: number;
+  }>;
 };
 
 export type MetricAnalysisHistogram = z.infer<
