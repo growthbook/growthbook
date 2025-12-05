@@ -105,6 +105,15 @@ export default function SeriesList({
             level: level || "",
           });
         });
+
+        // Add "Other" slice
+        series.push({
+          seriesId: formatSliceLabel({ [columnName]: "Other" }),
+          label: "Other",
+          type: "auto",
+          column: columnName,
+          level: "Other",
+        });
       });
     }
 
@@ -461,9 +470,13 @@ export default function SeriesList({
                         style={{ paddingLeft: "16px", paddingTop: "4px" }}
                       >
                         {columnSeries
-                          .sort((a, b) =>
-                            (a.level || "").localeCompare(b.level || ""),
-                          )
+                          .sort((a, b) => {
+                            // Always put "Other" at the end
+                            if (a.level === "Other") return 1;
+                            if (b.level === "Other") return -1;
+                            // Otherwise sort alphabetically
+                            return (a.level || "").localeCompare(b.level || "");
+                          })
                           .map((series) => (
                             <SeriesCheckbox
                               key={series.seriesId}

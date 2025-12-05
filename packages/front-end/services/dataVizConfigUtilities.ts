@@ -17,7 +17,7 @@ export const formatSliceLabel = (
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([col, val]) => {
       if (val === null) {
-        return `${col}: null`;
+        return `${col}: Other`;
       }
       return `${col}: ${val}`;
     });

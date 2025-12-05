@@ -27,14 +27,6 @@ export default function MetricExplorerDisplaySettings({
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
-  if (!factTable) {
-    return (
-      <Text as="p" className="mb-2" style={{ color: "var(--color-text-mid)" }}>
-        You must select a Metric before you can customize the display settings.
-      </Text>
-    );
-  }
-
   return (
     <Flex
       direction="column"
@@ -76,14 +68,25 @@ export default function MetricExplorerDisplaySettings({
         transitionTime={100}
       >
         <Box p="4" height="fit-content">
-          <Flex direction="column" gap="4">
-            <SeriesList
-              block={block}
-              setBlock={setBlock}
-              factTable={factTable}
-              hasMetricSlicesFeature={hasMetricSlicesFeature}
-            />
-          </Flex>
+          {!factTable ? (
+            <Text
+              as="p"
+              className="mb-2"
+              style={{ color: "var(--color-text-mid)" }}
+            >
+              You must select a metric before you can customize the display
+              settings.
+            </Text>
+          ) : (
+            <Flex direction="column" gap="4">
+              <SeriesList
+                block={block}
+                setBlock={setBlock}
+                factTable={factTable}
+                hasMetricSlicesFeature={hasMetricSlicesFeature}
+              />
+            </Flex>
+          )}
         </Box>
       </Collapsible>
     </Flex>

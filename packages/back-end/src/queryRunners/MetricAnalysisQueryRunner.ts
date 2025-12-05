@@ -136,6 +136,18 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
           };
           metrics.push(sliceMetric);
         });
+
+        // Add "other" slice metric for this auto slice column
+        // The "other" slice uses empty value to trigger "other" logic
+        const otherSliceString = generateSliceString({
+          [col.column]: "", // Empty value triggers "other" logic
+        });
+        const otherSliceMetric: FactMetricInterface = {
+          ...metric,
+          id: `${metric.id}?${otherSliceString}`,
+          name: `${metric.name} (${col.name || col.column}: other)`,
+        };
+        metrics.push(otherSliceMetric);
       });
     }
 
