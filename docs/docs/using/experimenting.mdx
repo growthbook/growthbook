@@ -49,7 +49,7 @@ like to your experiment, but we suggest each experiment have only a few primary 
 making the shipping decision. Adding all your metrics is not recommended, as this can lead to false
 positives caused by random variations (see [Multiple testing problem](/using/experimentation-problems#multiple-testing-problem))
 
-Before you being a test, you should have selected a primary metric or set of metrics that you are
+Before running a test, select a primary metric or set of metrics that you're
 trying to improve. These metrics are often called the OEC for Overall Evaluation Criterion. It is
 important to have this decided ahead of time so when you look at your experiment results you're not just shopping for metrics that confirm
 your bias (see [confirmation bias](/using/experimentation-problems#confirmation-bias)).
@@ -159,12 +159,12 @@ Everything is the same as above except for three key changes:
 ## Data quality checks
 
 GrowthBook performs automatic data quality checks to ensure the statistical inferences are valid and
-ready for interpretation. You can see all check and monitor the health of your experiments on the
+ready for interpretation. You can check and monitor the health of your experiments on the
 experiment **health page**.
 
 ### Health Page
 
-GrowthBook automatically does data quality checks on all experiments and shows the results on the our _Health Page_.
+GrowthBook automatically does data quality checks on all experiments and shows the results on the **Health Page**.
 
 <MaxWidthImage maxWidth={600}>
   ![Experiment Health Page](/images/using/health-page.png)
@@ -247,7 +247,7 @@ can be created with SQL from the "Data and Metrics → Segments" page.
 
 ![Segments](/images/using/segments-page.png)
 
-There are two ways you can use segments in your experiment results. The first is to use edit the
+There are two ways you can use segments in your experiment results. The first is to use the
 experiment's 'analytics settings' and add one of the segments. The other way is to create a custom
 report, and then click on 'customize' and select a segment to apply to the results.
 
@@ -292,7 +292,7 @@ to stop, and how to interpret results may not be straight forward.
 
 ### When to stop an experiment
 
-When using the Bayesian statistic engine, there are a few methods you can use when stopping a test.
+When using the Bayesian statistics engine, there are a few methods you can use when stopping a test.
 
 - significance reached on your primary metrics
 - metric risk drop below your risk thresholds
