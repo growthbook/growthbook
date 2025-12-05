@@ -234,6 +234,11 @@ export default function SeriesList({
     });
   };
 
+  const numOfSeriesHidden =
+    block.displaySettings?.seriesOverrides?.filter((s) => s.hidden).length || 0;
+  const numOfSelectedSeries =
+    autoSeries.length + customSeries.length - numOfSeriesHidden;
+
   // Only show the section if there are series to display
   //MKTODO: Need to think about this
   if (!factTable) {
@@ -248,23 +253,29 @@ export default function SeriesList({
       </Text>
       {autoSeriesByColumn.size > 0 || customSeries.length > 0 ? (
         <>
-          <Flex align="center" gap="2" mb="2" justify="end">
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={isDisabled}
-              onClick={() => handleSelectOrDeselect(true)}
-            >
-              Select All
-            </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={isDisabled}
-              onClick={() => handleSelectOrDeselect(false)}
-            >
-              Deselect All
-            </Button>
+          <Flex align="center" gap="2" mb="2" justify="between">
+            <Text size="2" weight="light">
+              {numOfSelectedSeries} of {autoSeries.length + customSeries.length}{" "}
+              selected
+            </Text>
+            <Flex align="center" justify="end">
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={isDisabled}
+                onClick={() => handleSelectOrDeselect(true)}
+              >
+                Select All
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={isDisabled}
+                onClick={() => handleSelectOrDeselect(false)}
+              >
+                Deselect All
+              </Button>
+            </Flex>
           </Flex>
           {Array.from(autoSeriesByColumn.entries())
             .sort((a, b) => a[1].columnName.localeCompare(b[1].columnName))
