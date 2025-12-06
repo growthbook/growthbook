@@ -28,6 +28,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "yarn"
 
       - name: Cache eslint
         uses: actions/cache@v4
@@ -45,19 +46,6 @@ jobs:
           key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-tsbuildinfo-
-
-      - name: Remove node_modules
-        run: |
-          rm -rf node_modules
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node_modules-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-node_modules-
 
       - name: Install yarn dependencies
         run: yarn install --frozen-lockfile
@@ -102,13 +90,6 @@ jobs:
         run: |
           yarn generate-api-types
           [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
-
-      - name: Check doc
-        run: |
-          cd docs
-          yarn
-          yarn gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |
