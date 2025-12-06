@@ -595,6 +595,10 @@ app.get(
   experimentsController.getSnapshotWithDimension,
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
+app.get(
+  "/experiment/:id/snapshot/status/:jobId",
+  experimentsController.getSnapshotJobStatus,
+);
 app.post(
   "/experiment/:id/banditSnapshot",
   experimentsController.postBanditSnapshot,
