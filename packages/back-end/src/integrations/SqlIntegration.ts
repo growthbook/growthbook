@@ -1019,7 +1019,7 @@ export default abstract class SqlIntegration
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
-            , ${metricData.numeratorAggFns.aggregationTransformationFunction(
+            , ${metricData.aggregatedValueTransformation(
               metricData.numeratorAggFns.reAggregationFunction(
                 "value_for_reaggregation",
               ),
@@ -1028,7 +1028,7 @@ export default abstract class SqlIntegration
             )} AS value
             ${
               metricData.ratioMetric
-                ? `, ${metricData.denominatorAggFns.aggregationTransformationFunction(
+                ? `, ${metricData.aggregatedValueTransformation(
                     metricData.denominatorAggFns.reAggregationFunction(
                       "denominator_for_reaggregation",
                     ),
@@ -2749,24 +2749,39 @@ export default abstract class SqlIntegration
     const numeratorAggFns = this.getAggregationMetadata({
       metric,
       useDenominator: false,
-      overrideConversionWindows,
     });
     const denominatorAggFns = this.getAggregationMetadata({
       metric,
       useDenominator: true,
-      overrideConversionWindows,
     });
 
     const covariateNumeratorAggFns = this.getAggregationMetadata({
       metric,
       useDenominator: false,
-      overrideConversionWindows: true,
     });
     const covariateDenominatorAggFns = this.getAggregationMetadata({
       metric,
       useDenominator: true,
-      overrideConversionWindows: true,
     });
+
+    // Create aggregated value transformation function
+    // For dailyParticipation metrics, this divides by the participation window
+    // For all other metrics, this is an identity function
+    const aggregatedValueTransformation =
+      metric.metricType === "dailyParticipation"
+        ? (
+            column: string,
+            initialTimestampColumn: string,
+            analysisEndDate: Date,
+          ) =>
+            this.applyDailyParticipationTransformation({
+              column,
+              initialTimestampColumn,
+              analysisEndDate,
+              metric,
+              overrideConversionWindows,
+            })
+        : (column: string) => column;
 
     return {
       alias,
@@ -2797,6 +2812,7 @@ export default abstract class SqlIntegration
       metricStart,
       metricEnd,
       maxHoursToConvert,
+      aggregatedValueTransformation,
     };
   }
 
@@ -3316,7 +3332,7 @@ export default abstract class SqlIntegration
             .map((data) => {
               return `${
                 data.numeratorSourceIndex === f.index
-                  ? `, ${data.numeratorAggFns.aggregationTransformationFunction(
+                  ? `, ${data.aggregatedValueTransformation(
                       data.numeratorAggFns.fullAggregationFunction(
                         `umj.${data.alias}_value`,
                         `qm.${data.alias}_quantile`,
@@ -3328,7 +3344,7 @@ export default abstract class SqlIntegration
               }
                 ${
                   data.ratioMetric && data.denominatorSourceIndex === f.index
-                    ? `, ${data.denominatorAggFns.aggregationTransformationFunction(
+                    ? `, ${data.aggregatedValueTransformation(
                         data.denominatorAggFns.fullAggregationFunction(
                           `umj.${data.alias}_denominator`,
                           `qm.${data.alias}_quantile`,
@@ -6267,14 +6283,46 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
+  /**
+   * Applies the daily participation transformation to an aggregated value.
+   * For dailyParticipation metrics, this divides the count by the number of days
+   * in the participation window to get a participation rate.
+   * For all other metric types, this returns the value unchanged.
+   */
+  applyDailyParticipationTransformation({
+    column,
+    initialTimestampColumn,
+    analysisEndDate,
+    metric,
+    overrideConversionWindows,
+  }: {
+    column: string;
+    initialTimestampColumn: string;
+    analysisEndDate: Date;
+    metric: FactMetricInterface;
+    overrideConversionWindows: boolean;
+  }): string {
+    if (metric.metricType !== "dailyParticipation") {
+      return column;
+    }
+
+    return `
+      ${this.ensureFloat(column)} / 
+      ${this.computeParticipationDenominator({
+        initialTimestampColumn,
+        analysisEndDate,
+        metric,
+        overrideConversionWindows,
+      })}
+    `;
+  }
+
   getAggregationMetadata({
     metric,
     useDenominator,
-    overrideConversionWindows,
   }: {
     metric: FactMetricInterface;
     useDenominator: boolean;
-    overrideConversionWindows: boolean;
   }): FactMetricAggregationMetadata {
     const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
@@ -6293,18 +6341,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       metric.quantileSettings?.ignoreZeros &&
       metric.quantileSettings?.type === "unit";
 
-    // event quantiles cannot be counted and reaggregated, so they only have a single aggregation
-    if (
-      metric.metricType === "quantile" &&
-      metric.quantileSettings?.type === "event"
-    ) {
-      throw new Error(
-        "Event quantiles cannot be used with incremental refresh.",
-      );
-    }
-
-    const noTransformationFunction = (column: string) => column;
-
     // Binomial or distinct user count without an aggregate filter
     // TODO: get mapping of when distinct users is possible for understanding
     if (
@@ -6320,7 +6356,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           `COALESCE(MAX(${column}), 0)`,
         fullAggregationFunction: (column: string) =>
           `COALESCE(MAX(${column}), 0)`,
-        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6340,7 +6375,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           `SUM(COALESCE((${column}), 0))`,
         fullAggregationFunction: (column: string) =>
           `SUM(COALESCE((${column}), 0))`,
-        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6359,7 +6393,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
-        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6372,33 +6405,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ? (column: string) => `NULLIF(COUNT(DISTINCT ${column}), 0)`
         : (column: string) => `COUNT(DISTINCT ${column})`;
 
-      const aggregationTransformationFunction =
-        metric.metricType === "dailyParticipation"
-          ? (
-              column: string,
-              // first exposure/activation timestamp column
-              initialTimestampColumn: string,
-              analysisEndDate: Date,
-            ) => {
-              return `
-                ${this.ensureFloat(column)} / 
-                ${this.computeParticipationDenominator({
-                  initialTimestampColumn,
-                  analysisEndDate,
-                  metric,
-                  overrideConversionWindows,
-                })}
-                `;
-            }
-          : noTransformationFunction;
-
       return {
         intermediateDataType: "date",
         partialAggregationFunction: (column: string) => `MAX(${column})`,
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
-        aggregationTransformationFunction,
       };
     }
 
@@ -6423,7 +6435,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
-        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6440,7 +6451,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "float",
         fullAggregationFunction: (column: string) =>
           `COALESCE(MAX(${column}), 0)`,
-        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6461,7 +6471,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         finalDataType: "integer",
         fullAggregationFunction: (column: string, quantileColumn: string) =>
           `SUM(${this.ifElse(`${column} <= ${quantileColumn}`, "1", "0")})`,
-        aggregationTransformationFunction: noTransformationFunction,
       };
     }
 
@@ -6479,7 +6488,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       finalDataType: "float",
       reAggregationFunction,
       fullAggregationFunction,
-      aggregationTransformationFunction: noTransformationFunction,
     };
   }
 
@@ -6705,7 +6713,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO(incremental-refresh): activation metric
     if (activationMetric) {
       throw new Error(
-        "Activation metrics are not supported for incremental refresh",
+        "Activation metrics are not yet supported for incremental refresh",
       );
     }
 
@@ -7136,6 +7144,17 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       sortedMetrics,
     );
 
+    if (
+      sortedMetrics.some(
+        (m) =>
+          m.metricType === "quantile" && m.quantileSettings?.type === "event",
+      )
+    ) {
+      throw new Error(
+        "Event quantiles not yet supported with incremental refresh.",
+      );
+    }
+
     // TODO(incremental-refresh)
     // Compute data types and columns elsewhere and store in metadata to govern this query
     // and for validating queries match going forward
@@ -7167,7 +7186,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       const numeratorMetadata = this.getAggregationMetadata({
         metric,
         useDenominator: false,
-        overrideConversionWindows: false,
       });
       schema.set(
         `${this.encodeMetricIdForColumnName(metric.id)}_value`,
@@ -7178,7 +7196,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         const denominatorMetadata = this.getAggregationMetadata({
           metric,
           useDenominator: true,
-          overrideConversionWindows: false,
         });
         schema.set(
           `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
@@ -7224,7 +7241,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       const numeratorMetadata = this.getAggregationMetadata({
         metric,
         useDenominator: false,
-        overrideConversionWindows: true,
       });
       schema.set(
         `${this.encodeMetricIdForColumnName(metric.id)}_value`,
@@ -7235,7 +7251,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         const denominatorMetadata = this.getAggregationMetadata({
           metric,
           useDenominator: true,
-          overrideConversionWindows: true,
         });
         schema.set(
           `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
@@ -7595,17 +7610,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               // TODO(incremental-refresh): here is where we need to nullif 0 for
               // quantiles with ignore zeros. Otherwise the coalesce seems fine.
               .map((data) => {
-                const aggTransformationFn =
-                  data.numeratorAggFns.aggregationTransformationFunction;
-                const denomAggTransformationFn =
-                  data.denominatorAggFns.aggregationTransformationFunction;
-                return `, ${aggTransformationFn(
+                return `, ${data.aggregatedValueTransformation(
                   `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
                   "u.first_exposure_timestamp",
                   params.settings.endDate,
                 )} AS ${data.alias}_value ${
                   data.ratioMetric
-                    ? `, ${denomAggTransformationFn(
+                    ? `, ${data.aggregatedValueTransformation(
                         `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
                         "u.first_exposure_timestamp",
                         params.settings.endDate,
