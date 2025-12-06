@@ -7,8 +7,10 @@ export default function FactMetricTypeName({ type }: { type: FactMetricType }) {
     case "mean":
     case "ratio":
     case "quantile":
-      return capitalizeFirstLetter(type);
+      return <>{capitalizeFirstLetter(type)}</>;
     case "dailyParticipation":
-      return "Daily Participation";
+      return <>Daily Participation</>;
+    default:
+      return <>{type}</>;
   }
 }

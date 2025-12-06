@@ -6858,7 +6858,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     return format(
       `
-      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableName}
+      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableFullName}
       `,
       this.getFormatDialect(),
     );

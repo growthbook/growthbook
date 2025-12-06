@@ -388,7 +388,7 @@ const startExperimentIncrementalRefreshQueries = async (
     name: `alter_${queryParentId}`,
     displayTitle: "Rename Experiment Units Table",
     query: integration.getAlterNewIncrementalUnitsQuery({
-      unitsTableName: unitsTableName,
+      unitsTableFullName: unitsTableFullName,
       unitsTempTableFullName: unitsTempTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],
