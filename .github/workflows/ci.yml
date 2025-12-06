@@ -51,6 +51,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-tsbuildinfo-
 
+      - name: Debug yarn cache
+        run: |
+          ls -lah .
+          ls -lah packages/shared
+
       - name: Restore yarn dependencies cache
         uses: actions/cache@v4
         id: yarn-cache
