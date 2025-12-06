@@ -110,7 +110,7 @@ import {
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import {

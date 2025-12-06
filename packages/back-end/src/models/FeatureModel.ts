@@ -25,7 +25,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
-import { EventUser } from "back-end/src/events/event-types";
+import { EventUser } from "back-end/types/events/event-types";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -38,7 +38,7 @@ import {
   simpleSchemaValidator,
 } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
-import { ResourceEvents } from "back-end/src/events/base-types";
+import { ResourceEvents } from "back-end/types/events/base-types";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
@@ -46,10 +46,8 @@ import {
   updateVercelExperimentationItemFromFeature,
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
-import {
-  DiffResult,
-  getObjectDiff,
-} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { DiffResult } from "back-end/types/events/diff";
+import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { runValidateFeatureHooks } from "../enterprise/sandbox/sandbox-eval";
 import {
   createEvent,

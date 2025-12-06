@@ -10,7 +10,7 @@ import {
 } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { createDataSource } from "back-end/src/models/DataSourceModel";
 import {

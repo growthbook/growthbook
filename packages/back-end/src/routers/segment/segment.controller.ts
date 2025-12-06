@@ -6,7 +6,7 @@ import {
   createSegmentValidator,
   updateSegmentValidator,
 } from "shared/validators";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";

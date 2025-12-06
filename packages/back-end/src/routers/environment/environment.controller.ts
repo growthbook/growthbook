@@ -16,7 +16,7 @@ import {
   getEnvironments,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { Environment } from "back-end/types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";

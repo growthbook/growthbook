@@ -6,7 +6,10 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "back-end/types/feature-revision";
-import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
+import {
+  EventUser,
+  EventUserLoggedIn,
+} from "back-end/types/events/event-types";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
