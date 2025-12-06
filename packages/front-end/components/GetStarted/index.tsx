@@ -201,7 +201,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         title: "Feature Flag Analytics",
         description: "View flag evaluations in real time",
         docSection: "managedWarehouseTracking",
-        commercialFeature: "managed-warehouse",
       });
     }
     return advancedFeatureListWithAnalytics

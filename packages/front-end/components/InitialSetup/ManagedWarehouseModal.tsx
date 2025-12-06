@@ -17,7 +17,6 @@ import Modal from "@/components/Modal";
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
-import Button from "@/ui/Button";
 
 export default function ManagedWarehouseModal({
   close,
@@ -28,8 +27,8 @@ export default function ManagedWarehouseModal({
   const { mutateDefinitions } = useDefinitions();
   const router = useRouter();
 
-  const { hasCommercialFeature } = useUser();
-  const hasAccess = hasCommercialFeature("managed-warehouse");
+  const { effectiveAccountPlan } = useUser();
+
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
@@ -44,7 +43,7 @@ export default function ManagedWarehouseModal({
     return (
       <UpgradeModal
         close={() => setUpgradeOpen(false)}
-        commercialFeature="managed-warehouse"
+        commercialFeature="unlimited-managed-warehouse-usage"
         source="datasource-list"
       />
     );
@@ -99,9 +98,6 @@ export default function ManagedWarehouseModal({
       trackingEventModalType="managed-warehouse"
       close={close}
       submit={async () => {
-        if (!hasAccess) {
-          throw new Error("You must upgrade to use this feature");
-        }
         if (!agree) {
           throw new Error("You must agree to the terms and conditions");
         }
@@ -122,7 +118,6 @@ export default function ManagedWarehouseModal({
         }
       }}
       cta="Create"
-      ctaEnabled={hasAccess}
     >
       <p>
         GrowthBook Cloud offers a fully-managed version of ClickHouse, an
@@ -158,50 +153,49 @@ export default function ManagedWarehouseModal({
         <div className="mb-1">
           <strong>Pricing</strong>
         </div>
-        <p>
-          2 million events included per month, then <strong>$0.03</strong> per
-          1K events
-        </p>
+        {effectiveAccountPlan === "starter" ? (
+          <p>
+            1 million events included per month. Afterwards you would need to
+            upgrade to Pro or Enterprise. The Pro plan has 2 million events
+            included free per month, then <strong>$0.03</strong> per 1K events
+          </p>
+        ) : (
+          <p>
+            2 million events included per month, then <strong>$0.03</strong> per
+            1K events
+          </p>
+        )}
       </div>
 
-      {hasAccess ? (
-        <>
-          <Separator size="4" my="4" />
-          <Box>
-            <Checkbox
-              value={agree}
-              setValue={setAgree}
-              label={
-                <>
-                  I agree to the{" "}
-                  <a
-                    href="https://www.growthbook.io/legal"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    terms and conditions
-                  </a>
-                </>
-              }
-              required
-            />
-            <Box mt="2">
-              <Text size="1" mb="2">
-                Do not include any sensitive or regulated personal data in your
-                analytics events unless it is properly de-identified in
-                accordance with applicable legal standards.
-              </Text>
-            </Box>
+      <>
+        <Separator size="4" my="4" />
+        <Box>
+          <Checkbox
+            value={agree}
+            setValue={setAgree}
+            label={
+              <>
+                I agree to the{" "}
+                <a
+                  href="https://www.growthbook.io/legal"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  terms and conditions
+                </a>
+              </>
+            }
+            required
+          />
+          <Box mt="2">
+            <Text size="1" mb="2">
+              Do not include any sensitive or regulated personal data in your
+              analytics events unless it is properly de-identified in accordance
+              with applicable legal standards.
+            </Text>
           </Box>
-        </>
-      ) : (
-        <div className="appbox bg-light p-3 text-center">
-          <Text>You must upgrade to Pro to access this feature.</Text>
-          <Button variant="solid" mt="3" onClick={() => setUpgradeOpen(true)}>
-            Upgrade to Pro
-          </Button>
-        </div>
-      )}
+        </Box>
+      </>
       {creatingResources ? (
         <div className="mt-2">
           <p>Creating some metrics to get you started.</p>

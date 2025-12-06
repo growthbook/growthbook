@@ -58,7 +58,7 @@ export type CommercialFeature =
   | "historical-power"
   | "decision-framework"
   | "unlimited-cdn-usage"
-  | "managed-warehouse"
+  | "unlimited-managed-warehouse-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "holdouts"
@@ -214,7 +214,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-warehouse",
+    "unlimited-managed-warehouse-usage",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
     "product-analytics-dashboards",
@@ -246,7 +246,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-warehouse",
+    "unlimited-managed-warehouse-usage",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
     "product-analytics-dashboards",
@@ -299,7 +299,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-warehouse",
+    "unlimited-managed-warehouse-usage",
     "require-project-for-features-setting",
     "holdouts",
     "saveSqlExplorerQueries",
