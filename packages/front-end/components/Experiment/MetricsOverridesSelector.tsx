@@ -10,7 +10,7 @@ import {
 import { isUndefined } from "lodash";
 import {
   expandMetricGroups,
-  getConversionWindowHours,
+  getMetricWindowHours,
   getDelayWindowHours,
   isBinomialMetric,
   isFactMetric,
@@ -358,7 +358,7 @@ export default function MetricsOverridesSelector({
                                   "conversion"
                                     ? "No conversion window "
                                     : metricDefinition?.windowSettings
-                                      ? getConversionWindowHours(
+                                      ? getMetricWindowHours(
                                           metricDefinition.windowSettings,
                                         )
                                       : null}{" "}
@@ -409,7 +409,7 @@ export default function MetricsOverridesSelector({
                                   )
                                     ? "No delay"
                                     : metricDefinition
-                                      ? getConversionWindowHours(
+                                      ? getMetricWindowHours(
                                           metricDefinition.windowSettings,
                                         )
                                       : 0}
@@ -436,7 +436,7 @@ export default function MetricsOverridesSelector({
                                   "lookback"
                                     ? "No lookback window "
                                     : metricDefinition?.windowSettings
-                                      ? getConversionWindowHours(
+                                      ? getMetricWindowHours(
                                           metricDefinition.windowSettings,
                                         )
                                       : null}{" "}

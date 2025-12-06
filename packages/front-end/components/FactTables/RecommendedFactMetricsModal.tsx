@@ -15,6 +15,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { GBInfo } from "@/components/Icons";
+import FactMetricTypeName from "@/components/Metrics/FactMetricTypeName";
 
 type RecommendedMetric = Pick<
   CreateFactMetricProps,
@@ -305,7 +306,8 @@ export default function RecommendedFactMetricsModal({
               ))}
               <td>
                 <Tooltip body={metric.description}>
-                  {metric.metricType}&nbsp;
+                  <FactMetricTypeName type={metric.metricType} />
+                  &nbsp;
                   <GBInfo />
                 </Tooltip>
               </td>

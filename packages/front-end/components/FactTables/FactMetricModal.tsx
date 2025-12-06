@@ -1079,7 +1079,10 @@ function getPreviewSQL({
     columnRef: {
       // Column is often set incorrectly for proportion metrics and changed later during submit
       ...numerator,
-      column: type === "proportion" ? "$$distinctUsers" : numerator.column,
+      column:
+        type === "proportion" || type === "dailyParticipation"
+          ? "$$distinctUsers"
+          : numerator.column,
     },
     column:
       numerator.aggregateFilterColumn === "$$count"
@@ -1144,6 +1147,8 @@ FROM
 GROUP BY variation`.trim();
 
   switch (type) {
+    // TODO
+    case "dailyParticipation":
     case "retention":
     case "proportion":
       return {
@@ -1712,6 +1717,7 @@ export default function FactMetricModal({
             stddev: DEFAULT_PROPER_PRIOR_STDDEV,
           };
         }
+        // TODO validation for new type
 
         if (values.metricType === "ratio" && !values.denominator)
           throw new Error("Must select a denominator for ratio metrics");
@@ -1727,8 +1733,20 @@ export default function FactMetricModal({
         }
 
         // reset displayAsPercentage for non-ratio metrics
-        if (values.metricType !== "ratio" && values.displayAsPercentage) {
+        if (
+          values.metricType !== "ratio" &&
+          values.metricType !== "dailyParticipation" &&
+          values.displayAsPercentage
+        ) {
           values.displayAsPercentage = undefined;
+        }
+
+        // If unset, set displayAsPercentage to true for daily participation metrics
+        if (
+          values.metricType === "dailyParticipation" &&
+          values.displayAsPercentage === undefined
+        ) {
+          values.displayAsPercentage = true;
         }
 
         // reset numerator for proportion/retention metrics
@@ -1738,6 +1756,12 @@ export default function FactMetricModal({
           values.numerator.column !== "$$distinctUsers"
         ) {
           values.numerator.column = "$$distinctUsers";
+          values.numerator.aggregation = undefined;
+        }
+
+        // reset numerator for daily participation metrics
+        if (values.metricType === "dailyParticipation") {
+          values.numerator.column = "$$distinctDates";
           values.numerator.aggregation = undefined;
         }
 
@@ -1765,7 +1789,8 @@ export default function FactMetricModal({
         if (
           values.metricType === "quantile" ||
           values.metricType === "proportion" ||
-          values.metricType === "retention"
+          values.metricType === "retention" ||
+          values.metricType === "dailyParticipation"
         ) {
           values.cappingSettings = {
             type: "",
@@ -1967,6 +1992,12 @@ export default function FactMetricModal({
                             numeric columns in your fact tables.
                           </div>
                           <div className="mb-2">
+                            <strong>Daily Participation</strong> metrics
+                            calculate the average number of days since exposure
+                            that a unit matches a specific condition, and then
+                            averages that across users.
+                          </div>
+                          <div className="mb-2">
                             <strong>Quantile</strong> metrics calculate the
                             value at a specific percentile of a numeric column
                             in a fact table.
@@ -1994,6 +2025,8 @@ export default function FactMetricModal({
                   ) {
                     return;
                   }
+
+                  // TODO Validation for metric type
 
                   // always reset delay value when switching away from retention
                   if (
@@ -2071,6 +2104,10 @@ export default function FactMetricModal({
                   {
                     value: "mean",
                     label: "Mean",
+                  },
+                  {
+                    value: "dailyParticipation",
+                    label: "Daily Participation",
                   },
                   {
                     value: "ratio",
@@ -2164,6 +2201,26 @@ export default function FactMetricModal({
                     for all users in the experiment. Any user without a matching
                     row will have a value of 0 and will still contribute to this
                     average.
+                  </HelperText>
+                </div>
+              ) : type === "dailyParticipation" ? (
+                <div>
+                  <ColumnRefSelector
+                    value={numerator}
+                    setValue={(numerator) =>
+                      form.setValue("numerator", numerator)
+                    }
+                    setDatasource={setDatasource}
+                    datasource={selectedDataSource}
+                    disableFactTableSelector={!!initialFactTable}
+                    supportsAggregatedFilter={false}
+                    allowChangingDatasource={!datasource}
+                    key={selectedDataSource.id}
+                  />
+                  <HelperText status="info">
+                    The final metric value will be the average days a unit
+                    matches the above condition divided by the number of days
+                    that unit was in the experiment.
                   </HelperText>
                 </div>
               ) : type === "quantile" ? (
@@ -2456,7 +2513,8 @@ export default function FactMetricModal({
                         ) : null}
                         {type !== "quantile" &&
                         type !== "proportion" &&
-                        type !== "retention" ? (
+                        type !== "retention" &&
+                        type !== "dailyParticipation" ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}

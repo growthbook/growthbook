@@ -172,6 +172,7 @@ export const metricTypeValidator = z.enum([
   "proportion",
   "retention",
   "quantile",
+  "dailyParticipation",
 ]);
 
 export const factMetricValidator = z

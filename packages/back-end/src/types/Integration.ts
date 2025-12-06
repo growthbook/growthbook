@@ -85,7 +85,7 @@ export type FactMetricAggregationMetadata = {
 
   // Takes the processed column from the fact table and produces the final metric value
   // directly and is only used for CUPED metrics in the incremental refresh pipeline.
-  fullAggregationFunction: (column: string) => string;
+  fullAggregationFunction: (column: string, quantileColumn?: string) => string;
 };
 
 // "exposure" builds a window before the first exposure date for the user
@@ -102,6 +102,18 @@ export type CovariateFirstExposureSettings = {
   minDelay: number;
   alias: string;
 };
+
+/**
+ * Transformation function applied to aggregated metric values at the user level.
+ * For most metrics, this is an identity function that returns the column unchanged.
+ * For dailyParticipation metrics, this divides by the participation window to
+ * produce a participation rate.
+ */
+export type AggregatedValueTransformation = (
+  column: string,
+  initialTimestampColumn: string,
+  analysisEndDate: Date,
+) => string;
 
 export type FactMetricData = {
   alias: string;
@@ -122,12 +134,18 @@ export type FactMetricData = {
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
   capCoalesceDenominatorCovariate: string;
+  numeratorAggFns: FactMetricAggregationMetadata;
+  denominatorAggFns: FactMetricAggregationMetadata;
+  covariateNumeratorAggFns: FactMetricAggregationMetadata;
+  covariateDenominatorAggFns: FactMetricAggregationMetadata;
   minMetricDelay: number;
   raMetricFirstExposureSettings: CovariateFirstExposureSettings;
   raMetricPhaseStartSettings: CovariatePhaseStartSettings;
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
+  // Transformation applied to aggregated values at the user level
+  aggregatedValueTransformation: AggregatedValueTransformation;
 };
 
 export type FactMetricSourceData = {
