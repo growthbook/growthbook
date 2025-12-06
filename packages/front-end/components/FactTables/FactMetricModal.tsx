@@ -1970,7 +1970,6 @@ export default function FactMetricModal({
                     Type of Metric{" "}
                     <Tooltip
                       body={
-                        // ADD new todo type
                         <div>
                           <div className="mb-2">
                             <strong>Proportion</strong> metrics calculate a
@@ -2207,7 +2206,6 @@ export default function FactMetricModal({
               ) : type === "dailyParticipation" ? (
                 <div>
                   <ColumnRefSelector
-                    // TODO test all settings
                     value={numerator}
                     setValue={(numerator) =>
                       form.setValue("numerator", numerator)
@@ -2215,7 +2213,7 @@ export default function FactMetricModal({
                     setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
-                    supportsAggregatedFilter={true}
+                    supportsAggregatedFilter={false}
                     allowChangingDatasource={!datasource}
                     key={selectedDataSource.id}
                   />

@@ -159,12 +159,6 @@ export const quantileSettingsValidator = z.object({
   ignoreZeros: z.boolean(),
 });
 
-export const dailyParticipationSettingsValidator = z.object({
-  roundingDirection: z.enum(["up", "down", "nearest"]),
-  //dataDelay: z.number(),
-  //dataDelayUnit: conversionWindowUnitValidator,
-});
-
 export const priorSettingsValidator = z.object({
   override: z.boolean(),
   proper: z.boolean(),
@@ -221,9 +215,6 @@ export const factMetricValidator = z
     metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
-    dailyParticipationSettings: dailyParticipationSettingsValidator
-      .nullable()
-      .optional(),
   })
   .strict();
 

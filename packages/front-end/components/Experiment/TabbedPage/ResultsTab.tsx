@@ -185,7 +185,6 @@ export default function ResultsTab({
     snapshot &&
     analysis?.results?.[0];
 
-  // TODO fix popover title for daily participation metric type.
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const datasourceSettings = experiment.datasource
