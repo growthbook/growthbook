@@ -61,9 +61,9 @@ jobs:
             !node_modules/front-end
             !node_modules/back-end
             !node_modules/@growthbook
-          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ runner.os }}-node_modules-
 
       - name: Install yarn dependencies
         run: yarn install --frozen-lockfile
