@@ -18,6 +18,7 @@ import {
 } from "back-end/types/upload";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
 import { getExperimentByUid } from "back-end/src/models/ExperimentModel";
+import { getReportsByExperimentId } from "back-end/src/models/ReportModel";
 
 const SIGNED_IMAGE_EXPIRY_MINUTES = 15;
 
@@ -254,10 +255,10 @@ export async function getSignedPublicImageToken(
     return;
   }
 
-  // Verify the image path exists in the experiment (variations or description markdown)
+  // Verify the image path exists in the experiment or its public reports
   let imageFound = false;
 
-  // Check variation screenshots
+  // Check experiment variation screenshots
   for (const variation of experiment.variations) {
     if (variation.screenshots) {
       for (const screenshot of variation.screenshots) {
@@ -287,7 +288,7 @@ export async function getSignedPublicImageToken(
     }
   }
 
-  // Check description for image references
+  // Check experiment description for image references
   if (
     !imageFound &&
     experiment.description &&
@@ -296,10 +297,28 @@ export async function getSignedPublicImageToken(
     imageFound = true;
   }
 
+  // Check public reports associated with this experiment for image references
+  if (!imageFound) {
+    const reports = await getReportsByExperimentId(
+      experiment.organization,
+      experiment.id,
+    );
+    const publicReports = reports.filter(
+      (r) => r.type === "experiment-snapshot" && r.shareLevel === "public",
+    );
+
+    for (const report of publicReports) {
+      if (report.description && report.description.includes(fullPath)) {
+        imageFound = true;
+        break;
+      }
+    }
+  }
+
   if (!imageFound) {
     res.status(404).json({
       status: 404,
-      message: "Image not found in experiment data",
+      message: "Image not found in experiment or report data",
     });
     return;
   }

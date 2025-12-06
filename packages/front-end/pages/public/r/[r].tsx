@@ -121,6 +121,7 @@ export default function ReportPage(props: ReportPageProps) {
             report={report}
             experiment={experiment ?? undefined}
             showPrivateLink={isOrgMember}
+            isPublic={true}
           />
           <ReportResults
             report={report}
