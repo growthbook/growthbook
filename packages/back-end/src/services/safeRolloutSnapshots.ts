@@ -57,7 +57,7 @@ import {
   FeatureInterface,
   SafeRolloutRule,
 } from "back-end/src/validators/features";
-import { ResourceEvents } from "back-end/src/events/base-types";
+import { ResourceEvents } from "back-end/types/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";

@@ -2,12 +2,12 @@ import {
   NotificationEventPayload,
   NotificationEventName,
   NotificationEventResource,
-} from "back-end/src/events/base-types";
+} from "./base-types";
 
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "back-end/src/events/notification-events";
+} from "./notification-events";
 
 export interface BaseEventInterface<T, V> {
   id: string;

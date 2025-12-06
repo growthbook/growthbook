@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useForm, UseFormReturn } from "react-hook-form";
-import { NotificationEventName } from "back-end/src/events/base-types";
+import { NotificationEventName } from "back-end/types/events/base-types";
 import clsx from "clsx";
 import { PiCheckCircleFill, PiXSquare } from "react-icons/pi";
 import { useAuth } from "@/services/auth";

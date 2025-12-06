@@ -8,8 +8,8 @@ import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "back-end/src/events/notification-events";
-import { EventInterface } from "back-end/types/event";
+} from "back-end/types/events/notification-events";
+import { EventInterface } from "back-end/types/events/event";
 import { getEvent } from "back-end/src/models/EventModel";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
@@ -24,7 +24,7 @@ import {
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
 } from "back-end/src/validators/safe-rollout-notifications";
-import { DiffResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { DiffResult } from "back-end/types/events/diff";
 
 // region Filtering
 

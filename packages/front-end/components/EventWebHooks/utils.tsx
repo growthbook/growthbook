@@ -1,4 +1,4 @@
-import { NotificationEventName } from "back-end/src/events/base-types";
+import { NotificationEventName } from "back-end/types/events/base-types";
 import React, { ReactNode, useMemo } from "react";
 import {
   PiQuestionLight,

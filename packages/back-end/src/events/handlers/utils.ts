@@ -3,7 +3,7 @@ import intersection from "lodash/intersection";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "back-end/src/events/notification-events";
+} from "back-end/types/events/notification-events";
 import { ApiFeature } from "back-end/types/openapi";
 
 export type FilterDataForNotificationEvent = {

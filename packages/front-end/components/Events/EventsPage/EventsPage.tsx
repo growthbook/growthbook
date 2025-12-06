@@ -1,5 +1,8 @@
 import React, { FC, useState } from "react";
-import { EventInterface, NotificationEventName } from "back-end/types/event";
+import {
+  EventInterface,
+  NotificationEventName,
+} from "back-end/types/events/event";
 import { FaDownload, FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";

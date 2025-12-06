@@ -13,7 +13,7 @@ import {
   Permission,
   UserPermissions,
 } from "back-end/types/organization";
-import { EventUser } from "back-end/src/events/event-types";
+import { EventUser } from "back-end/types/events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,

@@ -5,7 +5,7 @@ import { ApiRequestLocals } from "back-end/types/api";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
 import { getOrganizationById } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
-import { EventUserApiKey } from "back-end/src/events/event-types";
+import { EventUserApiKey } from "back-end/types/events/event-types";
 import { isApiKeyForUserInOrganization } from "back-end/src/util/api-key.util";
 import { OrganizationInterface, Permission } from "back-end/types/organization";
 import {

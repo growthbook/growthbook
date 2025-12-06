@@ -10,7 +10,7 @@ import {
 import { ComputedExperimentInterface } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { EventUserLoggedIn } from "back-end/src/events/event-types";
+import { EventUserLoggedIn } from "back-end/types/events/event-types";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,

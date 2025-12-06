@@ -25,7 +25,7 @@ import {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
 } from "back-end/types/event-webhook-log";
-import { NotificationEventName } from "back-end/src/events/base-types";
+import { NotificationEventName } from "back-end/types/events/base-types";
 
 // region GET /event-webhooks
 

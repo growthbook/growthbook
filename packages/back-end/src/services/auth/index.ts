@@ -30,7 +30,7 @@ import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
-} from "back-end/src/events/event-types";
+} from "back-end/types/events/event-types";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import {

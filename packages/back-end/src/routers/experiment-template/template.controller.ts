@@ -3,7 +3,7 @@ import { z } from "zod";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   createTemplateValidator,
