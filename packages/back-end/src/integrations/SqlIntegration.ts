@@ -6407,7 +6407,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       return {
         intermediateDataType: "date",
-        partialAggregationFunction: (column: string) => `MAX(${column})`,
+        partialAggregationFunction: (column: string) =>
+          this.castToDate(`MAX(${column})`),
         finalDataType: "integer",
         reAggregationFunction,
         fullAggregationFunction,
@@ -6858,7 +6859,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     return format(
       `
-      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableFullName}
+      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableName}
       `,
       this.getFormatDialect(),
     );
