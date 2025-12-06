@@ -3,6 +3,7 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "target": "es2020",
     "noImplicitAny": true,
     "moduleResolution": "node",
@@ -13,6 +14,7 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
+    "incremental": true,
     "resolveJsonModule": true
   },
   "include": ["src/**/*", "typings.d.ts", "types", "types.js"]

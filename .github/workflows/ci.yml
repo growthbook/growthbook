@@ -28,32 +28,61 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "yarn"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
-          cache: "pip"
 
       - name: Cache eslint
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          key: ${{ runner.os }}-eslint-${{ hashFiles('yarn.lock', '.eslint*', 'package.json') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
 
-      - name: Install dependencies
-        run: |
-          # Main app
-          yarn install
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-
 
-          # Stats engine
+      - name: Restore yarn dependencies cache
+        uses: actions/cache@v4
+        id: yarn-cache
+        with:
+          path: |
+            node_modules
+            !node_modules/shared
+            !node_modules/front-end
+            !node_modules/back-end
+            !node_modules/@growthbook
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node_modules-
+
+      - name: Install yarn dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install python dependencies
+        run: |
           pip install pipx
           pipx install poetry
-        env:
-          CI: true
+          poetry config virtualenvs.in-project true
+
+      - name: Cache poetry dependencies
+        uses: actions/cache@v4
+        id: poetry-cache
+        with:
+          path: packages/stats/.venv
+          # Key is based on the OS and the hash of the lock file
+          key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
 
       - name: Build dependencies
         run: |
