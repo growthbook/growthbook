@@ -24,6 +24,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Debug yarn cache before Setup Node
+        run: |
+          ls -lah .
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -53,8 +57,7 @@ jobs:
 
       - name: Debug yarn cache
         run: |
-          ls -lah .
-          ls -lah packages/shared
+          ls -lah node_modules | head
 
       - name: Restore yarn dependencies cache
         uses: actions/cache@v4
