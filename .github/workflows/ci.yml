@@ -24,19 +24,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Debug yarn cache before Setup Node
-        run: |
-          ls -lah .
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
 
       - name: Cache eslint
         uses: actions/cache@v4
@@ -55,26 +46,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-tsbuildinfo-
 
-      - name: Debug yarn cache
+      - name: Remove node_modules
         run: |
-          ls -lah node_modules | head
+          rm -rf node_modules
 
-      - name: Restore yarn dependencies cache
+      - name: Cache node_modules
         uses: actions/cache@v4
         id: yarn-cache
         with:
-          path: |
-            node_modules
-            !node_modules/shared
-            !node_modules/front-end
-            !node_modules/back-end
-            !node_modules/@growthbook
+          path: node_modules
           key: ${{ runner.os }}-node_modules-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-node_modules-
 
       - name: Install yarn dependencies
         run: yarn install --frozen-lockfile
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
 
       - name: Install python dependencies
         run: |
