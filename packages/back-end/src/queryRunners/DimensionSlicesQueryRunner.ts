@@ -1,7 +1,7 @@
 import {
   ExperimentDimension,
   DimensionSlicesQueryResponseRows,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   DimensionSlicesInterface,
   DimensionSlicesResult,

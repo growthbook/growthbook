@@ -18,6 +18,7 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import { SafeRolloutInterface } from "shared/validators";
+import { FeatureUsageLookback } from "shared/types/integrations";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
   ExperimentRefRule,
@@ -126,7 +127,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {

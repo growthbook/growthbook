@@ -57,6 +57,7 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   SafeRolloutInterface,
 } from "shared/validators";
+import { Dimension } from "shared/types/integrations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -88,7 +89,6 @@ import {
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { Dimension } from "back-end/src/types/Integration";
 import {
   Condition,
   MetricInterface,

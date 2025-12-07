@@ -43,22 +43,8 @@ import {
   FormatDialect,
 } from "shared/types/sql";
 import { SegmentInterface } from "shared/types/segment";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
-import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { ReqContext } from "back-end/types/request";
-import { MetricInterface, MetricType } from "back-end/types/metric";
-import {
-  DataSourceSettings,
-  DataSourceProperties,
-  ExposureQuery,
-  SchemaFormatConfig,
-  DataSourceInterface,
-  AutoFactTableSchemas,
-  SchemaFormat,
-} from "back-end/types/datasource";
 import {
   MetricValueParams,
-  SourceIntegrationInterface,
   ExperimentMetricQueryParams,
   PastExperimentParams,
   PastExperimentQueryResponse,
@@ -70,7 +56,6 @@ import {
   TestQueryResult,
   InformationSchema,
   RawInformationSchema,
-  MissingDatasourceParamsError,
   ExperimentUnitsQueryParams,
   QueryResponse,
   TrackedEventResponseRow,
@@ -125,6 +110,23 @@ import {
   FactMetricSourceData,
   CreateMetricSourceCovariateTableQueryParams,
   CovariatePhaseStartSettings,
+} from "shared/types/integrations";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { ReqContext } from "back-end/types/request";
+import { MetricInterface, MetricType } from "back-end/types/metric";
+import {
+  DataSourceSettings,
+  DataSourceProperties,
+  ExposureQuery,
+  SchemaFormatConfig,
+  DataSourceInterface,
+  AutoFactTableSchemas,
+  SchemaFormat,
+} from "back-end/types/datasource";
+import {
+  MissingDatasourceParamsError,
+  SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import {

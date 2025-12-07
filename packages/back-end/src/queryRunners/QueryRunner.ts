@@ -1,4 +1,5 @@
 import EventEmitter from "events";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
   QueryInterface,
@@ -14,11 +15,7 @@ import {
   getRecentQuery,
   updateQuery,
 } from "back-end/src/models/QueryModel";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
