@@ -112,8 +112,8 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  ReqContext,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { DataSourceInterface, ExposureQuery } from "back-end/types/datasource";
 import {
@@ -139,7 +139,11 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { StatsEngine } from "back-end/types/stats";
+import {
+  StatsEngine,
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "back-end/types/stats";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
@@ -164,8 +168,6 @@ import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
   getMetricSettingsForStatsEngine,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
   runSnapshotAnalyses,
   runSnapshotAnalysis,
   writeSnapshotAnalyses,

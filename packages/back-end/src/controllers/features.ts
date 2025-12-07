@@ -88,7 +88,8 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { Environment, ReqContext } from "back-end/types/organization";
+import { Environment } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,

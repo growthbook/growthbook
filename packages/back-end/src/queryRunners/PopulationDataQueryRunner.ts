@@ -8,7 +8,12 @@ import { lastMondayString } from "shared/dates";
 import { SegmentInterface } from "shared/types/segment";
 import { ApiReqContext } from "back-end/types/api";
 import { MetricInterface } from "back-end/types/metric";
-import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
+import {
+  Queries,
+  QueryPointer,
+  QueryStatus,
+  PopulationDataQuerySettings,
+} from "back-end/types/query";
 import {
   Dimension,
   ExperimentFactMetricsQueryResponseRows,
@@ -34,10 +39,6 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 
-export type PopulationDataQuerySettings = Pick<
-  PopulationDataInterface,
-  "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"
->;
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
   snapshotSettings: ExperimentSnapshotSettings;

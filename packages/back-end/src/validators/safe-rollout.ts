@@ -2,7 +2,7 @@ import { z } from "zod";
 import { experimentAnalysisSummary, baseSchema } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 
 export const safeRolloutStatusArray = [
   "running",

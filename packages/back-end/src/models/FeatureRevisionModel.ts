@@ -10,7 +10,8 @@ import {
   EventUser,
   EventUserLoggedIn,
 } from "back-end/types/events/event-types";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";

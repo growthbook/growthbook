@@ -3,7 +3,7 @@ import {
   getConversionWindowHours,
   getDelayWindowHours,
 } from "shared/experiments";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   DataSourceInterface,
   DataSourceProperties,

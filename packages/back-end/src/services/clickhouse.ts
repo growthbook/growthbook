@@ -18,7 +18,8 @@ import {
   DataSourceParams,
   MaterializedColumn,
 } from "back-end/types/datasource";
-import { DailyUsage, ReqContext } from "back-end/types/organization";
+import { DailyUsage } from "back-end/types/organization";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import {

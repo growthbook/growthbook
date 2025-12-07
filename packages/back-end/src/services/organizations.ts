@@ -49,8 +49,8 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
-  ReqContext,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
 import { ConfigFile } from "back-end/src/init/config";
 import {

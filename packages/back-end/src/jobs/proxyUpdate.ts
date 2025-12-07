@@ -15,7 +15,7 @@ import {
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";

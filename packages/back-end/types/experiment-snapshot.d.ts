@@ -4,15 +4,13 @@ import { BanditResult } from "shared/validators";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-} from "back-end/src/services/stats";
-import { QueryLanguage } from "./datasource";
-import { MetricInterface, MetricStats } from "./metric";
-import {
   DifferenceType,
   RiskType,
   StatsEngine,
   MetricPowerResponseFromStatsEngine,
-} from "./stats";
+} from "back-end/types/stats";
+import { QueryLanguage } from "./datasource";
+import { MetricInterface, MetricStats } from "./metric";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,

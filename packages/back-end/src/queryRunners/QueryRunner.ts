@@ -21,7 +21,7 @@ import {
 } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 export type QueryMap = Map<string, QueryInterface>;

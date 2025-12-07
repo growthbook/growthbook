@@ -8,7 +8,7 @@ import { stringToBoolean } from "shared/util";
 import JSON5 from "json5";
 import { MultipleExperimentMetricAnalysis } from "back-end/types/stats";
 import { logger } from "back-end/src/util/logger";
-import { ExperimentDataForStatsEngine } from "back-end/src/services/stats";
+import type { ExperimentDataForStatsEngine } from "back-end/types/stats";
 import { ENVIRONMENT, IS_CLOUD } from "back-end/src/util/secrets";
 import { metrics } from "back-end/src/util/metrics";
 

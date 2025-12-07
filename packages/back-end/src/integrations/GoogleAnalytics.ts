@@ -1,6 +1,6 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import cloneDeep from "lodash/cloneDeep";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   SourceIntegrationInterface,
   MetricValueParams,

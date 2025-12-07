@@ -123,7 +123,8 @@ import {
   upsertWatch,
 } from "back-end/src/models/WatchModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";

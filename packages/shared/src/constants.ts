@@ -122,3 +122,14 @@ export const sdkLanguages = [
 ] as const;
 
 export const statsEngines = ["bayesian", "frequentist"] as const;
+
+export const attributeDataTypes = [
+  "boolean",
+  "string",
+  "number",
+  "secureString",
+  "enum",
+  "string[]",
+  "number[]",
+  "secureString[]",
+] as const;
