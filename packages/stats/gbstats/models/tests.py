@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from dataclasses import replace
 from typing import List, Optional, Tuple, Literal, Union
 from pydantic.dataclasses import dataclass
 
@@ -23,8 +22,7 @@ from gbstats.models.statistics import (
     ScaledImpactStatistic,
     SummableStatistic,
     TestStatistic,
-    compute_theta,
-    compute_theta_regression_adjusted_ratio,
+    create_theta_adjusted_statistics,
 )
 from gbstats.models.settings import DifferenceType
 from gbstats.utils import (
@@ -261,7 +259,9 @@ class BaseABTest(ABC):
     ):
         self.stats = stats
         self.stat_a, self.stat_b = sum_stats(self.stats)
-        self.initialize_theta()
+        self.stat_a, self.stat_b = create_theta_adjusted_statistics(
+            self.stat_a, self.stat_b
+        )
         self.config = config
         self.alpha = config.alpha
         self.relative = config.difference_type == "relative"
@@ -270,45 +270,6 @@ class BaseABTest(ABC):
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
         self.moments_result = self.compute_moments_result()
-
-    def initialize_theta(self) -> None:
-        if (
-            isinstance(self.stat_b, RegressionAdjustedStatistic)
-            and isinstance(self.stat_a, RegressionAdjustedStatistic)
-            and (self.stat_a.theta is None or self.stat_b.theta is None)
-        ):
-            theta = compute_theta(self.stat_a, self.stat_b)
-            if theta == 0:
-                # revert to non-RA under the hood if no variance in a time period
-                self.stat_a = self.stat_a.post_statistic
-                self.stat_b = self.stat_b.post_statistic
-            else:
-                # override statistic with theta initialized
-                self.stat_a = replace(self.stat_a, theta=theta)
-                self.stat_b = replace(self.stat_b, theta=theta)
-        if (
-            isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
-            and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
-            and (self.stat_a.theta is None or self.stat_b.theta is None)
-        ):
-            theta = compute_theta_regression_adjusted_ratio(self.stat_a, self.stat_b)
-            if abs(theta) < 1e-8:
-                # revert to non-RA under the hood if no variance in a time period
-                self.stat_a = RatioStatistic(
-                    n=self.stat_a.n,
-                    m_statistic=self.stat_a.m_statistic_post,
-                    d_statistic=self.stat_a.d_statistic_post,
-                    m_d_sum_of_products=self.stat_a.m_post_d_post_sum_of_products,
-                )
-                self.stat_b = RatioStatistic(
-                    n=self.stat_b.n,
-                    m_statistic=self.stat_b.m_statistic_post,
-                    d_statistic=self.stat_b.d_statistic_post,
-                    m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
-                )
-            else:
-                self.stat_a = replace(self.stat_a, theta=theta)
-                self.stat_b = replace(self.stat_b, theta=theta)
 
     def compute_moments_result(self) -> EffectMomentsResult:
         moments_config = EffectMomentsConfig(
@@ -1540,7 +1501,15 @@ class EffectMomentsPostStratification:
         )
         # if there is only one strata cell, run the regular effect moments test
         if len(cells_for_analysis) == 1:
-            return EffectMoments(cells_for_analysis, EffectMomentsConfig(difference_type="relative" if self.relative else "absolute")).compute_result()  # type: ignore
+            self.stat_a, self.stat_b = create_theta_adjusted_statistics(
+                self.stats[0][0], self.stats[0][1]
+            )
+            return EffectMoments(
+                [(self.stat_a, self.stat_b)],
+                EffectMomentsConfig(
+                    difference_type="relative" if self.relative else "absolute"
+                ),
+            ).compute_result()
         strata_results = []
         for cell in cells_for_analysis:
             cell_result = self.compute_strata_result(cell)
