@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   safeRolloutStatusArray,
   createSafeRolloutValidator,
-} from "shared/src/validators/safe-rollout";
+} from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSnapshotController from "./safe-rollout.controller";

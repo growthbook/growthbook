@@ -1,10 +1,10 @@
 import type { Response } from "express";
 import { omit } from "lodash";
-import { MetricTimeSeries } from "shared/validators";
 import {
+  MetricTimeSeries,
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
-} from "shared/src/validators/safe-rollout";
+} from "shared/validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";

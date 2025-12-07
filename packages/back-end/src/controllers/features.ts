@@ -17,7 +17,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
   ExperimentRefRule,

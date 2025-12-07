@@ -1,4 +1,4 @@
-import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import {
   FeatureInterface,
   FeatureValueType,

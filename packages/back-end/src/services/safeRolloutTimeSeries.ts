@@ -5,8 +5,8 @@ import {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
+  SafeRolloutInterface,
 } from "shared/validators";
-import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
 import { ReqContext } from "back-end/types/request";
 import {
   FactMetricInterface,

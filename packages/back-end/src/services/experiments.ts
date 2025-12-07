@@ -55,8 +55,8 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
+  SafeRolloutInterface,
 } from "shared/validators";
-import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";

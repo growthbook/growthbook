@@ -25,8 +25,10 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { CreateProps } from "shared/types/base-model";
-import { ExperimentAnalysisSummary } from "shared/validators";
-import { SafeRolloutNotification } from "shared/src/validators/safe-rollout";
+import {
+  ExperimentAnalysisSummary,
+  SafeRolloutNotification,
+} from "shared/validators";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,

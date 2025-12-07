@@ -1,5 +1,5 @@
 import { Box } from "@radix-ui/themes";
-import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import SafeRolloutResults from "./SafeRolloutResults";
 
 interface Props {

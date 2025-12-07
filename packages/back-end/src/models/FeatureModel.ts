@@ -3,7 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
-import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import {
   FeatureEnvironment,
   FeatureInterface,

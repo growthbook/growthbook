@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";

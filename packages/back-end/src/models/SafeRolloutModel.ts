@@ -1,8 +1,5 @@
 import { UpdateProps } from "shared/types/base-model";
-import {
-  SafeRolloutInterface,
-  safeRolloutValidator,
-} from "shared/src/validators/safe-rollout";
+import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";

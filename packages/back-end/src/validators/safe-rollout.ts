@@ -1,13 +1,13 @@
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
-} from "shared/src/validators/safe-rollout";
+} from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
 // This functions needs to stay in the back-end because it uses models, and can't be shared like the
-// other validators in shared/src/validators/safe-rollout.ts
+// other validators in shared/validators.ts
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,

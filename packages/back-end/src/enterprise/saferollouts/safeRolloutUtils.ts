@@ -4,7 +4,7 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { autoMerge } from "shared/util";
-import { SafeRolloutStatus } from "shared/src/validators/safe-rollout";
+import { SafeRolloutStatus } from "shared/validators";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
