@@ -56,6 +56,7 @@ import {
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
 } from "shared/validators";
+import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -151,7 +152,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentQueryMetadata } from "back-end/types/query";

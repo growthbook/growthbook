@@ -1,5 +1,5 @@
+import { CreateSafeRolloutInterface } from "shared/src/validators/safe-rollout";
 import { FeatureRule } from "back-end/src/validators/features";
-import { CreateSafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 
 export type PostFeatureRuleBody = {
   rule: FeatureRule;

@@ -27,7 +27,7 @@ import {
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import Button from "@/ui/Button";

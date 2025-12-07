@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 

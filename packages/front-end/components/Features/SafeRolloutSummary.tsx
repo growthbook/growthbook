@@ -6,7 +6,7 @@ import {
 } from "shared/experiments";
 import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/src/validators/safe-rollout";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";

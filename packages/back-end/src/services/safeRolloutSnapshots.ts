@@ -26,6 +26,7 @@ import {
 } from "shared/enterprise";
 import { CreateProps } from "shared/types/base-model";
 import { ExperimentAnalysisSummary } from "shared/validators";
+import { SafeRolloutNotification } from "shared/src/validators/safe-rollout";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
@@ -61,7 +62,6 @@ import {
 import { ResourceEvents } from "back-end/types/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
