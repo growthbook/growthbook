@@ -25,6 +25,7 @@ from gbstats.models.statistics import (
     TestStatistic,
     compute_theta,
     compute_theta_regression_adjusted_ratio,
+    create_theta_adjusted_statistics,
 )
 from gbstats.models.settings import DifferenceType
 from gbstats.utils import (
@@ -261,7 +262,9 @@ class BaseABTest(ABC):
     ):
         self.stats = stats
         self.stat_a, self.stat_b = sum_stats(self.stats)
-        self.initialize_theta()
+        self.stat_a, self.stat_b = create_theta_adjusted_statistics(
+            self.stat_a, self.stat_b
+        )
         self.config = config
         self.alpha = config.alpha
         self.relative = config.difference_type == "relative"
@@ -1540,7 +1543,15 @@ class EffectMomentsPostStratification:
         )
         # if there is only one strata cell, run the regular effect moments test
         if len(cells_for_analysis) == 1:
-            return EffectMoments(cells_for_analysis, EffectMomentsConfig(difference_type="relative" if self.relative else "absolute")).compute_result()  # type: ignore
+            self.stat_a, self.stat_b = create_theta_adjusted_statistics(
+                self.stats[0][0], self.stats[0][1]
+            )
+            return EffectMoments(
+                [(self.stat_a, self.stat_b)],
+                EffectMomentsConfig(
+                    difference_type="relative" if self.relative else "absolute"
+                ),
+            ).compute_result()
         strata_results = []
         for cell in cells_for_analysis:
             cell_result = self.compute_strata_result(cell)

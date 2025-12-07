@@ -27,6 +27,15 @@ const experimentSnapshotTrafficObject = {
   variationUnits: [Number],
 };
 
+const supplementalResultsObject = {
+  ci: [Number],
+  expected: Number,
+  uplift: Number,
+  errorMessage: String,
+  chanceToWin: Number,
+  pValue: Number,
+};
+
 const banditResultObject = {
   _id: false,
   singleVariationResults: [
@@ -114,6 +123,10 @@ const experimentSnapshotSchema = new mongoose.Schema({
               ],
               chanceToWin: Number,
               pValue: Number,
+              supplementalResultsCupedUnadjusted: supplementalResultsObject,
+              supplementalResultsUncapped: supplementalResultsObject,
+              supplementalResultsFlatPrior: supplementalResultsObject,
+              supplementalResultsUnstratified: supplementalResultsObject,
             },
           },
         },

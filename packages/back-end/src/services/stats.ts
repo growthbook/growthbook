@@ -18,6 +18,7 @@ import {
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
+import type { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
@@ -115,6 +116,7 @@ export interface MetricSettingsForStatsEngine {
   prior_stddev?: number;
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
+  capped?: boolean;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -342,10 +344,13 @@ export function getMetricSettingsForStatsEngine(
   const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
   applyMetricOverrides(metric, settings);
 
-  const denominatorDoc =
-    metric.denominator && !isFactMetric(metric)
-      ? metricMap.get(metric.denominator)
-      : undefined;
+  let denominatorDoc: ExperimentMetricInterface | undefined = undefined;
+  if (!isFactMetric(metric)) {
+    const legacyMetric = metric as MetricInterface;
+    if (legacyMetric.denominator) {
+      denominatorDoc = metricMap.get(legacyMetric.denominator);
+    }
+  }
   let denominator: undefined | ExperimentMetricInterface = undefined;
   if (denominatorDoc) {
     denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
@@ -406,6 +411,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
+    capped: metric.cappingSettings.type !== "",
   };
 }
 
@@ -577,6 +583,57 @@ function parseStatsEngineResult({
           const ci: [number, number] | undefined = v.ci
             ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
             : undefined;
+
+          const ciCupedUnadjusted: [number, number] | undefined = v
+            .supplementalResultsCupedUnadjusted?.ci
+            ? [
+                v.supplementalResultsCupedUnadjusted.ci[0] ?? -Infinity,
+                v.supplementalResultsCupedUnadjusted.ci[1] ?? Infinity,
+              ]
+            : undefined;
+
+          const ciUncapped: [number, number] | undefined = v
+            .supplementalResultsUncapped?.ci
+            ? [
+                v.supplementalResultsUncapped.ci[0] ?? -Infinity,
+                v.supplementalResultsUncapped.ci[1] ?? Infinity,
+              ]
+            : undefined;
+
+          const ciFlatPrior: [number, number] | undefined =
+            "supplementalResultsFlatPrior" in v &&
+            v.supplementalResultsFlatPrior?.ci
+              ? [
+                  v.supplementalResultsFlatPrior.ci[0] ?? -Infinity,
+                  v.supplementalResultsFlatPrior.ci[1] ?? Infinity,
+                ]
+              : undefined;
+
+          const ciUnstratified: [number, number] | undefined = v
+            .supplementalResultsUnstratified?.ci
+            ? [
+                v.supplementalResultsUnstratified.ci[0] ?? -Infinity,
+                v.supplementalResultsUnstratified.ci[1] ?? Infinity,
+              ]
+            : undefined;
+
+          // Update CI values in supplemental results
+          if (v.supplementalResultsCupedUnadjusted) {
+            v.supplementalResultsCupedUnadjusted.ci = ciCupedUnadjusted;
+          }
+          if (v.supplementalResultsUncapped) {
+            v.supplementalResultsUncapped.ci = ciUncapped;
+          }
+          if (
+            "supplementalResultsFlatPrior" in v &&
+            v.supplementalResultsFlatPrior
+          ) {
+            v.supplementalResultsFlatPrior.ci = ciFlatPrior;
+          }
+          if (v.supplementalResultsUnstratified) {
+            v.supplementalResultsUnstratified.ci = ciUnstratified;
+          }
+
           const parsedVariation = {
             ...v,
             ci,

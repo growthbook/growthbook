@@ -3,8 +3,8 @@ from typing import List, Optional, Tuple, Union
 from pydantic.dataclasses import dataclass
 import pandas as pd
 
-from gbstats.bayesian.tests import RiskType
-from gbstats.frequentist.tests import PValueErrorMessage
+from gbstats.bayesian.tests import RiskType, BayesianTestResult
+from gbstats.frequentist.tests import PValueErrorMessage, FrequentistTestResult
 from gbstats.models.tests import Uplift
 
 
@@ -64,25 +64,77 @@ ResponseCI = Tuple[Optional[float], Optional[float]]
 
 
 @dataclass
-class BaseVariationResponse(BaselineResponse):
+class BaseExperimentResults:
     expected: float
     uplift: Uplift
     ci: ResponseCI
     errorMessage: Optional[str]
-    power: Optional[PowerResponse]
+
+
+# TODO: talk to Sonnet about better way to handle defaults
+@dataclass
+class TestResultNoDefaults:
+    expected: float
+    ci: List[float]
+    uplift: Uplift
+    errorMessage: Optional[str]
 
 
 @dataclass
-class BayesianVariationResponse(BaseVariationResponse):
+class BayesianTestResultNoDefaults(TestResultNoDefaults):
     chanceToWin: float
-    risk: Tuple[float, float]
+    risk: List[float]
     riskType: RiskType
 
 
 @dataclass
-class FrequentistVariationResponse(BaseVariationResponse):
+class FrequentistTestResultNoDefaults(TestResultNoDefaults):
     pValue: Optional[float]
     pValueErrorMessage: Optional[PValueErrorMessage]
+
+
+def create_test_result_no_defaults_bayesian(
+    test_result: BayesianTestResult,
+) -> BayesianTestResultNoDefaults:
+    return BayesianTestResultNoDefaults(
+        expected=test_result.expected,
+        ci=test_result.ci,
+        uplift=test_result.uplift,
+        errorMessage=test_result.error_message,
+        chanceToWin=test_result.chance_to_win,
+        risk=test_result.risk,
+        riskType=test_result.risk_type,
+    )
+
+
+def create_test_result_no_defaults_frequentist(
+    test_result: FrequentistTestResult,
+) -> FrequentistTestResultNoDefaults:
+    return FrequentistTestResultNoDefaults(
+        expected=test_result.expected,
+        ci=test_result.ci,
+        uplift=test_result.uplift,
+        errorMessage=test_result.error_message,
+        pValue=test_result.p_value if test_result.p_value else None,
+        pValueErrorMessage=test_result.p_value_error_message,
+    )
+
+
+@dataclass
+class BayesianVariationResponse(BaselineResponse, BayesianTestResultNoDefaults):
+    power: Optional[PowerResponse]
+    supplementalResultsCupedUnadjusted: Optional[BayesianTestResultNoDefaults]
+    supplementalResultsUncapped: Optional[BayesianTestResultNoDefaults]
+    supplementalResultsFlatPrior: Optional[BayesianTestResultNoDefaults]
+    supplementalResultsUnstratified: Optional[BayesianTestResultNoDefaults]
+
+
+@dataclass
+class FrequentistVariationResponse(BaselineResponse, FrequentistTestResultNoDefaults):
+    power: Optional[PowerResponse]
+    supplementalResultsCupedUnadjusted: Optional[FrequentistTestResultNoDefaults]
+    supplementalResultsUncapped: Optional[FrequentistTestResultNoDefaults]
+    supplementalResultsUnstratified: Optional[FrequentistTestResultNoDefaults]
 
 
 VariationResponse = Union[
