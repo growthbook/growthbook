@@ -3,6 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
+import { SafeRolloutInterface } from "shared/validators";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -39,7 +40,6 @@ import {
 } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/types/events/base-types";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,

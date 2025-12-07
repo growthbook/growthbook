@@ -8,7 +8,7 @@ import {
 import { Environment } from "back-end/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { AppFeatures } from "@/types/app-features";
