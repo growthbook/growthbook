@@ -98,7 +98,7 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
-} from "back-end/src/events/event-types";
+} from "back-end/types/events/event-types";
 import {
   CACHE_CONTROL_MAX_AGE,
   CACHE_CONTROL_STALE_IF_ERROR,

@@ -28,7 +28,7 @@ import {
   ExperimentNotification,
   ExperimentResultStatusData,
 } from "back-end/types/experiment";
-import { ResourceEvents } from "back-end/src/events/base-types";
+import { ResourceEvents } from "back-end/types/events/base-types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getConfidenceLevelsForOrg,

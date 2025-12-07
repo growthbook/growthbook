@@ -38,7 +38,7 @@ import {
 } from "back-end/src/controllers/experiments";
 import { validateExperimentData } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
