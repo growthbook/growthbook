@@ -9,7 +9,7 @@ import {
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
 import { roleForApiKey } from "back-end/src/util/api-key.util";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,

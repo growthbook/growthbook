@@ -3,7 +3,7 @@ import { ExperimentDecisionFrameworkSettings } from "shared/validators";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
-import { ProjectInterface } from "back-end/src/models/ProjectModel";
+import { ProjectInterface } from "back-end/src/validators/projects";
 import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,

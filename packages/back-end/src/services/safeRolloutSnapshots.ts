@@ -37,7 +37,8 @@ import {
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";

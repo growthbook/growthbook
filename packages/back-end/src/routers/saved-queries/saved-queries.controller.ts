@@ -34,7 +34,7 @@ import {
   getInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { fetchTableData } from "back-end/src/services/informationSchema";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ApiReqContext } from "back-end/types/api";
 

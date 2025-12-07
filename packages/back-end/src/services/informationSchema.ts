@@ -13,7 +13,7 @@ import { removeDeletedInformationSchemaTables } from "back-end/src/models/Inform
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { usingFileConfig } from "../init/config";
 import { getSourceIntegrationObject } from "./datasource";
 

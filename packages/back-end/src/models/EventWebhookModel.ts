@@ -15,7 +15,7 @@ import {
   eventWebHookMethods,
   EventWebHookMethod,
 } from "back-end/src/validators/event-webhook";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 
 const eventWebHookSchema = new mongoose.Schema({

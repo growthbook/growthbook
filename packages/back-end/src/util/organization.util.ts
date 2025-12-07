@@ -297,14 +297,3 @@ export function getUserPermissions(
 
   return userPermissions;
 }
-
-export const attributeDataTypes = [
-  "boolean",
-  "string",
-  "number",
-  "secureString",
-  "enum",
-  "string[]",
-  "number[]",
-  "secureString[]",
-] as const;

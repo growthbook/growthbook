@@ -19,7 +19,7 @@ import {
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
   getAffectedSDKPayloadKeys,

@@ -23,7 +23,7 @@ import {
 } from "back-end/types/events/event";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 import { DiffResult } from "back-end/types/events/diff";
 

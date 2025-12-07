@@ -45,7 +45,7 @@ import {
 import { SegmentInterface } from "shared/types/segment";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { MetricInterface, MetricType } from "back-end/types/metric";
 import {
   DataSourceSettings,
@@ -148,7 +148,7 @@ import {
 } from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
-import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import type { PopulationDataQuerySettings } from "back-end/types/query";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 

@@ -14,7 +14,7 @@ import {
   LegacyExperimentInterface,
   Variation,
 } from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
   toExperimentApiInterface,

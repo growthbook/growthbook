@@ -76,10 +76,10 @@ import {
 import {
   Environment,
   OrganizationInterface,
-  ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getSDKPayload,
   getSDKPayloadCacheLocation,
