@@ -17,13 +17,14 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
 } from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
+// No longer importing ResultsMetricFilters - we use simple string[] for filtering
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
@@ -70,8 +71,14 @@ const BreakDownResults: FC<{
   sequentialTestingEnabled?: boolean;
   showErrorsOnQuantileMetrics?: boolean;
   differenceType: DifferenceType;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
@@ -117,8 +124,14 @@ const BreakDownResults: FC<{
   sequentialTestingEnabled,
   showErrorsOnQuantileMetrics,
   differenceType,
-  metricFilter,
-  setMetricFilter,
+  metricTagFilter,
+  setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
   experimentType,
   ssrPolyfills,
   hideDetails,
@@ -151,7 +164,8 @@ const BreakDownResults: FC<{
     guardrailMetrics,
     metricOverrides,
     ssrPolyfills,
-    metricFilter,
+    metricTagFilter,
+    metricGroupsFilter,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -205,21 +219,33 @@ const BreakDownResults: FC<{
         )}
       </div>
 
-      <div className="d-flex mx-2">
-        {setMetricFilter ? (
-          <ResultsMetricFilter
-            metricTags={allMetricTags}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-            showMetricFilter={showMetricFilter}
-            setShowMetricFilter={setShowMetricFilter}
-          />
-        ) : null}
-      </div>
       {tables.map((table, i) => {
         return (
           <>
-            <h5 className="ml-2 mt-2 position-relative">
+            <h4
+              className={clsx(
+                "mt-2 mb-1 d-flex position-relative",
+                !setMetricTagFilter ? "ml-2" : "",
+              )}
+              style={{ gap: 4 }}
+            >
+              {setMetricTagFilter ? (
+                <ResultsMetricFilter
+                  metricTags={allMetricTags}
+                  metricTagFilter={metricTagFilter}
+                  setMetricTagFilter={setMetricTagFilter}
+                  availableMetricGroups={availableMetricGroups}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
+                  metricGroupsFilter={metricGroupsFilter}
+                  setMetricGroupsFilter={setMetricGroupsFilter}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
+              ) : null}
               {table.rows[0]?.resultGroup === "goal"
                 ? "Goal Metric"
                 : table.rows[0]?.resultGroup === "secondary"
@@ -227,7 +253,7 @@ const BreakDownResults: FC<{
                   : table.rows[0]?.resultGroup === "guardrail"
                     ? "Guardrail Metric"
                     : null}
-            </h5>
+            </h4>
             <ResultsTable
               key={i}
               experimentId={experimentId}
@@ -291,7 +317,6 @@ const BreakDownResults: FC<{
                   )}
                 </div>
               )}
-              metricFilter={metricFilter}
               isTabActive={true}
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}

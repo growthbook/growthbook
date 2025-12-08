@@ -22,7 +22,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
+import Results from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -49,8 +49,14 @@ export interface Props {
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
   safeToEdit: boolean;
-  metricFilter: ResultsMetricFilters;
-  setMetricFilter: (m: ResultsMetricFilters) => void;
+  metricTagFilter: string[];
+  setMetricTagFilter: (tags: string[]) => void;
+  metricGroupsFilter: string[];
+  setMetricGroupsFilter: (groups: string[]) => void;
+  availableMetricGroups: Array<{ id: string; name: string }>;
+  availableSliceTags: string[];
+  sliceTagsFilter: string[];
+  setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   sortBy: "metric-tags" | "significance" | "change" | null;
@@ -71,8 +77,14 @@ export default function ResultsTab({
   safeToEdit,
   analysisBarSettings,
   setAnalysisBarSettings,
-  metricFilter,
-  setMetricFilter,
+  metricTagFilter,
+  setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
+  availableSliceTags,
+  sliceTagsFilter,
+  setSliceTagsFilter,
   sortBy,
   setSortBy,
   sortDirection,
@@ -360,8 +372,14 @@ export default function ResultsTab({
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}
                   isTabActive={isTabActive}
-                  metricFilter={metricFilter}
-                  setMetricFilter={setMetricFilter}
+                  metricTagFilter={metricTagFilter}
+                  setMetricTagFilter={setMetricTagFilter}
+                  metricGroupsFilter={metricGroupsFilter}
+                  setMetricGroupsFilter={setMetricGroupsFilter}
+                  availableMetricGroups={availableMetricGroups}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
                   setTab={setTab}
                   sortBy={sortBy}
                   setSortBy={setSortBy}
