@@ -18,6 +18,7 @@ import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "shared/validators";
 import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
+import { FactMetricType } from "back-end/types/fact-table";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -189,8 +190,10 @@ export default function EditSingleBlock({
   const blockContext = useBlockContext(blockId);
 
   // TODO: does this need to handle metric groups
-  const factMetricOptions = useMemo(
-    () =>
+  const factMetricOptions = useMemo(() => {
+    const unSupportedMetricTypes: FactMetricType[] = ["quantile"];
+
+    return (
       factMetrics
         // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
         .filter((factMetric) => {
@@ -203,7 +206,7 @@ export default function EditSingleBlock({
           }
 
           // Quantile metrics are not supported in the Dashboard Editor
-          if (["quantile"].includes(factMetric.metricType)) {
+          if (unSupportedMetricTypes.includes(factMetric.metricType)) {
             return false;
           }
 
@@ -215,9 +218,9 @@ export default function EditSingleBlock({
             factMetric.projects.includes(project),
           );
         })
-        .map((m) => ({ label: m.name, value: m.id })),
-    [block, factMetrics, projects],
-  );
+        .map((m) => ({ label: m.name, value: m.id }))
+    );
+  }, [block, factMetrics, projects]);
 
   const metricOptions = useMemo(() => {
     // For general dashboards without experiment, return empty options
