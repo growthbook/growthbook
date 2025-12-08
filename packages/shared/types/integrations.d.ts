@@ -17,6 +17,16 @@ import type { PopulationDataQuerySettings } from "back-end/types/query";
 import { SegmentInterface } from "shared/types/segment";
 import { TemplateVariables } from "shared/types/sql";
 
+export interface PipelineIntegration {
+  getExperimentUnitsTableQueryFromCte(
+    tableFullName: string,
+    cte: string,
+  ): string;
+  getSampleUnitsCTE(): string;
+  getPipelineValidationInsertQuery(params: { tableFullName: string }): string;
+  getDropUnitsTableQuery(params: { fullTablePath: string }): string;
+}
+
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
 export type DataType =
