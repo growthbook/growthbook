@@ -129,7 +129,7 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { EntityType } from "back-end/src/types/Audit";
+import { EntityType } from "shared/types/audit";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { TeamInterface } from "back-end/types/team";
@@ -154,6 +154,7 @@ import {
   getInstallation,
   setInstallationName,
 } from "back-end/src/models/InstallationModel";
+import { EntityTypes } from "shared/constants";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -271,7 +272,7 @@ export async function getAllHistory(
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityTypes}`,
     });
   }
 
@@ -354,7 +355,7 @@ export async function getHistory(
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityTypes}`,
     });
   }
 

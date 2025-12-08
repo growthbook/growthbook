@@ -15,7 +15,7 @@ import {
 } from "back-end/src/services/organizations";
 import { Permission } from "back-end/types/organization";
 import { UserInterface } from "back-end/types/user";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import {
   hasOrganization,
   updateMember,

@@ -6,7 +6,7 @@ import {
   OrganizationInterface,
   ProjectScopedPermission,
 } from "back-end/types/organization";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import { TeamInterface } from "back-end/types/team";
 import { UserInterface } from "back-end/types/user";
 

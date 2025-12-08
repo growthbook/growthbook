@@ -1,6 +1,14 @@
-import { EntityType, EntityEvents } from "back-end/src/types/Audit";
-export { EventType } from "back-end/src/types/Audit";
+import { entityEvents, EntityTypes } from "shared/constants";
 
+export type EntityEvents = typeof entityEvents;
+
+export type EntityType = (typeof EntityTypes)[number];
+
+export type EventTypes<K> = K extends EntityType
+  ? `${K}.${EntityEvents[K][number]}`
+  : never;
+
+export type EventType = EventTypes<EntityType>;
 export interface AuditUserLoggedIn {
   id: string;
   email: string;

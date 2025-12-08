@@ -27,7 +27,7 @@ import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ProjectInterface } from "back-end/types/project";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
-import { AuditInterfaceInput } from "back-end/types/audit";
+import { AuditInterfaceInput } from "shared/types/audit";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";

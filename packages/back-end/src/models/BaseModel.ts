@@ -12,8 +12,12 @@ import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { EntityType, EventTypes, EventType } from "back-end/src/types/Audit";
-import { AuditInterfaceTemplate } from "back-end/types/audit";
+import {
+  AuditInterfaceTemplate,
+  EntityType,
+  EventTypes,
+  EventType,
+} from "shared/types/audit";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
