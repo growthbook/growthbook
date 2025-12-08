@@ -13,6 +13,9 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
+    "paths": {
+      "shared/*": ["./*"]
+    },
     "resolveJsonModule": true
   },
   "include": ["src/**/*", "typings.d.ts", "types", "types.js"]
