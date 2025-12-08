@@ -3,7 +3,7 @@ import {
   OrganizationInterface,
   SDKAttribute,
 } from "back-end/types/organization";
-import { AttributeMap } from "back-end/src/services/features";
+import { AttributeMap } from "back-end/types/feature";
 import {
   GroupMap,
   SavedGroupsValues,

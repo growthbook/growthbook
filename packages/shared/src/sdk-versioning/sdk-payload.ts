@@ -1,13 +1,13 @@
+import { pick, omit } from "lodash";
+import cloneDeep from "lodash/cloneDeep";
+import { getAutoExperimentChangeType } from "@growthbook/growthbook";
+import { OrganizationInterface } from "back-end/types/organization";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
-} from "back-end/types/api";
-import { pick, omit } from "lodash";
-import cloneDeep from "lodash/cloneDeep";
-import { getAutoExperimentChangeType } from "@growthbook/growthbook";
-import { OrganizationInterface } from "back-end/types/organization";
+} from "shared/types/sdk";
 import { SavedGroupsValues, SavedGroupInterface } from "shared/types/groups";
 import {
   getSavedGroupValueType,

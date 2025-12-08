@@ -110,6 +110,7 @@ import {
   FactMetricSourceData,
   CreateMetricSourceCovariateTableQueryParams,
   CovariatePhaseStartSettings,
+  PipelineIntegration,
 } from "shared/types/integrations";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -170,7 +171,7 @@ const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
 };
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface
+  implements SourceIntegrationInterface, PipelineIntegration
 {
   datasource: DataSourceInterface;
   context: ReqContext;

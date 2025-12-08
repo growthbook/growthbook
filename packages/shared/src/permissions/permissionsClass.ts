@@ -14,7 +14,7 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
-import { ExecReportInterface } from "back-end/src/models/ExecReportModel";
+import { ExecReportInterface } from "back-end/types/exec-report";
 import {
   ExperimentInterface,
   ExperimentTemplateInterface,
