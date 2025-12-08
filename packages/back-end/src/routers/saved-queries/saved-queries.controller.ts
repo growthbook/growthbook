@@ -8,6 +8,11 @@ import {
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
 } from "shared/validators";
+import {
+  InformationSchemaTablesInterface,
+  InformationSchemaInterface,
+  Column,
+} from "shared/types/integrations";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -23,18 +28,13 @@ import {
   parsePrompt,
   supportsJSONSchema,
 } from "back-end/src/enterprise/services/openai";
-import {
-  InformationSchemaTablesInterface,
-  InformationSchemaInterface,
-  Column,
-} from "back-end/src/types/Integration";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
   getInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { fetchTableData } from "back-end/src/services/informationSchema";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ApiReqContext } from "back-end/types/api";
 

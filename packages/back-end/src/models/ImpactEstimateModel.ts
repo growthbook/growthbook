@@ -7,7 +7,7 @@ import { getMetricById } from "back-end/src/models/MetricModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { processMetricValueQueryResponse } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getFactTableMap } from "./FactTableModel";
 

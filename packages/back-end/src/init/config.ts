@@ -20,7 +20,8 @@ import {
 import { MetricInterface } from "back-end/types/metric";
 import { DimensionInterface } from "back-end/types/dimension";
 import { encryptParams } from "back-end/src/services/datasource";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   upgradeMetricDoc,
   upgradeDatasourceObject,

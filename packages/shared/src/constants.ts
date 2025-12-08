@@ -1,3 +1,5 @@
+import { EntityEvents } from "shared/types/audit";
+
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
@@ -122,3 +124,85 @@ export const sdkLanguages = [
 ] as const;
 
 export const statsEngines = ["bayesian", "frequentist"] as const;
+
+export const attributeDataTypes = [
+  "boolean",
+  "string",
+  "number",
+  "secureString",
+  "enum",
+  "string[]",
+  "number[]",
+  "secureString[]",
+] as const;
+
+// for audits
+export const entityEvents = {
+  agreement: ["create", "update", "delete"],
+  aiPrompt: ["create", "update", "delete"],
+  attribute: ["create", "update", "delete"],
+  experiment: [
+    "create",
+    "update",
+    "start",
+    "phase",
+    "phase",
+    "stop",
+    "status",
+    "archive",
+    "unarchive",
+    "delete",
+    "results",
+    "analysis",
+    "screenshot",
+    "screenshot",
+    "refresh",
+    "launchChecklist.updated",
+    "phase.delete",
+    "screenshot.delete",
+    "screenshot.create",
+  ],
+  project: ["create", "update", "delete"],
+  environment: ["create", "update", "delete"],
+  feature: [
+    "create",
+    "publish",
+    "revert",
+    "update",
+    "toggle",
+    "archive",
+    "delete",
+  ],
+  featureRevisionLog: ["create", "update", "delete"],
+  urlRedirect: ["create", "update", "delete"],
+  metric: ["autocreate", "create", "update", "delete", "analysis"],
+  metricAnalysis: ["create", "update", "delete"],
+  metricGroup: ["create", "delete", "update"],
+  populationData: ["create", "delete", "update"],
+  datasource: ["create", "update", "delete", "import"],
+  comment: ["create", "update", "delete"],
+  "sdk-connection": ["create", "update", "delete"],
+  user: ["create", "update", "delete", "invite"],
+  organization: ["create", "update", "delete", "disable", "enable"],
+  installation: ["update"],
+  savedGroup: ["created", "deleted", "updated"],
+  segment: ["create", "delete", "update"],
+  archetype: ["created", "deleted", "updated"],
+  team: ["create", "delete", "update"],
+  vercelNativeIntegration: ["create", "update", "delete"],
+  factTable: ["autocreate"],
+  customField: ["create", "update", "delete"],
+  experimentTemplate: ["create", "update", "delete"],
+  safeRollout: ["create", "update", "delete"],
+  decisionCriteria: ["create", "update", "delete"],
+  execReport: ["create", "update", "delete"],
+  holdout: ["create", "update", "delete"],
+  savedQuery: ["create", "update", "delete"],
+  dashboard: ["create", "update", "delete"],
+  dashboardTemplate: ["create", "update", "delete"],
+  incrementalRefresh: ["create", "update", "delete"],
+  vector: ["create", "update", "delete"],
+  customHook: ["create", "update", "delete"],
+} as const;
+
+export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

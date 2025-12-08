@@ -38,15 +38,16 @@ import {
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
-  ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
-} from "back-end/types/api";
+} from "shared/types/sdk";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { ApiReqContext } from "back-end/types/api";
 import {
+  AttributeMap,
   ExperimentRefRule,
   ExperimentRule,
   FeatureDraftChanges,
@@ -76,10 +77,10 @@ import {
 import {
   Environment,
   OrganizationInterface,
-  ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getSDKPayload,
   getSDKPayloadCacheLocation,
@@ -110,8 +111,6 @@ import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
-
-export type AttributeMap = Map<string, string>;
 
 export function generateFeaturesPayload({
   features,

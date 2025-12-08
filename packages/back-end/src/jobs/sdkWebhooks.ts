@@ -29,7 +29,7 @@ import {
   getContextForAgendaJobByOrgId,
   getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";

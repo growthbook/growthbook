@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   getCurrentContext,
   getSelectedTables,

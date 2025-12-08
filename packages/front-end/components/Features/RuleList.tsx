@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { useAuth } from "@/services/auth";
 import {

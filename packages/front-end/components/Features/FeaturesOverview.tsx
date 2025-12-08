@@ -24,10 +24,10 @@ import {
   PiFileX,
   PiInfo,
 } from "react-icons/pi";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
+import { FeatureUsageLookback } from "shared/types/integrations";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import Button from "@/ui/Button";

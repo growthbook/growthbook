@@ -3,7 +3,7 @@ import {
   SDKConnectionInterface,
 } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   getSurrogateKeysFromEnvironments,

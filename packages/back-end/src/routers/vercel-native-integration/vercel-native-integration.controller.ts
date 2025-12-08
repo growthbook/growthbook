@@ -21,7 +21,8 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
-import { ReqContext, OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getVercelSSOToken,
   syncVercelSdkConnection,

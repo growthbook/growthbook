@@ -6,17 +6,22 @@ import {
 } from "shared/experiments";
 import { lastMondayString } from "shared/dates";
 import { SegmentInterface } from "shared/types/segment";
-import { ApiReqContext } from "back-end/types/api";
-import { MetricInterface } from "back-end/types/metric";
-import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
 import {
   Dimension,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { ApiReqContext } from "back-end/types/api";
+import { MetricInterface } from "back-end/types/metric";
+import {
+  Queries,
+  QueryPointer,
+  QueryStatus,
+  PopulationDataQuerySettings,
+} from "back-end/types/query";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -34,10 +39,6 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 
-export type PopulationDataQuerySettings = Pick<
-  PopulationDataInterface,
-  "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"
->;
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
   snapshotSettings: ExperimentSnapshotSettings;

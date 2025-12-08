@@ -6,6 +6,12 @@ import {
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
+import {
+  Dimension,
+  ExperimentFactMetricsQueryParams,
+  ExperimentMetricQueryParams,
+  ExperimentUnitsQueryParams,
+} from "shared/types/integrations";
 import { DataSourceInterface, DataSourceType } from "back-end/types/datasource";
 import {
   AttributionModel,
@@ -14,12 +20,6 @@ import {
   MetricOverride,
   Variation,
 } from "back-end/types/experiment";
-import {
-  Dimension,
-  ExperimentFactMetricsQueryParams,
-  ExperimentMetricQueryParams,
-  ExperimentUnitsQueryParams,
-} from "back-end/src/types/Integration";
 import { MetricInterface, MetricType } from "back-end/types/metric";
 import { getFactMetricGroup } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";

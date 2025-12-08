@@ -3,7 +3,7 @@ import {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
   InformationSchemaInterface,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,

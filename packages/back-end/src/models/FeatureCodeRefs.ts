@@ -6,7 +6,8 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { ApiCodeRef } from "back-end/types/openapi";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 const featureCodeRefsSchema = new mongoose.Schema({
