@@ -7,7 +7,7 @@ import {
   ReactNode,
 } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import type { Stripe } from "@stripe/stripe-js";
 import { useAuth } from "@/services/auth";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Callout from "@/ui/Callout";
@@ -40,10 +40,17 @@ export function StripeProvider({
 
   const stripePublishableKey = getStripePublishableKey();
 
-  const stripePromise = useMemo(
-    () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
-    [stripePublishableKey],
-  );
+  // Dynamically load Stripe.js only when we have a publishable key
+  // This prevents Stripe from being loaded for self-hosted orgs without a key
+  const stripePromise = useMemo(() => {
+    if (!stripePublishableKey) {
+      return null;
+    }
+    // Dynamic import to prevent bundling Stripe.js when not needed
+    return import("@stripe/stripe-js").then((module) =>
+      module.loadStripe(stripePublishableKey),
+    ) as Promise<Stripe | null>;
+  }, [stripePublishableKey]);
 
   const setupStripe = useCallback(async () => {
     if (!stripePublishableKey) {
