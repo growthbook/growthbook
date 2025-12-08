@@ -408,8 +408,6 @@ export default function MetricExplorerBlock({
     hiddenSeriesIds,
   ]);
 
-  console.log("chartData", chartData);
-
   return (
     <Box
       p="4"

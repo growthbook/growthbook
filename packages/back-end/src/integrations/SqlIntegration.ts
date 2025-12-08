@@ -1015,7 +1015,7 @@ export default abstract class SqlIntegration
             ${metricData
               .map((m) => {
                 return `
-                , ${this.castToString(`'${m.metric.id}'`)} AS ${m.alias}_id}
+                , ${this.castToString(`'${m.metric.id}'`)} AS ${m.alias}_id
                 , ${m.aggFns.fullAggregationFunction(`f.${m.alias}_value`)} AS ${m.alias}_value
                 , ${m.aggFns.partialAggregationFunction(`f.${m.alias}_value`)} AS ${m.alias}_value_for_reaggregation
                 ${m.ratioMetric && m.denomAggFns ? `, ${m.denomAggFns.fullAggregationFunction(`f.${m.alias}_denominator`)} AS ${m.alias}_denominator` : ""}

@@ -201,21 +201,6 @@ export default function MetricSlicesSection({
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </PremiumCallout>
-            ) : !availableSlices.length ? (
-              <Text
-                as="span"
-                style={{
-                  color: "var(--color-text-low)",
-                  fontStyle: "italic",
-                }}
-                size="1"
-              >
-                There are no slices defined on the fact table this metric is
-                built on. Update the fact table to enable auto slices.{" "}
-                <DocLink docSection="autoSlices">
-                  Learn More <PiArrowSquareOut />
-                </DocLink>
-              </Text>
             ) : (
               <Flex direction="column" gap="4">
                 <div>
@@ -225,11 +210,12 @@ export default function MetricSlicesSection({
                     className="mb-2"
                     style={{
                       color: "var(--color-text-mid)",
-                      opacity: hasMetricSlicesFeature ? 1 : 0.5,
+                      opacity: 1,
                     }}
                   >
-                    Select metric slices to automatically analyze in your
-                    dashboard.{" "}
+                    {!availableSlices.length
+                      ? "There are no auto slices defined on the fact table this metric is built on. Update the fact table to enable auto slices. "
+                      : "Select metric slices to automatically analyze in your dashboard. "}
                     <DocLink docSection="autoSlices">
                       Learn More <PiArrowSquareOut />
                     </DocLink>
@@ -237,7 +223,7 @@ export default function MetricSlicesSection({
                   <div>
                     <MultiSelectField
                       value={block.analysisSettings.metricAutoSlices || []}
-                      disabled={!hasMetricSlicesFeature}
+                      disabled={!availableSlices.length}
                       onChange={(metricAutoSlices) => {
                         setBlock({
                           ...block,
@@ -285,7 +271,7 @@ export default function MetricSlicesSection({
                       opacity: hasMetricSlicesFeature ? 1 : 0.5,
                     }}
                   >
-                    Create custom combinations of auto slices to power deeper
+                    Create custom combinations of slices to power deeper
                     analysis of your metrics.{" "}
                     <DocLink docSection="customSlices">
                       Learn More <PiArrowSquareOut />
