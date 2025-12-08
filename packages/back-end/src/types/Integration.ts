@@ -10,6 +10,7 @@ import {
   CreateMetricSourceTableQueryParams,
   DimensionSlicesQueryParams,
   DimensionSlicesQueryResponse,
+  DropMetricSourceCovariateTableQueryParams,
   DropOldIncrementalUnitsQueryParams,
   DropTableQueryParams,
   DropTableQueryResponse,
@@ -169,6 +170,9 @@ export interface SourceIntegrationInterface {
   ): string;
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
+  ): string;
+  getDropMetricSourceCovariateTableQuery(
+    params: DropMetricSourceCovariateTableQueryParams,
   ): string;
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,

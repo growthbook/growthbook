@@ -317,6 +317,10 @@ export interface InsertMetricSourceDataQueryParams {
   lastMaxTimestamp: Date | null;
 }
 
+export interface DropMetricSourceCovariateTableQueryParams {
+  metricSourceCovariateTableFullName: string;
+}
+
 export interface CreateMetricSourceCovariateTableQueryParams {
   settings: ExperimentSnapshotSettings;
   metrics: FactMetricInterface[];
