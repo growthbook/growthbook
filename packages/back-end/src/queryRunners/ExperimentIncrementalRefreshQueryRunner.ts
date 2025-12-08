@@ -539,9 +539,10 @@ const startExperimentIncrementalRefreshQueries = async (
       name: `insert_metrics_source_data_${group.groupId}`,
       displayTitle: `Update Metrics Source ${sourceName}`,
       query: integration.getInsertMetricSourceDataQuery(metricParams),
-      dependencies: createMetricsSourceQuery
-        ? [createMetricsSourceQuery.query]
-        : [alterUnitsTableQuery.query],
+      dependencies: [
+        ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
+        alterUnitsTableQuery.query,
+      ],
       run: (query, setExternalId) =>
         integration.runIncrementalWithNoOutputQuery(query, setExternalId),
       process: (rows) => rows,
