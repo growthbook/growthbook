@@ -11,7 +11,7 @@ import {
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType } from "shared/validators";
-import { EntityTypes } from "shared/constants";
+import { entityTypes } from "shared/constants";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -271,7 +271,7 @@ export async function getAllHistory(
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityTypes}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
   }
 
@@ -354,7 +354,7 @@ export async function getHistory(
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityTypes}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
   }
 

@@ -1,8 +1,8 @@
-import { entityEvents, EntityTypes } from "shared/constants";
+import { entityEvents, entityTypes } from "shared/constants";
 
 export type EntityEvents = typeof entityEvents;
 
-export type EntityType = (typeof EntityTypes)[number];
+export type EntityType = (typeof entityTypes)[number];
 
 export type EventTypes<K> = K extends EntityType
   ? `${K}.${EntityEvents[K][number]}`

@@ -1,10 +1,10 @@
 import { EntityType } from "shared/types/audit";
-import { EntityTypes } from "shared/constants";
+import { entityTypes } from "shared/constants";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 
 export function isValidAuditEntityType(type: string): type is EntityType {
-  return EntityTypes.includes(type as EntityType);
+  return entityTypes.includes(type as EntityType);
 }
 
 export async function getRecentWatchedAudits(
