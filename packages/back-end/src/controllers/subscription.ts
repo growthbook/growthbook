@@ -1,7 +1,10 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
-import { PaymentMethod } from "shared/src/types/subscriptions";
-import { StripeAddress, TaxIdType } from "shared/src/types";
+import {
+  PaymentMethod,
+  StripeAddress,
+  TaxIdType,
+} from "shared/types/subscriptions";
 import {
   LicenseServerError,
   getLicense,

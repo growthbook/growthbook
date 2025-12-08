@@ -1,8 +1,6 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import cloneDeep from "lodash/cloneDeep";
-import { ReqContext } from "back-end/types/organization";
 import {
-  SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
   MetricValueQueryResponse,
@@ -36,7 +34,9 @@ import {
   UserExperimentExposuresQueryResponse,
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { ReqContext } from "back-end/types/request";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
@@ -52,6 +52,7 @@ import {
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { FactMetricInterface } from "back-end/types/fact-table";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(
@@ -100,7 +101,10 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getCurrentTimestamp(): string {
     throw new Error("Method not implemented.");
   }
-  getMetricAnalysisQuery(_: MetricAnalysisParams): string {
+  getMetricAnalysisQuery(
+    _metric: FactMetricInterface,
+    _params: Omit<MetricAnalysisParams, "metric">,
+  ): string {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(

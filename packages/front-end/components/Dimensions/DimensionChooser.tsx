@@ -8,7 +8,7 @@ import { Flex } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/src/util";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
-import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
+import { IncrementalRefreshInterface } from "shared/validators";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { GroupedValue } from "@/components/Forms/SelectField";

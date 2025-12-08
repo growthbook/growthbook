@@ -6,7 +6,7 @@ import {
 } from "back-end/types/safe-rollout";
 import { getSafeRolloutSnapshotAnalysis } from "shared/util";
 import { FeatureInterface } from "back-end/src/validators/features";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{

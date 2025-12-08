@@ -75,6 +75,7 @@ jest.mock("back-end/src/services/organizations", () => ({
 jest.mock("back-end/src/models/SdkPayloadModel", () => ({
   getSDKPayload: jest.fn(),
   updateSDKPayload: jest.fn(),
+  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
 }));
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({

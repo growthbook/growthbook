@@ -247,6 +247,8 @@ export const CREATE_BLOCK_TYPE: {
       populationId: "",
       populationType: "factTable",
       userIdType: "",
+      additionalNumeratorFilters: undefined,
+      additionalDenominatorFilters: undefined,
     },
     visualizationType: "timeseries",
     valueType: "avg",

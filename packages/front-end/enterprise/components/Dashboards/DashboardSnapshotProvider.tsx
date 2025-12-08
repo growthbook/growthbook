@@ -21,7 +21,7 @@ import {
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -476,6 +476,10 @@ export function useDashboardMetricAnalysis(
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
       source: "metric",
+      additionalNumeratorFilters:
+        block.analysisSettings.additionalNumeratorFilters,
+      additionalDenominatorFilters:
+        block.analysisSettings.additionalDenominatorFilters,
     };
 
     setPostLoading(true);
@@ -495,7 +499,7 @@ export function useDashboardMetricAnalysis(
     } finally {
       setPostLoading(false);
     }
-  }, [apiCall, block, blockHasMetricAnalysis, setBlock, mutateAnalysesMap]);
+  }, [setBlock, blockHasMetricAnalysis, block, apiCall, mutateAnalysesMap]);
 
   useEffect(() => {
     if (
@@ -512,14 +516,25 @@ export function useDashboardMetricAnalysis(
         startDate: getValidDate(block.analysisSettings.startDate),
         endDate: getValidDate(block.analysisSettings.endDate),
         populationId: block.analysisSettings.populationId || "",
+        additionalNumeratorFilters:
+          block.analysisSettings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          block.analysisSettings.additionalDenominatorFilters ?? [],
       };
       const metricAnalysisSettings = {
         ...metricAnalysis.settings,
         startDate: getValidDate(metricAnalysis.settings.startDate),
         endDate: getValidDate(metricAnalysis.settings.endDate),
         populationId: metricAnalysis.settings.populationId || "",
+        additionalNumeratorFilters:
+          metricAnalysis.settings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          metricAnalysis.settings.additionalDenominatorFilters ?? [],
       };
-      if (isEqual(blockSettings, metricAnalysisSettings)) return;
+      // Check if analysisSettings match (including filters)
+      if (isEqual(blockSettings, metricAnalysisSettings)) {
+        return; // Skip refresh if everything matches
+      }
     }
 
     refreshAnalysis();

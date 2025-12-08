@@ -10,7 +10,7 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
-import type { SDKLanguage } from "back-end/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { getLatestSDKVersion } from "shared/sdk-versioning";

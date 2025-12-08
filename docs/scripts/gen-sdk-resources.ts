@@ -7,7 +7,7 @@ import {
   getSDKCapabilityVersion,
   SDKCapability,
 } from "shared/src/sdk-versioning";
-import type { SDKLanguage } from "back-end/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 
 function defineSDKCapabilityVersion(sdk: string, capabilities: string[]) {
   return capabilities.map((c) => {
@@ -219,6 +219,32 @@ const baseSDKInfo = {
         "go",
         getSDKCapabilities("go", getLatestSDKVersion("go")),
       ),
+    ],
+  },
+  rust: {
+    name: "Rust SDK",
+    version: "0.0.3",
+    github: "https://github.com/growthbook/growthbook-rust",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-rust/tree/main/examples/client",
+        name: "Rust example app",
+      },
+    ],
+    packageRepos: [
+      {
+        name: "crates.io",
+        url: "https://crates.io/crates/growthbook-rust",
+      },
+    ],
+    capabilities: [
+      ...defaultCapabilities,
+      {
+        encryption: "≥ v0.0.1",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.1",
+      },
     ],
   },
   java: {

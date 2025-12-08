@@ -9,7 +9,7 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
-import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
+import { SavedGroupInterface, SavedGroupType } from "shared/types/groups";
 import clsx from "clsx";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";

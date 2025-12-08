@@ -18,7 +18,7 @@ import {
   LicenseUserCodes,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { StripeAddress, TaxIdType } from "shared/src/types";
+import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import { fetch } from "back-end/src/util/http.util";
 import { OrganizationInterface } from "back-end/types/organization";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";

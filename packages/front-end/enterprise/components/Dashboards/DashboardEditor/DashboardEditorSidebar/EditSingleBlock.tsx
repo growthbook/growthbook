@@ -15,7 +15,7 @@ import {
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
 import Button from "@/ui/Button";
@@ -117,13 +117,15 @@ function toggleBlockConfigItem(
   // Type guard to ensure we have a sql-explorer block with blockConfig
   if (!("blockConfig" in block)) return;
 
-  const currentBlockConfig = block.blockConfig || [];
+  const currentBlockConfig = block.blockConfig;
+  // Remove dataVizConfigIndex from legacy blocks so the new config format takes effect
+  const { dataVizConfigIndex: _, ...blockToSet } = block;
 
   if (value) {
     // Add item to blockConfig
     const newBlockConfig = [...currentBlockConfig, itemId];
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: newBlockConfig,
     });
   } else {
@@ -132,7 +134,7 @@ function toggleBlockConfigItem(
       (id: string) => id !== itemId,
     );
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: filteredBlockConfig,
     });
   }
@@ -729,12 +731,31 @@ export default function EditSingleBlock({
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
+                  const isMetricExplorer = block.type === "metric-explorer";
                   setBlock({
                     ...block,
                     title:
                       factMetricOptions.find((option) => option.value === value)
                         ?.label || "Metric",
                     factMetricId: value,
+                    ...(isMetricExplorer && {
+                      metricAnalysisId: "",
+                      analysisSettings: (() => {
+                        const {
+                          additionalNumeratorFilters:
+                            _additionalNumeratorFilters,
+                          additionalDenominatorFilters:
+                            _additionalDenominatorFilters,
+                          ...restSettings
+                        } = block.analysisSettings;
+                        return {
+                          ...restSettings,
+                          populationId: "",
+                          populationType: "factTable",
+                          userIdType: "",
+                        };
+                      })(),
+                    }),
                   });
                 }}
                 options={factMetricOptions}

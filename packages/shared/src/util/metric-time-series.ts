@@ -1,4 +1,4 @@
-import type { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import type { MetricTimeSeries } from "../validators/metric-time-series";
 
 export function filterInvalidMetricTimeSeries(
   metricTimeSeries: MetricTimeSeries[],

@@ -6,7 +6,7 @@ import {
   ID_LIST_DATATYPES,
   validateCondition,
 } from "shared/util";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";

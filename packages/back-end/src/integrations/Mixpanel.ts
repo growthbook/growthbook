@@ -3,16 +3,6 @@ import {
   getConversionWindowHours,
   getDelayWindowHours,
 } from "shared/experiments";
-import { ReqContext } from "back-end/types/organization";
-import {
-  DataSourceInterface,
-  DataSourceProperties,
-} from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
-import { MetricInterface, MetricType } from "back-end/types/metric";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { formatQuery, runQuery } from "back-end/src/services/mixpanel";
 import {
   DimensionSlicesQueryResponse,
   DropTableQueryResponse,
@@ -27,7 +17,6 @@ import {
   MetricValueQueryResponseRow,
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
-  SourceIntegrationInterface,
   ExternalIdCallback,
   ExperimentMetricQueryParams,
   ExperimentAggregateUnitsQueryParams,
@@ -48,7 +37,18 @@ import {
   UserExperimentExposuresQueryResponse,
   CreateMetricSourceCovariateTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { ReqContext } from "back-end/types/request";
+import {
+  DataSourceInterface,
+  DataSourceProperties,
+} from "back-end/types/datasource";
+import { DimensionInterface } from "back-end/types/dimension";
+import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { MetricInterface, MetricType } from "back-end/types/metric";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { formatQuery, runQuery } from "back-end/src/services/mixpanel";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
   getAggregateFunctions,
@@ -57,6 +57,7 @@ import {
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { FactMetricInterface } from "back-end/types/fact-table";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   context: ReqContext;
@@ -88,7 +89,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getCurrentTimestamp(): string {
     throw new Error("Method not implemented.");
   }
-  getMetricAnalysisQuery(_: MetricAnalysisParams): string {
+  getMetricAnalysisQuery(
+    _metric: FactMetricInterface,
+    _params: Omit<MetricAnalysisParams, "metric">,
+  ): string {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(
@@ -199,9 +203,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runMaxTimestampQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
-  ): Promise<
-    import("back-end/src/types/Integration").MaxTimestampQueryResponse
-  > {
+  ): Promise<import("shared/types/integrations").MaxTimestampQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runIncrementalRefreshStatisticsQuery(

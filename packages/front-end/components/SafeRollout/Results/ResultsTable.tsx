@@ -19,7 +19,7 @@ import {
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import { MetricTimeSeries } from "shared/validators";
 import {
   DifferenceType,
   PValueCorrection,
@@ -28,6 +28,7 @@ import {
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { PiPencilSimpleFill } from "react-icons/pi";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
@@ -36,7 +37,6 @@ import {
   getRowResults,
   RowResults,
 } from "@/services/experiments";
-import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -379,7 +379,7 @@ export default function ResultsTable({
                             editMetrics();
                           }}
                         >
-                          <GBEdit />
+                          <PiPencilSimpleFill />
                         </a>
                       </div>
                     ) : null}

@@ -25,7 +25,7 @@ import { Text } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
-} from "back-end/src/validators/safe-rollout";
+} from "shared/validators";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   PostFeatureRuleBody,

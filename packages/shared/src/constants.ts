@@ -49,8 +49,8 @@ export const GROWTHBOOK_SECURE_ATTRIBUTE_SALT = "eg8amUur5GunJXCfgjwB";
 
 export const OWNER_JOB_TITLES = {
   engineer: "Engineer",
-  dataScientist: "Data Scientist",
-  projectManager: "Project Manager",
+  dataScientist: "Data & Analytics",
+  projectManager: "PM",
   marketer: "Marketer",
   designer: "Designer",
   other: "Other",
@@ -94,3 +94,42 @@ export const SAFE_ROLLOUT_VARIATIONS = [
     weight: 0.5,
   },
 ];
+
+export const sdkLanguages = [
+  "nocode-webflow",
+  "nocode-wordpress",
+  "nocode-shopify",
+  "nocode-other",
+  "javascript",
+  "nodejs",
+  "nextjs",
+  "react",
+  "php",
+  "ruby",
+  "python",
+  "go",
+  "java",
+  "csharp",
+  "android",
+  "ios",
+  "flutter",
+  "elixir",
+  "edge-cloudflare",
+  "edge-fastly",
+  "edge-lambda",
+  "edge-other",
+  "other",
+] as const;
+
+export const statsEngines = ["bayesian", "frequentist"] as const;
+
+export const attributeDataTypes = [
+  "boolean",
+  "string",
+  "number",
+  "secureString",
+  "enum",
+  "string[]",
+  "number[]",
+  "secureString[]",
+] as const;

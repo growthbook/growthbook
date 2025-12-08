@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LinkButton from "@/ui/LinkButton";

@@ -1,7 +1,7 @@
 import React, { FC, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
