@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { MdSwapCalls } from "react-icons/md";
 import { isFactMetric } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import { RxInfoCircled } from "react-icons/rx";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import Tooltip from "@/components/Tooltip/Tooltip";

@@ -14,9 +14,8 @@ import {
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
-import { Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import router from "next/router";
-import clsx from "clsx";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -44,7 +43,6 @@ import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import useGlobalMenu from "@/services/useGlobalMenu";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -79,7 +77,6 @@ const TopNav: FC<{
 
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -278,82 +275,71 @@ const TopNav: FC<{
   const renderOrganizationDropDown = () => {
     if (organizations && organizations.length === 1) {
       return (
-        <div className="top-nav-org-menu mr-2">
-          <PiBuildingFill className="text-muted mr-1" />
+        <Flex direction="row" align="center" gap="1" mr="2">
+          <PiBuildingFill className="text-muted" />
           <span className="d-none d-lg-inline">{orgName}</span>
-        </div>
+        </Flex>
       );
     }
 
     if (organizations && organizations.length > 1) {
       return (
-        <div className="dropdown top-nav-org-menu">
-          <div
-            className={`nav-link dropdown-toggle`}
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgDropdownOpen(!orgDropdownOpen);
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <PiBuildingFill className="text-muted mr-1" />
-            <span className="d-none d-lg-inline">
-              <OverflowText maxWidth={200}>{orgName}</OverflowText>
-            </span>
-          </div>
-          <div
-            className={clsx("dropdown-menu dropdown-menu-right", {
-              show: orgDropdownOpen,
-            })}
-          >
-            <div className="dropdown-header">Organization</div>
-            {organizations.map((o) => (
-              <a
-                className={clsx("dropdown-item", {
-                  active: o.id === orgId,
-                })}
-                key={o.id}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (setOrgId) {
-                    setOrgId(o.id);
-                  }
+        <DropdownMenu
+          open={orgDropdownOpen}
+          onOpenChange={(open) => {
+            setOrgDropdownOpen(open);
+          }}
+          trigger={
+            <Flex direction="row" align="center" gap="1" mr="2">
+              <PiBuildingFill className="text-muted" />
+              <span className="d-none d-lg-inline">
+                <OverflowText maxWidth={200}>{orgName}</OverflowText>
+              </span>
+              <PiCaretDownFill />
+            </Flex>
+          }
+        >
+          <DropdownMenuLabel>Organization</DropdownMenuLabel>
+          {organizations.map((o) => (
+            <DropdownMenuItem
+              key={o.id}
+              onClick={() => {
+                if (setOrgId) {
+                  setOrgId(o.id);
 
                   try {
                     localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
                   } catch (e) {
-                    console.warn("Cannot set gb-last-picked-org");
+                    // eslint-disable-next-line no-console
+                    console.warn("Unable to save last org in localStorage");
                   }
+                }
 
-                  setOrgDropdownOpen(false);
-                }}
-              >
-                <span className="status"></span>
-                {o.name}
-              </a>
-            ))}
-            {!isCloud() &&
-              isMultiOrg() &&
-              (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-                <div className={styles["add-organization"]}>
-                  <hr />
-                  <div>
-                    <Link
-                      href="/settings/organizations"
-                      className="dropdown-item px-1"
-                      onClick={() => {
-                        setOrgDropdownOpen(false);
-                      }}
-                    >
-                      <PiPlusBold />
-                      Add Organization
-                    </Link>
-                  </div>
-                </div>
-              )}
-          </div>
-        </div>
+                setOrgDropdownOpen(false);
+              }}
+            >
+              {o.name}
+            </DropdownMenuItem>
+          ))}
+          {!isCloud() &&
+            isMultiOrg() &&
+            (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOrgDropdownOpen(false);
+                    router.push("/settings/organizations");
+                  }}
+                >
+                  <Flex align="center" gap="1">
+                    <PiPlusBold />
+                    Add Organization
+                  </Flex>
+                </DropdownMenuItem>
+              </>
+            )}
+        </DropdownMenu>
       );
     }
   };
@@ -484,9 +470,9 @@ const TopNav: FC<{
                   <OverflowText maxWidth={200}>
                     <Text weight={"bold"} style={{ fontSize: 14 }}>
                       {email}
-                    </Text>{" "}
-                    <PiCaretDownFill />
-                  </OverflowText>
+                    </Text>
+                  </OverflowText>{" "}
+                  <PiCaretDownFill />
                 </span>
               </div>
             }

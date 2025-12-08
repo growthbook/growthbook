@@ -1,11 +1,8 @@
 import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
 import { RequestInit } from "node-fetch";
+import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import {
-  CustomHookInterface,
-  CustomHookType,
-} from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { FeatureInterface } from "back-end/types/feature";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";

@@ -5,6 +5,18 @@ import {
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
+import { SegmentInterface } from "shared/types/segment";
+import {
+  IncrementalRefreshInterface,
+  IncrementalRefreshMetricCovariateSourceInterface,
+  IncrementalRefreshMetricSourceInterface,
+} from "shared/validators";
+import {
+  ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimension,
+  InsertMetricSourceDataQueryParams,
+  UpdateExperimentIncrementalUnitsQueryParams,
+} from "shared/types/integrations";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
@@ -21,21 +33,10 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
-  InsertMetricSourceDataQueryParams,
-  SourceIntegrationInterface,
-  UpdateExperimentIncrementalUnitsQueryParams,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { FactMetricInterface } from "back-end/types/fact-table";
-import {
-  IncrementalRefreshInterface,
-  IncrementalRefreshMetricCovariateSourceInterface,
-  IncrementalRefreshMetricSourceInterface,
-} from "back-end/src/validators/incremental-refresh";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
@@ -44,7 +45,6 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/services/experimentTimeSeries";
-import { SegmentInterface } from "back-end/types/segment";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -539,9 +539,10 @@ const startExperimentIncrementalRefreshQueries = async (
       name: `insert_metrics_source_data_${group.groupId}`,
       displayTitle: `Update Metrics Source ${sourceName}`,
       query: integration.getInsertMetricSourceDataQuery(metricParams),
-      dependencies: createMetricsSourceQuery
-        ? [createMetricsSourceQuery.query]
-        : [alterUnitsTableQuery.query],
+      dependencies: [
+        ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
+        alterUnitsTableQuery.query,
+      ],
       run: (query, setExternalId) =>
         integration.runIncrementalWithNoOutputQuery(query, setExternalId),
       process: (rows) => rows,

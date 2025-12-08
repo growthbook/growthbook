@@ -1,4 +1,4 @@
-import { NotificationEventName } from "./event";
+import { NotificationEventName } from "./events/event";
 
 export interface SlackIntegrationInterface {
   id: string;

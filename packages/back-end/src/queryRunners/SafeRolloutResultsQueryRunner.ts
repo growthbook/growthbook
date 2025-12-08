@@ -1,5 +1,6 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { omit } from "lodash";
+import { ExperimentAggregateUnitsQueryResponseRows } from "shared/types/integrations";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
@@ -12,7 +13,6 @@ import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
-import { ExperimentAggregateUnitsQueryResponseRows } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 import {

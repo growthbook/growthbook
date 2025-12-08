@@ -15,6 +15,10 @@ import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
@@ -165,36 +169,18 @@ export default function FixConflictsModal({
     );
   }, [revision, baseRevision, liveRevision, environments, strategies]);
 
-  const resultDiffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
-
-    if (!mergeResult) return diffs;
-    if (!mergeResult.success) return diffs;
-
-    const result = mergeResult.result;
-
-    if (result.defaultValue !== undefined) {
-      diffs.push({
-        title: "Default Value",
-        a: feature.defaultValue,
-        b: result.defaultValue,
-      });
-    }
-    if (result.rules) {
-      environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(liveRules, null, 2),
-            b: JSON.stringify(result.rules[env.id], null, 2),
-          });
+  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const resultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: mergeResult?.success
+      ? {
+          // Use current values as fallback when merge result doesn't have changes
+          defaultValue:
+            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
+          rules: mergeResult.result.rules ?? currentRevisionData.rules,
         }
-      });
-    }
-
-    return diffs;
-  }, [mergeResult, feature, environments]);
+      : currentRevisionData,
+  });
 
   if (!revision || !mergeResult || !mergeResult.conflicts.length) return null;
 

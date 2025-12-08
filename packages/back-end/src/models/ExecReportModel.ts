@@ -1,10 +1,8 @@
-import { z } from "zod";
 import { execReportValidator } from "back-end/src/routers/exec-report/exec-report.validators";
+import { ExecReportInterface } from "back-end/types/exec-report";
 import { MakeModelClass } from "./BaseModel";
 
 // Define the date range type
-
-export type ExecReportInterface = z.infer<typeof execReportValidator>;
 
 const BaseClass = MakeModelClass({
   schema: execReportValidator,

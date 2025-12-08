@@ -10,7 +10,7 @@ import React, {
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "back-end/types/archetype";
+} from "shared/types/archetype";
 import { FeatureTestResult } from "back-end/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";

@@ -1,8 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Environment } from "back-end/types/organization";
-import { SavedGroupInterface } from "shared/src/types";
-import { TagInterface } from "back-end/types/tag";
+import { SavedGroupInterface } from "shared/types/groups";
+import { TagInterface } from "shared/types/tag";
 import { ProjectInterface } from "back-end/types/project";
 import { cloneDeep, omit } from "lodash";
 import {

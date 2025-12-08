@@ -1,4 +1,4 @@
-import { ManagedBy } from "back-end/src/validators/managed-by";
+import { ManagedBy } from "shared/validators";
 import { ProjectMemberRole } from "./organization";
 
 export interface TeamInterface {

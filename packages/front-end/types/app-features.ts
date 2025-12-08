@@ -106,6 +106,5 @@ export type AppFeatures = {
   "incremental-refresh": boolean;
   "top-banner": Record<string, unknown>;
   "gbdemo-checkout-layout": boolean;
-  "post-stratification": boolean;
   "experimentation-focused-onboarding": boolean;
 };

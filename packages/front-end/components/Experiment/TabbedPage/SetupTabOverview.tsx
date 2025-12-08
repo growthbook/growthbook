@@ -3,12 +3,12 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import React, { useState } from "react";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";

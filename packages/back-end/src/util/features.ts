@@ -5,22 +5,22 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
-import { GroupMap } from "shared/src/types";
+import { GroupMap } from "shared/types/groups";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
+import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
 } from "back-end/types/feature";
-import { FeatureDefinitionWithProject } from "back-end/types/api";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(

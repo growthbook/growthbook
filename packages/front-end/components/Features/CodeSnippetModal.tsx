@@ -2,7 +2,7 @@ import React, { useState, useEffect, ReactElement, useCallback } from "react";
 import {
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import {
   FaAngleDown,
   FaAngleRight,

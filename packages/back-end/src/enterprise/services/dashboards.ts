@@ -17,7 +17,7 @@ import {
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
 import { ExperimentInterface } from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 
 import { MetricSnapshotSettings } from "back-end/types/report";
 

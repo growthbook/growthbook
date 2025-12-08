@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
-import { statsEngines } from "back-end/src/util/constants";
+import { statsEngines } from "shared/constants";
 import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
 } from "./shared";
+import { windowTypeValidator } from "./fact-table";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -28,7 +28,12 @@ export type ExperimentResultsType = (typeof experimentResultsType)[number];
 export const singleVariationResult = z.object({
   users: z.number().optional(),
   cr: z.number().optional(),
-  ci: z.tuple([z.number(), z.number()]).optional(),
+  ci: z
+    .tuple([
+      z.number().or(z.literal(-Infinity)),
+      z.number().or(z.literal(Infinity)),
+    ])
+    .optional(),
 });
 
 export const banditResult = z.object({
@@ -189,6 +194,7 @@ export const experimentAnalysisSettings = z
     skipPartialData: z.boolean().optional(),
     attributionModel: z.enum(attributionModel).optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
+    postStratificationEnabled: z.boolean().optional(),
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),

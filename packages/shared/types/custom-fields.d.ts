@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { CreateProps } from "back-end/src/models/BaseModel";
 import {
   customFieldTypes,
   customFieldSectionTypes,
   customFieldsPropsValidator,
   customFieldsValidator,
-} from "back-end/src/routers/custom-fields/custom-fields.validators";
+} from "shared/validators";
+import { CreateProps } from "shared/types/base-model";
 
 export type CustomFieldTypes = z.infer<typeof customFieldTypes>;
 

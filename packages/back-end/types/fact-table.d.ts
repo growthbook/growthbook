@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
@@ -21,9 +22,8 @@ import {
   columnAggregationValidator,
   legacyWindowSettingsValidator,
   jsonColumnFieldsValidator,
-} from "back-end/src/routers/fact-table/fact-table.validators";
-import { TestQueryRow } from "back-end/src/types/Integration";
-import { CreateProps, UpdateProps } from "./models";
+} from "shared/validators";
+import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;

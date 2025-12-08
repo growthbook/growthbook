@@ -5,7 +5,12 @@ const metricTimeSeriesValue = z
     value: z.number(),
     denominator: z.number().optional(),
     expected: z.number().optional(),
-    ci: z.tuple([z.number(), z.number()]).optional(),
+    ci: z
+      .tuple([
+        z.number().or(z.literal(-Infinity)),
+        z.number().or(z.literal(Infinity)),
+      ])
+      .optional(),
     pValue: z.number().optional(),
     pValueAdjusted: z.number().optional(),
     chanceToWin: z.number().optional(),
