@@ -115,13 +115,13 @@ def create_test_result_no_defaults_frequentist(
         ci=test_result.ci,
         uplift=test_result.uplift,
         errorMessage=test_result.error_message,
-        pValue=test_result.p_value if test_result.p_value else None,
+        pValue=test_result.p_value if test_result.p_value is not None else None,
         pValueErrorMessage=test_result.p_value_error_message,
     )
 
 
 @dataclass
-class BayesianVariationResponse(BaselineResponse, BayesianTestResultNoDefaults):
+class BayesianVariationResponse(BayesianTestResultNoDefaults, BaselineResponse):
     power: Optional[PowerResponse]
     supplementalResultsCupedUnadjusted: Optional[BayesianTestResultNoDefaults]
     supplementalResultsUncapped: Optional[BayesianTestResultNoDefaults]
@@ -130,7 +130,7 @@ class BayesianVariationResponse(BaselineResponse, BayesianTestResultNoDefaults):
 
 
 @dataclass
-class FrequentistVariationResponse(BaselineResponse, FrequentistTestResultNoDefaults):
+class FrequentistVariationResponse(FrequentistTestResultNoDefaults, BaselineResponse):
     power: Optional[PowerResponse]
     supplementalResultsCupedUnadjusted: Optional[FrequentistTestResultNoDefaults]
     supplementalResultsUncapped: Optional[FrequentistTestResultNoDefaults]
