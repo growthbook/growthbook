@@ -5,7 +5,7 @@ import omit from "lodash/omit";
 import {
   InformationSchema,
   InformationSchemaInterface,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 

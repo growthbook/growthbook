@@ -1,13 +1,13 @@
+import {
+  InformationSchema,
+  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
+} from "shared/types/integrations";
 import { DataSourceInterface, DataSourceType } from "back-end/types/datasource";
 import {
   createInformationSchema,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
-import {
-  InformationSchema,
-  InformationSchemaInterface,
-  InformationSchemaInterfaceWithPaths,
-} from "back-end/src/types/Integration";
 import { updateDataSource } from "back-end/src/models/DataSourceModel";
 import { removeDeletedInformationSchemaTables } from "back-end/src/models/InformationSchemaTablesModel";
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";

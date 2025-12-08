@@ -4,7 +4,7 @@ import { BanditResult } from "shared/validators";
 import {
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";

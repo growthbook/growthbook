@@ -1,6 +1,10 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
+import {
+  TestQueryRow,
+  UserExperimentExposuresQueryResponseRows,
+} from "shared/types/integrations";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -13,11 +17,7 @@ import Vertica from "back-end/src/integrations/Vertica";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
-import {
-  SourceIntegrationInterface,
-  TestQueryRow,
-  UserExperimentExposuresQueryResponseRows,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   DataSourceInterface,
   DataSourceParams,

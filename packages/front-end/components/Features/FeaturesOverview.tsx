@@ -24,7 +24,7 @@ import {
   PiFileX,
   PiInfo,
 } from "react-icons/pi";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
+import { FeatureUsageLookback } from "shared/types/integrations";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import { SafeRolloutInterface } from "shared/validators";

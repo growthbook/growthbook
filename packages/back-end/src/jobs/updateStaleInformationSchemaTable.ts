@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { Column } from "shared/types/integrations";
 import { fetchTableData } from "back-end/src/services/informationSchema";
 import { logger } from "back-end/src/util/logger";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -7,7 +8,6 @@ import {
   getInformationSchemaTableById,
   updateInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
-import { Column } from "back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =

@@ -12,8 +12,20 @@ import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import { SegmentInterface } from "shared/types/segment";
+import {
+  Dimension,
+  ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimension,
+  ExperimentFactMetricsQueryParams,
+  ExperimentMetricQueryParams,
+  ExperimentMetricStats,
+  ExperimentQueryResponses,
+  ExperimentResults,
+  ExperimentUnitsQueryParams,
+} from "shared/types/integrations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
+import { ExperimentReportResults } from "back-end/types/report";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
@@ -37,18 +49,7 @@ import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
-import {
-  Dimension,
-  ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
-  ExperimentFactMetricsQueryParams,
-  ExperimentMetricQueryParams,
-  ExperimentMetricStats,
-  ExperimentQueryResponses,
-  ExperimentResults,
-  ExperimentUnitsQueryParams,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { OrganizationInterface } from "back-end/types/organization";
@@ -487,7 +488,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       banditResult,
     };
 
-    analysesResults.forEach((results, i) => {
+    analysesResults.forEach((results: ExperimentReportResults, i: number) => {
       const analysis = this.model.analyses[i];
       if (!analysis) return;
 

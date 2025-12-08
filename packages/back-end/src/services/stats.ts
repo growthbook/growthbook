@@ -19,6 +19,12 @@ import {
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
+  ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentFactMetricsQueryResponseRows,
+  ExperimentMetricQueryResponseRows,
+  ExperimentResults,
+} from "shared/types/integrations";
+import {
   AnalysisSettingsForStatsEngine,
   BanditSettingsForStatsEngine,
   BusinessMetricTypeForStatsEngine,
@@ -29,12 +35,6 @@ import {
   MultipleExperimentMetricAnalysis,
   QueryResultsForStatsEngine,
 } from "back-end/types/stats";
-import {
-  ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentFactMetricsQueryResponseRows,
-  ExperimentMetricQueryResponseRows,
-  ExperimentResults,
-} from "back-end/src/types/Integration";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
