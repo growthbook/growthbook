@@ -54,6 +54,8 @@ export const postStaleFeatures = createApiRequestHandler(
 
     return {
       id: feature.id,
+      owner: feature.owner,
+      dateCreated: feature.dateCreated.toISOString(),
       stale,
       ...(reason && { reason }),
     };

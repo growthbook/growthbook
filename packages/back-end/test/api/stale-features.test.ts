@@ -98,11 +98,15 @@ describe("stale-features API", () => {
     expect(response.body.features).toHaveLength(2);
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
+      owner: "",
+      dateCreated: new Date("2024-01-01").toISOString(),
       stale: true,
       reason: "no-rules",
     });
     expect(response.body.features[1]).toEqual({
       id: "feature-2",
+      owner: "",
+      dateCreated: new Date("2024-01-01").toISOString(),
       stale: false,
     });
     // Check pagination fields
@@ -214,6 +218,8 @@ describe("stale-features API", () => {
     expect(response.status).toBe(200);
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
+      owner: "",
+      dateCreated: new Date("2024-01-01").toISOString(),
       stale: true,
       reason: "rules-one-sided",
     });
@@ -294,6 +300,8 @@ describe("stale-features API", () => {
     expect(response.status).toBe(200);
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
+      owner: "",
+      dateCreated: new Date("2024-01-01").toISOString(),
       stale: false,
     });
   });
@@ -320,6 +328,8 @@ describe("stale-features API", () => {
     expect(response.status).toBe(200);
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
+      owner: "",
+      dateCreated: new Date("2024-01-01").toISOString(),
       stale: false,
     });
   });

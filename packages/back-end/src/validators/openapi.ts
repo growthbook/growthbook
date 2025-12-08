@@ -90,6 +90,8 @@ export const apiCodeRefValidator = z.object({ "organization": z.string().describ
 
 export const apiCustomFieldValidator = z.object({ "id": z.string(), "name": z.string(), "type": z.string(), "section": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "active": z.boolean(), "required": z.boolean(), "projects": z.array(z.string()).optional(), "values": z.string().optional() }).strict()
 
+export const apiStaleFeaturesResponseValidator = z.intersection(z.object({ "features": z.array(z.object({ "id": z.string().describe("The feature ID"), "owner": z.string().describe("The owner/creator of the feature flag"), "dateCreated": z.string().describe("When the feature was created"), "stale": z.boolean().describe("Whether the feature is considered stale"), "reason": z.enum(["error","no-rules","rules-one-sided"]).describe("The reason why the feature is stale (only present if stale is true)").optional() })) }), z.object({ "limit": z.coerce.number().int(), "offset": z.coerce.number().int(), "count": z.coerce.number().int(), "total": z.coerce.number().int(), "hasMore": z.boolean(), "nextOffset": z.union([z.coerce.number().int(), z.null()]) }))
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional() }).strict(),

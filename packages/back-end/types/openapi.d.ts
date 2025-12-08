@@ -3786,6 +3786,33 @@ export interface components {
       projects?: (string)[];
       values?: string;
     };
+    StaleFeaturesResponse: ({
+      features: ({
+          /** @description The feature ID */
+          id: string;
+          /** @description The owner/creator of the feature flag */
+          owner: string;
+          /**
+           * Format: date-time 
+           * @description When the feature was created
+           */
+          dateCreated: string;
+          /** @description Whether the feature is considered stale */
+          stale: boolean;
+          /**
+           * @description The reason why the feature is stale (only present if stale is true) 
+           * @enum {string}
+           */
+          reason?: "error" | "no-rules" | "rules-one-sided";
+        })[];
+    }) & {
+      limit: number;
+      offset: number;
+      count: number;
+      total: number;
+      hasMore: boolean;
+      nextOffset: OneOf<[number, null]>;
+    };
   };
   responses: {
     Error: never;
@@ -7994,6 +8021,13 @@ export interface operations {
             features: ({
                 /** @description The feature ID */
                 id: string;
+                /** @description The owner/creator of the feature flag */
+                owner: string;
+                /**
+                 * Format: date-time 
+                 * @description When the feature was created
+                 */
+                dateCreated: string;
                 /** @description Whether the feature is considered stale */
                 stale: boolean;
                 /**
@@ -14005,6 +14039,7 @@ export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
 export type ApiCustomField = z.infer<typeof openApiValidators.apiCustomFieldValidator>;
+export type ApiStaleFeaturesResponse = z.infer<typeof openApiValidators.apiStaleFeaturesResponseValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];

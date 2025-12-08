@@ -82,3 +82,5 @@ CodeRef:
   $ref: "./CodeRef.yaml"
 CustomField:
   $ref: "./CustomField.yaml"
+StaleFeaturesResponse:
+  $ref: "./StaleFeaturesResponse.yaml"
