@@ -34,7 +34,12 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
 import { DocLink } from "@/components/DocLink";
 import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import HelperText from "@/ui/HelperText";
 
 export interface Props {
   close: () => void;
@@ -54,6 +59,7 @@ export default function PrerequisiteModal({
   version,
 }: Props) {
   const { features } = useFeaturesList(false);
+  const { projects } = useDefinitions();
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? null;
   const allEnvironments = useEnvironments();
@@ -149,14 +155,21 @@ export default function PrerequisiteModal({
     !!form.watch("id") &&
     (!hasConditionalState || hasSDKWithPrerequisites);
 
-  const featureOptions = features
+  const projectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projects.forEach((p) => {
+      map.set(p.id, p.name);
+    });
+    return map;
+  }, [projects]);
+
+  const allFeatureOptions = features
     .filter((f) => f.id !== feature?.id)
     .filter(
       (f) =>
         !prerequisites.map((p) => p.id).includes(f.id) ||
         f.id === prerequisite?.id,
     )
-    .filter((f) => (f.project || "") === (feature?.project || ""))
     .filter((f) => f.valueType === "boolean")
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
@@ -168,16 +181,59 @@ export default function PrerequisiteModal({
       const wouldBeCyclic = wouldBeCyclicStates[f.id];
       const disabled =
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
+      const projectId = f.project || "";
+      const projectName = projectId ? projectMap.get(projectId) : null;
       return {
         label: f.id,
         value: f.id,
         meta: { conditional, cyclic, wouldBeCyclic, disabled },
+        project: projectId,
+        projectName,
       };
     })
     .sort((a, b) => {
       if (b.meta?.disabled) return -1;
       return 0;
     });
+
+  const featureProject = feature?.project || "";
+  const featureOptionsInProject = allFeatureOptions.filter(
+    (f) => (f.project || "") === featureProject,
+  );
+  const featureOptionsInOtherProjects = allFeatureOptions.filter(
+    (f) => (f.project || "") !== featureProject,
+  );
+
+  const featureOptions = [
+    ...featureOptionsInProject,
+    ...featureOptionsInOtherProjects,
+  ];
+
+  const groupedFeatureOptions: (GroupedValue & {
+    options: (SingleValue & { meta?: any })[];
+  })[] = [];
+
+  const projectGroupOptions = featureOptionsInProject.map((f) => ({
+    label: f.label,
+    value: f.value,
+    meta: f.meta,
+  }));
+
+  groupedFeatureOptions.push({
+    label: featureProject === "" ? "In no project" : "In this project",
+    options: projectGroupOptions,
+  });
+
+  if (featureOptionsInOtherProjects.length > 0) {
+    groupedFeatureOptions.push({
+      label: "In other projects",
+      options: featureOptionsInOtherProjects.map((f) => ({
+        label: f.label,
+        value: f.value,
+        meta: f.meta,
+      })),
+    });
+  }
 
   return (
     <Modal
@@ -234,10 +290,7 @@ export default function PrerequisiteModal({
       <SelectField
         label="Select from boolean features"
         placeholder="Select feature"
-        options={featureOptions.map((o) => ({
-          label: o.label,
-          value: o.value,
-        }))}
+        options={groupedFeatureOptions}
         value={form.watch("id")}
         onChange={(v) => {
           const meta = featureOptions.find((o) => o.value === v)?.meta;
@@ -246,8 +299,23 @@ export default function PrerequisiteModal({
           form.setValue("condition", "");
         }}
         sort={false}
+        formatGroupLabel={({ label }) => {
+          return (
+            <div
+              className={clsx("pt-2 pb-1 text-muted", {
+                "border-top":
+                  label === "In other projects" &&
+                  featureOptionsInProject.length > 0,
+              })}
+            >
+              {label}
+            </div>
+          );
+        }}
         formatOptionLabel={({ value, label }) => {
-          const meta = featureOptions.find((o) => o.value === value)?.meta;
+          const option = featureOptions.find((o) => o.value === value);
+          const meta = option?.meta;
+          const projectName = option?.projectName;
           return (
             <div
               className={clsx({
@@ -260,6 +328,21 @@ export default function PrerequisiteModal({
               >
                 {label}
               </span>
+              {projectName ? (
+                <span
+                  className="text-muted small float-right position-relative"
+                  style={{ top: 3 }}
+                >
+                  project: <strong>{projectName}</strong>
+                </span>
+              ) : (
+                <em
+                  className="text-muted small float-right position-relative"
+                  style={{ top: 3, opacity: 0.5 }}
+                >
+                  no project
+                </em>
+              )}
               {meta?.wouldBeCyclic && (
                 <Tooltip
                   body="Selecting this feature would create a cyclic dependency."
@@ -325,6 +408,14 @@ export default function PrerequisiteModal({
               <FaExternalLinkAlt className="ml-1" />
             </a>
           </div>
+
+          {(parentFeature?.project || "") !== featureProject ? (
+            <HelperText status="warning" mt="3" mb="6">
+              The prerequisite&apos;s project does not match this feature&apos;s
+              project. For SDK connections that do not overlap in project scope,
+              prerequisite evaluation will not pass.
+            </HelperText>
+          ) : null}
 
           <table className="table mb-4 border">
             <thead className="bg-light text-dark">
