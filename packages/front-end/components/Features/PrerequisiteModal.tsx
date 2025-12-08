@@ -31,7 +31,10 @@ import { useAuth } from "@/services/auth";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import { PrerequisiteAlerts } from "@/components/Features/PrerequisiteTargetingField";
+import {
+  PrerequisiteAlerts,
+  FeatureOptionMeta,
+} from "@/components/Features/PrerequisiteTargetingField";
 import { DocLink } from "@/components/DocLink";
 import Modal from "@/components/Modal";
 import SelectField, {
@@ -210,7 +213,7 @@ export default function PrerequisiteModal({
   ];
 
   const groupedFeatureOptions: (GroupedValue & {
-    options: (SingleValue & { meta?: any })[];
+    options: (SingleValue & { meta?: FeatureOptionMeta })[];
   })[] = [];
 
   const projectGroupOptions = featureOptionsInProject.map((f) => ({

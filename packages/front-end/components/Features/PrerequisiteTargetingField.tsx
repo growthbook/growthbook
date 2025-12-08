@@ -56,6 +56,13 @@ export interface Props {
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
 }
 
+export interface FeatureOptionMeta {
+  conditional: boolean;
+  cyclic: boolean;
+  wouldBeCyclic: boolean;
+  disabled: boolean;
+}
+
 export default function PrerequisiteTargetingField({
   value,
   setValue,
@@ -245,7 +252,7 @@ export default function PrerequisiteTargetingField({
   ];
 
   const groupedFeatureOptions: (GroupedValue & {
-    options: (SingleValue & { meta?: any })[];
+    options: (SingleValue & { meta?: FeatureOptionMeta })[];
   })[] = [];
 
   const projectGroupOptions = featureOptionsInProject.map((f) => ({
