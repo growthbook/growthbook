@@ -122,6 +122,11 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   // Auto-refresh top values when isAutoSliceColumn is checked (set to true) and topValues are stale
   useEffect(
     () => {
+      // Skip refresh if auto-updates are enabled (scheduled job will handle it)
+      if (factTable.autoSliceUpdatesEnabled) {
+        return;
+      }
+
       const isAutoSliceColumn = form.watch("isAutoSliceColumn");
       const wasAutoSliceColumn = existing?.isAutoSliceColumn;
       const datatype = form.watch("datatype");
