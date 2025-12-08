@@ -2,9 +2,9 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
+import { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "back-end/types/events/event-types";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
-import { AuditInterfaceInput } from "shared/types/audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
 import { ReqContext } from "./request";

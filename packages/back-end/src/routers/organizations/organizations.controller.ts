@@ -11,6 +11,7 @@ import {
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType } from "shared/validators";
+import { EntityTypes } from "shared/constants";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -129,7 +130,6 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { EntityType } from "shared/types/audit";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { TeamInterface } from "back-end/types/team";
@@ -154,7 +154,6 @@ import {
   getInstallation,
   setInstallationName,
 } from "back-end/src/models/InstallationModel";
-import { EntityTypes } from "shared/constants";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
