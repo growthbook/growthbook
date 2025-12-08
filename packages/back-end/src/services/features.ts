@@ -47,6 +47,7 @@ import {
   FeatureDefinitionWithProjects,
 } from "back-end/types/api";
 import {
+  AttributeMap,
   ExperimentRefRule,
   ExperimentRule,
   FeatureDraftChanges,
@@ -110,8 +111,6 @@ import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
-
-export type AttributeMap = Map<string, string>;
 
 export function generateFeaturesPayload({
   features,
