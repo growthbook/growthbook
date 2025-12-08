@@ -38,6 +38,7 @@ import {
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -75,10 +76,10 @@ import {
 import {
   Environment,
   OrganizationInterface,
-  ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getSDKPayload,
   getSDKPayloadCacheLocation,
@@ -105,7 +106,6 @@ import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

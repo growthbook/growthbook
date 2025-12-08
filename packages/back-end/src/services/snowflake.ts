@@ -1,10 +1,7 @@
 import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-} from "back-end/src/types/Integration";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 import { QueryMetadata } from "back-end/types/query";
 import { logger } from "back-end/src/util/logger";

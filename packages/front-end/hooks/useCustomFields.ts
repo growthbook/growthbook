@@ -1,4 +1,4 @@
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export function useCustomFields() {

@@ -1,4 +1,4 @@
-import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { InformationSchemaInterface } from "shared/types/integrations";
 import { FaDatabase, FaRedo } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";

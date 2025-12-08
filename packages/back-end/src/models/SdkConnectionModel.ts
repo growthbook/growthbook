@@ -22,7 +22,7 @@ import {
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 

@@ -42,22 +42,9 @@ import {
   TemplateVariables,
   FormatDialect,
 } from "shared/types/sql";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
-import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { ReqContext } from "back-end/types/organization";
-import { MetricInterface, MetricType } from "back-end/types/metric";
-import {
-  DataSourceSettings,
-  DataSourceProperties,
-  ExposureQuery,
-  SchemaFormatConfig,
-  DataSourceInterface,
-  AutoFactTableSchemas,
-  SchemaFormat,
-} from "back-end/types/datasource";
+import { SegmentInterface } from "shared/types/segment";
 import {
   MetricValueParams,
-  SourceIntegrationInterface,
   ExperimentMetricQueryParams,
   PastExperimentParams,
   PastExperimentQueryResponse,
@@ -69,7 +56,6 @@ import {
   TestQueryResult,
   InformationSchema,
   RawInformationSchema,
-  MissingDatasourceParamsError,
   ExperimentUnitsQueryParams,
   QueryResponse,
   TrackedEventResponseRow,
@@ -124,9 +110,25 @@ import {
   FactMetricSourceData,
   CreateMetricSourceCovariateTableQueryParams,
   CovariatePhaseStartSettings,
+} from "shared/types/integrations";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { ReqContext } from "back-end/types/request";
+import { MetricInterface, MetricType } from "back-end/types/metric";
+import {
+  DataSourceSettings,
+  DataSourceProperties,
+  ExposureQuery,
+  SchemaFormatConfig,
+  DataSourceInterface,
+  AutoFactTableSchemas,
+  SchemaFormat,
+} from "back-end/types/datasource";
+import {
+  MissingDatasourceParamsError,
+  SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
@@ -148,7 +150,7 @@ import {
 } from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
-import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import type { PopulationDataQuerySettings } from "back-end/types/query";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 

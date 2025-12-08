@@ -110,7 +110,7 @@ import {
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import {
@@ -123,7 +123,8 @@ import {
   upsertWatch,
 } from "back-end/src/models/WatchModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";

@@ -4,7 +4,7 @@ import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
   InformationSchemaInterfaceWithPaths,
   TestQueryRow,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import { TemplateVariables } from "shared/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";

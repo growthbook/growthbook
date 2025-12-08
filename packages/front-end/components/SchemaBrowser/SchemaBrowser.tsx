@@ -1,4 +1,4 @@
-import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import React, {
   Fragment,

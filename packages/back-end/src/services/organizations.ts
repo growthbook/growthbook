@@ -22,6 +22,7 @@ import {
 } from "shared/constants";
 import { TiktokenModel } from "@dqbd/tiktoken";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { SegmentInterface } from "shared/types/segment";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -48,8 +49,8 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
-  ReqContext,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
 import { ConfigFile } from "back-end/src/init/config";
 import {
@@ -71,7 +72,6 @@ import {
 import { DimensionInterface } from "back-end/types/dimension";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { logger } from "back-end/src/util/logger";
-import { SegmentInterface } from "back-end/types/segment";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { LegacyExperimentPhase } from "back-end/types/experiment";
 import { addTags } from "back-end/src/models/TagModel";

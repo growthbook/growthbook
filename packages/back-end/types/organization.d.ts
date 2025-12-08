@@ -1,5 +1,9 @@
 import Stripe from "stripe";
-import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
+import {
+  OWNER_JOB_TITLES,
+  USAGE_INTENTS,
+  attributeDataTypes,
+} from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -15,12 +19,10 @@ import {
 } from "shared/enterprise";
 import { TiktokenModel } from "@dqbd/tiktoken";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { AgreementType } from "shared/validators";
 import { environment } from "back-end/src/routers/environment/environment.validators";
-import type { ReqContextClass } from "back-end/src/services/context";
-import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { TeamInterface } from "back-end/types/team";
-import { AgreementType } from "back-end/src/validators/agreements";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -359,8 +361,6 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
-
-export type ReqContext = ReqContextClass;
 
 export type GetOrganizationResponse = {
   status: 200;
