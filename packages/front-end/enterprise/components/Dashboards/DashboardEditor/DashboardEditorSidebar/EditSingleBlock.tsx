@@ -194,15 +194,20 @@ export default function EditSingleBlock({
       factMetrics
         // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
         .filter((factMetric) => {
-          if (!projects.length || !factMetric.projects.length) {
-            return true;
-          }
-
           // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
           if (
             blockHasFieldOfType(block, "factMetricId", isString) &&
             factMetric.id === block.factMetricId
           ) {
+            return true;
+          }
+
+          // Quantile metrics are not supported in the Dashboard Editor
+          if (["quantile"].includes(factMetric.metricType)) {
+            return false;
+          }
+
+          if (!projects.length || !factMetric.projects.length) {
             return true;
           }
 
