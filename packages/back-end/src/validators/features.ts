@@ -4,8 +4,8 @@ import {
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
+  safeRolloutStatusArray,
 } from "shared/validators";
-import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({

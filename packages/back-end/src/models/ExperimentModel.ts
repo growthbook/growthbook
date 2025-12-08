@@ -14,7 +14,7 @@ import {
   LegacyExperimentInterface,
   Variation,
 } from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -45,10 +45,8 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
-import {
-  DiffResult,
-  getObjectDiff,
-} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { DiffResult } from "back-end/types/events/diff";
+import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";

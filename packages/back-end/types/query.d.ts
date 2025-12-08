@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { queryPointerValidator, queryStatusValidator } from "shared/validators";
+import type { PopulationDataInterface } from "back-end/types/population-data";
 import { QueryLanguage } from "./datasource";
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;
@@ -84,3 +85,7 @@ export interface QueryInterface {
   statistics?: QueryStatistics;
   externalId?: string;
 }
+export type PopulationDataQuerySettings = Pick<
+  PopulationDataInterface,
+  "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"
+>;

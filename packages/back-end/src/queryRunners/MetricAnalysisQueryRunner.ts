@@ -18,16 +18,16 @@ import {
   MAX_METRICS_IN_METRIC_ANALYSIS_QUERY,
 } from "shared/constants";
 import {
+  MetricAnalysisParams,
+  MetricAnalysisQueryResponseRows,
+} from "shared/types/integrations";
+import {
   MetricAnalysisHistogram,
   MetricAnalysisInterface,
   MetricAnalysisResult,
 } from "back-end/types/metric-analysis";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { Queries, QueryStatus } from "back-end/types/query";
-import {
-  MetricAnalysisParams,
-  MetricAnalysisQueryResponseRows,
-} from "back-end/src/types/Integration";
 import { getMetricWithFiltersApplied } from "../services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 

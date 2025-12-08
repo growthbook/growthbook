@@ -5,7 +5,7 @@ import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
 } from "back-end/types/experimentLaunchChecklist";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 const experimentLaunchChecklistSchema = new mongoose.Schema({

@@ -11,6 +11,12 @@ import {
   IncrementalRefreshMetricCovariateSourceInterface,
   IncrementalRefreshMetricSourceInterface,
 } from "shared/validators";
+import {
+  ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimension,
+  InsertMetricSourceDataQueryParams,
+  UpdateExperimentIncrementalUnitsQueryParams,
+} from "shared/types/integrations";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
@@ -27,13 +33,7 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
-  InsertMetricSourceDataQueryParams,
-  SourceIntegrationInterface,
-  UpdateExperimentIncrementalUnitsQueryParams,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { FactMetricInterface } from "back-end/types/fact-table";

@@ -55,7 +55,9 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
+  SafeRolloutInterface,
 } from "shared/validators";
+import { Dimension } from "shared/types/integrations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -87,7 +89,6 @@ import {
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { Dimension } from "back-end/src/types/Integration";
 import {
   Condition,
   MetricInterface,
@@ -112,8 +113,8 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  ReqContext,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { DataSourceInterface, ExposureQuery } from "back-end/types/datasource";
 import {
@@ -139,7 +140,11 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { StatsEngine } from "back-end/types/stats";
+import {
+  StatsEngine,
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "back-end/types/stats";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
@@ -147,7 +152,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentQueryMetadata } from "back-end/types/query";
@@ -164,8 +168,6 @@ import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
   getMetricSettingsForStatsEngine,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
   runSnapshotAnalyses,
   runSnapshotAnalysis,
   writeSnapshotAnalyses,

@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,

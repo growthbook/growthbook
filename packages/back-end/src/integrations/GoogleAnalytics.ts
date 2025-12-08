@@ -1,8 +1,6 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import cloneDeep from "lodash/cloneDeep";
-import { ReqContext } from "back-end/types/organization";
 import {
-  SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
   MetricValueQueryResponse,
@@ -36,7 +34,9 @@ import {
   UserExperimentExposuresQueryResponse,
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { ReqContext } from "back-end/types/request";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {

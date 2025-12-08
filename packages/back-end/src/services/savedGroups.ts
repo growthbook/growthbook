@@ -1,5 +1,5 @@
 import { includeExperimentInPayload } from "shared/util";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getAllPayloadExperiments,
   getPayloadKeysForAllEnvs,

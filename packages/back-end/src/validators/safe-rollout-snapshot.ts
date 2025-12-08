@@ -6,7 +6,7 @@ import {
   priorSettingsValidator,
   windowSettingsValidator,
 } from "shared/validators";
-import { statsEnginesValidator } from "back-end/src/models/ProjectModel";
+import { statsEnginesValidator } from "back-end/src/validators/projects";
 
 const metricStatsObject = z.object({
   users: z.number(),

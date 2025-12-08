@@ -15,7 +15,7 @@ import {
   GoalMetricStatus,
   GuardrailMetricStatus,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,

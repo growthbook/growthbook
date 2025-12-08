@@ -8,7 +8,7 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { useForm } from "react-hook-form";
-import { EventUserLoggedIn } from "back-end/src/events/event-types";
+import { EventUserLoggedIn } from "back-end/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { getCurrentUser } from "@/services/UserContext";

@@ -3,7 +3,7 @@ import { ApiDimension } from "back-end/types/openapi";
 import { DimensionInterface } from "back-end/types/dimension";
 import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ALLOW_CREATE_DIMENSIONS } from "../util/secrets";
 
 const dimensionSchema = new mongoose.Schema({

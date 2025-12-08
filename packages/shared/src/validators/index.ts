@@ -8,6 +8,7 @@ export * from "./incremental-refresh";
 export * from "./managed-by";
 export * from "./metric-time-series";
 export * from "./queries";
+export * from "./safe-rollout";
 export * from "./saved-queries";
 export * from "./segment";
 export * from "./shared";

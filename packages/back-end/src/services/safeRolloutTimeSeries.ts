@@ -5,14 +5,14 @@ import {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
+  SafeRolloutInterface,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
