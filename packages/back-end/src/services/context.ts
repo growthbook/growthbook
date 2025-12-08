@@ -1,4 +1,8 @@
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  userHasPermission,
+  roleToPermissionMap,
+} from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
@@ -16,7 +20,6 @@ import {
 import { EventUser } from "back-end/types/events/event-types";
 import {
   getUserPermissions,
-  roleToPermissionMap,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { TeamInterface } from "back-end/types/team";
