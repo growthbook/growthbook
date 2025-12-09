@@ -2053,9 +2053,9 @@ export default abstract class SqlIntegration
               return `, ${this.getDimensionInStatement(
                 d.id,
                 d.specifiedSlices,
-              )} AS dim_${d.id}`;
+              )} AS dim_exp_${d.id}`;
             }
-            return `, e.${d.id} AS dim_${d.id}`;
+            return `, e.${d.id} AS dim_exp_${d.id}`;
           })
           .join("\n")}
       FROM
