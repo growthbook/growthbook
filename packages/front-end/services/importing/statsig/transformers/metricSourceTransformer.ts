@@ -1,4 +1,5 @@
 import { CreateFactTableProps } from "back-end/types/fact-table";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { StatsigMetricSource } from "@/services/importing/statsig/types";
 
 /**
@@ -7,7 +8,7 @@ import { StatsigMetricSource } from "@/services/importing/statsig/types";
 export async function transformStatsigMetricSourceToFactTable(
   metricSource: StatsigMetricSource,
   project: string,
-  datasource: string,
+  datasource: DataSourceInterfaceWithParams | null | undefined,
 ): Promise<CreateFactTableProps> {
   if (!datasource) {
     throw new Error("Datasource is required to create fact tables");
@@ -43,7 +44,11 @@ FROM \`${metricSource.tableName}\``;
       metricSource.timestampColumn !== "timestamp"
     ) {
       additionalColumnsToSelect.push(
-        `${metricSource.timestampColumn} AS timestamp`,
+        `${
+          datasource?.type === "bigquery"
+            ? `CAST(${metricSource.timestampColumn} as DATETIME)`
+            : metricSource.timestampColumn
+        } AS timestamp`,
       );
     }
 
@@ -84,7 +89,7 @@ FROM \`${metricSource.tableName}\``;
   return {
     name: metricSource.name,
     description: metricSource.description || "",
-    datasource,
+    datasource: datasource?.id || "",
     sql,
     columns: [],
     tags: metricSource.tags || [],

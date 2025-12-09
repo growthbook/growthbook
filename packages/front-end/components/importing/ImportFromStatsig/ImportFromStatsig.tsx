@@ -249,7 +249,7 @@ export default function ImportFromStatsig() {
     false,
   );
 
-  const { datasources } = useDefinitions();
+  const { datasources, getDatasourceById } = useDefinitions();
   const dataSourceOptions = datasources.map((ds) => ({
     label: ds.name,
     value: ds.id,
@@ -849,7 +849,7 @@ export default function ImportFromStatsig() {
                     useBackendProxy: isCloud() ? false : useBackendProxy,
                     apiCall,
                     project: projectName || undefined,
-                    datasource: dataSource || undefined,
+                    datasource: getDatasourceById(dataSource || ""),
                     projects,
                     existingAttributeSchema: attributeSchema,
                     existingFactTables: existingFactTablesMap,
@@ -897,7 +897,7 @@ export default function ImportFromStatsig() {
                   existingSavedGroups: savedGroups,
                   existingExperiments: experiments || [],
                   existingFactTables: factTables,
-                  datasource: dataSource,
+                  datasource: getDatasourceById(dataSource || ""),
                 };
                 await runImport(runOptions);
                 mutateDefinitions();

@@ -12,6 +12,7 @@ import {
   CreateFactTableProps,
   FactFilterInterface,
 } from "back-end/types/fact-table";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import {
@@ -60,7 +61,7 @@ export interface BuildImportedDataOptions {
   skipAttributeMapping?: boolean;
   useBackendProxy?: boolean;
   project?: string;
-  datasource?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   projects?: ProjectInterface[];
   existingAttributeSchema?: Array<{
     property: string;
@@ -99,7 +100,7 @@ export interface RunImportOptions {
   callback: (data: ImportData) => void;
   featuresMap: Map<string, FeatureInterface>;
   project?: string;
-  datasource?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   exposureQueryId?: string;
   categoryEnabled?: {
     environments: boolean;
@@ -1249,7 +1250,7 @@ export async function buildImportedData(
                 metricSourceIdMap,
                 savedFilterIdMap,
                 project || "",
-                datasource || "",
+                datasource?.id || "",
               );
               metricImport.transformedMetric =
                 transformed as CreateFactMetricProps;
@@ -1314,7 +1315,7 @@ export async function buildImportedData(
                 (await transformStatsigMetricSourceToFactTable(
                   msImport.metricSource,
                   project || "",
-                  datasource || "",
+                  datasource,
                 )) as FactTableInterface;
 
               // First add, fitlers from existing metric source (if exists)
@@ -1807,7 +1808,7 @@ export async function runImport(options: RunImportOptions) {
 
           // Set project and datasource (will be provided by the importer)
           transformedExperiment.project = project || "";
-          transformedExperiment.datasource = datasource || "";
+          transformedExperiment.datasource = datasource?.id || "";
           transformedExperiment.exposureQueryId = exposureQueryId || "";
 
           // Check if experiment already exists (by trackingKey)
@@ -2013,7 +2014,7 @@ export async function runImport(options: RunImportOptions) {
             await transformStatsigMetricSourceToFactTable(
               metricSource,
               project || "",
-              datasource || "",
+              datasource,
             );
 
           const existingMetricSource = metricSourceImport.existingMetricSource;
@@ -2107,7 +2108,7 @@ export async function runImport(options: RunImportOptions) {
             metricSourceIdMap,
             savedFilterIdMap,
             project || "",
-            datasource || "",
+            datasource?.id || "",
           );
 
           const existingMetric = metricImport.existingMetric;
