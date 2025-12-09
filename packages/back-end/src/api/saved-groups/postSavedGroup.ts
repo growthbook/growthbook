@@ -1,16 +1,25 @@
-import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
+import {
+  ID_LIST_DATATYPES,
+  validateCondition,
+  isSavedGroupCyclic,
+} from "shared/util";
 import { PostSavedGroupResponse } from "back-end/types/openapi";
 import {
   createSavedGroup,
   toSavedGroupApiInterface,
+  getAllSavedGroups,
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postSavedGroupValidator } from "back-end/src/validators/openapi";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
+import { getSavedGroupMap } from "back-end/src/services/features";
+import { getParsedCondition } from "back-end/src/util/features";
+import { SavedGroupTargeting } from "back-end/types/feature";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    const { name, attributeKey, values, condition, owner, projects } = req.body;
+    // TODO: Update OpenAPI schema to include savedGroups field
+    const { name, attributeKey, values, condition, owner, projects, savedGroups } = req.body as typeof req.body & { savedGroups?: SavedGroupTargeting[] };
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
@@ -39,12 +48,49 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         );
       }
 
-      const conditionRes = validateCondition(condition);
-      if (!conditionRes.success) {
-        throw new Error(conditionRes.error);
+      // Get all saved groups for cycle detection
+      const allSavedGroups = await getAllSavedGroups(req.organization.id);
+      const groupMap = await getSavedGroupMap(req.organization, allSavedGroups);
+
+      // Validate condition if provided
+      if (condition) {
+        const conditionRes = validateCondition(condition);
+        if (!conditionRes.success) {
+          throw new Error(conditionRes.error);
+        }
+        // Allow empty condition if savedGroups is provided
+        if (conditionRes.empty && (!savedGroups || savedGroups.length === 0)) {
+          throw new Error("Either condition or saved group targeting must be specified");
+        }
       }
-      if (conditionRes.empty) {
-        throw new Error("Condition cannot be empty");
+
+      // Must have either condition or savedGroups
+      const hasCondition = condition && condition !== "{}";
+      const hasSavedGroups = savedGroups && savedGroups.length > 0;
+      if (!hasCondition && !hasSavedGroups) {
+        throw new Error("Either condition or saved group targeting must be specified");
+      }
+
+      // Check for circular references (check combined condition for cycle detection)
+      const combinedCondition = getParsedCondition(
+        groupMap,
+        condition,
+        savedGroups,
+      );
+      if (combinedCondition) {
+        const conditionString = JSON.stringify(combinedCondition);
+        const [isCyclic, cyclicGroupId] = isSavedGroupCyclic(
+          undefined, // New group, ID not assigned yet
+          conditionString,
+          groupMap,
+          undefined,
+          savedGroups,
+        );
+        if (isCyclic) {
+          throw new Error(
+            `This saved group creates a circular reference${cyclicGroupId ? ` (cycle includes group: ${cyclicGroupId})` : ""}`,
+          );
+        }
       }
     }
     // If this is a list group, make sure the attributeKey is specified
@@ -78,14 +124,16 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       throw new Error("Must specify a saved group type");
     }
 
+    // Store condition and savedGroups separately (don't combine on save)
     const savedGroup = await createSavedGroup(req.organization.id, {
       type: type,
       values: values || [],
       groupName: name,
       owner: owner || "",
-      condition: condition || "",
+      condition: condition || undefined,
       attributeKey,
       projects,
+      savedGroups: type === "condition" ? savedGroups : undefined,
     });
 
     return {

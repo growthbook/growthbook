@@ -30,13 +30,17 @@ function getSavedGroupCondition(
 ): null | ConditionInterface {
   const group = groupMap.get(groupId);
   if (!group) return null;
-  if (group.type === "condition" && group.condition) {
-    try {
-      const cond = JSON.parse(group.condition);
-      return include ? cond : { $not: cond };
-    } catch (e) {
-      return null;
+  if (group.type === "condition") {
+    // For condition groups, combine condition + savedGroups using getParsedCondition
+    const combined = getParsedCondition(
+      groupMap,
+      group.condition,
+      group.savedGroups,
+    );
+    if (combined) {
+      return include ? combined : { $not: combined };
     }
+    return null;
   }
 
   if (!group.attributeKey) return null;
@@ -67,8 +71,10 @@ export function getParsedCondition(
         const group = groupMap.get(id);
         if (!group) return false;
         if (group.type === "condition") {
-          // Condition groups must be non-empty
-          if (!group.condition || group.condition === "{}") return false;
+          // Condition groups must be non-empty (check combined condition + savedGroups)
+          const hasCondition = group.condition && group.condition !== "{}";
+          const hasSavedGroups = group.savedGroups && group.savedGroups.length > 0;
+          if (!hasCondition && !hasSavedGroups) return false;
         } else {
           // Legacy list groups must be non-empty
           if (!group.useEmptyListGroup && !group.values?.length) return false;

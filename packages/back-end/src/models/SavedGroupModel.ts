@@ -38,6 +38,12 @@ const savedGroupSchema = new mongoose.Schema({
   projects: [String],
   // Previously, empty saved groups were ignored in the SDK payload, making all $inGroup operations return true
   useEmptyListGroup: Boolean,
+  savedGroups: [
+    {
+      match: String,
+      ids: [String],
+    },
+  ],
 });
 
 const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(

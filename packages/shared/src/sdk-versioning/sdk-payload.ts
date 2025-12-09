@@ -218,27 +218,91 @@ export const scrubSavedGroups = (
   return savedGroupsValues;
 };
 
+// Maximum depth for recursive saved group resolution
+const MAX_SAVED_GROUP_DEPTH = 10;
+
 // Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
+// Supports recursive unfurling of nested condition groups with maxDepth and cycle detection
 const replaceSavedGroups: (
   savedGroups: Record<string, SavedGroupInterface>,
   organization: OrganizationInterface,
+  visited?: Set<string>,
+  depth?: number,
 ) => NodeHandler = (
   savedGroups: Record<string, SavedGroupInterface>,
   organization,
+  visited = new Set(),
+  depth = 0,
 ) => {
   return ([key, value], object) => {
     if (key === "$inGroup" || key === "$notInGroup") {
-      const group = savedGroups[value];
+      const groupId = value as string;
+      const group = savedGroups[groupId];
 
-      const values = group
-        ? getTypedSavedGroupValues(
-            group.values || [],
-            getSavedGroupValueType(group, organization),
-          )
-        : [];
-      object[savedGroupOperatorReplacements[key]] = values;
+      // Check max depth
+      if (depth >= MAX_SAVED_GROUP_DEPTH) {
+        // Gracefully truncate: replace with empty array (fails the condition)
+        // This prevents infinite recursion and deep nesting issues
+        object[savedGroupOperatorReplacements[key]] = [];
+        delete object[key];
+        return;
+      }
 
-      delete object[key];
+      if (!group) {
+        // Unknown group, replace with empty array
+        object[savedGroupOperatorReplacements[key]] = [];
+        delete object[key];
+        return;
+      }
+
+      // Prevent cycles
+      if (visited.has(groupId)) {
+        // Cycle detected - replace with empty array to fail safely
+        object[savedGroupOperatorReplacements[key]] = [];
+        delete object[key];
+        return;
+      }
+
+      if (group.type === "list") {
+        // List group: replace with values array
+        const values = getTypedSavedGroupValues(
+          group.values || [],
+          getSavedGroupValueType(group, organization),
+        );
+        object[savedGroupOperatorReplacements[key]] = values;
+        delete object[key];
+      } else if (group.type === "condition" && group.condition) {
+        // Condition group: recursively inline the condition
+        try {
+          const cond = cloneDeep(JSON.parse(group.condition));
+          visited.add(groupId);
+
+          // Recursively resolve nested $inGroup/$notInGroup in this condition
+          // Pass depth + 1 to track nesting level
+          recursiveWalk(
+            cond,
+            replaceSavedGroups(savedGroups, organization, visited, depth + 1),
+          );
+
+          visited.delete(groupId);
+
+          // Replace this node with the expanded condition
+          // If $notInGroup, wrap in $not
+          const expanded = key === "$notInGroup" ? { $not: cond } : cond;
+
+          // Replace the current key with expanded condition
+          delete object[key];
+          Object.assign(object, expanded);
+        } catch (e) {
+          // Invalid condition, replace with empty array
+          object[savedGroupOperatorReplacements[key]] = [];
+          delete object[key];
+        }
+      } else {
+        // Unknown type, replace with empty array
+        object[savedGroupOperatorReplacements[key]] = [];
+        delete object[key];
+      }
     }
   };
 };

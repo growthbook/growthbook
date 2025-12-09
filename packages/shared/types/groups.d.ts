@@ -1,3 +1,5 @@
+import { SavedGroupTargeting } from "shared/validators";
+
 // The data going out in an sdk payload to map from a saved group ID to its array of values
 export type SavedGroupsValues = Record<string, (string | number)[]>;
 
@@ -25,5 +27,6 @@ export interface SavedGroupInterface {
   description?: string;
   projects?: string[];
   useEmptyListGroup?: boolean;
+  savedGroups?: SavedGroupTargeting[];
 }
 export type SavedGroupType = "condition" | "list";

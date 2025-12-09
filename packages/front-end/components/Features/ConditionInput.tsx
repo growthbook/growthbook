@@ -454,7 +454,10 @@ export default function ConditionInput(props: Props) {
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
                     savedGroupOptions.length > 0 ? (
                     <SelectField
-                      options={savedGroupOptions}
+                      options={savedGroupOptions.map((o) => ({
+                        label: o.label,
+                        value: o.value,
+                      }))}
                       value={value}
                       onChange={(v) => {
                         handleCondsChange(v, "value");

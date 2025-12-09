@@ -5,7 +5,9 @@ import {
   SAVED_GROUP_SIZE_LIMIT_BYTES,
   ID_LIST_DATATYPES,
   validateCondition,
+  isSavedGroupCyclic,
 } from "shared/util";
+import { getParsedCondition } from "back-end/src/util/features";
 import { SavedGroupInterface } from "shared/types/groups";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -20,6 +22,7 @@ import {
   deleteSavedGroupById,
   getSavedGroupById,
   updateSavedGroupById,
+  getAllSavedGroups,
 } from "back-end/src/models/SavedGroupModel";
 import {
   auditDetailsCreate,
@@ -27,6 +30,7 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { getSavedGroupMap } from "back-end/src/services/features";
 
 // region POST /saved-groups
 
@@ -58,6 +62,7 @@ export const postSavedGroup = async (
     condition,
     description,
     projects,
+    savedGroups,
   } = req.body;
 
   if (!context.permissions.canCreateSavedGroup({ ...req.body })) {
@@ -71,12 +76,50 @@ export const postSavedGroup = async (
   let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
-    const conditionRes = validateCondition(condition);
-    if (!conditionRes.success) {
-      throw new Error(conditionRes.error);
+    // Get all saved groups for cycle detection
+    const allSavedGroups = await getAllSavedGroups(org.id);
+    const groupMap = await getSavedGroupMap(org, allSavedGroups);
+
+    // Validate condition if provided
+    if (condition) {
+      const conditionRes = validateCondition(condition);
+      if (!conditionRes.success) {
+        throw new Error(conditionRes.error);
+      }
+      // Allow empty condition if savedGroups is provided
+      if (conditionRes.empty && (!savedGroups || savedGroups.length === 0)) {
+        throw new Error("Either condition or saved group targeting must be specified");
+      }
     }
-    if (conditionRes.empty) {
-      throw new Error("Condition cannot be empty");
+
+    // Must have either condition or savedGroups
+    const hasCondition = condition && condition !== "{}";
+    const hasSavedGroups = savedGroups && savedGroups.length > 0;
+    if (!hasCondition && !hasSavedGroups) {
+      throw new Error("Either condition or saved group targeting must be specified");
+    }
+
+    // Check for circular references (check both condition and savedGroups)
+    // We need to check the combined condition for cycle detection
+    const combinedCondition = getParsedCondition(
+      groupMap,
+      condition,
+      savedGroups,
+    );
+    if (combinedCondition) {
+      const conditionString = JSON.stringify(combinedCondition);
+      const [isCyclic, cyclicGroupId] = isSavedGroupCyclic(
+        undefined, // New group, ID not assigned yet
+        conditionString,
+        groupMap,
+        undefined,
+        savedGroups,
+      );
+      if (isCyclic) {
+        throw new Error(
+          `This saved group creates a circular reference${cyclicGroupId ? ` (cycle includes group: ${cyclicGroupId})` : ""}`,
+        );
+      }
     }
   } else if (type === "list") {
     // If this is a list group, make sure the attributeKey is specified
@@ -107,15 +150,17 @@ export const postSavedGroup = async (
     throw new Error("Description must be at most 100 characters");
   }
 
+  // Store condition and savedGroups separately (don't combine on save)
   const savedGroup = await createSavedGroup(org.id, {
     values: uniqValues,
     type,
-    condition,
+    condition: condition || undefined,
     groupName,
     owner: owner || userName,
     attributeKey,
     description,
     projects,
+    savedGroups: type === "condition" ? savedGroups : undefined,
   });
 
   await req.audit({
@@ -393,7 +438,7 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { groupName, owner, values, condition, description, projects } =
+  const { groupName, owner, values, condition, description, projects, savedGroups } =
     req.body;
   const { id } = req.params;
 
@@ -432,21 +477,69 @@ export const putSavedGroup = async (
       context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
     );
   }
-  if (
-    savedGroup.type === "condition" &&
-    condition &&
-    condition !== savedGroup.condition
-  ) {
-    // Validate condition to make sure it's valid
-    const conditionRes = validateCondition(condition);
-    if (!conditionRes.success) {
-      throw new Error(conditionRes.error);
-    }
-    if (conditionRes.empty) {
-      throw new Error("Condition cannot be empty");
-    }
+  if (savedGroup.type === "condition") {
+    // Check if condition or savedGroups changed
+    const conditionChanged = condition !== undefined && condition !== savedGroup.condition;
+    const savedGroupsChanged = savedGroups !== undefined && !isEqual(savedGroups, savedGroup.savedGroups);
+    
+    if (conditionChanged || savedGroupsChanged) {
+      // Get all saved groups for cycle detection
+      const allSavedGroups = await getAllSavedGroups(org.id);
+      const groupMap = await getSavedGroupMap(org, allSavedGroups);
 
-    fieldsToUpdate.condition = condition;
+      // Use provided values or existing values
+      const finalCondition = condition !== undefined ? condition : savedGroup.condition;
+      const finalSavedGroups = savedGroups !== undefined ? savedGroups : savedGroup.savedGroups;
+
+      // Validate condition if provided
+      if (finalCondition) {
+        const conditionRes = validateCondition(finalCondition);
+        if (!conditionRes.success) {
+          throw new Error(conditionRes.error);
+        }
+        // Allow empty condition if savedGroups is provided
+        if (conditionRes.empty && (!finalSavedGroups || finalSavedGroups.length === 0)) {
+          throw new Error("Either condition or saved group targeting must be specified");
+        }
+      }
+
+      // Must have either condition or savedGroups
+      const hasCondition = finalCondition && finalCondition !== "{}";
+      const hasSavedGroups = finalSavedGroups && finalSavedGroups.length > 0;
+      if (!hasCondition && !hasSavedGroups) {
+        throw new Error("Either condition or saved group targeting must be specified");
+      }
+
+      // Check for circular references (check combined condition for cycle detection)
+      const combinedCondition = getParsedCondition(
+        groupMap,
+        finalCondition,
+        finalSavedGroups,
+      );
+      if (combinedCondition) {
+        const conditionString = JSON.stringify(combinedCondition);
+        const [isCyclic, cyclicGroupId] = isSavedGroupCyclic(
+          savedGroup.id,
+          conditionString,
+          groupMap,
+          savedGroup.id, // Exclude current group from cycle check
+          finalSavedGroups,
+        );
+        if (isCyclic) {
+          throw new Error(
+            `This saved group creates a circular reference${cyclicGroupId ? ` (cycle includes group: ${cyclicGroupId})` : ""}`,
+          );
+        }
+      }
+
+      // Store condition and savedGroups separately (don't combine on save)
+      if (conditionChanged) {
+        fieldsToUpdate.condition = finalCondition || undefined;
+      }
+      if (savedGroupsChanged) {
+        fieldsToUpdate.savedGroups = finalSavedGroups;
+      }
+    }
   }
   if (description !== savedGroup.description) {
     if (typeof description === "string" && description.length > 100) {
