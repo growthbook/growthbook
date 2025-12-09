@@ -152,7 +152,7 @@ Decompose $\boldsymbol{\nabla}_{r}$ into $\boldsymbol{\nabla}_{r} = \left[
 Then the final variance
 
 $$
-\begin{align}
+\begin{align*}
 \boldsymbol{\nabla}_{r}^{\top}\Lambda\boldsymbol{\nabla}_{r} &=
 \boldsymbol{\nabla}_{r}[1:2]^{\top}
 \boldsymbol{\Lambda}_{T}
@@ -218,7 +218,7 @@ $$
 + \theta\sigma_{XY,C} \\
 \frac{\sigma_{XY,C}
 \left(
--\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]⚠︎
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
 \right)}{\boldsymbol{\beta}[3]}
 +\theta\sigma^{2}_{X,C}
 \end{pmatrix}
@@ -231,8 +231,7 @@ $$
 \frac{1}{N_{C}\boldsymbol{\beta}[3]^{2}}
 \left(
 \frac{\sigma^{2}_{Y,C}  \left(
--\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
-\right)^{2}}{\boldsymbol{\beta}[3]^{2}}
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]\right)^{2}}{\boldsymbol{\beta}[3]^{2}}
 +2\frac{\theta\sigma_{XY,C}
 \left(-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]\right)}{\boldsymbol{\beta}[3]}
 +\theta^{2}\sigma^{2}_{X,C}
@@ -252,7 +251,7 @@ $$
 \left(-\bar{Y}_{T} + \theta\bar{X}_{T}  - \theta\bar{X}_{C}\right)}{\bar{Y}_{C}}
 +\theta^{2}\sigma^{2}_{X,C}
 \right),
-\end{align}
+\end{align*}
 $$
 
 where in the last step we move away from $\boldsymbol{\beta}$ notation and use sample mean notation.
