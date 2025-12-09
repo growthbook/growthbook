@@ -86,7 +86,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
         }}
       >
         <Collapsible
-          open={!metric}
+          open={true}
           transitionTime={100}
           trigger={
             <div
