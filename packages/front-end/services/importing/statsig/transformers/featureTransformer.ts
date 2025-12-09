@@ -27,6 +27,7 @@ export function transformStatsigFeatureGateToGB(
   project?: string,
   skipAttributeMapping: boolean = false,
   savedGroupIdMap?: Map<string, string>,
+  featuresMap?: Map<string, FeatureInterface>,
 ): Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -61,6 +62,7 @@ export function transformStatsigFeatureGateToGB(
         rule.conditions,
         skipAttributeMapping,
         savedGroupIdMap,
+        featuresMap,
       );
 
       // Determine which environments this rule applies to
