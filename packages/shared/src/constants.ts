@@ -1,3 +1,4 @@
+import { FactMetricType } from "back-end/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
@@ -97,6 +98,10 @@ export const SAFE_ROLLOUT_VARIATIONS = [
     weight: 0.5,
   },
 ];
+
+export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
+  "quantile",
+] as const;
 
 export const sdkLanguages = [
   "nocode-webflow",

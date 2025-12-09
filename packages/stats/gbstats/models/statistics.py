@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import replace
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Tuple
 
 import numpy as np
 import scipy.stats
@@ -654,3 +654,46 @@ class BanditPeriodDataRatio:
 class BanditPeriodDataCuped:
     stats: List[RegressionAdjustedStatistic]
     weights: List[float]
+
+
+def create_theta_adjusted_statistics(
+    stat_a: TestStatistic, stat_b: TestStatistic
+) -> Tuple[TestStatistic, TestStatistic]:
+    if (
+        isinstance(stat_b, RegressionAdjustedStatistic)
+        and isinstance(stat_a, RegressionAdjustedStatistic)
+        and (stat_a.theta is None or stat_b.theta is None)
+    ):
+        theta = compute_theta(stat_a, stat_b)
+        if theta == 0:
+            # revert to non-RA under the hood if no variance in a time period
+            stat_a = stat_a.post_statistic
+            stat_b = stat_b.post_statistic
+        else:
+            # override statistic with theta initialized
+            stat_a = replace(stat_a, theta=theta)
+            stat_b = replace(stat_b, theta=theta)
+    elif (
+        isinstance(stat_b, RegressionAdjustedRatioStatistic)
+        and isinstance(stat_a, RegressionAdjustedRatioStatistic)
+        and (stat_a.theta is None or stat_b.theta is None)
+    ):
+        theta = compute_theta_regression_adjusted_ratio(stat_a, stat_b)
+        if abs(theta) < 1e-8:
+            # revert to non-RA under the hood if no variance in a time period
+            stat_a = RatioStatistic(
+                n=stat_a.n,
+                m_statistic=stat_a.m_statistic_post,
+                d_statistic=stat_a.d_statistic_post,
+                m_d_sum_of_products=stat_a.m_post_d_post_sum_of_products,
+            )
+            stat_b = RatioStatistic(
+                n=stat_b.n,
+                m_statistic=stat_b.m_statistic_post,
+                d_statistic=stat_b.d_statistic_post,
+                m_d_sum_of_products=stat_b.m_post_d_post_sum_of_products,
+            )
+        else:
+            stat_a = replace(stat_a, theta=theta)
+            stat_b = replace(stat_b, theta=theta)
+    return stat_a, stat_b

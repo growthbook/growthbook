@@ -7,7 +7,7 @@ import {
   ReactNode,
 } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStripe } from "@stripe/stripe-js/pure";
 import { useAuth } from "@/services/auth";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Callout from "@/ui/Callout";

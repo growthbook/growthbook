@@ -2,7 +2,6 @@ from dataclasses import asdict, replace
 from functools import partial
 from typing import Optional, List, Tuple
 from unittest import TestCase, main as unittest_main
-from gbstats.models.tests import sum_stats
 from gbstats.models.statistics import (
     compute_theta,
     compute_theta_regression_adjusted_ratio,
@@ -30,7 +29,9 @@ from gbstats.models.tests import (
     TestStatistic,
     ProportionStatistic,
     EffectMomentsConfig,
+    EffectMoments,
     EffectMomentsPostStratification,
+    sum_stats,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -1220,6 +1221,52 @@ class TestPostStratification(TestCase):
             _round_result_dict(expected_rounded_dict_abs),
         )
 
+    # if there is just one cell, ensure the result is the same as the unstratified result
+    def test_post_strat_count_reg_effect_moments_single_cell(self):
+        single_stat_a, single_stat_b = sum_stats(self.stats_count_reg_strata)  # type: ignore
+        single_stat_a_effect_moments = copy.deepcopy(single_stat_a)
+        single_stat_b_effect_moments = copy.deepcopy(single_stat_b)
+        test_post_strat_rel = EffectMomentsPostStratification(
+            [(single_stat_a, single_stat_b)], self.moments_config_rel  # type: ignore
+        )
+        test_post_strat_abs = EffectMomentsPostStratification(
+            [(single_stat_a, single_stat_b)], self.moments_config_abs  # type: ignore
+        )
+        theta = compute_theta(single_stat_a_effect_moments, single_stat_b_effect_moments)  # type: ignore
+        single_stat_a_effect_moments = replace(
+            single_stat_a_effect_moments, theta=theta
+        )
+        single_stat_b_effect_moments = replace(
+            single_stat_b_effect_moments, theta=theta
+        )
+
+        test_effect_moments_rel = EffectMoments(
+            [(single_stat_a_effect_moments, single_stat_b_effect_moments)],
+            EffectMomentsConfig(difference_type="relative"),
+        )
+        test_effect_moments_abs = EffectMoments(
+            [(single_stat_a_effect_moments, single_stat_b_effect_moments)],
+            EffectMomentsConfig(difference_type="absolute"),
+        )
+
+        result_post_strat_rel = test_post_strat_rel.compute_result()
+        result_post_strat_abs = test_post_strat_abs.compute_result()
+        result_effect_moments_rel = test_effect_moments_rel.compute_result()
+        result_effect_moments_abs = test_effect_moments_abs.compute_result()
+
+        result_dict_rel = asdict(result_post_strat_rel)
+        result_dict_abs = asdict(result_post_strat_abs)
+        expected_rounded_dict_rel = asdict(result_effect_moments_rel)
+        expected_rounded_dict_abs = asdict(result_effect_moments_abs)
+        self.assertDictEqual(
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
+        )
+
     def test_post_strat_ratio_effect_moments(self):
         result_dict_rel = asdict(
             EffectMomentsPostStratification(
@@ -1377,6 +1424,52 @@ class TestPostStratification(TestCase):
                 error_message=None,
             )
         )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
+        )
+
+    # if there is just one cell, ensure the result is the same as the unstratified result
+    def test_post_strat_ratio_reg_effect_moments_single_cell(self):
+        single_stat_a, single_stat_b = sum_stats(self.stats_ratio_reg_strata)  # type: ignore
+        single_stat_a_effect_moments = copy.deepcopy(single_stat_a)
+        single_stat_b_effect_moments = copy.deepcopy(single_stat_b)
+        test_post_strat_rel = EffectMomentsPostStratification(
+            [(single_stat_a, single_stat_b)], self.moments_config_rel  # type: ignore
+        )
+        test_post_strat_abs = EffectMomentsPostStratification(
+            [(single_stat_a, single_stat_b)], self.moments_config_abs  # type: ignore
+        )
+        theta = compute_theta_regression_adjusted_ratio(single_stat_a_effect_moments, single_stat_b_effect_moments)  # type: ignore
+        single_stat_a_effect_moments = replace(
+            single_stat_a_effect_moments, theta=theta
+        )
+        single_stat_b_effect_moments = replace(
+            single_stat_b_effect_moments, theta=theta
+        )
+
+        test_effect_moments_rel = EffectMoments(
+            [(single_stat_a_effect_moments, single_stat_b_effect_moments)],
+            EffectMomentsConfig(difference_type="relative"),
+        )
+        test_effect_moments_abs = EffectMoments(
+            [(single_stat_a_effect_moments, single_stat_b_effect_moments)],
+            EffectMomentsConfig(difference_type="absolute"),
+        )
+
+        result_post_strat_rel = test_post_strat_rel.compute_result()
+        result_post_strat_abs = test_post_strat_abs.compute_result()
+        result_effect_moments_rel = test_effect_moments_rel.compute_result()
+        result_effect_moments_abs = test_effect_moments_abs.compute_result()
+
+        result_dict_rel = asdict(result_post_strat_rel)
+        result_dict_abs = asdict(result_post_strat_abs)
+        expected_rounded_dict_rel = asdict(result_effect_moments_rel)
+        expected_rounded_dict_abs = asdict(result_effect_moments_abs)
         self.assertDictEqual(
             _round_result_dict(result_dict_rel),
             _round_result_dict(expected_rounded_dict_rel),
