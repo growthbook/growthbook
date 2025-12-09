@@ -185,13 +185,21 @@ function transformTargetingConditions(
   const conditionObj: ConditionInterface = {};
 
   conditions.forEach((condition) => {
-    const { type, operator, targetValue, field } = condition;
+    const { type, operator, targetValue, field, customID } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // For custom_field type, use the field value as the attribute name
-    // Otherwise, use the type as the attribute name
-    const attributeName =
-      type === "custom_field" ? field || "custom_field" : type;
+    // Determine the attribute name:
+    // - For custom_field type, use the field value
+    // - For unit_id type with customID, use the customID (custom unit ID)
+    // - Otherwise, use the type as the attribute name
+    let attributeName: string;
+    if (type === "custom_field") {
+      attributeName = field || "custom_field";
+    } else if (type === "unit_id" && customID) {
+      attributeName = customID;
+    } else {
+      attributeName = type;
+    }
     const gbAttributeName = mapStatsigAttributeToGB(
       attributeName,
       skipAttributeMapping,

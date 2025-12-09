@@ -926,7 +926,7 @@ export async function buildImportedData(
           for (const gateImport of data.featureGates) {
             if (gateImport.featureGate) {
               try {
-                const transformed = transformStatsigFeatureGateToGB(
+                const transformed = await transformStatsigFeatureGateToGB(
                   gateImport.featureGate,
                   availableEnvironments,
                   existingAttributeSchema,
@@ -1031,7 +1031,7 @@ export async function buildImportedData(
           for (const configImport of data.dynamicConfigs) {
             if (configImport.dynamicConfig) {
               try {
-                const transformed = transformStatsigFeatureGateToGB(
+                const transformed = await transformStatsigFeatureGateToGB(
                   configImport.dynamicConfig,
                   availableEnvironments,
                   existingAttributeSchema,
