@@ -51,6 +51,7 @@ const factTableSchema = new mongoose.Schema({
     },
   ],
   columnsError: String,
+  timestampAggregatedDaily: Boolean,
   filters: [
     {
       _id: false,
@@ -124,6 +125,7 @@ function createPropsToInterface(
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
+    timestampAggregatedDaily: props.timestampAggregatedDaily || false,
   };
 }
 

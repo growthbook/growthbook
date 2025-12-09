@@ -176,6 +176,9 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
+  castDailyAggregatedTimestampToTimestampCol(column: string): string {
+    return this.castToTimestamp(column);
+  }
   hasCountDistinctHLL(): boolean {
     return true;
   }

@@ -81,6 +81,7 @@ export const createFactTablePropsValidator = z
     eventName: z.string(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
+    timestampAggregatedDaily: z.boolean().optional(),
   })
   .strict();
 
@@ -98,6 +99,7 @@ export const updateFactTablePropsValidator = z
     managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
+    timestampAggregatedDaily: z.boolean().optional(),
   })
   .strict();
 

@@ -73,6 +73,7 @@ export interface FactTableInterface {
   sql: string;
   eventName: string;
   columns: ColumnInterface[];
+  timestampAggregatedDaily?: boolean;
   columnsError?: string | null;
   filters: FactFilterInterface[];
   archived?: boolean;

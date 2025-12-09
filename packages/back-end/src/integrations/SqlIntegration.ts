@@ -379,6 +379,9 @@ export default abstract class SqlIntegration
   castUserDateCol(column: string): string {
     return column;
   }
+  castDailyAggregatedTimestampToTimestampCol(column: string): string {
+    return column;
+  }
   formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
@@ -5430,7 +5433,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // BQ datetime cast for SELECT statements (do not use for where)
     const timestampDateTimeColumn = this.castUserDateCol("m.timestamp");
-
+    const timestampColumnForWhereClause = factTable.timestampAggregatedDaily
+      ? // Cast likely DATE type to TIMESTAMP type for where clause
+        this.castDailyAggregatedTimestampToTimestampCol("m.timestamp")
+      : "m.timestamp";
     const sql = factTable.sql;
     const where: string[] = [];
 
@@ -5441,7 +5447,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       const timestampFn = exclusiveStartDateFilter
         ? this.toTimestampWithMs
         : this.toTimestamp;
-      where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
+      // Ensure if the timestamp column is a date column, it is cast to a timestamp column so that
+      // it can be compared to a raw timestamp value.
+      where.push(
+        `${timestampColumnForWhereClause} ${operator} ${timestampFn(startDate)}`,
+      );
     }
     if (endDate) {
       // If exclusive, we need to be more precise with the timestamp
@@ -5449,7 +5459,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       const timestampFn = exclusiveEndDateFilter
         ? this.toTimestampWithMs
         : this.toTimestamp;
-      where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
+      // Ensure if the timestamp column is a date column, it is cast to a timestamp column so that
+      // it can be compared to a raw timestamp value.
+      where.push(
+        `${timestampColumnForWhereClause} ${operator} ${timestampFn(endDate)}`,
+      );
     }
 
     const metricCols: string[] = [];

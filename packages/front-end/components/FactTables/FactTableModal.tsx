@@ -68,6 +68,7 @@ export default function FactTableModal({
       eventName: existing?.eventName || "",
       managedBy: existing?.managedBy || "",
       projects: existing?.projects || [],
+      timestampAggregatedDaily: existing?.timestampAggregatedDaily || false,
     },
   });
 
@@ -143,6 +144,7 @@ export default function FactTableModal({
               eventName: value.eventName,
               managedBy: value.managedBy,
               projects: value.projects,
+              timestampAggregatedDaily: value.timestampAggregatedDaily,
             };
             await apiCall(`/fact-tables/${existing.id}`, {
               method: "PUT",
@@ -272,6 +274,19 @@ export default function FactTableModal({
               </div>
             )}
           </>
+        )}
+
+        {selectedDataSource && (
+          <div className="mt-2">
+            <Checkbox
+              label="Mark timestamp column as aggregated daily"
+              value={form.watch("timestampAggregatedDaily") || false}
+              description="If the fact table is pre-aggregated at the day level, checking this box ensures that the timestamp column is handled correctly by GrowthBook."
+              setValue={(value) => {
+                form.setValue("timestampAggregatedDaily", value);
+              }}
+            />
+          </div>
         )}
 
         {permissionsUtil.canCreateOfficialResources({
