@@ -1022,22 +1022,24 @@ export default abstract class SqlIntegration
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
-            , ${metricData.aggregatedValueTransformation(
-              metricData.numeratorAggFns.reAggregationFunction(
+            , ${metricData.aggregatedValueTransformation({
+              column: metricData.numeratorAggFns.reAggregationFunction(
                 "value_for_reaggregation",
               ),
-              `"${settings.startDate.toISOString()}"`,
-              settings.endDate,
-            )} AS value
+              initialTimestampColumn: this.toTimestamp(settings.startDate),
+              analysisEndDate: settings.endDate,
+            })} AS value
             ${
               metricData.ratioMetric
-                ? `, ${metricData.aggregatedValueTransformation(
-                    metricData.denominatorAggFns.reAggregationFunction(
+                ? `, ${metricData.aggregatedValueTransformation({
+                    column: metricData.denominatorAggFns.reAggregationFunction(
                       "denominator_for_reaggregation",
                     ),
-                    `"${settings.startDate.toISOString()}"`,
-                    settings.endDate,
-                  )} AS denominator`
+                    initialTimestampColumn: this.toTimestamp(
+                      settings.startDate,
+                    ),
+                    analysisEndDate: settings.endDate,
+                  })} AS denominator`
                 : ""
             }
           FROM
@@ -2772,11 +2774,15 @@ export default abstract class SqlIntegration
     // For all other metrics, this is an identity function
     const aggregatedValueTransformation =
       metric.metricType === "dailyParticipation"
-        ? (
-            column: string,
-            initialTimestampColumn: string,
-            analysisEndDate: Date,
-          ) =>
+        ? ({
+            column,
+            initialTimestampColumn,
+            analysisEndDate,
+          }: {
+            column: string;
+            initialTimestampColumn: string;
+            analysisEndDate: Date;
+          }) =>
             this.applyDailyParticipationTransformation({
               column,
               initialTimestampColumn,
@@ -2784,7 +2790,7 @@ export default abstract class SqlIntegration
               metric,
               overrideConversionWindows,
             })
-        : (column: string) => column;
+        : ({ column }: { column: string }) => column;
 
     return {
       alias,
@@ -3335,26 +3341,26 @@ export default abstract class SqlIntegration
             .map((data) => {
               return `${
                 data.numeratorSourceIndex === f.index
-                  ? `, ${data.aggregatedValueTransformation(
-                      data.numeratorAggFns.fullAggregationFunction(
+                  ? `, ${data.aggregatedValueTransformation({
+                      column: data.numeratorAggFns.fullAggregationFunction(
                         `umj.${data.alias}_value`,
                         `qm.${data.alias}_quantile`,
                       ),
-                      "MIN(umj.timestamp)",
-                      params.settings.endDate,
-                    )} AS ${data.alias}_value`
+                      initialTimestampColumn: "MIN(umj.timestamp)",
+                      analysisEndDate: params.settings.endDate,
+                    })} AS ${data.alias}_value`
                   : ""
               }
                 ${
                   data.ratioMetric && data.denominatorSourceIndex === f.index
-                    ? `, ${data.aggregatedValueTransformation(
-                        data.denominatorAggFns.fullAggregationFunction(
+                    ? `, ${data.aggregatedValueTransformation({
+                        column: data.denominatorAggFns.fullAggregationFunction(
                           `umj.${data.alias}_denominator`,
                           `qm.${data.alias}_quantile`,
                         ),
-                        "MIN(umj.timestamp)",
-                        params.settings.endDate,
-                      )} AS ${data.alias}_denominator`
+                        initialTimestampColumn: "MIN(umj.timestamp)",
+                        analysisEndDate: params.settings.endDate,
+                      })} AS ${data.alias}_denominator`
                     : ""
                 }`;
             })
@@ -6265,15 +6271,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       startDateString = this.addHours(startDateString, delayHours);
     }
 
-    let endDateString = this.castToTimestamp(
-      `"${analysisEndDate.toISOString()}"`,
-    );
+    let endDateString = this.toTimestamp(analysisEndDate);
 
     if (metric.windowSettings.type === "lookback") {
       const lookbackStartDate = new Date(analysisEndDate);
       lookbackStartDate.setHours(lookbackStartDate.getHours() - windowHours);
       // Only override start date for lookback
-      startDateString = `GREATEST(${startDateString}, ${this.castToTimestamp(`"${lookbackStartDate.toISOString()}"`)})`;
+      startDateString = `GREATEST(${startDateString}, ${this.toTimestamp(lookbackStartDate)})`;
     } else if (
       metric.windowSettings.type === "conversion" &&
       !overrideConversionWindows
@@ -7614,17 +7618,17 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               // TODO(incremental-refresh): here is where we need to nullif 0 for
               // quantiles with ignore zeros. Otherwise the coalesce seems fine.
               .map((data) => {
-                return `, ${data.aggregatedValueTransformation(
-                  `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
-                  "u.first_exposure_timestamp",
-                  params.settings.endDate,
-                )} AS ${data.alias}_value ${
+                return `, ${data.aggregatedValueTransformation({
+                  column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
+                  initialTimestampColumn: "u.first_exposure_timestamp",
+                  analysisEndDate: params.settings.endDate,
+                })} AS ${data.alias}_value ${
                   data.ratioMetric
-                    ? `, ${data.aggregatedValueTransformation(
-                        `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
-                        "u.first_exposure_timestamp",
-                        params.settings.endDate,
-                      )} AS ${data.alias}_denominator`
+                    ? `, ${data.aggregatedValueTransformation({
+                        column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        initialTimestampColumn: "u.first_exposure_timestamp",
+                        analysisEndDate: params.settings.endDate,
+                      })} AS ${data.alias}_denominator`
                     : ""
                 }`;
               })

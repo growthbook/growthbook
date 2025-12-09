@@ -1045,6 +1045,8 @@ function getPreviewSQL({
             : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
                 numerator.column
               })`;
+  const numeratorAdjustment =
+    type === "dailyParticipation" ? " / days_since_exposure" : "";
 
   const denominatorCol =
     denominator?.column === "$$count"
@@ -1147,8 +1149,6 @@ FROM
 GROUP BY variation`.trim();
 
   switch (type) {
-    // TODO
-    case "dailyParticipation":
     case "retention":
     case "proportion":
       return {
@@ -1165,11 +1165,12 @@ GROUP BY user${HAVING}
         experimentSQL,
       };
     case "mean":
+    case "dailyParticipation":
       return {
         sql: `
 SELECT${identifierComment}
   ${identifier} AS user,
-  ${numeratorCol} AS value
+  ${numeratorCol}${numeratorAdjustment} AS value
 FROM
   ${numeratorName}${WHERE}
 GROUP BY user
@@ -1993,9 +1994,9 @@ export default function FactMetricModal({
                           </div>
                           <div className="mb-2">
                             <strong>Daily Participation</strong> metrics
-                            calculate the average number of days since exposure
-                            that a unit matches a specific condition, and then
-                            averages that across users.
+                            calculate the average percentage of days since
+                            exposure that a unit matches a specific condition,
+                            and then averages that across users.
                           </div>
                           <div className="mb-2">
                             <strong>Quantile</strong> metrics calculate the

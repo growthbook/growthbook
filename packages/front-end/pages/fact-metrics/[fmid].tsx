@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactMetricType, FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
@@ -107,13 +107,7 @@ function MetricType({
   type,
   quantileType,
 }: {
-  type:
-    | "proportion"
-    | "retention"
-    | "mean"
-    | "ratio"
-    | "quantile"
-    | "dailyParticipation";
+  type: FactMetricType;
   quantileType?: "" | "unit" | "event";
 }) {
   switch (type) {

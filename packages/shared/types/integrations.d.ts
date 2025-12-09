@@ -98,11 +98,15 @@ export type CovariateFirstExposureSettings = {
  * For dailyParticipation metrics, this divides by the participation window to
  * produce a participation rate.
  */
-export type AggregatedValueTransformation = (
-  column: string,
-  initialTimestampColumn: string,
-  analysisEndDate: Date,
-) => string;
+export type AggregatedValueTransformation = ({
+  column,
+  initialTimestampColumn,
+  analysisEndDate,
+}: {
+  column: string;
+  initialTimestampColumn: string;
+  analysisEndDate: Date;
+}) => string;
 
 export type FactMetricData = {
   alias: string;
