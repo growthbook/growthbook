@@ -740,23 +740,21 @@ export default function EditSingleBlock({
                     factMetricId: value,
                     ...(isMetricExplorer && {
                       metricAnalysisId: "",
-                      analysisSettings: (() => {
-                        const {
-                          additionalNumeratorFilters:
-                            _additionalNumeratorFilters,
-                          additionalDenominatorFilters:
-                            _additionalDenominatorFilters,
-                          metricAutoSlices: _metricAutoSlices,
-                          customMetricSlices: _customMetricSlices,
-                          ...restSettings
-                        } = block.analysisSettings;
-                        return {
-                          ...restSettings,
-                          populationId: "",
-                          populationType: "factTable",
-                          userIdType: "",
-                        };
-                      })(),
+                      // Reset display settings to default
+                      displaySettings: {
+                        seriesOverrides: undefined,
+                      },
+                      // Reset analysis settings to default
+                      analysisSettings: {
+                        ...block.analysisSettings,
+                        additionalNumeratorFilters: undefined,
+                        additionalDenominatorFilters: undefined,
+                        metricAutoSlices: undefined,
+                        customMetricSlices: undefined,
+                        populationId: "",
+                        populationType: "factTable",
+                        userIdType: "",
+                      },
                     }),
                   });
                 }}
