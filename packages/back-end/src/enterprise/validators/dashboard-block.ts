@@ -212,6 +212,9 @@ const seriesOverridesValidator = z
   .object({
     seriesId: z.string(),
     hidden: z.boolean().optional(),
+    // Metadata to simplify cleanup logic
+    type: z.enum(["base", "auto", "custom"]),
+    column: z.string().optional(), // For auto slices, the column name
   })
   .strict();
 

@@ -273,6 +273,15 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                 setValue={(v) =>
                   setBlock({
                     ...block,
+                    displaySettings: {
+                      ...block.displaySettings,
+                      seriesOverrides: undefined,
+                    },
+                    analysisSettings: {
+                      ...block.analysisSettings,
+                      metricAutoSlices: [],
+                      customMetricSlices: [],
+                    },
                     visualizationType: v as
                       | "bigNumber"
                       | "timeseries"

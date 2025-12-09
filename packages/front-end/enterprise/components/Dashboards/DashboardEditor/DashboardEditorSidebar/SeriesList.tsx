@@ -37,7 +37,7 @@ interface SeriesCheckboxProps {
   series: SeriesInfo;
   isEnabled: boolean;
   isDisabled: boolean;
-  onToggle: (seriesId: string, checked: boolean) => void;
+  onToggle: (series: SeriesInfo, checked: boolean) => void;
 }
 
 function SeriesCheckbox({
@@ -51,7 +51,7 @@ function SeriesCheckbox({
       <Checkbox
         value={isEnabled}
         disabled={isDisabled}
-        setValue={(checked) => onToggle(series.seriesId, checked)}
+        setValue={(checked) => onToggle(series, checked)}
       />
       <Text size="2">{series.label}</Text>
     </Flex>
@@ -264,10 +264,10 @@ export default function SeriesList({
   const isOnlySeries = allSeries.length === 1;
   const isDisabled = !hasMetricSlicesFeature || isOnlySeries;
 
-  const handleSeriesToggle = (seriesId: string, checked: boolean) => {
+  const handleSeriesToggle = (series: SeriesInfo, checked: boolean) => {
     const currentOverrides = block.displaySettings?.seriesOverrides || [];
     const existingIndex = currentOverrides.findIndex(
-      (c) => c.seriesId === seriesId,
+      (c) => c.seriesId === series.seriesId,
     );
 
     let newOverrides: typeof currentOverrides;
@@ -280,14 +280,23 @@ export default function SeriesList({
       }
     } else {
       // User wants to hide - add or update config
+      // Include metadata to simplify cleanup logic
+      const overrideData = {
+        seriesId: series.seriesId,
+        hidden: true,
+        type: series.type,
+        ...(series.type === "auto" && series.column
+          ? { column: series.column }
+          : {}),
+      };
       if (existingIndex >= 0) {
         newOverrides = [...currentOverrides];
         newOverrides[existingIndex] = {
           ...newOverrides[existingIndex],
-          hidden: true,
+          ...overrideData,
         };
       } else {
-        newOverrides = [...currentOverrides, { seriesId, hidden: true }];
+        newOverrides = [...currentOverrides, overrideData];
       }
     }
 
@@ -320,9 +329,13 @@ export default function SeriesList({
         : undefined
       : [
           ...existingOverrides,
-          ...selectableSeriesIds.map((seriesId) => ({
-            seriesId,
+          ...seriesToAffect.map((series) => ({
+            seriesId: series.seriesId,
             hidden: true,
+            type: series.type,
+            ...(series.type === "auto" && series.column
+              ? { column: series.column }
+              : {}),
           })),
         ];
 

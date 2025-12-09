@@ -201,6 +201,10 @@ export default function MetricSlicesSection({
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </PremiumCallout>
+            ) : block.visualizationType === "bigNumber" ? (
+              <Callout status="info" mb="2">
+                Metric slices are not supported for Big Number visualizations.
+              </Callout>
             ) : (
               <Flex direction="column" gap="4">
                 <div>
@@ -232,21 +236,27 @@ export default function MetricSlicesSection({
                             metricAutoSlices,
                           },
                           // Clean up series overrides for removed auto slices
-                          // Keep overrides for base metric (empty seriesId), custom slices, and remaining auto slices
+                          // Keep overrides for base metric, custom slices, and remaining auto slices
                           displaySettings: {
                             ...block.displaySettings,
                             seriesOverrides:
                               block.displaySettings?.seriesOverrides?.filter(
                                 (override) => {
-                                  // Keep base metric (empty seriesId)
-                                  if (override.seriesId === "") return true;
-                                  // Keep custom slices (they don't start with column:)
-                                  // Custom slices use slice strings, not column:level format
-                                  if (!override.seriesId.includes(":"))
-                                    return true;
-                                  // For auto slices (format: column:level), check if column is still selected
-                                  const [column] = override.seriesId.split(":");
-                                  return metricAutoSlices.includes(column);
+                                  // Keep base metric
+                                  if (override.type === "base") return true;
+                                  // Keep custom slices
+                                  if (override.type === "custom") return true;
+                                  // For auto slices, check if column is still selected
+                                  if (
+                                    override.type === "auto" &&
+                                    override.column
+                                  ) {
+                                    return metricAutoSlices.includes(
+                                      override.column,
+                                    );
+                                  }
+                                  // If auto slice missing column metadata, remove it
+                                  return false;
                                 },
                               ),
                           },
