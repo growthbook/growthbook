@@ -539,9 +539,10 @@ const startExperimentIncrementalRefreshQueries = async (
       name: `insert_metrics_source_data_${group.groupId}`,
       displayTitle: `Update Metrics Source ${sourceName}`,
       query: integration.getInsertMetricSourceDataQuery(metricParams),
-      dependencies: createMetricsSourceQuery
-        ? [createMetricsSourceQuery.query]
-        : [alterUnitsTableQuery.query],
+      dependencies: [
+        ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
+        alterUnitsTableQuery.query,
+      ],
       run: (query, setExternalId) =>
         integration.runIncrementalWithNoOutputQuery(query, setExternalId),
       process: (rows) => rows,
@@ -576,6 +577,21 @@ const startExperimentIncrementalRefreshQueries = async (
     let insertMetricCovariateDataQuery: QueryPointer | null = null;
     if (anyMetricHasCuped) {
       if (!existingCovariateSource) {
+        // Safety net in case our data model is out of sync with the database
+        const dropMetricCovariateTableQuery = await startQuery({
+          name: `drop_metrics_covariate_table_${group.groupId}`,
+          displayTitle: `Drop Old Metric Covariate Table ${sourceName}`,
+          query: integration.getDropMetricSourceCovariateTableQuery({
+            metricSourceCovariateTableFullName,
+          }),
+          dependencies: [updateUnitsTableQuery.query],
+          run: (query, setExternalId) =>
+            integration.runDropTableQuery(query, setExternalId),
+          process: (rows) => rows,
+          queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
+        });
+        queries.push(dropMetricCovariateTableQuery);
+
         createMetricCovariateTableQuery = await startQuery({
           name: `create_metrics_covariate_table_${group.groupId}`,
           displayTitle: `Create Metric Covariate Table ${sourceName}`,
@@ -584,7 +600,7 @@ const startExperimentIncrementalRefreshQueries = async (
             metrics: group.metrics,
             metricSourceCovariateTableFullName,
           }),
-          dependencies: [updateUnitsTableQuery.query],
+          dependencies: [dropMetricCovariateTableQuery.query],
           run: (query, setExternalId) =>
             integration.runIncrementalWithNoOutputQuery(query, setExternalId),
           process: (rows) => rows,

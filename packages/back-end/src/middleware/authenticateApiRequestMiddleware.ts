@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { hasPermission } from "shared/permissions";
+import { hasPermission, roleToPermissionMap } from "shared/permissions";
 import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
@@ -8,10 +8,7 @@ import { getCustomLogProps } from "back-end/src/util/logger";
 import { EventUserApiKey } from "back-end/types/events/event-types";
 import { isApiKeyForUserInOrganization } from "back-end/src/util/api-key.util";
 import { OrganizationInterface, Permission } from "back-end/types/organization";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "back-end/src/util/organization.util";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { TeamInterface } from "back-end/types/team";

@@ -9,11 +9,15 @@ import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import {
+  AuditInterfaceTemplate,
+  EntityType,
+  EventTypes,
+  EventType,
+} from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { EntityType, EventTypes, EventType } from "back-end/src/types/Audit";
-import { AuditInterfaceTemplate } from "back-end/types/audit";
 import {
   auditDetailsCreate,
   auditDetailsDelete,

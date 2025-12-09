@@ -2,9 +2,8 @@ import { cloneDeep } from "lodash";
 import {
   ALL_PERMISSIONS,
   ENV_SCOPED_PERMISSIONS,
-  getPermissionsObjectByPolicies,
-  getRoleById,
   roleSupportsEnvLimit,
+  roleToPermissionMap,
 } from "shared/permissions";
 import {
   OrganizationInterface,
@@ -50,15 +49,6 @@ export function getEnvironments(org: OrganizationInterface) {
     ];
   }
   return org.settings.environments;
-}
-
-export function roleToPermissionMap(
-  roleId: string,
-  org: OrganizationInterface,
-): PermissionsObject {
-  const role = getRoleById(roleId || "readonly", org);
-  const policies = role?.policies || [];
-  return getPermissionsObjectByPolicies(policies);
 }
 
 function isValidPermission(permission: string): permission is Permission {

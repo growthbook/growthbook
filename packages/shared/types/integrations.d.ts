@@ -17,6 +17,16 @@ import type { PopulationDataQuerySettings } from "back-end/types/query";
 import { SegmentInterface } from "shared/types/segment";
 import { TemplateVariables } from "shared/types/sql";
 
+export interface PipelineIntegration {
+  getExperimentUnitsTableQueryFromCte(
+    tableFullName: string,
+    cte: string,
+  ): string;
+  getSampleUnitsCTE(): string;
+  getPipelineValidationInsertQuery(params: { tableFullName: string }): string;
+  getDropUnitsTableQuery(params: { fullTablePath: string }): string;
+}
+
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
 export type DataType =
@@ -64,7 +74,7 @@ export type FactMetricAggregationMetadata = {
 
   // Takes the processed column from the fact table and produces the final metric value
   // directly and is only used for CUPED metrics in the incremental refresh pipeline.
-  fullAggregationFunction: (column: string) => string;
+  fullAggregationFunction: (column: string, quantileColumn?: string) => string;
 };
 
 // "exposure" builds a window before the first exposure date for the user
@@ -101,8 +111,10 @@ export type FactMetricData = {
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
   capCoalesceDenominatorCovariate: string;
-  aggFns: FactMetricAggregationMetadata;
-  denomAggFns?: FactMetricAggregationMetadata;
+  numeratorAggFns: FactMetricAggregationMetadata;
+  denominatorAggFns: FactMetricAggregationMetadata;
+  covariateNumeratorAggFns: FactMetricAggregationMetadata;
+  covariateDenominatorAggFns: FactMetricAggregationMetadata;
   minMetricDelay: number;
   raMetricFirstExposureSettings: CovariateFirstExposureSettings;
   raMetricPhaseStartSettings: CovariatePhaseStartSettings;
@@ -307,6 +319,10 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+}
+
+export interface DropMetricSourceCovariateTableQueryParams {
+  metricSourceCovariateTableFullName: string;
 }
 
 export interface CreateMetricSourceCovariateTableQueryParams {

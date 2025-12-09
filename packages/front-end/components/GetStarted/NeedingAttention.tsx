@@ -17,7 +17,7 @@ import {
   getSafeRolloutResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box } from "spectacle";
 import Link from "next/link";

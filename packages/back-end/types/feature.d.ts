@@ -85,3 +85,5 @@ export interface FeatureUsageData {
   byValue: FeatureUsageDataPoint[];
   byRuleId: FeatureUsageDataPoint[];
 }
+
+export type AttributeMap = Map<string, string>;
