@@ -417,16 +417,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </Frame>
                 ) : null}
 
-                {d.settings.notebookRunQuery && (
-                  <Frame>
-                    <DataSourceJupyterNotebookQuery
-                      dataSource={d}
-                      onSave={updateDataSourceSettings}
-                      onCancel={() => undefined}
-                      canEdit={canUpdateDataSourceSettings}
-                    />
-                  </Frame>
-                )}
+                {/* {d.settings.notebookRunQuery && ( */}
+                <Frame>
+                  <DataSourceJupyterNotebookQuery
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+                {/* )} */}
               </>
             )}
 
