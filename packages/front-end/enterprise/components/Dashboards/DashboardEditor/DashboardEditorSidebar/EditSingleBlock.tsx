@@ -201,7 +201,6 @@ export default function EditSingleBlock({
           return true;
         }
 
-        // Quantile metrics are not supported in the Dashboard Editor
         if (UNSUPPORTED_METRIC_EXPLORER_TYPES.includes(factMetric.metricType)) {
           return false;
         }
