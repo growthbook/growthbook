@@ -43,13 +43,16 @@ FROM \`${metricSource.tableName}\``;
       metricSource.timestampColumn &&
       metricSource.timestampColumn !== "timestamp"
     ) {
-      additionalColumnsToSelect.push(
-        `${
-          datasource?.type === "bigquery"
-            ? `CAST(${metricSource.timestampColumn} as DATETIME)`
-            : metricSource.timestampColumn
-        } AS timestamp`,
-      );
+      let timestampCol = metricSource.timestampColumn;
+
+      // Pre-aggregated tables typically only have a DATE and not DATETIME/TIMESTAMP
+      // BigQuery is very strict about types, so we need to convert DATE to DATETIME
+      // We add 1 day so metrics that happen on the same day as exposure are included
+      if (metricSource.timestampAsDay && datasource?.type === "bigquery") {
+        timestampCol = `DATETIME_ADD(CAST(${timestampCol} as DATETIME), INTERVAL 1 DAY)`;
+      }
+
+      additionalColumnsToSelect.push(`${timestampCol} AS timestamp`);
     }
 
     // Materialize all computed fields
