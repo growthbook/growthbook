@@ -126,10 +126,6 @@
                 "group": ["..*"],
                 "message": "Use absolute imports instead of parent directory imports",
               },
-              {
-                "group": ["shared/src/**"],
-                "message": "Import from entry points (shared/validators, shared/enterprise, shared/types/*) instead of shared/src/*",
-              },
             ],
           },
         ],
@@ -162,12 +158,6 @@
                   "Table",
                   "Tabs",
                 ],
-              },
-            ],
-            "patterns": [
-              {
-                "group": ["shared/src/**"],
-                "message": "Import from entry points (shared/validators, shared/enterprise, shared/types/*) instead of shared/src/*",
               },
             ],
           },
@@ -240,12 +230,6 @@
                 "name": "node-fetch",
                 "message": "Use `import { fetch } from \"back-end/src/util/http.util\";` instead.",
                 "importNames": ["default"],
-              },
-            ],
-            "patterns": [
-              {
-                "group": ["shared/src/**"],
-                "message": "Import from entry points (shared/validators, shared/enterprise, shared/types/*) instead of shared/src/*",
               },
             ],
           },
