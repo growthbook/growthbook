@@ -297,6 +297,17 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
+  let dimensionsForTraffic: ExperimentDimension[] = [];
+  if (exposureQuery?.dimensionMetadata) {
+    dimensionsForTraffic = exposureQuery.dimensionMetadata
+      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+      .map((dm) => ({
+        type: "experiment",
+        id: dm.dimension,
+        specifiedSlices: dm.specifiedSlices,
+      }));
+  }
+
   const experimentDimensions: ExperimentDimension[] =
     params.fullRefresh || !incrementalRefreshModel
       ? exposureQuery.dimensions.map((d) => {
@@ -577,6 +588,21 @@ const startExperimentIncrementalRefreshQueries = async (
     let insertMetricCovariateDataQuery: QueryPointer | null = null;
     if (anyMetricHasCuped) {
       if (!existingCovariateSource) {
+        // Safety net in case our data model is out of sync with the database
+        const dropMetricCovariateTableQuery = await startQuery({
+          name: `drop_metrics_covariate_table_${group.groupId}`,
+          displayTitle: `Drop Old Metric Covariate Table ${sourceName}`,
+          query: integration.getDropMetricSourceCovariateTableQuery({
+            metricSourceCovariateTableFullName,
+          }),
+          dependencies: [updateUnitsTableQuery.query],
+          run: (query, setExternalId) =>
+            integration.runDropTableQuery(query, setExternalId),
+          process: (rows) => rows,
+          queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
+        });
+        queries.push(dropMetricCovariateTableQuery);
+
         createMetricCovariateTableQuery = await startQuery({
           name: `create_metrics_covariate_table_${group.groupId}`,
           displayTitle: `Create Metric Covariate Table ${sourceName}`,
@@ -585,7 +611,7 @@ const startExperimentIncrementalRefreshQueries = async (
             metrics: group.metrics,
             metricSourceCovariateTableFullName,
           }),
-          dependencies: [updateUnitsTableQuery.query],
+          dependencies: [dropMetricCovariateTableQuery.query],
           run: (query, setExternalId) =>
             integration.runIncrementalWithNoOutputQuery(query, setExternalId),
           process: (rows) => rows,
@@ -744,7 +770,7 @@ const startExperimentIncrementalRefreshQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: experimentDimensions,
+        dimensions: dimensionsForTraffic,
         useUnitsTable: true,
       }),
       dependencies: [alterUnitsTableQuery.query],
