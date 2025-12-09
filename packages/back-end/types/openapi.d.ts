@@ -8023,11 +8023,20 @@ export interface operations {
                 id: string;
                 /** @description The owner/creator of the feature flag */
                 owner: string;
+                /** @description The project ID this feature belongs to */
+                project: string;
+                /** @description Whether the feature is archived (always false in this response as archived features are excluded) */
+                archived: boolean;
                 /**
                  * Format: date-time 
                  * @description When the feature was created
                  */
                 dateCreated: string;
+                /**
+                 * Format: date-time 
+                 * @description When the feature was last updated. Features are sorted by this field (oldest first) to prioritize the most stale features.
+                 */
+                dateUpdated: string;
                 /** @description Whether the feature is considered stale */
                 stale: boolean;
                 /**
@@ -8035,6 +8044,18 @@ export interface operations {
                  * @enum {string}
                  */
                 reason?: "error" | "no-rules" | "rules-one-sided";
+                /**
+                 * @description The type of the feature value 
+                 * @enum {string}
+                 */
+                valueType: "boolean" | "string" | "number" | "json";
+                /** @description Map of environment IDs to their effective values. Follows the same structure as the features endpoint for consistency. */
+                environments: {
+                  [key: string]: {
+                    /** @description The effective value for this environment (stored as string, parse based on valueType). This is the value that should be used when removing the stale flag in this environment. */
+                    value: string;
+                  } | undefined;
+                };
               })[];
           }) & {
             limit: number;

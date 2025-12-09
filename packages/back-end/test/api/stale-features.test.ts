@@ -58,6 +58,11 @@ describe("stale-features API", () => {
     setReqContext({
       org,
       organization: org,
+      models: {
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
+      },
       permissions: {
         canReadSingleProjectResource: () => true,
       },
@@ -99,15 +104,35 @@ describe("stale-features API", () => {
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
       owner: "",
+      project: "",
+      archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: new Date("2020-01-01").toISOString(),
       stale: true,
       reason: "no-rules",
+      valueType: "boolean",
+      environments: {
+        production: { value: "false" },
+        dev: { value: "false" },
+      },
     });
-    expect(response.body.features[1]).toEqual({
-      id: "feature-2",
-      owner: "",
-      dateCreated: new Date("2024-01-01").toISOString(),
-      stale: false,
+    // feature-2 has a recent dateUpdated, so it's not stale
+    // We can't use new Date() in the assertion as it changes, so we check it's recent
+    expect(response.body.features[1].id).toBe("feature-2");
+    expect(response.body.features[1].owner).toBe("");
+    expect(response.body.features[1].project).toBe("");
+    expect(response.body.features[1].archived).toBe(false);
+    expect(response.body.features[1].dateCreated).toBe(
+      new Date("2024-01-01").toISOString(),
+    );
+    expect(
+      new Date(response.body.features[1].dateUpdated).getTime(),
+    ).toBeGreaterThan(new Date("2024-01-01").getTime());
+    expect(response.body.features[1].stale).toBe(false);
+    expect(response.body.features[1].valueType).toBe("boolean");
+    expect(response.body.features[1].environments).toEqual({
+      production: { value: "false" },
+      dev: { value: "false" },
     });
     // Check pagination fields
     expect(response.body).toMatchObject({
@@ -123,13 +148,13 @@ describe("stale-features API", () => {
   it("returns stale status for all features when no IDs provided", async () => {
     const features = [
       createFeature("feature-1", {
-        dateUpdated: new Date("2020-01-01"),
+        dateUpdated: new Date("2020-01-01"), // Older, should come first
         environmentSettings: {
           production: { enabled: true, rules: [] },
         },
       }),
       createFeature("feature-2", {
-        dateUpdated: new Date(),
+        dateUpdated: new Date("2021-01-01"), // Newer, should come second
         environmentSettings: {
           production: { enabled: true, rules: [] },
         },
@@ -146,8 +171,15 @@ describe("stale-features API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.features).toHaveLength(2);
+    // Verify sorting by dateUpdated (oldest first)
     expect(response.body.features[0].id).toBe("feature-1");
+    expect(response.body.features[0].dateUpdated).toBe(
+      new Date("2020-01-01").toISOString(),
+    );
     expect(response.body.features[1].id).toBe("feature-2");
+    expect(response.body.features[1].dateUpdated).toBe(
+      new Date("2021-01-01").toISOString(),
+    );
     expect(response.body.total).toBe(2);
   });
 
@@ -219,17 +251,136 @@ describe("stale-features API", () => {
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
       owner: "",
+      project: "",
+      archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: new Date("2020-01-01").toISOString(),
       stale: true,
       reason: "rules-one-sided",
+      valueType: "boolean",
+      environments: {
+        production: { value: "true" }, // Value from the rollout rule, not the feature's default
+        dev: { value: "false" }, // No rules in dev, so uses default
+      },
     });
     expect(response.body.total).toBe(1);
+  });
+
+  it("handles features with force rules (rules-one-sided)", async () => {
+    const features = [
+      createFeature("feature-force", {
+        dateUpdated: new Date("2020-01-01"),
+        defaultValue: "false", // Default is false
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "force-rule-1",
+                enabled: true,
+                description: "",
+                condition: "", // No condition, applies to everyone
+                value: "true", // Force rule sets it to true
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    (getAllFeatures as jest.Mock).mockResolvedValue(features);
+    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+
+    const response = await request(app)
+      .post("/api/v1/stale-features")
+      .send({ featureIds: ["feature-force"] })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.features[0]).toEqual({
+      id: "feature-force",
+      owner: "",
+      project: "",
+      archived: false,
+      dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: new Date("2020-01-01").toISOString(),
+      stale: true,
+      reason: "rules-one-sided",
+      valueType: "boolean",
+      environments: {
+        production: { value: "true" }, // Value from the force rule, not the feature's default
+        dev: { value: "false" }, // No rules in dev, so uses default
+      },
+    });
+  });
+
+  it("returns different values for different environments", async () => {
+    const features = [
+      createFeature("feature-env-specific", {
+        dateUpdated: new Date("2020-01-01"),
+        defaultValue: "false",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "force-prod",
+                enabled: true,
+                description: "",
+                condition: "",
+                value: "true", // Production has force rule to true
+              },
+            ],
+          },
+          dev: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "force-dev",
+                enabled: true,
+                description: "",
+                condition: "",
+                value: "false", // Dev has force rule to false
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    (getAllFeatures as jest.Mock).mockResolvedValue(features);
+    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+
+    const response = await request(app)
+      .post("/api/v1/stale-features")
+      .send({ featureIds: ["feature-env-specific"] })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.features[0]).toEqual({
+      id: "feature-env-specific",
+      owner: "",
+      project: "",
+      archived: false,
+      dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: new Date("2020-01-01").toISOString(),
+      stale: true,
+      reason: "rules-one-sided",
+      valueType: "boolean",
+      environments: {
+        production: { value: "true" }, // Production value from force rule
+        dev: { value: "false" }, // Dev value from force rule
+      },
+    });
   });
 
   it("returns empty array for non-existent feature IDs", async () => {
     const features = [
       createFeature("feature-1", {
-        dateUpdated: new Date(),
+        dateUpdated: new Date("2020-01-01"),
       }),
     ];
 
@@ -255,6 +406,11 @@ describe("stale-features API", () => {
     setReqContext({
       org,
       organization: org,
+      models: {
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
+      },
       permissions: {
         canReadSingleProjectResource: (project?: string) =>
           project !== "proj_denied",
@@ -301,8 +457,16 @@ describe("stale-features API", () => {
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
       owner: "",
+      project: "",
+      archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: new Date("2020-01-01").toISOString(),
       stale: false,
+      valueType: "boolean",
+      environments: {
+        production: { value: "false" },
+        dev: { value: "false" },
+      },
     });
   });
 
@@ -329,17 +493,26 @@ describe("stale-features API", () => {
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
       owner: "",
+      project: "",
+      archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: new Date("2020-01-01").toISOString(),
       stale: false,
+      valueType: "boolean",
+      environments: {
+        production: { value: "false" },
+        dev: { value: "false" },
+      },
     });
   });
 
   it("supports pagination with limit and offset", async () => {
+    // Use different dates to verify sorting by dateUpdated (oldest first)
     const features = [
-      createFeature("feature-a", { dateUpdated: new Date("2020-01-01") }),
-      createFeature("feature-b", { dateUpdated: new Date("2020-01-01") }),
-      createFeature("feature-c", { dateUpdated: new Date("2020-01-01") }),
-      createFeature("feature-d", { dateUpdated: new Date("2020-01-01") }),
+      createFeature("feature-a", { dateUpdated: new Date("2020-01-01") }), // Oldest
+      createFeature("feature-b", { dateUpdated: new Date("2020-01-02") }),
+      createFeature("feature-c", { dateUpdated: new Date("2020-01-03") }),
+      createFeature("feature-d", { dateUpdated: new Date("2020-01-04") }), // Newest
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
@@ -381,6 +554,138 @@ describe("stale-features API", () => {
       total: 4,
       hasMore: false,
       nextOffset: null,
+    });
+  });
+
+  it("handles empty featureIds array", async () => {
+    const features = [
+      createFeature("feature-1", {
+        dateUpdated: new Date("2020-01-01"),
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      }),
+    ];
+
+    (getAllFeatures as jest.Mock).mockResolvedValue(features);
+    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+
+    // Empty array should be treated the same as undefined (return all features)
+    const response = await request(app)
+      .post("/api/v1/stale-features")
+      .send({ featureIds: [] })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.features).toHaveLength(1);
+    expect(response.body.features[0].id).toBe("feature-1");
+  });
+
+  it("handles stopped experiments (experiment-ref rules)", async () => {
+    const features = [
+      createFeature("feature-with-stopped-exp", {
+        dateUpdated: new Date("2020-01-01"),
+        linkedExperiments: [],
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment-ref",
+                id: "exp-ref-1",
+                enabled: true,
+                description: "",
+                condition: "",
+                experimentId: "exp_123",
+                variations: [
+                  { value: "false", variationId: "var_control" },
+                  { value: "true", variationId: "var_treatment" },
+                ],
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    const experiments = [
+      {
+        id: "exp_123",
+        status: "stopped",
+        releasedVariationId: "var_treatment", // Winning variation
+        archived: false,
+        phases: [{ coverage: 1 }], // Required for includeExperimentInPayload
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+      },
+    ];
+
+    (getAllFeatures as jest.Mock).mockResolvedValue(features);
+    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(
+      new Map(experiments.map((e) => [e.id, e])),
+    );
+
+    const response = await request(app)
+      .post("/api/v1/stale-features")
+      .send({ featureIds: ["feature-with-stopped-exp"] })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.features[0]).toEqual({
+      id: "feature-with-stopped-exp",
+      owner: "",
+      project: "",
+      archived: false,
+      dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: new Date("2020-01-01").toISOString(),
+      stale: true,
+      reason: "rules-one-sided",
+      valueType: "boolean",
+      environments: {
+        production: { value: "true" }, // Value from winning variation
+        dev: { value: "false" }, // No rules in dev, uses default
+      },
+    });
+  });
+
+  it("handles disabled environments", async () => {
+    const features = [
+      createFeature("feature-disabled-env", {
+        dateUpdated: new Date("2020-01-01"),
+        environmentSettings: {
+          production: {
+            enabled: false, // Disabled environment
+            rules: [],
+          },
+          dev: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "force-dev",
+                enabled: true,
+                description: "",
+                condition: "",
+                value: "true",
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    (getAllFeatures as jest.Mock).mockResolvedValue(features);
+    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+
+    const response = await request(app)
+      .post("/api/v1/stale-features")
+      .send({ featureIds: ["feature-disabled-env"] })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.features[0].environments).toEqual({
+      production: { value: "false" }, // Uses default when environment is disabled
+      dev: { value: "true" }, // Uses rule value when enabled
     });
   });
 });

@@ -38,8 +38,13 @@ responses:
                     required:
                       - id
                       - owner
+                      - project
+                      - archived
                       - dateCreated
+                      - dateUpdated
                       - stale
+                      - valueType
+                      - environments
                     properties:
                       id:
                         type: string
@@ -47,10 +52,20 @@ responses:
                       owner:
                         type: string
                         description: The owner/creator of the feature flag
+                      project:
+                        type: string
+                        description: The project ID this feature belongs to
+                      archived:
+                        type: boolean
+                        description: Whether the feature is archived (always false in this response as archived features are excluded)
                       dateCreated:
                         type: string
                         format: date-time
                         description: When the feature was created
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        description: When the feature was last updated. Features are sorted by this field (oldest first) to prioritize the most stale features.
                       stale:
                         type: boolean
                         description: Whether the feature is considered stale
@@ -61,4 +76,23 @@ responses:
                           - no-rules
                           - rules-one-sided
                         description: The reason why the feature is stale (only present if stale is true)
+                      valueType:
+                        type: string
+                        enum:
+                          - boolean
+                          - string
+                          - number
+                          - json
+                        description: The type of the feature value
+                      environments:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          required:
+                            - value
+                          properties:
+                            value:
+                              type: string
+                              description: The effective value for this environment (stored as string, parse based on valueType). This is the value that should be used when removing the stale flag in this environment.
+                        description: Map of environment IDs to their effective values. Follows the same structure as the features endpoint for consistency.
             - $ref: "../schemas/PaginationFields.yaml"
