@@ -1034,19 +1034,19 @@ function getPreviewSQL({
     "`" + (denominatorFactTable?.name || "Fact Table") + "`";
 
   const numeratorCol =
-    numerator.column === "$$count"
-      ? "COUNT(*)"
-      : numerator.column === "$$distinctUsers"
-        ? "1"
-        : numerator.column === "$$distinctDates"
-          ? `COUNT(DISTINCT DATE(timestamp))`
+    type === "dailyParticipation" || numerator.column === "$$distinctDates"
+      ? `COUNT(DISTINCT DATE(timestamp))`
+      : numerator.column === "$$count"
+        ? "COUNT(*)"
+        : numerator.column === "$$distinctUsers"
+          ? "1"
           : numerator.aggregation === "count distinct"
             ? `COUNT(DISTINCT ${numerator.column})`
             : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
                 numerator.column
               })`;
   const numeratorAdjustment =
-    type === "dailyParticipation" ? " / days_since_exposure" : "";
+    type === "dailyParticipation" ? "\n\t/ CEIL(days_since_exposure)" : "";
 
   const denominatorCol =
     denominator?.column === "$$count"
@@ -2746,19 +2746,16 @@ export default function FactMetricModal({
                           loseRiskRegisterField={form.register("loseRisk")}
                           riskError={riskError}
                         />
-                        {type === "ratio" ? (
+                        {type === "ratio" || type === "dailyParticipation" ? (
                           <Box mb="1">
                             <Checkbox
-                              label="Format ratio as a percentage"
+                              label="Format average as a percentage"
                               value={form.watch("displayAsPercentage") ?? false}
                               setValue={(v) =>
                                 form.setValue("displayAsPercentage", v === true)
                               }
+                              description="Will render variation means as a percentage rather than a proportion (e.g. 34% instead of 0.34)."
                             />
-                            <Box className="text-muted small">
-                              Will render variation means as a percentage rather
-                              than a proportion (e.g. 34% instead of 0.34).
-                            </Box>
                           </Box>
                         ) : null}
                       </TabsContent>

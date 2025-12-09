@@ -6275,13 +6275,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       startDateString = this.addHours(startDateString, delayHours);
     }
 
-    let endDateString = this.toTimestamp(analysisEndDate);
+    let endDateString = this.castToTimestamp(this.toTimestamp(analysisEndDate));
 
     if (metric.windowSettings.type === "lookback") {
       const lookbackStartDate = new Date(analysisEndDate);
       lookbackStartDate.setHours(lookbackStartDate.getHours() - windowHours);
       // Only override start date for lookback
-      startDateString = `GREATEST(${startDateString}, ${this.toTimestamp(lookbackStartDate)})`;
+      startDateString = `GREATEST(${startDateString}, ${this.castToTimestamp(this.toTimestamp(lookbackStartDate))})`;
     } else if (
       metric.windowSettings.type === "conversion" &&
       !overrideConversionWindows
