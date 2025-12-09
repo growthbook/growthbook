@@ -34,23 +34,23 @@ This document tracks the migration of all HTML `<table>` elements to the shared 
 - ✅ `packages/front-end/ui/ResponsiveTable.module.scss` (created)
 - ✅ `packages/front-end/package.json` (added sass dependency)
 
-## Phase 2: Pilot Migration (10 Simple Tables) 🔄 IN PROGRESS
+## Phase 2: Pilot Migration (10 Simple Tables) ✅ COMPLETED
 
-**Status**: 🔄 1 of 10 completed
+**Status**: ✅ Committed (c5acd1503)
 
 **Target**: Migrate 10 simplest tables to validate approach and build confidence
 
-**Files to migrate**:
-1. ✅ `/packages/front-end/pages/segments/index.tsx` - COMPLETED
-2. ⏳ `/packages/front-end/pages/environments.tsx`
-3. ⏳ `/packages/front-end/pages/projects/index.tsx`
-4. ⏳ `/packages/front-end/pages/attributes.tsx`
-5. ⏳ `/packages/front-end/pages/namespaces.tsx`
-6. ⏳ `/packages/front-end/components/Settings/Teams/TeamsList.tsx`
-7. ⏳ `/packages/front-end/components/Teams/Roles/RoleList.tsx`
-8. ⏳ `/packages/front-end/pages/settings/tags.tsx`
-9. ⏳ `/packages/front-end/components/Metrics/MetricGroupsList.tsx`
-10. ⏳ `/packages/front-end/components/FactTables/FactMetricList.tsx`
+**Files migrated**:
+1. ✅ `/packages/front-end/pages/segments/index.tsx`
+2. ✅ `/packages/front-end/pages/environments.tsx`
+3. ✅ `/packages/front-end/pages/projects/index.tsx`
+4. ✅ `/packages/front-end/pages/attributes.tsx`
+5. ✅ `/packages/front-end/pages/namespaces.tsx`
+6. ✅ `/packages/front-end/components/Settings/Teams/TeamsList.tsx`
+7. ✅ `/packages/front-end/components/Teams/Roles/RoleList.tsx`
+8. ✅ `/packages/front-end/pages/settings/tags.tsx`
+9. ✅ `/packages/front-end/components/Metrics/MetricGroupsList.tsx`
+10. ✅ `/packages/front-end/components/FactTables/FactMetricList.tsx`
 
 **Migration pattern established**:
 1. Add imports: `Table, TableHeader, TableBody, TableRow, TableColumnHeader, TableCell`
@@ -63,17 +63,72 @@ This document tracks the migration of all HTML `<table>` elements to the shared 
    - `<td>` → `<TableCell>`
 4. Preserve all Bootstrap responsive classes, interactive elements, and existing logic
 
-**Commit when complete**: "feat: migrate 10 simple tables to Radix Table component (Phase 2 pilot)"
+**Commit**: "feat: migrate 10 simple tables to Radix Table component (Phase 2 pilot)"
 
-## Phase 3: Standard Tables (Batch 1) ⏳ PENDING
+## Phase 3: Standard Tables (Batch 1) ✅ COMPLETED
 
-**Target**: ~25-30 standard tables with `.gbtable` class
+**Status**: ✅ Committed (de3a9ef0d)
 
-**Approach**: Migrate in smaller batches of 5-10 files, commit each batch
+**Target**: Migrate standard tables with `.gbtable` class
 
-**Files**: TBD (will be identified from inventory)
+**Files migrated** (10 tables):
+1. ✅ `components/Settings/Webhooks.tsx`
+2. ✅ `components/Settings/DataSources.tsx`
+3. ✅ `components/License/ShowLicenseInfo.tsx`
+4. ✅ `components/SavedQueries/SavedQueriesList.tsx`
+5. ✅ `components/CustomFields/CustomFields.tsx` (with drag-and-drop)
+6. ✅ `components/SavedGroups/ConditionGroups.tsx`
+7. ✅ `components/SavedGroups/IdLists.tsx`
+8. ✅ `components/Settings/Team/InviteList.tsx`
+9. ✅ `components/Settings/Team/PendingMemberList.tsx`
+10. ✅ `components/Settings/Team/MemberList.tsx` (with sorting & pagination)
 
-**Estimated effort**: 2-3 days
+**Commit**: "feat: migrate 10 standard tables to Radix Table component (Phase 3 Batch 1)"
+
+## Phase 3: Standard Tables (Batch 2) ✅ COMPLETED
+
+**Status**: ✅ Committed (90b065c96)
+
+**Files migrated** (15 tables):
+- Billing/PaymentInfo.tsx
+- EventWebHookLogs.tsx, MetricTooltipBody.tsx
+- OrphanedUsersList.tsx, DimensionSlicesRunner.tsx
+- GrowthBookSetupCodeSnippet.tsx, ArchetypeList.tsx
+- HistoryTable.tsx (expandable rows)
+- PowerCalculationContent.tsx (3 tables!)
+- FactTableSchema.tsx, ColumnModal.tsx, FactFilterModal.tsx
+- ColumnList.tsx, FactFilterList.tsx, ApiKeysTable.tsx
+
+## Phase 3: Standard Tables (Batch 3) ✅ COMPLETED
+
+**Status**: ✅ Committed (c97eef36c)
+
+**Files migrated** (21 files, 22 tables):
+- MetricCorrelationsExperimentTable.tsx, ExecExperimentImpact.tsx
+- MetricsList.tsx, DisplayTestQueryResults.tsx
+- DataSourceViewEditExperimentProperties.tsx
+- SimulateFeatureValues.tsx, ArchetypeResults.tsx
+- ExperimentWinRateByProject.tsx
+- ExperimentsListTable.tsx, EditPhasesModal.tsx
+- ExperimentList.tsx, ImportExperimentList.tsx
+- ExperimentReportsList.tsx, MetricExperiments.tsx
+- ShareModal.tsx, queries/[did].tsx
+- saved-groups/[sgid].tsx, features/index.tsx (sticky)
+- dashboards/index.tsx, activity.tsx, admin.tsx (2 tables)
+
+## Phase 3: Recovered WIP Tables ✅ COMPLETED
+
+**Status**: ✅ Committed (b32d63b78)
+
+**Files migrated** (16 tables):
+- AutoGenerateMetricsModal.tsx, SDKConnectionsList.tsx
+- SdkWebhooks.tsx, SDKEndpoints.tsx
+- NeedingAttention.tsx, AutoMetricCard.tsx
+- bandits/index.tsx, dimensions/index.tsx
+- exposure-debugger.tsx, fact-tables/index.tsx
+- features/FeaturesDraftTable.tsx, holdouts/index.tsx
+- reports.tsx, custom-hooks.tsx
+- team/[tid].tsx, webhooks/index.tsx
 
 ## Phase 4: Tables with .appbox ⏳ PENDING
 
@@ -245,8 +300,21 @@ git revert <commit-hash>  # Revert specific phase
 
 ## Current Status
 
-**Last updated**: 2025-12-04
+**Last updated**: 2025-12-05
 
-**Current phase**: Phase 2 (Pilot Migration) - 1 of 10 tables completed
+**Current phase**: Phase 3 - ✅ ALL SIMPLE TABLES COMPLETED!
 
-**Next step**: Continue migrating remaining 9 pilot tables following established pattern
+**Progress**: ~72 of ~110 tables migrated (65%)
+
+**Tables migrated by phase:**
+- Phase 1: Component enhancement ✅
+- Phase 2: 10 pilot tables ✅
+- Phase 3 Batch 1: 10 tables ✅
+- Phase 3 Batch 2: 15 tables ✅
+- Phase 3 Batch 3: 21 files (22 tables) ✅
+- Recovered WIP: 16 tables ✅
+- **Total: 72+ tables migrated**
+
+**Remaining**: ~38 files with complex tables
+
+**Next step**: Tackle remaining complex tables (experiment results, feature flags, etc.)
