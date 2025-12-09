@@ -108,7 +108,7 @@ export default function SeriesList({
 
         // Add "Other" slice
         series.push({
-          seriesId: formatSliceLabel({ [columnName]: "Other" }),
+          seriesId: formatSliceLabel({ [columnName]: null }),
           label: "Other",
           type: "auto",
           column: columnName,
