@@ -18,6 +18,7 @@ import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "shared/validators";
 import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
+import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -189,30 +190,32 @@ export default function EditSingleBlock({
   const blockContext = useBlockContext(blockId);
 
   // TODO: does this need to handle metric groups
-  const factMetricOptions = useMemo(
-    () =>
-      factMetrics
+  const factMetricOptions = useMemo(() => {
+    return factMetrics
+      .filter((factMetric) => {
+        // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
+        if (
+          blockHasFieldOfType(block, "factMetricId", isString) &&
+          factMetric.id === block.factMetricId
+        ) {
+          return true;
+        }
+
+        if (UNSUPPORTED_METRIC_EXPLORER_TYPES.includes(factMetric.metricType)) {
+          return false;
+        }
+
         // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
-        .filter((factMetric) => {
-          if (!projects.length || !factMetric.projects.length) {
-            return true;
-          }
+        if (!projects.length || !factMetric.projects.length) {
+          return true;
+        }
 
-          // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
-          if (
-            blockHasFieldOfType(block, "factMetricId", isString) &&
-            factMetric.id === block.factMetricId
-          ) {
-            return true;
-          }
-
-          return projects.every((project) =>
-            factMetric.projects.includes(project),
-          );
-        })
-        .map((m) => ({ label: m.name, value: m.id })),
-    [block, factMetrics, projects],
-  );
+        return projects.every((project) =>
+          factMetric.projects.includes(project),
+        );
+      })
+      .map((m) => ({ label: m.name, value: m.id }));
+  }, [block, factMetrics, projects]);
 
   const metricOptions = useMemo(() => {
     // For general dashboards without experiment, return empty options
