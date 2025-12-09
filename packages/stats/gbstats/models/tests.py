@@ -1502,7 +1502,7 @@ class EffectMomentsPostStratification:
         # if there is only one strata cell, run the regular effect moments test
         if len(cells_for_analysis) == 1:
             self.stat_a, self.stat_b = create_theta_adjusted_statistics(
-                self.stats[0][0], self.stats[0][1]
+                cells_for_analysis[0][0], cells_for_analysis[0][1]
             )
             return EffectMoments(
                 [(self.stat_a, self.stat_b)],
