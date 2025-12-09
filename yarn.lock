@@ -19871,10 +19871,10 @@ open@^8.4.2:
     is-docker "^2.1.1"
     is-wsl "^2.2.0"
 
-openai@5.11.0:
-  version "5.11.0"
-  resolved "https://registry.yarnpkg.com/openai/-/openai-5.11.0.tgz#0d746e65b1caaf50f56facb0d8fd31012872ee93"
-  integrity sha512-+AuTc5pVjlnTuA9zvn8rA/k+1RluPIx9AD4eDcnutv6JNwHHZxIhkFy+tmMKCvmMFDQzfA/r1ujvPWB19DQkYg==
+openai@6.10.0:
+  version "6.10.0"
+  resolved "https://registry.yarnpkg.com/openai/-/openai-6.10.0.tgz#3f52d2ad7b6b2288124d064b0eb737c914d1f3ea"
+  integrity sha512-ITxOGo7rO3XRMiKA5l7tQ43iNNu+iXGFAcf2t+aWVzzqRaS0i7m1K2BhxNdaveB+5eENhO0VY1FkiZzhBk4v3A==
 
 openapi-typescript@^6.1.1:
   version "6.1.1"
