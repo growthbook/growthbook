@@ -28,6 +28,8 @@ export type SidebarLinkProps = {
   className?: string;
   autoClose?: boolean;
   navigateOnExpand?: boolean;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  keyboardShortcut?: string;
   filter?: (props: {
     permissionsUtils: Permissions;
     segments: SegmentInterface[];
@@ -123,6 +125,13 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           })}
           href={props.href}
           onClick={(e) => {
+            // If custom onClick is provided, use it
+            if (props.onClick) {
+              e.preventDefault();
+              props.onClick(e);
+              return;
+            }
+
             // Allow browser default behavior for modifier keys (cmd/ctrl/shift) or middle mouse button
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
               return;
@@ -149,6 +158,11 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
             </span>
           )}
           {props.name}
+          {props.keyboardShortcut && (
+            <span className={styles.keyboardShortcut}>
+              {props.keyboardShortcut}
+            </span>
+          )}
           {props.beta && (
             <div
               className="badge border text-uppercase ml-2"

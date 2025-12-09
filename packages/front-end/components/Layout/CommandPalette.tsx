@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Command } from "cmdk";
 import { useRouter } from "next/router";
-import { useGrowthBook, GrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "back-end/types/organization";
-import { Permissions } from "shared/permissions";
-import { SegmentInterface } from "back-end/types/segment";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
-import { PermissionFunctions, useUser } from "@/services/UserContext";
+import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import { navlinks, SidebarLinkProps } from "./sidebarLinksConfig";
+import { useCommandPalette } from "./CommandPaletteContext";
 import styles from "./CommandPalette.module.scss";
 
 export default function CommandPalette() {
-  const [open, setOpen] = useState(false);
+  const { isCommandPaletteOpen, setIsCommandPaletteOpen } = useCommandPalette();
   const [search, setSearch] = useState("");
   const router = useRouter();
 
@@ -25,21 +23,21 @@ export default function CommandPalette() {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setOpen((open) => {
+        setIsCommandPaletteOpen((open) => {
           if (open) setSearch("");
           return !open;
         });
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        setOpen(false);
+        setIsCommandPaletteOpen(false);
         setSearch("");
       }
     };
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, []);
+  }, [setIsCommandPaletteOpen]);
 
   // Hooks for filtering
   const { permissions, superAdmin } = useUser();
@@ -55,20 +53,20 @@ export default function CommandPalette() {
   const growthbook = useGrowthBook<AppFeatures>();
   const permissionsUtils = usePermissionsUtil();
 
-  const filterProps = {
-    permissionsUtils,
-    permissions,
-    superAdmin: !!superAdmin,
-    isCloud: isCloud(),
-    isMultiOrg: isMultiOrg(),
-    gb: growthbook,
-    project,
-    segments,
-    savedQueries,
-  };
-
   // Filter items based on search
   const filteredGroups = useMemo(() => {
+    const filterProps = {
+      permissionsUtils,
+      permissions,
+      superAdmin: !!superAdmin,
+      isCloud: isCloud(),
+      isMultiOrg: isMultiOrg(),
+      gb: growthbook,
+      project,
+      segments,
+      savedQueries,
+    };
+
     const groups: {
       heading: string;
       parentItem?: SidebarLinkProps;
@@ -131,15 +129,24 @@ export default function CommandPalette() {
     });
 
     return groups;
-  }, [search, filterProps]);
+  }, [
+    search,
+    permissionsUtils,
+    permissions,
+    superAdmin,
+    growthbook,
+    project,
+    segments,
+    savedQueries,
+  ]);
 
-  if (!open) return null;
+  if (!isCommandPaletteOpen) return null;
 
   return (
     <div
       className={styles.overlay}
       onClick={() => {
-        setOpen(false);
+        setIsCommandPaletteOpen(false);
         setSearch("");
       }}
     >
@@ -175,7 +182,7 @@ export default function CommandPalette() {
                       data-child={isChild}
                       onSelect={() => {
                         router.push(item.href);
-                        setOpen(false);
+                        setIsCommandPaletteOpen(false);
                         setSearch("");
                       }}
                       value={item.name}

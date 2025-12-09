@@ -2,19 +2,12 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsCodeSlash, BsHouse } from "react-icons/bs";
+import { PiMagnifyingGlass } from "react-icons/pi";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import {
-  GBDatabase,
-  GBExperiment,
-  GBLibrary,
-  GBProductAnalytics,
-  GBSettings,
-} from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppFeatures } from "@/types/app-features";
@@ -28,6 +21,7 @@ import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import CommandPalette from "./CommandPalette";
 import { navlinks } from "./sidebarLinksConfig";
+import { useCommandPalette } from "./CommandPaletteContext";
 
 const breadcumbLinks = [
   ...navlinks,
@@ -87,6 +81,7 @@ const Layout = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
+  const { setIsCommandPaletteOpen } = useCommandPalette();
 
   // holdout aa-test, dogfooding
   growthbook?.isOn("aa-test-holdout");
@@ -243,6 +238,17 @@ const Layout = (): React.ReactElement => {
                   </a>
                 </li>
                 <ProjectSelector />
+                <SidebarLink
+                  name="Search"
+                  href="#"
+                  Icon={PiMagnifyingGlass}
+                  path={/^(?!)/} // Negative lookahead - never matches
+                  onClick={() => {
+                    setIsCommandPaletteOpen(true);
+                  }}
+                  keyboardShortcut="⌘+K"
+                />
+                <Separator size="4" my="2" />
                 {navlinks.map((v, i) => (
                   <SidebarLink {...v} key={i} />
                 ))}

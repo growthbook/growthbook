@@ -14,6 +14,7 @@ $topbarheight: 60px;
     display: block;
     padding: 0px 6px 0px;
     transition: all 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    position: relative;
 
     .icon {
       font-size: 1.5em;
@@ -36,6 +37,17 @@ $topbarheight: 60px;
       max-height: 30px;
       color: #fff;
     }
+  }
+
+  .keyboardShortcut {
+    float: right;
+    font-size: 0.75rem;
+    opacity: 0.7;
+    margin-left: auto;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.1);
+    font-family: monospace;
   }
 
   &:hover {
