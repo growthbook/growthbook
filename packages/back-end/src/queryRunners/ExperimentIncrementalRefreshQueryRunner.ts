@@ -12,6 +12,7 @@ import {
   IncrementalRefreshMetricSourceInterface,
 } from "shared/validators";
 import {
+  Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   InsertMetricSourceDataQueryParams,
@@ -47,6 +48,7 @@ import {
 } from "back-end/src/services/experimentTimeSeries";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
+import { parseDimension } from "back-end/src/services/experiments";
 import { getExperimentById } from "../models/ExperimentModel";
 import {
   MAX_METRICS_PER_QUERY,
@@ -296,6 +298,14 @@ const startExperimentIncrementalRefreshQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
+
+  const dimensionObjs: Dimension[] = (
+    await Promise.all(
+      snapshotSettings.dimensions.map(
+        async (d) => await parseDimension(d.id, d.slices, org.id),
+      ),
+    )
+  ).filter((d): d is Dimension => d !== null);
 
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (exposureQuery?.dimensionMetadata) {
@@ -770,7 +780,7 @@ const startExperimentIncrementalRefreshQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: dimensionsForTraffic,
+        dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
         useUnitsTable: true,
       }),
       dependencies: [alterUnitsTableQuery.query],

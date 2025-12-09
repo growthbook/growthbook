@@ -2277,7 +2277,17 @@ export default abstract class SqlIntegration
             this.dateTrunc("first_exposure_timestamp"),
           )} AS dim_exposure_date
           ${banditDates ? `${this.getBanditCaseWhen(banditDates)}` : ""}
-          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
+          ${experimentDimensions
+            .map((d) => {
+              if (d.specifiedSlices?.length) {
+                return `, ${this.getDimensionInStatement(
+                  d.id,
+                  d.specifiedSlices,
+                )} AS dim_${d.id}`;
+              }
+              return `, dim_${d.id}`;
+            })
+            .join("\n")}
           ${
             activationMetric
               ? `, ${this.ifElse(
