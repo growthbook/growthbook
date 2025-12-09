@@ -1,9 +1,9 @@
-import { ListCodeRefsResponse } from "back-end/types/openapi";
+import { ListCodeRefsResponse } from "shared/types/openapi";
+import { listCodeRefsValidator } from "shared/validators";
 import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listCodeRefsValidator } from "back-end/src/validators/openapi";
 import {
   getAllCodeRefsForOrg,
   toApiInterface,

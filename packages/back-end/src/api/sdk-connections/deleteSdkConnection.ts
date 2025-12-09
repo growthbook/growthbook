@@ -1,10 +1,10 @@
-import { DeleteSdkConnectionResponse } from "back-end/types/openapi";
+import { DeleteSdkConnectionResponse } from "shared/types/openapi";
+import { deleteSdkConnectionValidator } from "shared/validators";
 import {
   findSDKConnectionById,
   deleteSDKConnectionById,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteSdkConnectionValidator } from "back-end/src/validators/openapi";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteSdkConnection = createApiRequestHandler(

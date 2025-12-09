@@ -1,11 +1,11 @@
 import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
+import { UpdateMemberRoleResponse } from "shared/types/openapi";
+import { updateMemberRoleValidator } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { UpdateMemberRoleResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateMemberRoleValidator } from "back-end/src/validators/openapi";
 import {
   Member,
   OrganizationInterface,

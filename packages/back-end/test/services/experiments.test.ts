@@ -1,14 +1,11 @@
 import { z } from "zod";
+import { postMetricValidator, putMetricValidator } from "shared/validators";
 import {
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
 } from "back-end/src/services/experiments";
-import {
-  postMetricValidator,
-  putMetricValidator,
-} from "back-end/src/validators/openapi";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { OrganizationInterface } from "back-end/types/organization";
 

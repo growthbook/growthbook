@@ -1,6 +1,6 @@
-import { PutEnvironmentResponse } from "back-end/types/openapi";
+import { PutEnvironmentResponse } from "shared/types/openapi";
+import { putEnvironmentValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { putEnvironmentValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsUpdate } from "back-end/src/services/audit";

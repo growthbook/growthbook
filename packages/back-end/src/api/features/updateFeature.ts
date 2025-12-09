@@ -4,9 +4,9 @@ import {
   validateScheduleRules,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "back-end/types/openapi";
+import { UpdateFeatureResponse } from "shared/types/openapi";
+import { updateFeatureValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateFeatureValidator } from "back-end/src/validators/openapi";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
