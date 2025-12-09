@@ -97,6 +97,7 @@ import {
   CreateMetricSourceTableQueryParams,
   InsertMetricSourceDataQueryParams,
   DimensionColumnData,
+  DropMetricSourceCovariateTableQueryParams,
   MaxTimestampQueryResponse,
   ExperimentFactMetricsQueryResponseRows,
   IncrementalRefreshStatisticsQueryParams,
@@ -152,7 +153,10 @@ import {
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
 import type { PopulationDataQuerySettings } from "back-end/types/query";
-import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import {
+  INCREMENTAL_METRICS_TABLE_PREFIX,
+  INCREMENTAL_UNITS_TABLE_PREFIX,
+} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
@@ -6941,6 +6945,27 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return format(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getDropMetricSourceCovariateTableQuery(
+    params: DropMetricSourceCovariateTableQueryParams,
+  ): string {
+    if (
+      !params.metricSourceCovariateTableFullName.includes(`_covariate`) ||
+      !params.metricSourceCovariateTableFullName.includes(
+        INCREMENTAL_METRICS_TABLE_PREFIX,
+      )
+    ) {
+      throw new Error(
+        "Unable to drop table that is not an incremental refresh covariate table.",
+      );
+    }
+    return format(
+      `
+      DROP TABLE IF EXISTS ${params.metricSourceCovariateTableFullName}
       `,
       this.getFormatDialect(),
     );

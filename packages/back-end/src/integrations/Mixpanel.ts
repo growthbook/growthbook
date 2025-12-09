@@ -32,6 +32,7 @@ import {
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
+  DropMetricSourceCovariateTableQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
 } from "shared/types/integrations";
@@ -173,6 +174,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getInsertMetricSourceDataQuery(
     _params: InsertMetricSourceDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropMetricSourceCovariateTableQuery(
+    _params: DropMetricSourceCovariateTableQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }
