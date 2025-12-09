@@ -43,6 +43,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import HelperText from "@/ui/HelperText";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 export interface Props {
   close: () => void;
@@ -332,12 +333,12 @@ export default function PrerequisiteModal({
                 {label}
               </span>
               {projectName ? (
-                <span
-                  className="text-muted small float-right position-relative"
-                  style={{ top: 3 }}
+                <OverflowText
+                  maxWidth={150}
+                  className="text-muted small float-right text-right"
                 >
                   project: <strong>{projectName}</strong>
-                </span>
+                </OverflowText>
               ) : (
                 <em
                   className="text-muted small float-right position-relative"
