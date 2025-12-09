@@ -136,22 +136,6 @@
       },
     },
     {
-      "files": ["./packages/shared/src/validators/**/*.ts"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["shared/validators/*", "shared/src/validators/*"],
-                "message": "Use relative imports (e.g., './file-name') when importing from other files within the validators directory",
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
       "files": ["./packages/front-end/**/*.ts*"],
       "excludedFiles": ["./packages/front-end/ui/**/*.ts*"],
       "rules": {
