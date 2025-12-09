@@ -12,6 +12,14 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export default function ExperimentReportsList({
   experiment,
@@ -60,17 +68,17 @@ export default function ExperimentReportsList({
 
   return (
     <div className="px-4 mb-4">
-      <table className="table appbox gbtable table-hover mb-0">
+      <Table variant="standard" hover className="appbox mb-0">
         <thead>
           <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th className="d-none d-md-table-cell">Last Updated </th>
-            <th>By</th>
-            <th></th>
-          </tr>
-        </thead>
+            <th>Title</TableColumnHeader>
+            <th>Description</TableColumnHeader>
+            <th>Status</TableColumnHeader>
+            <TableColumnHeader className="d-none d-md-table-cell">Last Updated </TableColumnHeader>
+            <th>By</TableColumnHeader>
+            <th></TableColumnHeader>
+          </TableRow>
+        </TableHeader>
         <tbody>
           {filteredReports.map((filteredReport) => {
             const report = filteredReport.report;
@@ -87,8 +95,8 @@ export default function ExperimentReportsList({
                     ? "private"
                     : "organization";
             return (
-              <tr key={report.id} className="">
-                <td
+              <TableRow key={report.id} className="">
+                <TableCell
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
@@ -112,8 +120,8 @@ export default function ExperimentReportsList({
                       {report.title}
                     </Link>
                   </div>
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
@@ -123,7 +131,7 @@ export default function ExperimentReportsList({
                   <Link href={`/report/${report.id}`} className={`text-dark`}>
                     {report.description}
                   </Link>
-                </td>
+                </TableCell>
                 <td>
                   <ShareStatusBadge
                     shareLevel={status}
@@ -134,15 +142,14 @@ export default function ExperimentReportsList({
                     }
                     isOwner={filteredReport.isOwner}
                   />
-                </td>
-                <td
-                  title={datetime(report.dateUpdated)}
-                  className="d-none d-md-table-cell"
+                </TableCell>
+                <TableCell
+                  title={datetime(report.dateUpdated)} className="d-none d-md-table-cell"
                 >
                   {ago(report.dateUpdated)}
-                </td>
-                <td>{name}</td>
-                <td style={{ width: 50 }}>
+                </TableCell>
+                <td>{name}</TableCell>
+                <TableCell style={{ width: 50 }}>
                   {filteredReport.showDelete ? (
                     <DeleteButton
                       displayName="Custom Report"
@@ -161,19 +168,19 @@ export default function ExperimentReportsList({
                       }}
                     />
                   ) : null}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
           {!reports.length && (
             <tr>
-              <td colSpan={3} align={"center"}>
+              <TableCell colSpan={3} align={"center"}>
                 No custom reports created
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

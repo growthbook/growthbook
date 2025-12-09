@@ -21,6 +21,14 @@ import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStat
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import DSTooltip from "@/ui/Tooltip";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 interface ExperimentSummaryType {
   experiment: ExperimentInterfaceStringDates;
@@ -583,10 +591,10 @@ export default function ExecExperimentImpact({
               </Box>
             </Box>
             <Box flexGrow="1">
-              <table className="table gbtable w-100">
-                <thead>
-                  <tr>
-                    <th>
+              <Table variant="standard" className="w-100">
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>
                       <Flex>
                         <SelectField
                           containerClassName={"select-dropdown-underline"}
@@ -618,9 +626,9 @@ export default function ExecExperimentImpact({
                           }}
                         />
                       </Flex>
-                    </th>
-                    <th>Scaled Impact</th>
-                    <th
+                    </TableColumnHeader>
+                    <TableColumnHeader>Scaled Impact</TableColumnHeader>
+                    <TableColumnHeader
                       className="text-right"
                       style={{
                         paddingTop: 0,
@@ -648,14 +656,14 @@ export default function ExecExperimentImpact({
                           </span>
                         </Box>
                       </Flex>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableColumnHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {trimmedExperimentList.map((obj) => {
                     return (
-                      <tr key={obj.experiment.id}>
-                        <td
+                      <TableRow key={obj.experiment.id}>
+                        <TableCell
                           className="text-left"
                           style={{ padding: "0.5rem 0.2rem" }}
                         >
@@ -676,8 +684,8 @@ export default function ExecExperimentImpact({
                               {obj.experiment.name}
                             </Flex>
                           </Link>
-                        </td>
-                        <td style={{ padding: "0.4rem" }}>
+                        </TableCell>
+                        <TableCell style={{ padding: "0.4rem" }}>
                           {obj.type === "other" ? (
                             <span className="text-muted">{`N/A ${
                               obj.experiment.results === "dnf"
@@ -701,8 +709,8 @@ export default function ExecExperimentImpact({
                           ) : (
                             <span className="text-muted">N/A</span>
                           )}
-                        </td>
-                        <td
+                        </TableCell>
+                        <TableCell
                           className="text-right"
                           style={{ padding: "0.4rem" }}
                         >
@@ -742,12 +750,12 @@ export default function ExecExperimentImpact({
                               )}
                             </Box>
                           </Flex>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
               {showMoreExperiments && (
                 <Box mb="4" mt="2">
                   <Flex justify="center">

@@ -10,6 +10,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import { useEnvironments } from "@/services/features";
 import { parseFeatureResult } from "@/hooks/useArchetype";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const ArchetypeResults: FC<{
   feature: FeatureInterface;
@@ -69,8 +77,8 @@ const ArchetypeResults: FC<{
       return null;
     }
     return (
-      <tr className={styles.expandedRow}>
-        <td colSpan={numEnvs + 2}>
+      <TableRow className={styles.expandedRow}>
+        <TableCell colSpan={numEnvs + 2}>
           <div className="row">
             <div className="col-12">
               <div className={styles.closeButton}>
@@ -181,26 +189,26 @@ const ArchetypeResults: FC<{
               </div>
             </div>
           )}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     );
   };
 
   return (
     <div className={`mb-3`} style={{ overflowX: "auto" }}>
-      <table className="table gbtable appbox">
+      <Table variant="standard" className="gb appbox">
         <thead>
           <tr>
             <th>
               <Link href="/archetypes">Archetype</Link>
-            </th>
+            </TableColumnHeader>
             {environments.map((env) => (
-              <th key={env.id} title={env.description}>
+              <TableColumnHeader key={env.id} title={env.description}>
                 {env.id}
-              </th>
+              </TableColumnHeader>
             ))}
-          </tr>
-        </thead>
+          </TableRow>
+        </TableHeader>
         <tbody>
           {archetype.map((archetype: ArchetypeInterface) => {
             if (!archetype.attributes) {
@@ -215,7 +223,7 @@ const ArchetypeResults: FC<{
             }
             return (
               <Fragment key={archetype.id}>
-                <tr
+                <TableRow
                   key={archetype.id}
                   className={`${
                     showExpandedResultsId === archetype.id
@@ -242,11 +250,11 @@ const ArchetypeResults: FC<{
                         </>
                       )}
                     </Tooltip>
-                  </td>
+                  </TableCell>
                   {featureResults[archetype.id] &&
                     featureResults[archetype.id].map(
                       (result: FeatureTestResult) => (
-                        <td
+                        <TableCell
                           key={result.env}
                           className={`${styles.valueCell} cursor-pointer ${
                             showExpandedResultsId === archetype.id &&
@@ -278,10 +286,10 @@ const ArchetypeResults: FC<{
                           ) : (
                             <span className="text-muted">disabled</span>
                           )}
-                        </td>
+                        </TableCell>
                       ),
                     )}
-                </tr>
+                </TableRow>
                 {showExpandedResults &&
                   showExpandedResultsId === archetype.id && (
                     <>
@@ -295,8 +303,8 @@ const ArchetypeResults: FC<{
               </Fragment>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {editArchetype && (
         <ArchetypeAttributesModal
           close={() => {

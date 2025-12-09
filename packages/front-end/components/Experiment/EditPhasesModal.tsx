@@ -8,6 +8,14 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle } from "@/components/Icons";
 import EditPhaseModal from "./EditPhaseModal";
 import NewPhaseForm from "./NewPhaseForm";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export interface Props {
   close: () => void;
@@ -84,22 +92,22 @@ export default function EditPhasesModal({
       size="lg"
       closeCta="Close"
     >
-      <table className="table gbtable mb-2">
+      <Table variant="standard" className="gb mb-2">
         <thead>
           <tr>
-            <th></th>
-            <th>Name</th>
-            <th>Dates</th>
-            {!isHoldout ? <th>Traffic</th> : null}
-            {hasStoppedPhases ? <th>Reason for Stopping</th> : null}
-            <th></th>
-          </tr>
-        </thead>
+            <th></TableColumnHeader>
+            <th>Name</TableColumnHeader>
+            <th>Dates</TableColumnHeader>
+            {!isHoldout ? <th>Traffic</TableColumnHeader> : null}
+            {hasStoppedPhases ? <th>Reason for Stopping</TableColumnHeader> : null}
+            <th></TableColumnHeader>
+          </TableRow>
+        </TableHeader>
         <tbody>
           {experiment.phases.map((phase, i) => (
-            <tr className="border p-2 m-2" key={i}>
-              <td>{i + 1}</td>
-              <td>{phase.name}</td>
+            <TableRow className="border p-2 m-2" key={i}>
+              <td>{i + 1}</TableCell>
+              <td>{phase.name}</TableCell>
               <td>
                 <strong title={datetime(phase.dateStarted ?? "", "UTC")}>
                   {date(phase.dateStarted ?? "", "UTC")}
@@ -108,14 +116,14 @@ export default function EditPhasesModal({
                 <strong title={datetime(phase.dateEnded ?? "", "UTC")}>
                   {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
                 </strong>
-              </td>
+              </TableCell>
               {!isHoldout ? (
                 <td>
                   {phaseSummary(
                     phase,
                     experiment.type === "multi-armed-bandit",
                   )}
-                </td>
+                </TableCell>
               ) : null}
               {hasStoppedPhases ? (
                 <td>
@@ -124,9 +132,9 @@ export default function EditPhasesModal({
                   ) : (
                     <em className="text-muted">not applicable</em>
                   )}
-                </td>
+                </TableCell>
               ) : null}
-              <td className="text-right" style={{ width: 125 }}>
+              <TableCell className="text-right" style={{ width: 125 }}>
                 <button
                   className="btn btn-outline-primary"
                   onClick={(e) => {
@@ -153,11 +161,11 @@ export default function EditPhasesModal({
                       }}
                     />
                   )}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {!isHoldout && (experiment.status !== "running" || !hasLinkedChanges) && (
         <button
           className="btn btn-primary"

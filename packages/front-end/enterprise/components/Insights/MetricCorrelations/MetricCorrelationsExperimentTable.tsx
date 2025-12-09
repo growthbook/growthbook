@@ -30,6 +30,14 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import Pagination from "@/components/Pagination";
 import Checkbox from "@/ui/Checkbox";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
@@ -211,11 +219,11 @@ const ExperimentWithMetricsTable: FC<Props> = ({
 
   const expRows = items.slice(start, end).map((e) => {
     return (
-      <tr
+      <TableRow
         key={`${e.id}-${e.variationIndex}`}
         className="hover-highlight impact-results"
       >
-        <td>
+        <TableCell>
           <Checkbox
             value={
               !excludedExperimentVariations.some(
@@ -239,16 +247,16 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               );
             }}
           />
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           <div className="my-1">
             <Link className="font-weight-bold" href={`/experiment/${e.id}`}>
               {e.name}
             </Link>
           </div>
-        </td>
+        </TableCell>
 
-        <td>
+        <TableCell>
           <div
             key={`var-experiment${e.id}-variation${e.variationIndex}`}
             className={`variation variation${e.variationIndex} with-variation-label d-flex my-1`}
@@ -270,8 +278,8 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               ) : null}
             </span>
           </div>
-        </td>
-        <td className="nowrap" title={datetime(e.date)}>
+        </TableCell>
+        <TableCell className="nowrap" title={datetime(e.date)}>
           {e.status === "running"
             ? "started"
             : e.status === "draft"
@@ -280,17 +288,17 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                 ? "ended"
                 : ""}{" "}
           {date(e.date)}
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           <div className="my-1">
             <ExperimentStatusIndicator experimentData={e} />
           </div>
-        </td>
-        <td>{e.users ? formatNumber(e.users) : ""}</td>
+        </TableCell>
+        <TableCell>{e.users ? formatNumber(e.users) : ""}</TableCell>
         {!bandits
           ? metrics.slice(0, 2).map((m, i) => {
               const mr = e.metricResults[i];
-              if (!mr) return <td key={`${e.id}-${e.variationIndex}-${i}`} />;
+              if (!mr) return <TableCell key={`${e.id}-${e.variationIndex}-${i}`} />;
               const resultsHighlightClassname = clsx(mr.resultsStatus, {
                 "non-significant": !mr.significant,
                 hover: false,
@@ -314,15 +322,15 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               );
             })
           : null}
-      </tr>
+      </TableRow>
     );
   });
 
   return (
     <div>
-      <table className="table appbox">
-        <thead className="bg-light">
-          <tr>
+      <Table variant="standard" className="appbox">
+        <TableHeader className="bg-light">
+          <TableRow>
             <SortableTH field="included">Include</SortableTH>
             <SortableTH field="name">Experiment</SortableTH>
             <SortableTH field="variationIndex">Variation</SortableTH>
@@ -335,10 +343,10 @@ const ExperimentWithMetricsTable: FC<Props> = ({
             {metrics[1] && (
               <SortableTH field="lift1">Lift {metrics[1].name}</SortableTH>
             )}
-          </tr>
-        </thead>
-        <tbody>{expRows}</tbody>
-      </table>
+          </TableRow>
+        </TableHeader>
+        <TableBody>{expRows}</TableBody>
+      </Table>
       {items.length > numPerPage && (
         <Pagination
           numItemsTotal={items.length}

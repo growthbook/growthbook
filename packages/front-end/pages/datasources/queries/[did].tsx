@@ -18,6 +18,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const DataSourceQueries = (): React.ReactElement => {
   const permissions = usePermissions();
@@ -120,7 +128,7 @@ const DataSourceQueries = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
       </div>
-      <table className="table appbox gbtable table-hover">
+      <Table variant="standard" hover className="appbox">
         <thead>
           <tr>
             <SortableTH field="query" className="col-4">
@@ -144,8 +152,8 @@ const DataSourceQueries = (): React.ReactElement => {
             <SortableTH field="externalId" className="col-2">
               External ID
             </SortableTH>
-          </tr>
-        </thead>
+          </TableRow>
+        </TableHeader>
         <tbody>
           {items.map((query) => {
             let title = "";
@@ -157,7 +165,7 @@ const DataSourceQueries = (): React.ReactElement => {
             }
 
             return (
-              <tr
+              <TableRow
                 key={query.id}
                 onClick={(e) => {
                   e.preventDefault();
@@ -169,16 +177,15 @@ const DataSourceQueries = (): React.ReactElement => {
                   <button className="btn btn-link p-0 text-left">
                     {title}
                   </button>
-                </td>
-                <td>{query.queryType || "—"}</td>
-                <td>{datetime(query.createdAt)}</td>
-                <td
-                  title={datetime(query.startedAt || "")}
-                  className="d-none d-md-table-cell"
+                </TableCell>
+                <td>{query.queryType || "—"}</TableCell>
+                <td>{datetime(query.createdAt)}</TableCell>
+                <TableCell
+                  title={datetime(query.startedAt || "")} className="d-none d-md-table-cell"
                 >
                   {ago(query.startedAt || "")}
-                </td>
-                <td>{ago(query.finishedAt || "")}</td>
+                </TableCell>
+                <td>{ago(query.finishedAt || "")}</TableCell>
                 <td>
                   <Tooltip
                     body={
@@ -214,13 +221,13 @@ const DataSourceQueries = (): React.ReactElement => {
                       />
                     )}
                   </Tooltip>
-                </td>
-                <td>{query.externalId || "N/A"}</td>
-              </tr>
+                </TableCell>
+                <td>{query.externalId || "N/A"}</TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 };

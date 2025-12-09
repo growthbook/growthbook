@@ -10,6 +10,14 @@ import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/components/Pagination";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -49,10 +57,10 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
 
   return (
     <>
-      <table className="table gbtable responsive-table">
+      <Table variant="standard" className="gb responsive-">
         <thead>
           <tr>
-            <th></th>
+            <th></TableColumnHeader>
             <SortableTH field="name" className="w-100">
               Experiment
             </SortableTH>
@@ -65,21 +73,21 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
             {needsStatusColumn && needsResultColumn ? (
               <>
                 <SortableTH field="statusSortOrder">Status</SortableTH>
-                <th></th>
+                <th></TableColumnHeader>
               </>
             ) : needsStatusColumn || needsResultColumn ? (
               <SortableTH field="statusSortOrder">Status</SortableTH>
             ) : null}
-          </tr>
-        </thead>
+          </TableRow>
+        </TableHeader>
         <tbody>
           {filtered.slice(start, end).map((e) => {
             return (
-              <tr key={e.id} className="hover-highlight">
-                <td data-title="Watching status:" className="watching">
+              <TableRow key={e.id} className="hover-highlight">
+                <TableCell data-title="Watching status:" className="watching">
                   <WatchButton item={e.id} itemType="experiment" type="icon" />
-                </td>
-                <td data-title="Experiment name:" className="p-0">
+                </TableCell>
+                <TableCell data-title="Experiment name:" className="p-0">
                   <Link href={`/experiment/${e.id}`} className="d-block p-2">
                     <div className="d-flex flex-column">
                       <div className="d-flex">
@@ -119,9 +127,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       )}
                     </div>
                   </Link>
-                </td>
+                </TableCell>
                 {showProjectColumn && (
-                  <td className="nowrap" data-title="Project:">
+                  <TableCell className="nowrap" data-title="Project:">
                     {e.projectIsDeReferenced ? (
                       <Tooltip
                         body={
@@ -135,16 +143,16 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                     ) : (
                       (e.projectName ?? <em>None</em>)
                     )}
-                  </td>
+                  </TableCell>
                 )}
 
-                <td data-title="Tags:" className="table-tags">
+                <TableCell data-title="Tags:" className="table-tags">
                   <SortedTags tags={Object.values(e.tags)} useFlex={true} />
-                </td>
-                <td className="nowrap" data-title="Owner:">
+                </TableCell>
+                <TableCell className="nowrap" data-title="Owner:">
                   {e.ownerName}
-                </td>
-                <td className="nowrap" title={datetime(e.date)}>
+                </TableCell>
+                <TableCell className="nowrap" title={datetime(e.date)}>
                   {e.tab === "running"
                     ? "started"
                     : e.tab === "drafts"
@@ -155,9 +163,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                           ? "updated"
                           : ""}{" "}
                   {date(e.date)}
-                </td>
+                </TableCell>
                 {needsStatusColumn ? (
-                  <td className="nowrap" data-title="Status:">
+                  <TableCell className="nowrap" data-title="Status:">
                     {e.statusIndicator.tooltip &&
                     !e.statusIndicator.detailedStatus ? (
                       <Tooltip body={e.statusIndicator.tooltip}>
@@ -166,29 +174,29 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                     ) : (
                       e.statusIndicator.status
                     )}
-                  </td>
+                  </TableCell>
                 ) : null}
                 {needsResultColumn ? (
-                  <td className="nowrap" data-title="Details:">
+                  <TableCell className="nowrap" data-title="Details:">
                     <ExperimentStatusDetailsWithDot
                       statusIndicatorData={e.statusIndicator}
                     />
-                  </td>
+                  </TableCell>
                 ) : null}
-              </tr>
+              </TableRow>
             );
           })}
           {filtered.length === 0 && (
             <tr>
-              <td colSpan={10} className="text-center">
+              <TableCell colSpan={10} className="text-center">
                 {isFiltered
                   ? "No experiments match the current filter."
                   : "No experiments found."}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {filtered.length > NUM_PER_PAGE && (
         <Pagination
           numItemsTotal={filtered.length}

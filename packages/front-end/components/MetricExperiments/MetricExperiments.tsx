@@ -32,6 +32,14 @@ import { experimentDate } from "@/services/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
 import track from "@/services/track";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 interface MetricAnalysisProps {
   metric: ExperimentMetricInterface;
@@ -173,7 +181,7 @@ function MetricExperimentResultTab({
       hover: false,
     });
     return (
-      <tr
+      <TableRow
         key={`${e.id}-${e.variationId}`}
         className="hover-highlight impact-results"
       >
@@ -183,7 +191,7 @@ function MetricExperimentResultTab({
               {e.name}
             </Link>
           </div>
-        </td>
+        </TableCell>
 
         <td>
           <div
@@ -207,8 +215,8 @@ function MetricExperimentResultTab({
               ) : null}
             </span>
           </div>
-        </td>
-        <td className="nowrap" title={datetime(e.date)}>
+        </TableCell>
+        <TableCell className="nowrap" title={datetime(e.date)}>
           {e.status === "running"
             ? "started"
             : e.status === "draft"
@@ -217,13 +225,13 @@ function MetricExperimentResultTab({
                 ? "ended"
                 : ""}{" "}
           {date(e.date)}
-        </td>
+        </TableCell>
         <td>
           <div className="my-1">
             <ExperimentStatusIndicator experimentData={e} />
           </div>
-        </td>
-        <td>{e.users ? formatNumber(e.users) : ""}</td>
+        </TableCell>
+        <td>{e.users ? formatNumber(e.users) : ""}</TableCell>
         {!bandits ? (
           e.variationResults ? (
             <ChangeColumn
@@ -241,29 +249,29 @@ function MetricExperimentResultTab({
               className={resultsHighlightClassname}
             />
           ) : (
-            <td>No results available</td>
+            <td>No results available</TableCell>
           )
         ) : null}
-      </tr>
+      </TableRow>
     );
   });
 
   return (
     <div>
-      <table className="table appbox">
-        <thead className="bg-light">
+      <Table variant="standard" className="appbox">
+        <TableHeader className="bg-light">
           <tr>
             <SortableTH field="name">Experiment</SortableTH>
             <SortableTH field="variationId">Variation</SortableTH>
             <SortableTH field="date">Date</SortableTH>
             <SortableTH field="status">Status</SortableTH>
             <SortableTH field="users">Variation Users</SortableTH>
-            {/* <th>Won/lost</th> */}
+            {/* <th>Won/lost</TableColumnHeader> */}
             {!bandits && <SortableTH field="lift">Lift</SortableTH>}
-          </tr>
-        </thead>
-        <tbody>{expRows}</tbody>
-      </table>
+          </TableRow>
+        </TableHeader>
+        <tbody>{expRows}</TableBody>
+      </Table>
       {items.length > numPerPage && (
         <Pagination
           numItemsTotal={items.length}

@@ -43,6 +43,14 @@ import Callout from "@/ui/Callout";
 import { useExperiments } from "@/hooks/useExperiments";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const NUM_PER_PAGE = 10;
 
@@ -463,10 +471,10 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
 
-        <table className="table gbtable table-hover appbox">
+        <Table variant="standard" hover className="appbox">
           <thead>
             <tr>
-              <th style={{ width: "48px" }}>
+              <TableColumnHeader style={{ width: "48px" }}>
                 <input
                   type="checkbox"
                   checked={values.length > 0 && selected.size === values.length}
@@ -479,14 +487,14 @@ export default function EditSavedGroupPage() {
                     }
                   }}
                 />
-              </th>
-              <th>{savedGroup.attributeKey}</th>
-            </tr>
-          </thead>
+              </TableColumnHeader>
+              <th>{savedGroup.attributeKey}</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
           <tbody>
             {valuesPage.map((value) => {
               return (
-                <tr
+                <TableRow
                   key={value}
                   onClick={() => {
                     if (selected.has(value)) {
@@ -504,25 +512,25 @@ export default function EditSavedGroupPage() {
                       readOnly={true}
                       checked={selected.has(value)}
                     />
-                  </td>
-                  <td>{value}</td>
-                </tr>
+                  </TableCell>
+                  <td>{value}</TableCell>
+                </TableRow>
               );
             })}
             {!values.length && (
               <tr>
-                <td colSpan={2}>This group doesn&apos;t have any items yet</td>
-              </tr>
+                <TableCell colSpan={2}>This group doesn&apos;t have any items yet</TableCell>
+              </TableRow>
             )}
             {values.length && !filteredValues.length ? (
               <tr>
-                <td colSpan={2}>No matching items</td>
-              </tr>
+                <TableCell colSpan={2}>No matching items</TableCell>
+              </TableRow>
             ) : (
               <></>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
           <Pagination
             numItemsTotal={values.length}

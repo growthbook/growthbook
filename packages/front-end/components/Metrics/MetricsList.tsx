@@ -34,6 +34,14 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export interface MetricTableItem {
   id: string;
@@ -451,29 +459,29 @@ const MetricsList = (): React.ReactElement => {
           metrics at scale.
         </PremiumCallout>
       ) : null}
-      <table className="table appbox gbtable table-hover">
-        <thead>
-          <tr>
-            <th />
+      <Table variant="standard" hover className="appbox">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader />
             <SortableTH field="name" className="col-3">
               Metric Name
             </SortableTH>
             <SortableTH field="type" className="col-1">
               Type
             </SortableTH>
-            <th>Projects</th>
-            <th className="col-2">Tags</th>
+            <TableColumnHeader>Projects</TableColumnHeader>
+            <TableColumnHeader className="col-2">Tags</TableColumnHeader>
             <SortableTH
               field="dateUpdated"
               className="d-none d-md-table-cell col-1"
             >
               Last Updated
             </SortableTH>
-            <th />
-            <th />
-          </tr>
-        </thead>
-        <tbody>
+            <TableColumnHeader />
+            <TableColumnHeader />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((metric) => {
             const moreMenuLinks: ReactElement[] = [];
 
@@ -536,7 +544,7 @@ const MetricsList = (): React.ReactElement => {
             }
 
             return (
-              <tr
+              <TableRow
                 key={metric.id}
                 onClick={(e) => {
                   // If clicking on a link or button, default to browser behavior
@@ -560,14 +568,14 @@ const MetricsList = (): React.ReactElement => {
                 style={{ cursor: "pointer" }}
                 className={metric.archived ? "text-muted" : ""}
               >
-                <td>
+                <TableCell>
                   <OfficialBadge
                     type="metric"
                     managedBy={metric.managedBy || ""}
                     leftGap
                   />
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <Link
                     href={getMetricLink(metric.id)}
                     className={`${
@@ -576,29 +584,29 @@ const MetricsList = (): React.ReactElement => {
                   >
                     {metric.name}
                   </Link>
-                </td>
-                <td>{startCase(metric.type)}</td>
-                <td className="col-2">
+                </TableCell>
+                <TableCell>{startCase(metric.type)}</TableCell>
+                <TableCell className="col-2">
                   {metric.projectNames.length === 0
                     ? null
                     : metric.projectNames.join(", ")}
-                </td>
-                <td className="col-4">
+                </TableCell>
+                <TableCell className="col-4">
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
                     useFlex={true}
                   />
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
                   {metric.managedBy === "config"
                     ? ""
                     : date(metric.dateUpdated || "")}
-                </td>
-                <td className="text-muted">
+                </TableCell>
+                <TableCell className="text-muted">
                   {metric.archived && (
                     <Tooltip
                       body={"Archived"}
@@ -608,8 +616,8 @@ const MetricsList = (): React.ReactElement => {
                       <FaArchive />
                     </Tooltip>
                   )}
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   style={{ cursor: "initial" }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -622,20 +630,20 @@ const MetricsList = (): React.ReactElement => {
                       </div>
                     ))}
                   </MoreMenu>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
 
           {!items.length && isFiltered && (
-            <tr>
-              <td colSpan={8} align={"center"}>
+            <TableRow>
+              <TableCell colSpan={8} align={"center"}>
                 No matching metrics
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {pagination}
     </div>
   );

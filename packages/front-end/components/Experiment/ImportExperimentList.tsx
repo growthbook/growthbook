@@ -25,6 +25,14 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Callout from "@/ui/Callout";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -497,7 +505,7 @@ const ImportExperimentList: FC<{
               </a>
             )}
           </small>
-          <table className="table appbox">
+          <Table variant="standard" className="appbox">
             <thead>
               <tr>
                 <SortableTH field="exposureQueryName">
@@ -511,10 +519,10 @@ const ImportExperimentList: FC<{
                   Approx Units{" "}
                   <Tooltip body="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate." />
                 </SortableTH>
-                <th>Traffic Split</th>
-                <th></th>
-              </tr>
-            </thead>
+                <th>Traffic Split</TableColumnHeader>
+                <th></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
             <tbody>
               {items.map((e) => {
                 const key = dedupeFilter
@@ -523,13 +531,13 @@ const ImportExperimentList: FC<{
                 const existingId = data?.existing?.[key];
 
                 return (
-                  <tr key={key}>
-                    <td style={{ wordBreak: "break-word" }}>
+                  <TableRow key={key}>
+                    <TableCell style={{ wordBreak: "break-word" }}>
                       {e.exposureQueryName}
-                    </td>
-                    <td style={{ wordBreak: "break-word" }}>
+                    </TableCell>
+                    <TableCell style={{ wordBreak: "break-word" }}>
                       {e.experimentName || e.trackingKey}
-                    </td>
+                    </TableCell>
                     <td>
                       <Tooltip
                         body={
@@ -541,13 +549,13 @@ const ImportExperimentList: FC<{
                         {date(e.startDate)}
                         {e.startOfRange ? "*" : ""}
                       </Tooltip>
-                    </td>
-                    <td>{date(e.endDate)}</td>
-                    <td>{e.numVariations}</td>
-                    <td>{numberFormatter.format(e.users)}</td>
-                    <td style={{ maxWidth: 180 }}>
+                    </TableCell>
+                    <td>{date(e.endDate)}</TableCell>
+                    <td>{e.numVariations}</TableCell>
+                    <td>{numberFormatter.format(e.users)}</TableCell>
+                    <TableCell style={{ maxWidth: 180 }}>
                       {e.weights.map((w) => Math.round(w * 100)).join(" / ")}
-                    </td>
+                    </TableCell>
                     <td>
                       {existingId ? (
                         <Link href={`/experiment/${existingId}`}>imported</Link>
@@ -614,13 +622,13 @@ const ImportExperimentList: FC<{
                           Import
                         </button>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {items.length <= 0 && totalRows > 0 && (
                 <tr>
-                  <td colSpan={8}>
+                  <TableCell colSpan={8}>
                     <div className="alert alert-info">
                       <em>
                         No experiments match your current filters.{" "}
@@ -635,11 +643,11 @@ const ImportExperimentList: FC<{
                         </a>
                       </em>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

@@ -41,6 +41,14 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
@@ -316,21 +324,21 @@ export default function DashboardsPage() {
                 </Flex>
                 <div className="row mb-0">
                   <div className="col-12">
-                    <table className="table gbtable">
+                    <Table variant="standard" className="gb">
                       <thead>
                         <tr>
                           <SortableTH field={"title"}>
                             Dashboard Name
                           </SortableTH>
                           <SortableTH field={"shareLevel"}>Status</SortableTH>
-                          <th>Projects</th>
+                          <th>Projects</TableColumnHeader>
                           <SortableTH field={"userId"}>Owner</SortableTH>
                           <SortableTH field={"dateUpdated"}>
                             Last Updated
                           </SortableTH>
-                          <th />
-                        </tr>
-                      </thead>
+                          <TableColumnHeader />
+                        </TableRow>
+                      </TableHeader>
                       <tbody>
                         {items.map((d) => {
                           const isOwner = d.userId === userId;
@@ -358,7 +366,7 @@ export default function DashboardsPage() {
                           }
 
                           return (
-                            <tr key={d.id}>
+                            <TableRow key={d.id}>
                               <td>
                                 {canViewDashboards ? (
                                   <Link
@@ -377,7 +385,7 @@ export default function DashboardsPage() {
                                     <Text>{d.title}</Text>
                                   </Tooltip>
                                 )}
-                              </td>
+                              </TableCell>
                               <td>
                                 <ShareStatusBadge
                                   shareLevel={
@@ -392,7 +400,7 @@ export default function DashboardsPage() {
                                   }
                                   isOwner={d.userId === userId}
                                 />
-                              </td>
+                              </TableCell>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (
                                   <ProjectBadges
@@ -402,7 +410,7 @@ export default function DashboardsPage() {
                                 ) : (
                                   <ProjectBadges resourceType="dashboard" />
                                 )}
-                              </td>
+                              </TableCell>
                               <td>
                                 <>
                                   {ownerName !== "" && (
@@ -416,9 +424,9 @@ export default function DashboardsPage() {
                                     {ownerName === "" ? "None" : ownerName}
                                   </Text>
                                 </>
-                              </td>
-                              <td>{ago(d.dateUpdated)}</td>
-                              <td style={{ width: 30 }}>
+                              </TableCell>
+                              <td>{ago(d.dateUpdated)}</TableCell>
+                              <TableCell style={{ width: 30 }}>
                                 {canViewDashboards ? (
                                   <Flex align="center">
                                     <DropdownMenu
@@ -485,19 +493,19 @@ export default function DashboardsPage() {
                                     </DropdownMenu>
                                   </Flex>
                                 ) : null}
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           );
                         })}
                         {!items.length && isFiltered && (
                           <tr>
-                            <td colSpan={5} align={"center"}>
+                            <TableCell colSpan={5} align={"center"}>
                               No matching dashboards
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </>

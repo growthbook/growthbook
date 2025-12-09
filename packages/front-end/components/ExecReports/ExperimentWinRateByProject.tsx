@@ -2,6 +2,14 @@ import React, { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 interface ExperimentWinRateByProjectProps {
   experiments: ExperimentInterfaceStringDates[];
@@ -126,34 +134,34 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
   return (
     <Box width="100%" mt="5">
       <Flex width="100%" direction="column">
-        <table className="table gbtable w-100">
+        <Table variant="standard" className="gb w-100">
           <thead>
             <tr>
-              <th>Project</th>
-              <th style={{ textAlign: "right" }}>Won/Lost/other</th>
-              <th style={{ textAlign: "right" }}>Win rate</th>
-            </tr>
-          </thead>
+              <th>Project</TableColumnHeader>
+              <TableColumnHeader style={{ textAlign: "right" }}>Won/Lost/other</TableColumnHeader>
+              <TableColumnHeader style={{ textAlign: "right" }}>Win rate</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
           <tbody>
             {projectWinRates.map((project, i) => {
               if (!showAllProjects && i >= projectsToShow) {
                 return;
               }
               return (
-                <tr key={project.id}>
-                  <td>{project.name}</td>
-                  <td style={{ textAlign: "right" }}>
+                <TableRow key={project.id}>
+                  <td>{project.name}</TableCell>
+                  <TableCell style={{ textAlign: "right" }}>
                     {project.wins}/{project.losses}/
                     {project.total - project.wins - project.losses}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
+                  </TableCell>
+                  <TableCell style={{ textAlign: "right" }}>
                     {project.total > 0 ? `${project.winRate.toFixed(0)}%` : "-"}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         <Box>
           {projectWinRates.length > projectsToShow && (
             <a

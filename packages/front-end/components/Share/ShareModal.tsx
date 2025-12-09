@@ -34,6 +34,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Preview from "./Preview";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export const presentationThemes = {
   lblue: {
@@ -559,17 +567,17 @@ const ShareModal = ({
                 {Object.keys(byStatus).map((status) => (
                   <TabsContent key={status} value={status}>
                     {byStatus[status].length > 0 ? (
-                      <table className="table table-hover experiment-table appbox">
+                      <Table variant="standard" className="-hover experiment- appbox">
                         <thead>
                           <tr>
-                            <th></th>
-                            <th style={{ width: "99%" }}>Experiment</th>
-                            <th>Tags</th>
-                            <th>Owner</th>
-                            <th>Ended</th>
-                            <th>Result</th>
-                          </tr>
-                        </thead>
+                            <th></TableColumnHeader>
+                            <TableColumnHeader style={{ width: "99%" }}>Experiment</TableColumnHeader>
+                            <th>Tags</TableColumnHeader>
+                            <th>Owner</TableColumnHeader>
+                            <th>Ended</TableColumnHeader>
+                            <th>Result</TableColumnHeader>
+                          </TableRow>
+                        </TableHeader>
                         <tbody>
                           {byStatus[status]
                             .sort(
@@ -592,7 +600,7 @@ const ShareModal = ({
                                 }
                               });
                               return (
-                                <tr
+                                <TableRow
                                   key={e.id}
                                   onClick={(event) => {
                                     event.preventDefault();
@@ -608,7 +616,7 @@ const ShareModal = ({
                                     <span className="h3 mb-0 checkmark">
                                       <FaCheck />
                                     </span>
-                                  </td>
+                                  </TableCell>
                                   <td>
                                     <div className="d-flex">
                                       <h4 className="testname h5">
@@ -624,20 +632,20 @@ const ShareModal = ({
                                         )}
                                       </h4>
                                     </div>
-                                  </td>
-                                  <td className="nowrap">
+                                  </TableCell>
+                                  <TableCell className="nowrap">
                                     <SortedTags tags={Object.values(e.tags)} />
-                                  </td>
-                                  <td className="nowrap">
+                                  </TableCell>
+                                  <TableCell className="nowrap">
                                     {getUserDisplay(e.owner, false)}
-                                  </td>
-                                  <td
+                                  </TableCell>
+                                  <TableCell
                                     className="nowrap"
                                     title={datetime(phase?.dateEnded ?? "")}
                                   >
                                     {ago(phase?.dateEnded ?? "")}
-                                  </td>
-                                  <td className="nowrap">
+                                  </TableCell>
+                                  <TableCell className="nowrap">
                                     {e?.results ? (
                                       <ResultsIndicator
                                         results={e?.results ?? null}
@@ -649,12 +657,12 @@ const ShareModal = ({
                                         </Tooltip>
                                       </span>
                                     )}
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
                               );
                             })}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     ) : (
                       <div className="alert alert-info">
                         No {isFiltered ? "matching" : ""} {status} experiments

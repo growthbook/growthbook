@@ -8,6 +8,14 @@ import cloneDeep from "lodash/cloneDeep";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { DataSourceEditExperimentEventPropertiesModal } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 type DataSourceViewEditExperimentPropertiesProps =
   DataSourceQueryEditingModalBaseProps;
@@ -60,32 +68,32 @@ export const DataSourceViewEditExperimentProperties: FC<
         )}
       </div>
 
-      <table className="table appbox gbtable mb-5">
+      <Table variant="standard" className="appbox gb mb-5">
         <tbody>
           <tr>
-            <th>Experiment Event</th>
+            <th>Experiment Event</TableColumnHeader>
             <td>
               <code>{dataSource.settings?.events?.experimentEvent || ""}</code>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
           <tr>
-            <th>Experiment Id Property</th>
+            <th>Experiment Id Property</TableColumnHeader>
             <td>
               <code>
                 {dataSource.settings?.events?.experimentIdProperty || ""}
               </code>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
           <tr>
-            <th>Variation Id Property</th>
+            <th>Variation Id Property</TableColumnHeader>
             <td>
               <code>
                 {dataSource.settings?.events?.variationIdProperty || ""}
               </code>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
           <tr>
-            <th>UserId Property</th>
+            <th>UserId Property</TableColumnHeader>
             <td>
               <code>distinct_id</code>
               {dataSource.settings?.events?.extraUserIdProperty && (
@@ -97,10 +105,10 @@ export const DataSourceViewEditExperimentProperties: FC<
                   </code>
                 </>
               )}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
       {/* region Add/Edit modal */}
 

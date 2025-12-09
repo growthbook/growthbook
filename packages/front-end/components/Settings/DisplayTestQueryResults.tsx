@@ -9,6 +9,14 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Tooltip from "../Tooltip/Tooltip";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -195,8 +203,8 @@ export default function DisplayTestQueryResults({
               className="mb-3"
               ref={tableBodyScrollRef}
             >
-              <table className="table table-bordered appbox gbtable table-hover mb-0">
-                <thead
+              <Table variant="standard" hover className="appbox mb-0" style={{ border: "1px solid var(--border-color-200)" }}>
+                <TableHeader
                   style={{
                     position: "sticky",
                     top: -1,
@@ -204,24 +212,24 @@ export default function DisplayTestQueryResults({
                     backgroundColor: "var(--color-panel-solid)",
                   }}
                 >
-                  <tr>
+                  <TableRow>
                     {cols.map((col) => (
-                      <th key={col}>{col}</th>
+                      <TableColumnHeader key={col}>{col}</TableColumnHeader>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {results
                     .slice((page - 1) * pageSize, page * pageSize)
                     .map((result, i) => (
-                      <tr key={i}>
+                      <TableRow key={i}>
                         {Object.values(result).map((val, j) => (
-                          <td key={j}>{JSON.stringify(val)}</td>
+                          <TableCell key={j}>{JSON.stringify(val)}</TableCell>
                         ))}
-                      </tr>
+                      </TableRow>
                     ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </TabsContent>
         )}

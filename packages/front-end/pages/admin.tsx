@@ -34,6 +34,14 @@ import Modal from "@/components/Modal";
 import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 interface memberOrgProps {
   id: string;
@@ -162,7 +170,7 @@ function OrganizationRow({
           this organization?
         </Modal>
       )}
-      <tr
+      <TableRow
         className={clsx({
           "table-warning": current,
           "table-danger": organization.disabled,
@@ -179,24 +187,24 @@ function OrganizationRow({
           >
             {organization.name}
           </a>
-        </td>
-        <td>{organization.ownerEmail}</td>
-        <td>{date(organization.dateCreated)}</td>
+        </TableCell>
+        <td>{organization.ownerEmail}</TableCell>
+        <td>{date(organization.dateCreated)}</TableCell>
         <td>
           <small>{organization.id}</small>
-        </td>
+        </TableCell>
         {showVerfiedDomain && (
           <td>
             <small>{organization.verifiedDomain}</small>
-          </td>
+          </TableCell>
         )}
         {showExternalId && (
           <td>
             <small>{organization.externalId}</small>
-          </td>
+          </TableCell>
         )}
-        <td>{organization.members.length ?? 0}</td>
-        <td className="p-0 text-center">
+        <td>{organization.members.length ?? 0}</TableCell>
+        <TableCell className="p-0 text-center">
           <a
             href="#"
             className="d-block w-100 h-100"
@@ -208,8 +216,8 @@ function OrganizationRow({
           >
             <FaPencilAlt />
           </a>
-        </td>
-        <td style={{ width: 40 }} className="p-0 text-center">
+        </TableCell>
+        <TableCell style={{ width: 40 }} className="p-0 text-center">
           <a
             href="#"
             className="d-block w-100 h-100"
@@ -221,11 +229,11 @@ function OrganizationRow({
           >
             {expanded ? <FaAngleDown /> : <FaAngleRight />}
           </a>
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
       {expanded && (
         <tr>
-          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
+          <TableCell colSpan={isCloud() ? 9 : 8} className="bg-light">
             <h3>Summary</h3>
             <div
               className="mb-3 bg-white border p-3"
@@ -421,8 +429,8 @@ function OrganizationRow({
                 </Collapsible>
               </div>
             )}
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
@@ -451,20 +459,20 @@ function MemberRow({
           close={() => setEditMemberModalOpen(false)}
         />
       )}
-      <tr
+      <TableRow
         className={clsx({
           "table-warning": current,
         })}
       >
-        <td>{member.name}</td>
-        <td>{member.email}</td>
-        <td>{member.id}</td>
-        <td>{member.dateCreated ? date(member.dateCreated) : "-"}</td>
-        <td>{member.verified ? "Yes" : "No"}</td>
+        <td>{member.name}</TableCell>
+        <td>{member.email}</TableCell>
+        <td>{member.id}</TableCell>
+        <td>{member.dateCreated ? date(member.dateCreated) : "-"}</TableCell>
+        <td>{member.verified ? "Yes" : "No"}</TableCell>
         <td>
           {memberOrgs.length ? memberOrgs.map((mo) => mo.name).join(", ") : "-"}
-        </td>
-        <td className="p-0 text-center">
+        </TableCell>
+        <TableCell className="p-0 text-center">
           <a
             href="#"
             className="d-block w-100 h-100"
@@ -476,8 +484,8 @@ function MemberRow({
           >
             <FaPencilAlt />
           </a>
-        </td>
-        <td style={{ width: 40 }} className="p-0 text-center">
+        </TableCell>
+        <TableCell style={{ width: 40 }} className="p-0 text-center">
           <a
             href="#"
             className="d-block w-100 h-100"
@@ -489,11 +497,11 @@ function MemberRow({
           >
             {expanded ? <FaAngleDown /> : <FaAngleRight />}
           </a>
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
       {expanded && (
         <tr>
-          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
+          <TableCell colSpan={isCloud() ? 9 : 8} className="bg-light">
             <div className="mb-3">
               <h4>Organization Info</h4>
               <div className="row">
@@ -522,8 +530,8 @@ function MemberRow({
                 ))}
               </div>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
@@ -709,20 +717,20 @@ const Admin: FC = () => {
           {error && <div className="alert alert-danger">{error}</div>}
           <div className="position-relative">
             {loading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
+            <Table variant="standard" className="appbox" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th style={{ width: "260px" }}>Owner</th>
-                  <th>Created</th>
-                  <th>Id</th>
-                  {isCloud() && <th>Verified Domain</th>}
-                  {!isCloud() && <th>External Id</th>}
-                  <th style={{ width: "120px" }}>Members</th>
-                  <th style={{ width: "14px" }}></th>
-                  <th style={{ width: "40px" }}></th>
-                </tr>
-              </thead>
+                  <th>Name</TableColumnHeader>
+                  <TableColumnHeader style={{ width: "260px" }}>Owner</TableColumnHeader>
+                  <th>Created</TableColumnHeader>
+                  <th>Id</TableColumnHeader>
+                  {isCloud() && <th>Verified Domain</TableColumnHeader>}
+                  {!isCloud() && <th>External Id</TableColumnHeader>}
+                  <TableColumnHeader style={{ width: "120px" }}>Members</TableColumnHeader>
+                  <TableColumnHeader style={{ width: "14px" }}></TableColumnHeader>
+                  <TableColumnHeader style={{ width: "40px" }}></TableColumnHeader>
+                </TableRow>
+              </TableHeader>
               <tbody>
                 {orgs.map((o) => (
                   <OrganizationRow
@@ -758,8 +766,8 @@ const Admin: FC = () => {
                     }}
                   />
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             <Pagination
               currentPage={page}
               numItemsTotal={total}
@@ -821,19 +829,19 @@ const Admin: FC = () => {
           )}
           <div className="position-relative">
             {memberLoading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
+            <Table variant="standard" className="appbox" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>email</th>
-                  <th>Id</th>
-                  <th>Created</th>
-                  <th title="Verified Email">Verified</th>
-                  <th>Orgs</th>
-                  <th style={{ width: 40 }}></th>
-                  <th style={{ width: 40 }}></th>
-                </tr>
-              </thead>
+                  <th>Name</TableColumnHeader>
+                  <th>email</TableColumnHeader>
+                  <th>Id</TableColumnHeader>
+                  <th>Created</TableColumnHeader>
+                  <TableColumnHeader title="Verified Email">Verified</TableColumnHeader>
+                  <th>Orgs</TableColumnHeader>
+                  <TableColumnHeader style={{ width: 40 }}></TableColumnHeader>
+                  <TableColumnHeader style={{ width: 40 }}></TableColumnHeader>
+                </TableRow>
+              </TableHeader>
               <tbody>
                 {members.map((m) => (
                   <MemberRow
@@ -846,8 +854,8 @@ const Admin: FC = () => {
                     }}
                   />
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             <Pagination
               currentPage={memberPage}
               numItemsTotal={totalMembers}

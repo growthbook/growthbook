@@ -15,6 +15,14 @@ import { useExperimentSearch } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SortedTags from "@/components/Tags/SortedTags";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export default function ExperimentList({
   num,
@@ -46,27 +54,27 @@ export default function ExperimentList({
   if (as === "table") {
     // create a sortable table with the following columns: experiment name, project, type, tags, date started, owner, status
     return (
-      <table className="table experiment-table gbtable">
+      <Table variant="standard" className="experiment- gb">
         <thead>
           <tr>
             <SortableTH field="name">Experiment</SortableTH>
             <SortableTH field="projectName">Project</SortableTH>
-            <th>Type</th>
-            <th>Tags</th>
+            <th>Type</TableColumnHeader>
+            <th>Tags</TableColumnHeader>
             <SortableTH field="date">Date Started</SortableTH>
             <SortableTH field="ownerName">Owner</SortableTH>
             <SortableTH field="status">Status</SortableTH>
-          </tr>
-        </thead>
+          </TableRow>
+        </TableHeader>
         <tbody>
           {items.slice(0, num).map((test, i) => {
             const currentPhase = test.phases[test.phases.length - 1];
             return (
-              <tr key={i}>
+              <TableRow key={i}>
                 <td>
                   <Link href={`/experiment/${test.id}`}>{test.name}</Link>
-                </td>
-                <td>{test.projectName}</td>
+                </TableCell>
+                <td>{test.projectName}</TableCell>
                 <td>
                   <Flex gap="1" align="center">
                     {test.hasVisualChangesets ? (
@@ -94,13 +102,13 @@ export default function ExperimentList({
                       </Tooltip>
                     ) : null}
                   </Flex>
-                </td>
+                </TableCell>
                 <td>
                   <SortedTags tags={Object.values(test.tags)} useFlex={true} />
-                </td>
-                <td title={datetime(test.date)}>{date(test.date)}</td>
-                <td>{test.ownerName}</td>
-                <td className="text-nowrap">
+                </TableCell>
+                <TableCell title={datetime(test.date)}>{date(test.date)}</TableCell>
+                <td>{test.ownerName}</TableCell>
+                <TableCell className="text-nowrap">
                   {phaseSummary(
                     currentPhase,
                     test.type === "multi-armed-bandit",
@@ -108,12 +116,12 @@ export default function ExperimentList({
                   <ExperimentStatusDetailsWithDot
                     statusIndicatorData={test.statusIndicator}
                   />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     );
   } else {
     let exps = experiments.filter((e) => e.status === status);

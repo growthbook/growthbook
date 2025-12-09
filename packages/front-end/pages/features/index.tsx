@@ -54,6 +54,14 @@ import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useExperiments } from "@/hooks/useExperiments";
 import FeaturesDraftTable from "./FeaturesDraftTable";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const NUM_PER_PAGE = 20;
 const HEADER_HEIGHT_PX = 55;
@@ -136,36 +144,36 @@ export default function FeaturesPage() {
             </Flex>
           </Box>
 
-          <table className="table gbtable mb-3">
-            <thead
+          <Table variant="standard" className="gb mb-3">
+            <TableHeader
               className="sticky-top shadow-sm"
               style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
               <tr>
-                <th></th>
+                <th></TableColumnHeader>
                 <SortableTH field="id">Feature Key</SortableTH>
-                {showProjectColumn && <th>Project</th>}
+                {showProjectColumn && <th>Project</TableColumnHeader>}
                 <SortableTH field="tags">Tags</SortableTH>
                 {toggleEnvs.map((en) => (
-                  <th key={en.id} className="text-center">
+                  <TableColumnHeader key={en.id} className="text-center">
                     {en.id}
-                  </th>
+                  </TableColumnHeader>
                 ))}
-                <th>Prerequisites</th>
-                <th>Default</th>
-                <th>Rules</th>
-                <th>Version</th>
+                <th>Prerequisites</TableColumnHeader>
+                <th>Default</TableColumnHeader>
+                <th>Rules</TableColumnHeader>
+                <th>Version</TableColumnHeader>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                  </th>
+                  </TableColumnHeader>
                 )}
-                <th>Stale</th>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
+                <th>Stale</TableColumnHeader>
+                <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
             <tbody>
               {featureItems.map((feature: ComputedFeatureInterface) => {
                 let rules: FeatureRule[] = [];
@@ -198,20 +206,20 @@ export default function FeaturesPage() {
                   topLevelPrerequisites + prerequisiteRules;
 
                 return (
-                  <tr
+                  <TableRow
                     key={feature.id}
                     className={clsx("hover-highlight", {
                       "text-muted": feature.archived,
                     })}
                   >
-                    <td data-title="Watching status:" className="watching">
+                    <TableCell data-title="Watching status:" className="watching">
                       <WatchButton
                         item={feature.id}
                         itemType="feature"
                         type="icon"
                       />
-                    </td>
-                    <td className="p-0">
+                    </TableCell>
+                    <TableCell className="p-0">
                       <Link
                         href={`/features/${feature.id}`}
                         className={clsx("featurename d-block p-2", {
@@ -220,7 +228,7 @@ export default function FeaturesPage() {
                       >
                         {feature.id}
                       </Link>
-                    </td>
+                    </TableCell>
                     {showProjectColumn && (
                       <td>
                         {feature.projectIsDeReferenced ? (
@@ -245,13 +253,13 @@ export default function FeaturesPage() {
                             )}
                           </>
                         )}
-                      </td>
+                      </TableCell>
                     )}
                     <td>
                       <SortedTags tags={feature?.tags || []} useFlex={true} />
-                    </td>
+                    </TableCell>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id}>
+                      <TableCell key={en.id}>
                         <Flex align="center" justify="center">
                           {featureHasEnvironment(feature, en) && (
                             <EnvironmentToggle
@@ -261,7 +269,7 @@ export default function FeaturesPage() {
                             />
                           )}
                         </Flex>
-                      </td>
+                      </TableCell>
                     ))}
                     <td>
                       {totalPrerequisites > 0 && (
@@ -286,15 +294,15 @@ export default function FeaturesPage() {
                           </div>
                         </div>
                       )}
-                    </td>
-                    <td style={{ minWidth: 90 }}>
+                    </TableCell>
+                    <TableCell style={{ minWidth: 90 }}>
                       <ValueDisplay
                         value={getFeatureDefaultValue(feature) || ""}
                         type={feature.valueType}
                         full={false}
                         additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
                       />
-                    </td>
+                    </TableCell>
                     <td>
                       <div style={{ lineHeight: "16px" }}>
                         {firstRule && (
@@ -306,8 +314,8 @@ export default function FeaturesPage() {
                           </small>
                         )}
                       </div>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
+                    </TableCell>
+                    <TableCell style={{ textAlign: "center" }}>
                       {version}
                       {feature?.hasDrafts ? (
                         <Tooltip body="This feature has an active draft that has not been published yet">
@@ -317,19 +325,19 @@ export default function FeaturesPage() {
                           />
                         </Tooltip>
                       ) : null}
-                    </td>
-                    <td title={datetime(feature.dateUpdated)}>
+                    </TableCell>
+                    <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
-                    </td>
+                    </TableCell>
                     {showGraphs && (
-                      <td style={{ width: 170 }}>
+                      <TableCell style={{ width: 170 }}>
                         <RealTimeFeatureGraph
                           data={usage?.[feature.id]?.realtime || []}
                           yDomain={usageDomain}
                         />
-                      </td>
+                      </TableCell>
                     )}
-                    <td style={{ textAlign: "center" }}>
+                    <TableCell style={{ textAlign: "center" }}>
                       {stale && (
                         <StaleFeatureIcon
                           staleReason={staleReason}
@@ -343,7 +351,7 @@ export default function FeaturesPage() {
                           }}
                         />
                       )}
-                    </td>
+                    </TableCell>
                     <td>
                       <MoreMenu>
                         {permissionsUtil.canCreateFeature(feature) &&
@@ -361,17 +369,17 @@ export default function FeaturesPage() {
                           </button>
                         ) : null}
                       </MoreMenu>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {!items.length && (
                 <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
-                </tr>
+                  <TableCell colSpan={showGraphs ? 7 : 6}>No matching features</TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
             <Pagination
               numItemsTotal={items.length}

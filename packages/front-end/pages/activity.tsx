@@ -4,6 +4,14 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { HistoryTableRow } from "@/components/HistoryTable";
 import track from "@/services/track";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const Activity: FC = () => {
   const { data, error } = useApi<{
@@ -32,17 +40,17 @@ const Activity: FC = () => {
       <h3>Activity - Last 7 Days</h3>
       <p>Includes all watched features and experiments.</p>
       {data.events.length > 0 ? (
-        <table className="table appbox">
+        <Table variant="standard" className="appbox">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Name</th>
-              <th>User</th>
-              <th>Event</th>
-              <th></th>
-            </tr>
-          </thead>
+              <th>Date</TableColumnHeader>
+              <th>Type</TableColumnHeader>
+              <th>Name</TableColumnHeader>
+              <th>User</TableColumnHeader>
+              <th>Event</TableColumnHeader>
+              <th></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
           <tbody>
             {data.events.map((event) => (
               <HistoryTableRow
@@ -66,8 +74,8 @@ const Activity: FC = () => {
                 }
               />
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : (
         <p>
           <em>No recent events</em>
