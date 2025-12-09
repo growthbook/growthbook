@@ -12,9 +12,9 @@ import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType } from "shared/validators";
 import { entityTypes } from "shared/constants";
+import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
-  UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
   deleteSdkWebhookById,
   findAllLegacySdkWebhooks,
