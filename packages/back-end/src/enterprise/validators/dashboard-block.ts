@@ -212,15 +212,12 @@ const seriesOverridesValidator = z
   .object({
     seriesId: z.string(),
     hidden: z.boolean().optional(),
-    // Name - this would update the legend
-    // Color - this would update the color of the series
   })
   .strict();
 
 const displaySettingsValidator = z
   .object({
     seriesOverrides: z.array(seriesOverridesValidator).optional(),
-    // title: z.string().optional(),
   })
   .strict();
 
