@@ -370,42 +370,6 @@ def decision_making_conditions(metric, analysis):
     )
 
 
-def initialize_df(
-    df: pd.DataFrame, analysis: AnalysisSettingsForStatsEngine
-) -> pd.DataFrame:
-    num_variations = df.at[0, "variations"]
-    df["srm_p"] = 0
-    df["engine"] = analysis.stats_engine
-    for i in range(num_variations):
-        if i == 0:
-            df["baseline_cr"] = 0
-            df["baseline_mean"] = None
-            df["baseline_stddev"] = None
-        else:
-            df[f"v{i}_cr"] = 0
-            df[f"v{i}_mean"] = None
-            df[f"v{i}_stddev"] = None
-            df[f"v{i}_expected"] = 0
-            df[f"v{i}_p_value"] = None
-            df[f"v{i}_p_value_error_message"] = None
-            df[f"v{i}_risk"] = None
-            df[f"v{i}_prob_beat_baseline"] = None
-            df[f"v{i}_uplift"] = None
-            df[f"v{i}_error_message"] = None
-            df[f"v{i}_decision_making_conditions"] = False
-            df[f"v{i}_first_period_pairwise_users"] = None
-            df[f"v{i}_target_mde"] = None
-            df[f"v{i}_sigmahat_2_delta"] = None
-            df[f"v{i}_prior_proper"] = False
-            df[f"v{i}_prior_lift_mean"] = None
-            df[f"v{i}_prior_lift_variance"] = None
-            df[f"v{i}_power_status"] = None
-            df[f"v{i}_power_error_message"] = None
-            df[f"v{i}_power_upper_bound_acheieved"] = None
-            df[f"v{i}_scaling_factor"] = None
-    return df
-
-
 def run_mid_experiment_power(
     total_users: int,
     num_variations: int,
