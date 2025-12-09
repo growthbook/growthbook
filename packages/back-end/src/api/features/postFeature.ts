@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
+import { PostFeatureResponse } from "shared/types/openapi";
+import { postFeatureValidator } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { PostFeatureResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postFeatureValidator } from "back-end/src/validators/openapi";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { FeatureInterface, JSONSchemaDef } from "back-end/types/feature";

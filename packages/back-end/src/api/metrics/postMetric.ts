@@ -1,6 +1,6 @@
-import { PostMetricResponse } from "back-end/types/openapi";
+import { PostMetricResponse } from "shared/types/openapi";
+import { postMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postMetricValidator } from "back-end/src/validators/openapi";
 import {
   createMetric,
   postMetricApiPayloadIsValid,

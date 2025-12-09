@@ -44,6 +44,11 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "shared/types/sdk";
+import {
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
+} from "shared/types/openapi";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -89,11 +94,6 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import {
-  ApiFeatureWithRevisions,
-  ApiFeatureEnvironment,
-  ApiFeatureRule,
-} from "back-end/types/openapi";
 import {
   ExperimentInterface,
   ExperimentPhase,

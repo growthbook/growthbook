@@ -3,8 +3,8 @@ import { FilterQuery } from "mongoose";
 import { z } from "zod";
 import { SegmentInterface } from "shared/types/segment";
 import {
-  createSegmentValidator,
-  updateSegmentValidator,
+  createSegmentModelValidator,
+  updateSegmentModelValidator,
 } from "shared/validators";
 import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -113,7 +113,9 @@ export const getSegmentUsage = async (
 
 // region POST /segments
 
-type CreateSegmentRequest = AuthRequest<z.infer<typeof createSegmentValidator>>;
+type CreateSegmentRequest = AuthRequest<
+  z.infer<typeof createSegmentModelValidator>
+>;
 
 type CreateSegmentResponse = {
   status: 200;
@@ -191,7 +193,7 @@ export const postSegment = async (
 // region PUT /segments/:id
 
 type PutSegmentRequest = AuthRequest<
-  z.infer<typeof updateSegmentValidator>,
+  z.infer<typeof updateSegmentModelValidator>,
   { id: string }
 >;
 
