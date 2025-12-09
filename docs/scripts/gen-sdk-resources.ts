@@ -6,7 +6,7 @@ import {
   getSDKCapabilities,
   getSDKCapabilityVersion,
   SDKCapability,
-} from "shared/src/sdk-versioning";
+} from "shared/sdk-versioning";
 import type { SDKLanguage } from "shared/types/sdk-connection";
 
 function defineSDKCapabilityVersion(sdk: string, capabilities: string[]) {

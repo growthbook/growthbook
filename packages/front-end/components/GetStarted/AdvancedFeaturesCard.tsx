@@ -1,5 +1,5 @@
 import { AspectRatio, Box, Text } from "@radix-ui/themes";
-import { CommercialFeature } from "shared/src/enterprise/license-consts";
+import { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocSection, DocLink } from "@/components/DocLink";
 import Link from "@/ui/Link";
