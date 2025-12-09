@@ -297,6 +297,17 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
+  let dimensionsForTraffic: ExperimentDimension[] = [];
+  if (exposureQuery?.dimensionMetadata) {
+    dimensionsForTraffic = exposureQuery.dimensionMetadata
+      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+      .map((dm) => ({
+        type: "experiment",
+        id: dm.dimension,
+        specifiedSlices: dm.specifiedSlices,
+      }));
+  }
+
   const experimentDimensions: ExperimentDimension[] =
     params.fullRefresh || !incrementalRefreshModel
       ? exposureQuery.dimensions.map((d) => {
@@ -759,7 +770,7 @@ const startExperimentIncrementalRefreshQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: experimentDimensions,
+        dimensions: dimensionsForTraffic,
         useUnitsTable: true,
       }),
       dependencies: [alterUnitsTableQuery.query],
