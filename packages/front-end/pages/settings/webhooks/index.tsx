@@ -9,6 +9,13 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -51,34 +58,34 @@ const WebhooksPage: FC = () => {
             endpoints or headers. Simply reference them using Handlebars syntax.
             For example, <code>{"{{ MY_SECRET }}"}</code>.
           </p>
-          <table className="table gbtable appbox">
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Description</th>
-                <th>Allowed Origins</th>
-                <th>Created</th>
-                <th>Updated</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="gbtable appbox">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Key</TableColumnHeader>
+                <TableColumnHeader>Description</TableColumnHeader>
+                <TableColumnHeader>Allowed Origins</TableColumnHeader>
+                <TableColumnHeader>Created</TableColumnHeader>
+                <TableColumnHeader>Updated</TableColumnHeader>
+                <TableColumnHeader></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {webhookSecrets.map((secret) => (
-                <tr key={secret.id}>
-                  <td>
+                <TableRow key={secret.id}>
+                  <TableCell>
                     <ClickToCopy>{secret.key}</ClickToCopy>
-                  </td>
-                  <td>{secret.description}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{secret.description}</TableCell>
+                  <TableCell>
                     {secret.allowedOrigins?.length ? (
                       secret.allowedOrigins.join(", ")
                     ) : (
                       <em>Any</em>
                     )}
-                  </td>
-                  <td>{datetime(secret.dateCreated)}</td>
-                  <td>{datetime(secret.dateUpdated)}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{datetime(secret.dateCreated)}</TableCell>
+                  <TableCell>{datetime(secret.dateUpdated)}</TableCell>
+                  <TableCell>
                     <MoreMenu>
                       <a
                         href="#"
@@ -102,11 +109,11 @@ const WebhooksPage: FC = () => {
                         text="Delete Secret"
                       />
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
             Add Webhook Secret
           </Button>

@@ -34,6 +34,13 @@ import SDKLanguageLogo, {
 } from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 import { SDKLanguageOption } from "./SDKLanguageSelector";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 function popularLanguagesFirst(a: SDKLanguage, b: SDKLanguage) {
   const isAPopular = languageMapping[a].filters.includes("popular");
@@ -209,20 +216,24 @@ export default function SDKConnectionsList() {
       ) : null}
 
       {connections.length > 0 && (
-        <table className="table mb-3 appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th style={{ width: 25 }}></th>
-              <th>Name</th>
-              {projects.length > 0 && <th>Projects</th>}
-              <th>Environment</th>
-              <th>Webhooks</th>
-              <th className="text-center">Supported Features</th>
-              <th>Language</th>
-              <th style={{ width: 25 }}></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="mb-3 appbox gbtable" hover>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader style={{ width: 25 }}></TableColumnHeader>
+              <TableColumnHeader>Name</TableColumnHeader>
+              {projects.length > 0 && (
+                <TableColumnHeader>Projects</TableColumnHeader>
+              )}
+              <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Webhooks</TableColumnHeader>
+              <TableColumnHeader className="text-center">
+                Supported Features
+              </TableColumnHeader>
+              <TableColumnHeader>Language</TableColumnHeader>
+              <TableColumnHeader style={{ width: 25 }}></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {connections.map((connection) => {
               const hasProxy =
                 connection.proxy.enabled && !!connection.proxy.host;
@@ -257,7 +268,7 @@ export default function SDKConnectionsList() {
               const webhooksWithErrors = webhooks?.filter((w) => w.error);
 
               return (
-                <tr
+                <TableRow
                   key={connection.id}
                   className="cursor-pointer"
                   onClick={(e) => {
@@ -265,7 +276,7 @@ export default function SDKConnectionsList() {
                     router.push(`/sdks/${connection.id}`);
                   }}
                 >
-                  <td style={{ verticalAlign: "middle", width: 20 }}>
+                  <TableCell style={{ verticalAlign: "middle", width: 20 }}>
                     <Tooltip
                       body={
                         connected
@@ -279,8 +290,8 @@ export default function SDKConnectionsList() {
                         <FaExclamationTriangle className="text-warning" />
                       )}
                     </Tooltip>
-                  </td>
-                  <td className="text-break">
+                  </TableCell>
+                  <TableCell className="text-break">
                     <Link href={`/sdks/${connection.id}`}>
                       {connection.name}
                     </Link>
@@ -293,9 +304,9 @@ export default function SDKConnectionsList() {
                         />
                       </div>
                     ) : null}
-                  </td>
+                  </TableCell>
                   {projects.length > 0 && (
-                    <td>
+                    <TableCell>
                       {showAllEnvironmentProjects && (
                         <Badge
                           key="All env projects"
@@ -324,10 +335,10 @@ export default function SDKConnectionsList() {
                           />
                         )}
                       </div>
-                    </td>
+                    </TableCell>
                   )}
-                  <td>{connection.environment}</td>
-                  <td>
+                  <TableCell>{connection.environment}</TableCell>
+                  <TableCell>
                     {webhooks?.length ? (
                       <div className="nowrap">
                         {webhooks.length} webhook{webhooks.length !== 1 && "s"}
@@ -360,8 +371,8 @@ export default function SDKConnectionsList() {
                         ) : null}
                       </div>
                     ) : null}
-                  </td>
-                  <td className="text-center">
+                  </TableCell>
+                  <TableCell className="text-center">
                     {connection.remoteEvalEnabled && (
                       <Tooltip
                         body={
@@ -431,8 +442,8 @@ export default function SDKConnectionsList() {
                         <PiShuffle className="mx-1 text-blue" />
                       </Tooltip>
                     )}
-                  </td>
-                  <td style={{ maxWidth: 200 }}>
+                  </TableCell>
+                  <TableCell style={{ maxWidth: 200 }}>
                     <div className="d-flex flex-wrap">
                       {connection.languages.map((language) => (
                         <span className="mx-1" key={language}>
@@ -448,15 +459,15 @@ export default function SDKConnectionsList() {
                         </span>
                       ))}
                     </div>
-                  </td>
-                  <td style={{ width: 25 }}>
+                  </TableCell>
+                  <TableCell style={{ width: 25 }}>
                     <FaAngleRight />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

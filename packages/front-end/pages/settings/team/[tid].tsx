@@ -16,6 +16,13 @@ import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -190,25 +197,25 @@ const TeamPage: FC = () => {
             Active Members
             {` (${team.members ? team.members.length : 0})`}
           </h5>
-          <table className="table appbox gbtable">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Date Joined</th>
-                <th style={{ width: 50 }} />
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="appbox gbtable">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Name</TableColumnHeader>
+                <TableColumnHeader>Email</TableColumnHeader>
+                <TableColumnHeader>Date Joined</TableColumnHeader>
+                <TableColumnHeader style={{ width: 50 }}></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {team.members?.map((member) => {
                 return (
-                  <tr key={member.id}>
-                    <td>{member.name}</td>
-                    <td>{member.email}</td>
-                    <td>
+                  <TableRow key={member.id}>
+                    <TableCell>{member.name}</TableCell>
+                    <TableCell>{member.email}</TableCell>
+                    <TableCell>
                       {member.dateCreated && datetime(member.dateCreated)}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {canManageTeam && isEditable && (
                         <>
                           <DeleteButton
@@ -227,12 +234,12 @@ const TeamPage: FC = () => {
                           />
                         </>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
     </>

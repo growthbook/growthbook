@@ -32,6 +32,13 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useExperimentSearch } from "@/services/experiments";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const NUM_PER_PAGE = 20;
 
@@ -316,10 +323,10 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
               </div>
 
-              <table className="appbox table experiment-table gbtable responsive-table">
-                <thead>
-                  <tr>
-                    <th></th>
+              <Table className="appbox experiment-table responsive-table">
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader></TableColumnHeader>
                     <SortableTH field="name" className="w-100">
                       Bandit
                     </SortableTH>
@@ -330,20 +337,23 @@ const ExperimentsPage = (): React.ReactElement => {
                     <SortableTH field="ownerName">Owner</SortableTH>
                     <SortableTH field="date">Date</SortableTH>
                     <SortableTH field="status">Status</SortableTH>
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filtered.slice(start, end).map((e) => {
                     return (
-                      <tr key={e.id} className="hover-highlight">
-                        <td data-title="Watching status:" className="watching">
+                      <TableRow key={e.id} className="hover-highlight">
+                        <TableCell
+                          data-title="Watching status:"
+                          className="watching"
+                        >
                           <WatchButton
                             item={e.id}
                             itemType="experiment"
                             type="icon"
                           />
-                        </td>
-                        <td data-title="Bandit name:" className="p-0">
+                        </TableCell>
+                        <TableCell data-title="Bandit name:" className="p-0">
                           <Link
                             href={`/bandit/${e.id}`}
                             className="d-block p-2"
@@ -386,9 +396,9 @@ const ExperimentsPage = (): React.ReactElement => {
                               )}
                             </div>
                           </Link>
-                        </td>
+                        </TableCell>
                         {showProjectColumn && (
-                          <td className="nowrap" data-title="Project:">
+                          <TableCell className="nowrap" data-title="Project:">
                             {e.projectIsDeReferenced ? (
                               <Tooltip
                                 body={
@@ -404,19 +414,19 @@ const ExperimentsPage = (): React.ReactElement => {
                             ) : (
                               (e.projectName ?? <em>None</em>)
                             )}
-                          </td>
+                          </TableCell>
                         )}
 
-                        <td data-title="Tags:" className="table-tags">
+                        <TableCell data-title="Tags:" className="table-tags">
                           <SortedTags
                             tags={Object.values(e.tags)}
                             useFlex={true}
                           />
-                        </td>
-                        <td className="nowrap" data-title="Owner:">
+                        </TableCell>
+                        <TableCell className="nowrap" data-title="Owner:">
                           {e.ownerName}
-                        </td>
-                        <td className="nowrap" title={datetime(e.date)}>
+                        </TableCell>
+                        <TableCell className="nowrap" title={datetime(e.date)}>
                           {e.tab === "running"
                             ? "started"
                             : e.tab === "drafts"
@@ -427,15 +437,15 @@ const ExperimentsPage = (): React.ReactElement => {
                                   ? "updated"
                                   : ""}{" "}
                           {date(e.date)}
-                        </td>
-                        <td className="nowrap" data-title="Status:">
+                        </TableCell>
+                        <TableCell className="nowrap" data-title="Status:">
                           <ExperimentStatusIndicator experimentData={e} />
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
               {filtered.length > NUM_PER_PAGE && (
                 <Pagination
                   numItemsTotal={filtered.length}

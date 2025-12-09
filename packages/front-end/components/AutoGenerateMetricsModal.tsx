@@ -22,6 +22,12 @@ import AutoMetricCard from "./Settings/AutoMetricCard";
 import SelectField from "./Forms/SelectField";
 import LoadingOverlay from "./LoadingOverlay";
 import LoadingSpinner from "./LoadingSpinner";
+import Table, {
+  TableBody,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 type Props = {
   setShowAutoGenerateMetricsModal: (show: boolean) => void;
@@ -412,28 +418,27 @@ export default function AutoGenerateMetricsModal({
                 Uncheck All
               </Button>
             </div>
-            <table
-              className="appbox table gbtable"
-              style={{ tableLayout: "fixed" }}
-            >
-              <thead>
-                <tr>
-                  <th>Event Name</th>
-                  <th className="text-center">Count</th>
-                  <th className="text-center">
+            <Table className="appbox gbtable" style={{ tableLayout: "fixed" }}>
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader>Event Name</TableColumnHeader>
+                  <TableColumnHeader className="text-center">
+                    Count
+                  </TableColumnHeader>
+                  <TableColumnHeader className="text-center">
                     <Tooltip body="Binomial metrics are simple yes/no conversions (E.G. Created Account)">
                       Create Binomial Metric
                     </Tooltip>
-                  </th>
-                  <th className="text-center">
+                  </TableColumnHeader>
+                  <TableColumnHeader className="text-center">
                     {" "}
                     <Tooltip body="Count metrics sum conversion values per user (E.G. Pages per Visit)">
                       Create Count Metric
                     </Tooltip>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {trackedEvents.map((event, i) => {
                   return (
                     <AutoMetricCard
@@ -449,8 +454,8 @@ export default function AutoGenerateMetricsModal({
                     />
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : null}
         {autoMetricError && (

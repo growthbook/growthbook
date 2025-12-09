@@ -13,6 +13,7 @@ import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -147,20 +148,20 @@ const ReportsPage = (): React.ReactElement => {
         />
         <div style={{ flex: 1 }} />
       </div>
-      <table className="table appbox gbtable table-hover">
-        <thead>
-          <tr>
+      <Table className="appbox" hover>
+        <TableHeader>
+          <TableRow>
             <SortableTH field="title">Title</SortableTH>
             <SortableTH field="description">Description</SortableTH>
             <SortableTH field="status">Status</SortableTH>
             <SortableTH field="experimentName">Experiment</SortableTH>
             <SortableTH field="userName">Created By</SortableTH>
             <SortableTH field="dateUpdated">Last Updated</SortableTH>
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((report) => (
-            <tr
+            <TableRow
               key={report.id}
               onClick={(e) => {
                 e.preventDefault();
@@ -168,15 +169,15 @@ const ReportsPage = (): React.ReactElement => {
               }}
               style={{ cursor: "pointer" }}
             >
-              <td>
+              <TableCell>
                 <Link
                   href={`/report/${report.id}`}
                   className={`text-dark font-weight-bold`}
                 >
                   {report.title}
                 </Link>
-              </td>
-              <td
+              </TableCell>
+              <TableCell
                 className="text-muted"
                 style={{
                   textOverflow: "ellipsis",
@@ -186,8 +187,8 @@ const ReportsPage = (): React.ReactElement => {
                 }}
               >
                 {report.description}
-              </td>
-              <td>
+              </TableCell>
+              <TableCell>
                 <ShareStatusBadge
                   shareLevel={report.shareLevel}
                   editLevel={
@@ -196,31 +197,31 @@ const ReportsPage = (): React.ReactElement => {
                       : "organization"
                   }
                 />
-              </td>
-              <td>{report.experimentName}</td>
-              <td>{report.userName}</td>
-              <td
+              </TableCell>
+              <TableCell>{report.experimentName}</TableCell>
+              <TableCell>{report.userName}</TableCell>
+              <TableCell
                 title={datetime(report.dateUpdated)}
                 className="d-none d-md-table-cell"
               >
                 {ago(report.dateUpdated)}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
 
           {!items.length && (
-            <tr>
-              <td colSpan={6} align={"center"}>
+            <TableRow>
+              <TableCell colSpan={6} align={"center"}>
                 {isFiltered
                   ? "No matching reports"
                   : onlyMyReports
                     ? "You have no reports"
                     : "No reports"}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {pagination}
     </div>
   );

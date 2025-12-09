@@ -33,6 +33,13 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { GBInfo } from "@/components/Icons";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 export default function FactTablesPage() {
   const {
@@ -391,24 +398,24 @@ export default function FactTablesPage() {
               ) : null}
             </div>
           </div>
-          <table className="table appbox gbtable table-hover">
-            <thead>
-              <tr>
+          <Table className="appbox" hover>
+            <TableHeader>
+              <TableRow>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="datasourceName">Data Source</SortableTH>
                 <SortableTH field="tags">Tags</SortableTH>
-                <th>Projects</th>
+                <TableColumnHeader>Projects</TableColumnHeader>
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
                 <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numAutoSlices">Auto Slices</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="owner">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((f) => (
-                <tr
+                <TableRow
                   key={f.id}
                   onClick={(e) => {
                     // If clicking on a link or button, default to browser behavior
@@ -436,19 +443,19 @@ export default function FactTablesPage() {
                   }}
                   className="cursor-pointer"
                 >
-                  <td>
+                  <TableCell>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
                     <OfficialBadge
                       type="fact table"
                       managedBy={f.managedBy}
                       leftGap={true}
                     />
-                  </td>
-                  <td>{f.datasourceName}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{f.datasourceName}</TableCell>
+                  <TableCell>
                     <SortedTags tags={f.tags} />
-                  </td>
-                  <td className="col-2">
+                  </TableCell>
+                  <TableCell className="col-2">
                     {f.projects.length > 0 ? (
                       <ProjectBadges
                         resourceType="fact table"
@@ -457,25 +464,27 @@ export default function FactTablesPage() {
                     ) : (
                       <ProjectBadges resourceType="fact table" />
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {f.userIdTypes.map((t) => (
                       <span className="badge badge-secondary mr-1" key={t}>
                         {t}
                       </span>
                     ))}
-                  </td>
-                  <td>{f.numMetrics}</td>
-                  <td>{f.numAutoSlices}</td>
-                  <td>{f.numFilters}</td>
-                  <td>{f.owner}</td>
-                  <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{f.numMetrics}</TableCell>
+                  <TableCell>{f.numAutoSlices}</TableCell>
+                  <TableCell>{f.numFilters}</TableCell>
+                  <TableCell>{f.owner}</TableCell>
+                  <TableCell>
+                    {f.dateUpdated ? date(f.dateUpdated) : null}
+                  </TableCell>
+                </TableRow>
               ))}
 
               {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={10} align={"center"}>
+                <TableRow>
+                  <TableCell colSpan={10} align={"center"}>
                     No matching fact tables.{" "}
                     <a
                       href="#"
@@ -486,11 +495,11 @@ export default function FactTablesPage() {
                     >
                       Clear search field
                     </a>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

@@ -8,6 +8,15 @@ import { CreateProps } from "back-end/types/models";
 import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "back-end/types/feature";
+import { EventWebHookInterface } from "back-end/types/event-webhook";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
+import { date } from "shared/dates";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -383,32 +392,31 @@ export default function CustomHooksPage() {
             <h1 className="mb-0">Custom Hooks</h1>
             <Button onClick={() => setModalData(true)}>Add Custom Hook</Button>
           </Flex>
-          <table className="gbtable table appbox">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Projects</th>
-                <th>Enabled</th>
-                <th style={{ width: 50 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="gbtable appbox">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Name</TableColumnHeader>
+                <TableColumnHeader>Type</TableColumnHeader>
+                <TableColumnHeader>Projects</TableColumnHeader>
+                <TableColumnHeader>Enabled</TableColumnHeader>
+                <TableColumnHeader></TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {hooks.map((hook) => (
-                <tr key={hook.id}>
-                  <td data-title="Name">{hook.name}</td>
-                  <td data-title="Type">{hook.hook}</td>
-                  <td data-title="Projects">{hook.projects.join(", ")}</td>
-                  <td data-title="Enabled">{hook.enabled ? "Yes" : "No"}</td>
-                  <td>
+                <TableRow key={hook.id}>
+                  <TableCell>{hook.name}</TableCell>
+                  <TableCell>{hook.hook}</TableCell>
+                  <TableCell>{hook.projects.join(", ")}</TableCell>
+                  <TableCell>{hook.enabled ? "Yes" : "No"}</TableCell>
+                  <TableCell>
                     <MoreMenu>
-                      <a
-                        href="#"
+                      <button
                         className="dropdown-item"
                         onClick={() => setModalData(hook)}
                       >
                         Edit
-                      </a>
+                      </button>
                       <DeleteButton
                         useIcon={false}
                         text="Delete"
@@ -422,11 +430,11 @@ export default function CustomHooksPage() {
                         className="dropdown-item text-danger"
                       />
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

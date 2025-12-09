@@ -25,6 +25,13 @@ import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
@@ -69,8 +76,8 @@ export default function SdkWebhooks({
   const renderTableRows = () => {
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
-      <tr key={webhook.name}>
-        <td style={{ minWidth: 150 }}>
+      <TableRow key={webhook.name}>
+        <TableCell style={{ minWidth: 150 }}>
           {webhook.name}
           {webhook.managedBy?.type ? (
             <div>
@@ -81,8 +88,8 @@ export default function SdkWebhooks({
               />
             </div>
           ) : null}
-        </td>
-        <td
+        </TableCell>
+        <TableCell
           style={{
             wordBreak: "break-word",
             overflowWrap: "anywhere",
@@ -93,15 +100,15 @@ export default function SdkWebhooks({
           ) : (
             <code className="text-main small">{webhook.endpoint}</code>
           )}
-        </td>
-        <td className="text-main">
+        </TableCell>
+        <TableCell className="text-main">
           {webhook.managedBy?.type ? (
             <em className="text-muted">hidden</em>
           ) : (
             <span className="small">{webhook.httpMethod}</span>
           )}
-        </td>
-        <td className="text-main">
+        </TableCell>
+        <TableCell className="text-main">
           {webhook.managedBy?.type ? (
             <em className="text-muted">hidden</em>
           ) : (
@@ -109,8 +116,8 @@ export default function SdkWebhooks({
               {payloadFormatLabels?.[webhook?.payloadFormat ?? "standard"]}
             </span>
           )}
-        </td>
-        <td className="nowrap">
+        </TableCell>
+        <TableCell className="nowrap">
           {webhook.signingKey && !webhook.managedBy?.type ? (
             <ClickToReveal
               valueWhenHidden="wk_abc123def456ghi789"
@@ -119,8 +126,8 @@ export default function SdkWebhooks({
           ) : (
             <em className="text-muted">hidden</em>
           )}
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           {webhook.error ? (
             <>
               <Tooltip
@@ -147,8 +154,8 @@ export default function SdkWebhooks({
           ) : (
             <em>never fired</em>
           )}
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           <OldButton
             color="outline-primary"
             className="btn-sm"
@@ -164,8 +171,8 @@ export default function SdkWebhooks({
             <FaPaperPlane className="mr-1" />
             Test
           </OldButton>
-        </td>
-        <td className="px-0">
+        </TableCell>
+        <TableCell className="px-0">
           {!webhook.managedBy?.type ? (
             <div className="col-auto mr-1">
               <MoreMenu>
@@ -197,8 +204,8 @@ export default function SdkWebhooks({
               </MoreMenu>
             </div>
           ) : null}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     ));
   };
   const renderAddWebhookButton = () => (
@@ -246,21 +253,28 @@ export default function SdkWebhooks({
   const renderTable = () => {
     return (
       <div className="gb-webhook-table-container mb-2">
-        <table className="table appbox gbtable mb-0">
-          <thead>
-            <tr>
-              <th>Webhook</th>
-              <th>Endpoint</th>
-              <th>Method</th>
-              <th style={{ width: 130 }}>Format</th>
-              <th>Shared Secret</th>
-              <th style={{ width: 125 }}>Last Success</th>
-              <th />
-              <th className="px-0" style={{ width: 35 }} />
-            </tr>
-          </thead>
-          <tbody>{renderTableRows()}</tbody>
-        </table>
+        <Table className="appbox gbtable mb-0">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Webhook</TableColumnHeader>
+              <TableColumnHeader>Endpoint</TableColumnHeader>
+              <TableColumnHeader>Method</TableColumnHeader>
+              <TableColumnHeader style={{ width: 130 }}>
+                Format
+              </TableColumnHeader>
+              <TableColumnHeader>Shared Secret</TableColumnHeader>
+              <TableColumnHeader style={{ width: 125 }}>
+                Last Success
+              </TableColumnHeader>
+              <TableColumnHeader></TableColumnHeader>
+              <TableColumnHeader
+                className="px-0"
+                style={{ width: 35 }}
+              ></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>{renderTableRows()}</TableBody>
+        </Table>
       </div>
     );
   };

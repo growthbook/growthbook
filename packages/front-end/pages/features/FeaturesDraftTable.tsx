@@ -14,6 +14,13 @@ import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ProjectBadges from "@/components/ProjectBadges";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 export interface Props {
   features: FeatureInterface[];
 }
@@ -149,21 +156,21 @@ export default function FeaturesDraftTable({ features }: Props) {
           </div>
         </div>
 
-        <table className="table gbtable appbox">
-          <thead
+        <Table className="gbtable appbox">
+          <TableHeader
             className="sticky-top bg-white shadow-sm"
             style={{ top: "56px", zIndex: 900 }}
           >
-            <tr>
+            <TableRow>
               <SortableTH field="id">Feature Key</SortableTH>
-              <th>Comment</th>
-              <th>Project</th>
-              <th> Creator</th>
+              <TableColumnHeader>Comment</TableColumnHeader>
+              <TableColumnHeader>Project</TableColumnHeader>
+              <TableColumnHeader> Creator</TableColumnHeader>
               <SortableTH field="dateUpdated">Last Updated</SortableTH>
               <SortableTH field="status">Status</SortableTH>
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.slice(start, end).map((featureAndRevision) => {
               const projectId = featureAndRevision.project;
               const projectName = projectId
@@ -172,25 +179,25 @@ export default function FeaturesDraftTable({ features }: Props) {
               const projectIsDeReferenced = projectId && !projectName;
 
               return (
-                <tr
+                <TableRow
                   key={`${featureAndRevision.id}:${featureAndRevision.version}`}
                   className="hover-highlight"
                 >
-                  <td className="py-0">
+                  <TableCell className="py-0">
                     <Link
                       className="featurename d-block p-2"
                       href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
                     >
                       {featureAndRevision.id}
                     </Link>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <OverflowText maxWidth={200}>
                       {featureAndRevision.comment}
                     </OverflowText>
-                  </td>
+                  </TableCell>
                   {
-                    <td>
+                    <TableCell>
                       {projectIsDeReferenced ? (
                         <Tooltip
                           body={
@@ -215,26 +222,26 @@ export default function FeaturesDraftTable({ features }: Props) {
                           )}
                         </>
                       )}
-                    </td>
+                    </TableCell>
                   }
-                  <td>{featureAndRevision.creator}</td>
+                  <TableCell>{featureAndRevision.creator}</TableCell>
 
-                  <td title={datetime(featureAndRevision.dateUpdated)}>
+                  <TableCell title={datetime(featureAndRevision.dateUpdated)}>
                     {ago(featureAndRevision.dateUpdated)}
-                  </td>
-                  <td>{renderStatusCopy(featureAndRevision)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{renderStatusCopy(featureAndRevision)}</TableCell>
+                </TableRow>
               );
             })}
             {!items.length ? (
-              <tr>
-                <td colSpan={6} className="text-center">
+              <TableRow>
+                <TableCell colSpan={6} className="text-center">
                   No matching drafts
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : null}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {Math.ceil(revisions.length / NUM_PER_PAGE) > 1 && (
           <Pagination
             numItemsTotal={items.length}

@@ -22,6 +22,13 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const NUM_PER_PAGE = 20;
 
@@ -315,25 +322,25 @@ const HoldoutsPage = (): React.ReactElement => {
                 </div>
               </div>
 
-              <table className="appbox table experiment-table gbtable responsive-table">
-                <thead>
-                  <tr>
+              <Table className="appbox experiment-table responsive-table">
+                <TableHeader>
+                  <TableRow>
                     <SortableTH field="name">Holdout Name</SortableTH>
                     <SortableTH field="projects">Projects</SortableTH>
-                    <th>Tags</th>
+                    <TableColumnHeader>Tags</TableColumnHeader>
                     <SortableTH field="ownerName">Owner</SortableTH>
                     <SortableTH field="hashAttribute">ID Type</SortableTH>
-                    <th>Experiments</th>
-                    <th>Features</th>
+                    <TableColumnHeader>Experiments</TableColumnHeader>
+                    <TableColumnHeader>Features</TableColumnHeader>
                     <SortableTH field="holdoutStatus">Status</SortableTH>
                     <SortableTH field="duration">Duration</SortableTH>
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filtered.slice(start, end).map((holdout) => {
                     return (
-                      <tr key={holdout.id} className="hover-highlight">
-                        <td data-title="Holdout name:" className="p-0">
+                      <TableRow key={holdout.id} className="hover-highlight">
+                        <TableCell data-title="Holdout name:" className="p-0">
                           <Link
                             href={`/holdout/${holdout.id}`}
                             className="d-block p-2"
@@ -344,44 +351,48 @@ const HoldoutsPage = (): React.ReactElement => {
                               </div>
                             </div>
                           </Link>
-                        </td>
-                        <td data-title="Projects:">
+                        </TableCell>
+                        <TableCell data-title="Projects:">
                           {holdout.projects.length === 0
                             ? null
                             : holdout.projects.join(", ")}
-                        </td>
-                        <td data-title="Tags:">
+                        </TableCell>
+                        <TableCell data-title="Tags:">
                           <SortedTags
                             tags={Object.values(holdout?.tags || [])}
                             useFlex={true}
                           />
-                        </td>
-                        <td className="nowrap" data-title="Owner:">
+                        </TableCell>
+                        <TableCell className="nowrap" data-title="Owner:">
                           <span className="text-truncate">
                             {holdout.ownerName}
                           </span>
-                        </td>
-                        <td className="nowrap" data-title="ID Type:">
+                        </TableCell>
+                        <TableCell className="nowrap" data-title="ID Type:">
                           {holdout.hashAttribute}
-                        </td>
-                        <td className="nowrap">{holdout.numExperiments}</td>
-                        <td className="nowrap">{holdout.numFeatures}</td>
-                        <td className="nowrap" data-title="Status:">
+                        </TableCell>
+                        <TableCell className="nowrap">
+                          {holdout.numExperiments}
+                        </TableCell>
+                        <TableCell className="nowrap">
+                          {holdout.numFeatures}
+                        </TableCell>
+                        <TableCell className="nowrap" data-title="Status:">
                           {holdout.holdoutStatus}
-                        </td>
-                        <td
+                        </TableCell>
+                        <TableCell
                           className="nowrap"
                           title={datetime(
                             holdout.experiment.phases[0].dateStarted ?? "",
                           )}
                         >
                           {holdout.duration}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
               {filtered.length > NUM_PER_PAGE && (
                 <Pagination
                   numItemsTotal={filtered.length}

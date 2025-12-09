@@ -10,6 +10,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import { getApiBaseUrl } from "./CodeSnippetModal";
 
 export function getPublishableKeys(
@@ -54,18 +61,20 @@ const SDKEndpoints: FC<{
         access and can be safely exposed to users (e.g. in your HTML).
       </p>
       {publishableKeys.length > 0 && (
-        <table className="table mb-3 appbox gbtable">
-          <thead>
-            <tr>
-              {projects.length > 0 && <th>Project</th>}
-              <th>Environment</th>
-              <th>Description</th>
-              <th>Endpoint</th>
-              <th>Encrypted?</th>
-              <th style={{ width: 30 }}></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="mb-3 appbox">
+          <TableHeader>
+            <TableRow>
+              {projects.length > 0 && (
+                <TableColumnHeader>Project</TableColumnHeader>
+              )}
+              <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Description</TableColumnHeader>
+              <TableColumnHeader>Endpoint</TableColumnHeader>
+              <TableColumnHeader>Encrypted?</TableColumnHeader>
+              <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {publishableKeys.map((key) => {
               const env = key.environment ?? "production";
               const endpoint = getApiBaseUrl() + "/api/features/" + key.key;
@@ -81,15 +90,15 @@ const SDKEndpoints: FC<{
               });
 
               return (
-                <tr key={key.key}>
+                <TableRow key={key.key}>
                   {projects.length > 0 && (
-                    <td>
+                    <TableCell>
                       {getProjectById(key.project || "")?.name || (
                         <em>All Projects</em>
                       )}
-                    </td>
+                    </TableCell>
                   )}
-                  <td>
+                  <TableCell>
                     <Tooltip
                       body={
                         envExists
@@ -102,12 +111,12 @@ const SDKEndpoints: FC<{
                         <FaExclamationTriangle className="text-danger" />
                       )}
                     </Tooltip>
-                  </td>
-                  <td>{key.description}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{key.description}</TableCell>
+                  <TableCell>
                     <ClickToCopy>{endpoint}</ClickToCopy>
-                  </td>
-                  <td style={{ width: 295 }}>
+                  </TableCell>
+                  <TableCell style={{ width: 295 }}>
                     {canManage && key.encryptSDK ? (
                       <ClickToReveal
                         valueWhenHidden="secret_abcdefghijklmnop123"
@@ -129,8 +138,8 @@ const SDKEndpoints: FC<{
                     ) : (
                       <div>No</div>
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <MoreMenu>
                       {canDelete ? (
                         <DeleteButton
@@ -150,12 +159,12 @@ const SDKEndpoints: FC<{
                         />
                       ) : null}
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

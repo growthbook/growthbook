@@ -39,6 +39,7 @@ import {
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import LinkButton from "@/ui/LinkButton";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import styles from "./NeedingAttention.module.scss";
 
 type FeaturesAndRevisions = FeatureRevisionInterface & {
@@ -384,9 +385,9 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
-          <table className="table gbtable mt-3">
-            <thead>
-              <tr>
+          <Table className="mt-3">
+            <TableHeader>
+              <TableRow>
                 <SortableTHExperiments field="name">Name</SortableTHExperiments>
                 <SortableTHExperiments field="project">
                   Project
@@ -395,12 +396,12 @@ const NeedingAttention = (): React.ReactElement | null => {
                 <SortableTHExperiments field="status">
                   Status
                 </SortableTHExperiments>
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginatedExperiments.map((item: ComputedExperimentInterface) => (
-                <tr key={item.id}>
-                  <td className={styles.nameTd}>
+                <TableRow key={item.id}>
+                  <TableCell className={styles.nameTd}>
                     <Link
                       href={`/experiment/${item.id}`}
                       style={{
@@ -412,22 +413,22 @@ const NeedingAttention = (): React.ReactElement | null => {
                     >
                       {item.name}
                     </Link>
-                  </td>
-                  <td className="text-truncate">
+                  </TableCell>
+                  <TableCell className="text-truncate">
                     {getProjectById(item?.project || "")?.name}
-                  </td>
-                  <td className={styles.ownerTd}>
+                  </TableCell>
+                  <TableCell className={styles.ownerTd}>
                     {getAvatarAndName(item.ownerName)}
-                  </td>
-                  <td className="text-truncate">
+                  </TableCell>
+                  <TableCell className="text-truncate">
                     <ExperimentStatusDetailsWithDot
                       statusIndicatorData={item.statusIndicator}
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : (
           <Container mt="3" width="100%">
             <Flex direction="column">
@@ -507,9 +508,9 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
-          <table className="table gbtable mt-3">
-            <thead>
-              <tr>
+          <Table className="mt-3">
+            <TableHeader>
+              <TableRow>
                 <SortableTHFeatureFlags field="featureId">
                   Feature Key
                 </SortableTHFeatureFlags>
@@ -522,12 +523,12 @@ const NeedingAttention = (): React.ReactElement | null => {
                 <SortableTHFeatureFlags field="status">
                   Status
                 </SortableTHFeatureFlags>
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginatedFeatureFlags.map((item) => (
-                <tr key={item.featureId}>
-                  <td className={styles.nameTd}>
+                <TableRow key={item.featureId}>
+                  <TableCell className={styles.nameTd}>
                     <Link
                       href={`/features/${item.featureId}`}
                       style={{
@@ -539,18 +540,20 @@ const NeedingAttention = (): React.ReactElement | null => {
                     >
                       {item.feature.id}
                     </Link>
-                  </td>
-                  <td className="text-truncate">
+                  </TableCell>
+                  <TableCell className="text-truncate">
                     {getProjectById(item.feature?.project || "")?.name}
-                  </td>
-                  <td className={styles.ownerTd}>
+                  </TableCell>
+                  <TableCell className={styles.ownerTd}>
                     {getAvatarAndName(item.feature.owner)}
-                  </td>
-                  <td className="text-truncate">{renderStatusCopy(item)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="text-truncate">
+                    {renderStatusCopy(item)}
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : (
           <Container mt="3" width="100%">
             <Flex direction="column">

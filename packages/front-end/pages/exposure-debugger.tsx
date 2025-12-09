@@ -13,6 +13,13 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import { useExperiments } from "@/hooks/useExperiments";
 import Link from "@/ui/Link";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 type UserExposureQueryResults = {
@@ -226,19 +233,21 @@ const ExposureDebuggerPage = () => {
                   </div>
 
                   <div className="table-responsive">
-                    <table className="table gbtable">
-                      <thead>
-                        <tr>
-                          <th>Timestamp</th>
-                          <th>Experiment</th>
-                          <th>Variation</th>
-                          <th>Variation Key</th>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableColumnHeader>Timestamp</TableColumnHeader>
+                          <TableColumnHeader>Experiment</TableColumnHeader>
+                          <TableColumnHeader>Variation</TableColumnHeader>
+                          <TableColumnHeader>Variation Key</TableColumnHeader>
                           {dynamicColumns.map((column) => (
-                            <th key={column}>{column}</th>
+                            <TableColumnHeader key={column}>
+                              {column}
+                            </TableColumnHeader>
                           ))}
-                        </tr>
-                      </thead>
-                      <tbody>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {results.rows.map((row, index) => {
                           const exp = row.id
                             ? experimentsMap.get(row.id)
@@ -250,14 +259,14 @@ const ExposureDebuggerPage = () => {
                             ? exp?.variations[variationIndex]
                             : null;
                           return (
-                            <tr key={index}>
-                              <td>{datetime(row.timestamp)}</td>
-                              <td>
+                            <TableRow key={index}>
+                              <TableCell>{datetime(row.timestamp)}</TableCell>
+                              <TableCell>
                                 <Link href={`/experiment/${row.id}`}>
                                   {row.experiment_id}
                                 </Link>
-                              </td>
-                              <td>
+                              </TableCell>
+                              <TableCell>
                                 {variation ? (
                                   <div
                                     className={`variation variation${variationIndex} with-variation-label d-flex align-items-center`}
@@ -287,16 +296,18 @@ const ExposureDebuggerPage = () => {
                                     <Tooltip body="Variation key not found in the experiment" />
                                   </span>
                                 )}
-                              </td>
-                              <td>{row.variation_id}</td>
+                              </TableCell>
+                              <TableCell>{row.variation_id}</TableCell>
                               {dynamicColumns.map((column) => (
-                                <td key={column}>{row[column] || "--"}</td>
+                                <TableCell key={column}>
+                                  {row[column] || "--"}
+                                </TableCell>
                               ))}
-                            </tr>
+                            </TableRow>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </>
               ) : (

@@ -18,7 +18,13 @@ import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useSearch } from "@/services/search";
-import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
@@ -233,30 +239,32 @@ const DimensionsPage: FC = () => {
               will join these dimensions to your units in the exposure query to
               let you drill down into experiment results.
             </p>
-            <table
-              className={clsx("table appbox gbtable", {
-                "table-hover": !hasFileConfig(),
-              })}
-            >
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Owner</th>
-                  <th className="d-none d-sm-table-cell">Data Source</th>
-                  <th className="d-none d-md-table-cell">Identifier Type</th>
-                  <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="appbox" hover={!hasFileConfig()}>
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader>Name</TableColumnHeader>
+                  <TableColumnHeader>Owner</TableColumnHeader>
+                  <TableColumnHeader className="d-none d-sm-table-cell">
+                    Data Source
+                  </TableColumnHeader>
+                  <TableColumnHeader className="d-none d-md-table-cell">
+                    Identifier Type
+                  </TableColumnHeader>
+                  <TableColumnHeader className="d-none d-lg-table-cell">
+                    Definition
+                  </TableColumnHeader>
+                  <TableColumnHeader>Date Updated</TableColumnHeader>
+                  <TableColumnHeader></TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {dimensions.map((s) => {
                   const datasource = getDatasourceById(s.datasource);
                   const language: Language =
                     datasource?.properties?.queryLanguage || "sql";
                   return (
-                    <tr key={s.id}>
-                      <td>
+                    <TableRow key={s.id}>
+                      <TableCell>
                         {" "}
                         <>
                           <OfficialBadge
@@ -268,9 +276,9 @@ const DimensionsPage: FC = () => {
                             <Tooltip body={s.description} />
                           ) : null}
                         </>
-                      </td>
-                      <td>{s.owner}</td>
-                      <td className="d-none d-sm-table-cell">
+                      </TableCell>
+                      <TableCell>{s.owner}</TableCell>
+                      <TableCell className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
                             <Link href={`/datasources/${datasource.id}`}>
@@ -281,13 +289,13 @@ const DimensionsPage: FC = () => {
                             ) : null}
                           </>
                         )}
-                      </td>
-                      <td className="d-none d-md-table-cell">
+                      </TableCell>
+                      <TableCell className="d-none d-md-table-cell">
                         {datasource?.properties?.userIds
                           ? s.userIdType || "user_id"
                           : ""}
-                      </td>
-                      <td
+                      </TableCell>
+                      <TableCell
                         className="d-none d-lg-table-cell"
                         style={{ maxWidth: "30em" }}
                       >
@@ -296,12 +304,12 @@ const DimensionsPage: FC = () => {
                           code={s.sql}
                           expandable={true}
                         />
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
-                      </td>
+                      </TableCell>
                       {!s.managedBy ? (
-                        <td>
+                        <TableCell>
                           {hasEditDimensionPermission ? (
                             <a
                               href="#"
@@ -329,15 +337,15 @@ const DimensionsPage: FC = () => {
                               }}
                             />
                           ) : null}
-                        </td>
+                        </TableCell>
                       ) : (
-                        <td></td>
+                        <TableCell></TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
