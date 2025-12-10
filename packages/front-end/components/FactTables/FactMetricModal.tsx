@@ -1718,7 +1718,6 @@ export default function FactMetricModal({
             stddev: DEFAULT_PROPER_PRIOR_STDDEV,
           };
         }
-        // TODO validation for new type
 
         if (values.metricType === "ratio" && !values.denominator)
           throw new Error("Must select a denominator for ratio metrics");
@@ -2026,8 +2025,6 @@ export default function FactMetricModal({
                   ) {
                     return;
                   }
-
-                  // TODO Validation for metric type
 
                   // always reset delay value when switching away from retention
                   if (
@@ -2749,12 +2746,12 @@ export default function FactMetricModal({
                         {type === "ratio" || type === "dailyParticipation" ? (
                           <Box mb="1">
                             <Checkbox
-                              label="Format average as a percentage"
+                              label="Format variation value as a percentage"
                               value={form.watch("displayAsPercentage") ?? false}
                               setValue={(v) =>
                                 form.setValue("displayAsPercentage", v === true)
                               }
-                              description="Will render variation means as a percentage rather than a proportion (e.g. 34% instead of 0.34)."
+                              description="Will render variation values as a percentage rather than a proportion (e.g. 34% instead of 0.34)."
                             />
                           </Box>
                         ) : null}
