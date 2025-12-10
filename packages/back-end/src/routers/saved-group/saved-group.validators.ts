@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { savedGroupTargeting } from "shared/validators";
 
 export const postSavedGroupBodyValidator = z.object({
   groupName: z.string(),
@@ -10,7 +9,6 @@ export const postSavedGroupBodyValidator = z.object({
   values: z.string().array().optional(),
   description: z.string().optional(),
   projects: z.string().array().optional(),
-  savedGroups: z.array(savedGroupTargeting).optional(),
 });
 
 export const putSavedGroupBodyValidator = z.object({
@@ -20,5 +18,4 @@ export const putSavedGroupBodyValidator = z.object({
   condition: z.string().optional(),
   description: z.string().optional(),
   projects: z.string().array().optional(),
-  savedGroups: z.array(savedGroupTargeting).optional(),
 });

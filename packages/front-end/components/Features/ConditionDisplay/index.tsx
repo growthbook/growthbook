@@ -95,14 +95,24 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
-export function MultiValuesDisplay({ values }: { values: string[] }) {
+export function MultiValuesDisplay({
+  values,
+  displayMap,
+}: {
+  values: string[];
+  displayMap?: Record<string, string>;
+}) {
   return (
     <>
       {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
         <Badge
           key={i}
           color="gray"
-          label={<Text style={{ color: "var(--slate-12)" }}>{v}</Text>}
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>
+              {displayMap?.[v] || v}
+            </Text>
+          }
         />
       ))}
       {values.length > MULTI_VALUE_LIMIT && (
@@ -111,7 +121,7 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
             <div>
               {values.slice(MULTI_VALUE_LIMIT).map((v, i) => (
                 <span key={i} className={`${styles.Tooltip} ml-1`}>
-                  {v}
+                  {displayMap?.[v] || v}
                 </span>
               ))}
             </div>
@@ -127,7 +137,13 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
   );
 }
 
-function MultiValueDisplay({ value }: { value: string }) {
+function MultiValueDisplay({
+  value,
+  displayMap,
+}: {
+  value: string;
+  displayMap?: Record<string, string>;
+}) {
   const parts = value
     .split(",")
     .map((v) => v.trim())
@@ -143,7 +159,7 @@ function MultiValueDisplay({ value }: { value: string }) {
   return (
     <>
       <span className="mr-1">(</span>
-      <MultiValuesDisplay values={parts} />)
+      <MultiValuesDisplay values={parts} displayMap={displayMap} />)
     </>
   );
 }
@@ -162,10 +178,21 @@ function getConditionParts({
   keyPrefix?: string;
 }) {
   return conditions.map(({ field, operator, value, parentId }, i) => {
+    const displayMap =
+      field === "$savedGroups"
+        ? Object.fromEntries(
+            (savedGroups || []).map((sg) => [sg.id, sg.groupName]),
+          )
+        : undefined;
+
     let fieldEl: ReactNode = (
       <Badge
         color="gray"
-        label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
+        label={
+          <Text style={{ color: "var(--slate-12)" }}>
+            {field === "$savedGroups" ? "Saved Group" : field}
+          </Text>
+        }
       />
     );
     let parentIdEl: ReactNode = null;
@@ -216,7 +243,7 @@ function getConditionParts({
           {operatorToText(operator, renderPrerequisite)}
         </span>
         {hasMultiValues(operator) ? (
-          <MultiValueDisplay value={value} />
+          <MultiValueDisplay value={value} displayMap={displayMap} />
         ) : needsValue(operator) ? (
           <Badge
             color="gray"

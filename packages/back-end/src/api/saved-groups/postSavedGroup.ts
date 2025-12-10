@@ -1,8 +1,4 @@
-import {
-  ID_LIST_DATATYPES,
-  validateCondition,
-  isSavedGroupCyclic,
-} from "shared/util";
+import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
 import { PostSavedGroupResponse } from "back-end/types/openapi";
 import {
   createSavedGroup,
@@ -12,14 +8,10 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postSavedGroupValidator } from "back-end/src/validators/openapi";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
-import { getSavedGroupMap } from "back-end/src/services/features";
-import { getParsedCondition } from "back-end/src/util/features";
-import { SavedGroupTargeting } from "back-end/types/feature";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    // TODO: Update OpenAPI schema to include savedGroups field
-    const { name, attributeKey, values, condition, owner, projects, savedGroups } = req.body as typeof req.body & { savedGroups?: SavedGroupTargeting[] };
+    const { name, attributeKey, values, condition, owner, projects } = req.body;
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
@@ -48,48 +40,19 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         );
       }
 
-      // Get all saved groups for cycle detection
-      const allSavedGroups = await getAllSavedGroups(req.organization.id);
-      const groupMap = await getSavedGroupMap(req.organization, allSavedGroups);
-
       // Validate condition if provided
       if (condition) {
-        const conditionRes = validateCondition(condition);
+        const allSavedGroups = await getAllSavedGroups(req.organization.id);
+        const savedGroupsObj = Object.fromEntries(
+          allSavedGroups.map((sg) => [sg.id, sg]),
+        );
+        const conditionRes = validateCondition(condition, savedGroupsObj);
         if (!conditionRes.success) {
           throw new Error(conditionRes.error);
         }
         // Allow empty condition if savedGroups is provided
-        if (conditionRes.empty && (!savedGroups || savedGroups.length === 0)) {
-          throw new Error("Either condition or saved group targeting must be specified");
-        }
-      }
-
-      // Must have either condition or savedGroups
-      const hasCondition = condition && condition !== "{}";
-      const hasSavedGroups = savedGroups && savedGroups.length > 0;
-      if (!hasCondition && !hasSavedGroups) {
-        throw new Error("Either condition or saved group targeting must be specified");
-      }
-
-      // Check for circular references (check combined condition for cycle detection)
-      const combinedCondition = getParsedCondition(
-        groupMap,
-        condition,
-        savedGroups,
-      );
-      if (combinedCondition) {
-        const conditionString = JSON.stringify(combinedCondition);
-        const [isCyclic, cyclicGroupId] = isSavedGroupCyclic(
-          undefined, // New group, ID not assigned yet
-          conditionString,
-          groupMap,
-          undefined,
-          savedGroups,
-        );
-        if (isCyclic) {
-          throw new Error(
-            `This saved group creates a circular reference${cyclicGroupId ? ` (cycle includes group: ${cyclicGroupId})` : ""}`,
-          );
+        if (conditionRes.empty) {
+          throw new Error("Condition cannot be empty");
         }
       }
     }
@@ -133,7 +96,6 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       condition: condition || undefined,
       attributeKey,
       projects,
-      savedGroups: type === "condition" ? savedGroups : undefined,
     });
 
     return {

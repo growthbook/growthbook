@@ -9,6 +9,7 @@ import {
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/groups";
+import { replaceSavedGroups } from "../sdk-versioning";
 import { recursiveWalk } from "./index";
 
 export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
@@ -73,7 +74,7 @@ export function getTypedSavedGroupValues(
 
 export function getSavedGroupValueType(
   group: SavedGroupInterface,
-  organization: OrganizationInterface,
+  organization: Pick<OrganizationInterface, "settings">,
 ): string {
   const attributes = organization.settings?.attributeSchema;
 
@@ -91,31 +92,10 @@ export function getSavedGroupValueType(
 }
 
 /**
- * Extract all saved group IDs referenced in a condition (via $inGroup or $notInGroup)
- */
-export function extractSavedGroupReferences(
-  condition: string | undefined | null,
-): string[] {
-  if (!condition) return [];
-  try {
-    const parsed = JSON.parse(condition);
-    const referencedIds = new Set<string>();
-    recursiveWalk(parsed, (node) => {
-      if (node[0] === "$inGroup" || node[0] === "$notInGroup") {
-        referencedIds.add(node[1]);
-      }
-    });
-    return Array.from(referencedIds);
-  } catch (e) {
-    return [];
-  }
-}
-
-/**
  * Check if a saved group creates a circular reference.
  * Returns [isCyclic, cyclicGroupId]
  * Similar to isFeatureCyclic for prerequisites.
- * 
+ *
  * @param groupId - The ID of the group being created/updated (optional for new groups)
  * @param condition - The condition string to check
  * @param groupMap - Map of all existing saved groups
@@ -123,79 +103,29 @@ export function extractSavedGroupReferences(
  * @param savedGroups - Optional savedGroups targeting array to check
  */
 export function isSavedGroupCyclic(
-  groupId: string | undefined,
   condition: string | undefined | null,
-  groupMap: GroupMap | Map<string, SavedGroupInterface>,
-  excludeGroupId?: string, // For updates, exclude the current group from cycle check
-  savedGroups?: Array<{ ids: string[] }>, // SavedGroupTargeting array
+  savedGroups: Record<string, SavedGroupInterface>,
 ): [boolean, string | null] {
-  const visited = new Set<string>();
-  const stack = new Set<string>();
+  if (!condition) return [false, null];
 
-  const visit = (currentGroupId: string): [boolean, string | null] => {
-    // If we're back to a group in the current path, we have a cycle
-    if (stack.has(currentGroupId)) {
-      return [true, currentGroupId];
-    }
-    // If we've already visited this group (but not in current path), no cycle
-    if (visited.has(currentGroupId)) {
-      return [false, null];
-    }
+  try {
+    const parsed = JSON.parse(condition);
+    recursiveWalk(parsed, replaceSavedGroups(savedGroups, {}));
 
-    // Skip the excluded group (for updates)
-    if (currentGroupId === excludeGroupId) {
-      return [false, null];
+    const stringified = JSON.stringify(parsed);
+    const matches = stringified.match(/"__sgCycle__"\s*:\s*"([^"]*)"/);
+
+    if (matches) {
+      return [true, matches[1] || null];
     }
 
-    const group = groupMap.get(currentGroupId);
-    if (!group || group.type !== "condition") {
-      return [false, null];
+    const maxDepthMatches = stringified.match(/"__sgMaxDepth__"\s*:/);
+    if (maxDepthMatches) {
+      return [true, null];
     }
-
-    stack.add(currentGroupId);
-    visited.add(currentGroupId);
-
-    // Extract referenced groups from this group's condition
-    const referencedIds = extractSavedGroupReferences(group.condition);
-
-    // Also extract from savedGroups field if it exists
-    if (group.savedGroups) {
-      group.savedGroups.forEach((sg) => {
-        referencedIds.push(...sg.ids);
-      });
-    }
-
-    // Recursively check each referenced group
-    for (const refId of referencedIds) {
-      const [isCyclic, cyclicId] = visit(refId);
-      if (isCyclic) {
-        stack.delete(currentGroupId);
-        return [true, cyclicId || currentGroupId];
-      }
-    }
-
-    stack.delete(currentGroupId);
+  } catch (e) {
+    // If condition is invalid JSON, we can't determine if it's cyclic
     return [false, null];
-  };
-
-  // Check if the new condition creates a cycle
-  const referencedIds = new Set<string>();
-  
-  // Extract from condition
-  extractSavedGroupReferences(condition).forEach((id) => referencedIds.add(id));
-  
-  // Extract from savedGroups parameter
-  if (savedGroups) {
-    savedGroups.forEach((sg) => {
-      sg.ids.forEach((id) => referencedIds.add(id));
-    });
-  }
-
-  for (const refId of referencedIds) {
-    const [isCyclic, cyclicId] = visit(refId);
-    if (isCyclic) {
-      return [true, cyclicId || refId];
-    }
   }
 
   return [false, null];

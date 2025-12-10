@@ -950,14 +950,51 @@ export function jsonToConds(
   // Advanced use case where we can't use the simple editor
   if (json.match(/\$(or|nor|all|type)/)) return null;
 
+  const conds: Condition[] = [];
+  let valid = true;
+
   try {
     const parsed = JSON.parse(json);
-    if (parsed["$not"]) return null;
-
-    const conds: Condition[] = [];
-    let valid = true;
+    if (parsed["$not"]) {
+      // Allow $savedGroups as the only key inside $not
+      const notObj = parsed["$not"];
+      if (
+        typeof notObj === "object" &&
+        Object.keys(notObj).length === 1 &&
+        "$savedGroups" in notObj
+      ) {
+        const v = notObj["$savedGroups"];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          conds.push({
+            field: "$savedGroups",
+            operator: "$nin",
+            value: v.join(", "),
+          });
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
 
     Object.keys(parsed).forEach((field) => {
+      if (field === "$not") return;
+
+      if (field === "$savedGroups") {
+        const v = parsed[field];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          return conds.push({
+            field,
+            operator: "$in",
+            value: v.join(", "),
+          });
+        } else {
+          valid = false;
+          return;
+        }
+      }
+
       if (attributes && !attributes.has(field)) {
         valid = false;
         return;
@@ -1143,6 +1180,25 @@ export function condToJson(
 ) {
   const obj = {};
   conds.forEach(({ field, operator, value }) => {
+    // Special handling for $savedGroups since it's not a real attribute
+    if (field === "$savedGroups") {
+      const ids = value
+        .split(",")
+        .map((x) => x.trim())
+        .filter((x) => !!x);
+      if (!ids.length) return;
+
+      if (operator === "$nin") {
+        obj["$not"] = obj["$not"] || {};
+        obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"] || [];
+        obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"].concat(ids);
+      } else if (operator === "$in") {
+        obj["$savedGroups"] = obj["$savedGroups"] || [];
+        obj["$savedGroups"] = obj["$savedGroups"].concat(ids);
+      }
+      return;
+    }
+
     obj[field] = obj[field] || {};
     if (operator === "$notRegex") {
       obj[field]["$not"] = { $regex: value };

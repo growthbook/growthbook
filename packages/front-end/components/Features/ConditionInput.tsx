@@ -41,6 +41,7 @@ interface Props {
   emptyText?: string;
   title?: string;
   require?: boolean;
+  allowNestedSavedGroups?: boolean;
 }
 
 export default function ConditionInput(props: Props) {
@@ -182,25 +183,6 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
-            if (!attribute) {
-              console.error("Attribute not found in attribute Map.");
-              return;
-            }
-
-            const savedGroupOptions = savedGroups
-              // First, limit to groups with the correct attribute
-              .filter((g) => g.type === "list" && g.attributeKey === field)
-              // Filter by project
-              .filter((group) => {
-                return (
-                  !props.project ||
-                  !group.projects?.length ||
-                  group.projects.includes(props.project)
-                );
-              })
-              // Then, transform into the select option format
-              .map((g) => ({ label: g.groupName, value: g.id }));
-
             const handleCondsChange = (value: string, name: string) => {
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
@@ -222,6 +204,155 @@ export default function ConditionInput(props: Props) {
               const value: string | number = values.join(",");
               handleCondsChange(value, name);
             };
+
+            const fieldSelector = (
+              <SelectField
+                value={field}
+                options={[
+                  ...attributeSchema.map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    tooltip: s.description || "",
+                  })),
+                  ...(props.allowNestedSavedGroups || field === "$savedGroups"
+                    ? [
+                        {
+                          label: "Saved Group",
+                          value: "$savedGroups",
+                        },
+                      ]
+                    : []),
+                ]}
+                formatOptionLabel={(o) => (
+                  <span title={o.tooltip}>{o.label}</span>
+                )}
+                name="field"
+                className={styles.firstselect}
+                onChange={(value) => {
+                  const newConds = [...conds];
+                  newConds[i] = { ...newConds[i] };
+                  newConds[i]["field"] = value;
+
+                  if (value === "$savedGroups") {
+                    newConds[i]["operator"] = "$in";
+                    newConds[i]["value"] = "";
+                    setConds(newConds);
+                    return;
+                  }
+
+                  const newAttribute = attributes.get(value);
+                  const hasAttrChanged =
+                    newAttribute?.datatype !== attribute?.datatype ||
+                    newAttribute?.array !== attribute?.array ||
+                    !!newAttribute?.disableEqualityConditions !==
+                      !!attribute?.disableEqualityConditions;
+
+                  if (hasAttrChanged && newAttribute) {
+                    newConds[i]["operator"] = getDefaultOperator(newAttribute);
+                    newConds[i]["value"] = newConds[i]["value"] || "";
+                  } else if (
+                    newAttribute &&
+                    newAttribute.format !== attribute?.format
+                  ) {
+                    const desiredOperator = getFormatEquivalentOperator(
+                      conds[i].operator,
+                      newAttribute?.format,
+                    );
+                    if (desiredOperator) {
+                      newConds[i]["operator"] = desiredOperator;
+                    } else {
+                      newConds[i]["operator"] =
+                        getDefaultOperator(newAttribute);
+                      newConds[i]["value"] = newConds[i]["value"] || "";
+                    }
+                  }
+                  setConds(newConds);
+                }}
+              />
+            );
+
+            if (field === "$savedGroups") {
+              const groupOptions = savedGroups
+                .filter((g) => g.type === "condition")
+                .map((g) => ({
+                  label: g.groupName,
+                  value: g.id,
+                }));
+
+              // Add any missing ids to options
+              const ids = value
+                ? value
+                    .split(",")
+                    .map((val) => val.trim())
+                    .filter((v) => !!v)
+                : [];
+
+              ids.forEach((id) => {
+                if (!groupOptions.find((option) => option.value === id)) {
+                  groupOptions.push({ label: id, value: id });
+                }
+              });
+
+              return (
+                <li key={i} className={styles.listitem}>
+                  <div className={`row ${styles.listrow}`}>
+                    {i > 0 ? (
+                      <span className={`${styles.and} mr-2`}>AND</span>
+                    ) : (
+                      <span className={`${styles.and} mr-2`}>IF</span>
+                    )}
+                    <div className="col-sm-12 col-md mb-2">{fieldSelector}</div>
+                    <div className="col-sm-12 col-md mb-2">
+                      <SelectField
+                        value={operator}
+                        name="operator"
+                        options={[
+                          {
+                            label: "in",
+                            value: "$in",
+                          },
+                          {
+                            label: "not in",
+                            value: "$nin",
+                          },
+                        ]}
+                        sort={false}
+                        onChange={(v) => {
+                          handleCondsChange(v, "operator");
+                        }}
+                      />
+                    </div>
+                    <MultiSelectField
+                      value={ids}
+                      options={groupOptions}
+                      onChange={handleListChange}
+                      name="value"
+                      containerClassName="col-sm-12 col-md mb-2"
+                      required
+                    />
+                  </div>
+                </li>
+              );
+            }
+
+            if (!attribute) {
+              console.error("Attribute not found in attribute Map.");
+              return;
+            }
+
+            const savedGroupOptions = savedGroups
+              // First, limit to groups with the correct attribute
+              .filter((g) => g.type === "list" && g.attributeKey === field)
+              // Filter by project
+              .filter((group) => {
+                return (
+                  !props.project ||
+                  !group.projects?.length ||
+                  group.projects.includes(props.project)
+                );
+              })
+              // Then, transform into the select option format
+              .map((g) => ({ label: g.groupName, value: g.id }));
 
             let operatorOptions =
               attribute.datatype === "boolean"
@@ -389,55 +520,7 @@ export default function ConditionInput(props: Props) {
                   ) : (
                     <span className={`${styles.and} mr-2`}>IF</span>
                   )}
-                  <div className="col-sm-12 col-md mb-2">
-                    <SelectField
-                      value={field}
-                      options={attributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                        tooltip: s.description || "",
-                      }))}
-                      formatOptionLabel={(o) => (
-                        <span title={o.tooltip}>{o.label}</span>
-                      )}
-                      name="field"
-                      className={styles.firstselect}
-                      onChange={(value) => {
-                        const newConds = [...conds];
-                        newConds[i] = { ...newConds[i] };
-                        newConds[i]["field"] = value;
-
-                        const newAttribute = attributes.get(value);
-                        const hasAttrChanged =
-                          newAttribute?.datatype !== attribute.datatype ||
-                          newAttribute?.array !== attribute.array ||
-                          !!newAttribute.disableEqualityConditions !==
-                            !!attribute.disableEqualityConditions;
-
-                        if (hasAttrChanged && newAttribute) {
-                          newConds[i]["operator"] =
-                            getDefaultOperator(newAttribute);
-                          newConds[i]["value"] = newConds[i]["value"] || "";
-                        } else if (
-                          newAttribute &&
-                          newAttribute.format !== attribute.format
-                        ) {
-                          const desiredOperator = getFormatEquivalentOperator(
-                            conds[i].operator,
-                            newAttribute?.format,
-                          );
-                          if (desiredOperator) {
-                            newConds[i]["operator"] = desiredOperator;
-                          } else {
-                            newConds[i]["operator"] =
-                              getDefaultOperator(newAttribute);
-                            newConds[i]["value"] = newConds[i]["value"] || "";
-                          }
-                        }
-                        setConds(newConds);
-                      }}
-                    />
-                  </div>
+                  <div className="col-sm-12 col-md mb-2">{fieldSelector}</div>
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={operator}

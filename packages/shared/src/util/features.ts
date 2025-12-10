@@ -24,7 +24,17 @@ import {
 import { ProjectInterface } from "back-end/types/project";
 import { ApiFeature } from "back-end/types/openapi";
 import { getValidDate } from "../dates";
-import { getMatchingRules, includeExperimentInPayload, isDefined } from ".";
+import { SavedGroupInterface } from "../../types/groups";
+import {
+  conditionHasSavedGroupErrors,
+  replaceSavedGroups,
+} from "../sdk-versioning";
+import {
+  getMatchingRules,
+  includeExperimentInPayload,
+  isDefined,
+  recursiveWalk,
+} from ".";
 
 export const DRAFT_REVISION_STATUSES = [
   "draft",
@@ -596,7 +606,10 @@ export type ValidateConditionReturn = {
   suggestedValue?: string;
   error?: string;
 };
-export function validateCondition(condition?: string): ValidateConditionReturn {
+export function validateCondition(
+  condition?: string,
+  savedGroups?: Record<string, SavedGroupInterface>,
+): ValidateConditionReturn {
   if (!condition || condition === "{}") {
     return { success: true, empty: true };
   }
@@ -604,6 +617,16 @@ export function validateCondition(condition?: string): ValidateConditionReturn {
     const res = JSON.parse(condition);
     if (!res || typeof res !== "object") {
       return { success: false, empty: false, error: "Must be object" };
+    }
+
+    const scrubbed = cloneDeep(res);
+    recursiveWalk(scrubbed, replaceSavedGroups(savedGroups || {}, {}));
+    if (conditionHasSavedGroupErrors(scrubbed)) {
+      return {
+        success: false,
+        empty: false,
+        error: "Condition includes invalid or cyclic saved group reference",
+      };
     }
 
     // TODO: validate beyond just making sure it's valid JSON
@@ -623,12 +646,14 @@ export function validateCondition(condition?: string): ValidateConditionReturn {
     }
   }
 }
+
 export function validateAndFixCondition(
   condition: string | undefined,
   applySuggestion: (suggestion: string) => void,
   throwOnSuggestion: boolean = true,
+  savedGroups?: Record<string, SavedGroupInterface>,
 ): ValidateConditionReturn {
-  const res = validateCondition(condition);
+  const res = validateCondition(condition, savedGroups);
   if (res.success) return res;
   if (res.suggestedValue) {
     applySuggestion(res.suggestedValue);

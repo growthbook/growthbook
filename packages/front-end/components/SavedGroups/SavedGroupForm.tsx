@@ -1,4 +1,4 @@
-import { FC, useEffect, useState, useMemo } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -6,10 +6,10 @@ import {
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,
-  validateAndFixCondition,
   isSavedGroupCyclic,
+  validateAndFixCondition,
 } from "shared/util";
-import { FaPlusCircle, FaExclamationCircle } from "react-icons/fa";
+import { FaPlusCircle } from "react-icons/fa";
 import { SavedGroupInterface, SavedGroupType } from "shared/types/groups";
 import clsx from "clsx";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -25,9 +25,8 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectOwner from "../Owner/SelectOwner";
 import Callout from "@/ui/Callout";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
+import SelectOwner from "../Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -66,7 +65,6 @@ const SavedGroupForm: FC<{
       values: current.values || [],
       description: current.description || "",
       projects: current.projects || (project ? [project] : []),
-      savedGroups: current.savedGroups || [],
     },
   });
 
@@ -78,38 +76,27 @@ const SavedGroupForm: FC<{
   const listAboveSizeLimit = savedGroupSizeLimit
     ? (form.watch("values") ?? []).length > savedGroupSizeLimit
     : false;
-
-  // Watch form values for cycle detection
-  const conditionValue = form.watch("condition");
-  const savedGroupsValue = form.watch("savedGroups");
-
-  // Check for circular references in condition groups
-  const [isCyclic, cyclicGroupId] = useMemo(() => {
-    if (type !== "condition") return [false, null];
-    if (!conditionValue && !savedGroupsValue?.length) return [false, null];
-
-    // Create a Map from saved groups for cycle detection
-    const groupMap = new Map(
-      savedGroups.map((group) => [group.id, group]),
-    );
-
-    return isSavedGroupCyclic(
-      current.id,
-      conditionValue,
-      groupMap,
-      current.id, // Exclude current group for updates
-      savedGroupsValue,
-    );
-  }, [type, conditionValue, savedGroupsValue, savedGroups, current.id]);
-
   const isValid =
     !!form.watch("groupName") &&
-    !isCyclic &&
     (type === "list"
       ? !!form.watch("attributeKey") &&
         (!listAboveSizeLimit || adminBypassSizeLimit)
-      : (!!form.watch("condition") && form.watch("condition") !== "{}") ||
-        (form.watch("savedGroups")?.length ?? 0) > 0);
+      : !!form.watch("condition"));
+
+  // Check for circular references in condition groups
+  const conditionValue = form.watch("condition");
+
+  // Create a Map from saved groups for cycle detection
+  const groupMap = useMemo(
+    () => Object.fromEntries(savedGroups.map((group) => [group.id, group])),
+    [savedGroups],
+  );
+  const [isCyclic, cyclicGroupId] = useMemo(() => {
+    if (type !== "condition") return [false, null];
+    if (!conditionValue) return [false, null];
+
+    return isSavedGroupCyclic(conditionValue, groupMap);
+  }, [type, conditionValue, groupMap]);
 
   return upgradeModal ? (
     <UpgradeModal
@@ -130,36 +117,22 @@ const SavedGroupForm: FC<{
       ctaEnabled={isValid}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
-          // For condition groups, either condition or savedGroups must be provided
-          const hasCondition = value.condition && value.condition !== "{}";
-          const hasSavedGroups = value.savedGroups && value.savedGroups.length > 0;
-          
-          if (!hasCondition && !hasSavedGroups) {
-            throw new Error("Either condition or saved group targeting must be specified");
-          }
-
-          if (value.condition) {
-            const conditionRes = validateAndFixCondition(value.condition, (c) => {
+          const conditionRes = validateAndFixCondition(
+            value.condition,
+            (c) => {
               form.setValue("condition", c);
               forceConditionRender();
-            });
-            // Allow empty condition if savedGroups is provided
-            if (conditionRes.empty && !hasSavedGroups) {
-              throw new Error("Condition cannot be empty");
-            }
+            },
+            false,
+            groupMap,
+          );
+          if (conditionRes.empty) {
+            throw new Error("Condition cannot be empty");
           }
         }
 
         // Update existing saved group
         if (current.id) {
-          // Strip _id fields from savedGroups (MongoDB adds these to nested objects)
-          const cleanedSavedGroups = value.savedGroups?.map((sg) => {
-            return {
-              match: sg.match,
-              ids: sg.ids,
-            };
-          });
-
           const payload: UpdateSavedGroupProps = {
             condition: value.condition,
             groupName: value.groupName,
@@ -167,7 +140,6 @@ const SavedGroupForm: FC<{
             values: value.values,
             description: value.description,
             projects: value.projects,
-            savedGroups: cleanedSavedGroups,
           };
           await apiCall(`/saved-groups/${current.id}`, {
             method: "PUT",
@@ -176,17 +148,8 @@ const SavedGroupForm: FC<{
         }
         // Create new saved group
         else {
-          // Strip _id fields from savedGroups (MongoDB adds these to nested objects)
-          const cleanedSavedGroups = value.savedGroups?.map((sg) => {
-            return {
-              match: sg.match,
-              ids: sg.ids,
-            };
-          });
-
           const payload: CreateSavedGroupProps = {
             ...value,
-            savedGroups: cleanedSavedGroups,
           };
           setErrorMessage("");
           await apiCall(
@@ -259,41 +222,30 @@ const SavedGroupForm: FC<{
           onChange={(v) => form.setValue("owner", v)}
         />
       )}
-      {type === "condition" ? (
-        <>
-          {isCyclic && (
-            <div className="mb-3">
-              <Callout
-                status="warning"
-                icon={<FaExclamationCircle />}
-                contentsAs="div"
-              >
-                <strong>Circular Reference Detected</strong>
-                <div className="mt-2">
-                  This saved group creates a circular reference
-                  {cyclicGroupId && (
-                    <> (cycle includes group: {cyclicGroupId})</>
-                  )}
-                  . Please remove the circular dependency before saving.
-                </div>
-              </Callout>
+
+      {isCyclic && (
+        <div className="mb-3">
+          <Callout status="warning" contentsAs="div">
+            <strong>Circular Reference Detected</strong>
+            <div className="mt-2">
+              This saved group creates a circular reference
+              {cyclicGroupId && <> (cycle includes group: {cyclicGroupId})</>}.
+              Please remove the circular dependency before saving.
             </div>
-          )}
-          <SavedGroupTargetingField
-            value={form.watch("savedGroups") || []}
-            setValue={(v) => form.setValue("savedGroups", v)}
-            project={project || ""}
-          />
-          <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(v) => form.setValue("condition", v)}
-            key={conditionKey}
-            project={""}
-            emptyText="No conditions specified."
-            title="Include all users who match the following"
-            require={false}
-          />
-        </>
+          </Callout>
+        </div>
+      )}
+      {type === "condition" ? (
+        <ConditionInput
+          defaultValue={form.watch("condition") || ""}
+          onChange={(v) => form.setValue("condition", v)}
+          key={conditionKey}
+          project={""}
+          emptyText="No conditions specified."
+          title="Include all users who match the following"
+          require
+          allowNestedSavedGroups={true}
+        />
       ) : (
         <>
           <SelectField
