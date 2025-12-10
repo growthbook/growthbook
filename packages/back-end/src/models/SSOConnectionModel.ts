@@ -19,7 +19,7 @@ const ssoConnectionSchema = new mongoose.Schema({
   idpType: String,
   clientId: String,
   clientSecret: String,
-  extraQueryParameters: {},
+  extraQueryParams: {},
   additionalScope: String,
   metadata: {},
   baseURL: String,

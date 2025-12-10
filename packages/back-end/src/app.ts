@@ -956,6 +956,10 @@ app.get(
 );
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
+app.post(
+  "/admin/sso-connection",
+  adminController._dangerousAdminUpsertSSOConnection,
+);
 
 // License
 app.get("/license", licenseController.getLicenseData);

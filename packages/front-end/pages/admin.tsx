@@ -168,8 +168,13 @@ function OrganizationRow({
         <EditSSOModal
           close={() => setEditSSOOpen(false)}
           organizationId={organization.id}
+          organizationName={organization.name}
           currentSSO={ssoInfo}
-          enforced={organization.restrictLoginMethod === ssoInfo?.id}
+          enforced={
+            !!organization.restrictLoginMethod &&
+            organization.restrictLoginMethod === ssoInfo?.id
+          }
+          onSave={onEdit}
         />
       )}
       <tr
@@ -291,7 +296,7 @@ function OrganizationRow({
               <div className="row">
                 <div className="col-2 text-right">Restrict Login Method:</div>
                 <div className="col-auto font-weight-bold">
-                  {organization?.restrictLoginMethod}
+                  {organization?.restrictLoginMethod || "no"}
                 </div>
               </div>
               <div className="row">
@@ -359,14 +364,13 @@ function OrganizationRow({
                           }
                           modalHeader="Drop and Recreate Managed Warehouse"
                         >
-                          <button className="btn btn-danger">
+                          <a href="#" className="text-danger">
                             Drop and Recreate Database
-                          </button>
+                          </a>
                         </ConfirmButton>
                       ) : (
                         <a
                           href="#"
-                          className={"btn btn-primary"}
                           onClick={(e) => {
                             e.preventDefault();
                             setClickhouseModalOpen(true);
@@ -968,13 +972,17 @@ function generateSSOConnection(
   // Generate additionalScope, extraQueryParams, metadata based on idP type
   if (data.idpType === "okta") {
     if (data.baseURL) {
+      // Remove trailing slash
+      const baseURL = data.baseURL.replace(/\/+$/, "");
+
       res.additionalScope = "offline_access";
+      res.extraQueryParams = undefined;
       res.metadata = {
-        issuer: `${data.baseURL}`,
-        authorization_endpoint: `${data.baseURL}/oauth2/v1/authorize`,
+        issuer: `${baseURL}`,
+        authorization_endpoint: `${baseURL}/oauth2/v1/authorize`,
         id_token_signing_alg_values_supported: ["RS256"],
-        jwks_uri: `${data.baseURL}/oauth2/v1/keys`,
-        token_endpoint: `${data.baseURL}/oauth2/v1/token`,
+        jwks_uri: `${baseURL}/oauth2/v1/keys`,
+        token_endpoint: `${baseURL}/oauth2/v1/token`,
         code_challenge_methods_supported: ["S256"],
       };
     }
@@ -983,6 +991,7 @@ function generateSSOConnection(
       access_type: "offline",
       prompt: "consent",
     };
+    res.additionalScope = "";
     res.metadata = {
       issuer: "https://accounts.google.com",
       authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -994,6 +1003,7 @@ function generateSSOConnection(
   } else if (data.idpType === "auth0") {
     if (data.tenantId) {
       res.additionalScope = "offline_access";
+      res.extraQueryParams = undefined;
       res.metadata = {
         issuer: `https://${data.tenantId}.auth0.com/`,
         authorization_endpoint: `https://${data.tenantId}.auth0.com/authorize`,
@@ -1008,6 +1018,7 @@ function generateSSOConnection(
   } else if (data.idpType === "azure") {
     if (data.tenantId) {
       res.additionalScope = "offline_access";
+      res.extraQueryParams = undefined;
       res.metadata = {
         token_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/token`,
         jwks_uri: `https://login.microsoftonline.com/${data.tenantId}/discovery/v2.0/keys`,
@@ -1020,18 +1031,23 @@ function generateSSOConnection(
     }
   } else if (data.idpType === "onelogin") {
     if (data.baseURL) {
+      // Remove trailing slash
+      const baseURL = data.baseURL.replace(/\/+$/, "");
+      res.additionalScope = "";
+      res.extraQueryParams = undefined;
       res.metadata = {
-        issuer: `${data.baseURL}/oidc/2`,
-        authorization_endpoint: `${data.baseURL}/oidc/2/auth`,
-        token_endpoint: `${data.baseURL}/oidc/2/token`,
+        issuer: `${baseURL}/oidc/2`,
+        authorization_endpoint: `${baseURL}/oidc/2/auth`,
+        token_endpoint: `${baseURL}/oidc/2/token`,
         id_token_signing_alg_values_supported: ["RS256", "HS256", "PS256"],
-        jwks_uri: `${data.baseURL}/oidc/2/certs`,
+        jwks_uri: `${baseURL}/oidc/2/certs`,
         code_challenge_methods_supported: ["S256"],
-        logout_endpoint: `${data.baseURL}/oidc/2/logout`,
+        logout_endpoint: `${baseURL}/oidc/2/logout`,
       };
     }
   } else if (data.idpType === "jumpcloud") {
     res.additionalScope = "offline_access";
+    res.extraQueryParams = undefined;
     res.metadata = {
       token_endpoint: "https://oauth.id.jumpcloud.com/oauth2/token",
       jwks_uri: "https://oauth.id.jumpcloud.com/.well-known/jwks.json",
@@ -1047,16 +1063,29 @@ function generateSSOConnection(
   return res;
 }
 
+function jsonSafeParse(str: string) {
+  if (!str) return null;
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    return null;
+  }
+}
+
 function EditSSOModal({
   close,
   organizationId,
+  organizationName,
   currentSSO,
   enforced,
+  onSave,
 }: {
   close: () => void;
   organizationId: string;
+  organizationName: string;
   currentSSO?: SSOConnectionInterface;
   enforced?: boolean;
+  onSave?: () => void;
 }) {
   const { apiCall } = useAuth();
 
@@ -1076,14 +1105,27 @@ function EditSSOModal({
       metadata: currentSSO?.metadata ? JSON.stringify(currentSSO.metadata) : "",
       emailDomains: currentSSO?.emailDomains || [],
       idpType: currentSSO?.idpType,
-      extraQueryParams: currentSSO?.extraQueryParams || {},
+      extraQueryParams: currentSSO?.extraQueryParams || undefined,
       baseURL: currentSSO?.baseURL || "",
       tenantId: currentSSO?.tenantId || "",
       audience: currentSSO?.audience || "",
     },
   });
 
-  const idpType = form.watch("idpType");
+  const currentValue = {
+    id: form.watch("id"),
+    organization: form.watch("organization"),
+    clientId: form.watch("clientId"),
+    clientSecret: form.watch("clientSecret"),
+    additionalScope: form.watch("additionalScope"),
+    metadata: jsonSafeParse(form.watch("metadata")) || {},
+    emailDomains: form.watch("emailDomains"),
+    idpType: form.watch("idpType"),
+    extraQueryParams: form.watch("extraQueryParams"),
+    baseURL: form.watch("baseURL"),
+    tenantId: form.watch("tenantId"),
+    audience: form.watch("audience"),
+  };
 
   const { appearance } = useThemeContext();
 
@@ -1097,7 +1139,7 @@ function EditSSOModal({
       submit={form.handleSubmit(async (data) => {
         const payload = generateSSOConnection({
           ...data,
-          metadata: data.metadata ? JSON.parse(data.metadata) : {},
+          metadata: jsonSafeParse(data.metadata) || {},
         });
 
         await apiCall(`/admin/sso-connection`, {
@@ -1108,19 +1150,20 @@ function EditSSOModal({
           }),
           headers: { "X-Organization": organizationId },
         });
-        close();
+
+        onSave && onSave();
       })}
       open={true}
       header={currentSSO ? "Edit SSO Connection" : "Create SSO Connection"}
       cta={currentSSO ? "Save Changes" : "Create Connection"}
       close={close}
-      inline={!close}
+      size="max"
     >
-      <h3>{currentSSO ? "Edit SSO Connection" : "Create SSO Connection"}</h3>
+      <h3>Organization: {organizationName}</h3>
 
       <SelectField
         label="Identity Provider Type"
-        value={form.watch("idpType") || ""}
+        value={currentValue.idpType || ""}
         onChange={(idpType) =>
           form.setValue("idpType", idpType as SSOConnectionInterface["idpType"])
         }
@@ -1138,11 +1181,12 @@ function EditSSOModal({
       />
 
       <Field
-        label="Internal Id"
+        label="SSO Id"
         {...form.register("id")}
         pattern="^[a-zA-Z0-9_]+$"
         required
         disabled={!!currentSSO}
+        helpText="A short id to identify this organization. Examples: 'acme', 'dunder_mifflin', 'initech'"
       />
 
       <Field label="Client ID" {...form.register("clientId")} required />
@@ -1162,7 +1206,8 @@ function EditSSOModal({
         required
       />
 
-      {idpType === "okta" || idpType === "onelogin" || idpType === "azure" ? (
+      {currentValue.idpType === "okta" ||
+      currentValue.idpType === "onelogin" ? (
         <Field
           label="Base URL"
           {...form.register("baseURL")}
@@ -1170,14 +1215,21 @@ function EditSSOModal({
           required
         />
       ) : null}
-      {idpType === "azure" || idpType === "auth0" ? (
+      {currentValue.idpType === "azure" || currentValue.idpType === "auth0" ? (
         <Field label="Tenant ID" {...form.register("tenantId")} required />
       ) : null}
-      {idpType === "auth0" ? (
+      {currentValue.idpType === "auth0" ? (
         <Field label="Audience" {...form.register("audience")} />
       ) : null}
 
-      {idpType === "oidc" ? (
+      <Checkbox
+        label="Enforce SSO Login"
+        id="enforce-sso"
+        value={enforceSSO}
+        setValue={(v) => setEnforceSSO(v)}
+      />
+
+      {currentValue.idpType === "oidc" ? (
         <>
           <Field
             label="Additional Scope"
@@ -1192,17 +1244,10 @@ function EditSSOModal({
         </>
       ) : currentSSO?.metadata ? (
         <>
-          <h3>Changes</h3>
+          <h3 className="mt-3">Changes</h3>
           <ReactDiffViewer
-            oldValue={JSON.stringify(currentSSO, null, 2)}
-            newValue={JSON.stringify(
-              generateSSOConnection({
-                ...form.getValues(),
-                metadata: { issuer: "" },
-              }),
-              null,
-              2,
-            )}
+            oldValue={sortObj(currentSSO)}
+            newValue={sortObj(generateSSOConnection(currentValue))}
             compareMethod={DiffMethod.LINES}
             useDarkTheme={appearance === "dark"}
             styles={{
@@ -1224,14 +1269,19 @@ function EditSSOModal({
           filename={"Preview"}
         />
       )}
-
-      <Checkbox
-        label="Enforce SSO Login"
-        id="enforce-sso"
-        value={enforceSSO}
-        setValue={(v) => setEnforceSSO(v)}
-      />
     </Modal>
+  );
+}
+
+function sortObj(obj: unknown): string {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(obj as { [key: string]: unknown })
+        .filter(([k]) => k !== "_id" && k !== "__v" && k !== "dateCreated")
+        .sort((a, b) => a[0].localeCompare(b[0])),
+    ),
+    null,
+    2,
   );
 }
 
