@@ -4,7 +4,7 @@ import { getValidDate } from "shared/dates";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
 import {
-  getConversionWindowHours,
+  getMetricWindowHours,
   getUserIdTypes,
   isFactMetric,
   isFunnelMetric,
@@ -929,6 +929,7 @@ export default abstract class SqlIntegration
     const metricData = this.getMetricData(
       { metric, index: 0 },
       {
+        // Ignore conversion windows in aggregation functions
         attributionModel: "experimentDuration",
         regressionAdjustmentEnabled: false,
         startDate: settings.startDate,
@@ -947,6 +948,12 @@ export default abstract class SqlIntegration
     ) {
       throw new Error(
         "Metric analyses for cross-table ratio metrics are not supported yet",
+      );
+    }
+
+    if (metric.metricType === "dailyParticipation") {
+      throw new Error(
+        "Metric analyses for daily participation metrics are not supported yet",
       );
     }
 
@@ -974,9 +981,6 @@ export default abstract class SqlIntegration
       segment: params.segment,
     });
 
-    const numeratorAggFns = metricData.numeratorAggFns;
-    const denominatorAggFns = metricData.denominatorAggFns;
-
     // TODO check if query broken if segment has template variables
     // TODO return cap numbers
     return format(
@@ -998,12 +1002,12 @@ export default abstract class SqlIntegration
           SELECT
           ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
             , ${this.dateTrunc("timestamp")} AS date
-            , ${numeratorAggFns.fullAggregationFunction(`f.${metricData.alias}_value`)} AS value
-            , ${numeratorAggFns.partialAggregationFunction(`f.${metricData.alias}_value`)} AS value_for_reaggregation
+            , ${metricData.numeratorAggFns.fullAggregationFunction(`f.${metricData.alias}_value`)} AS value
+            , ${metricData.numeratorAggFns.partialAggregationFunction(`f.${metricData.alias}_value`)} AS value_for_reaggregation
                   ${
                     metricData.ratioMetric
-                      ? `, ${denominatorAggFns.fullAggregationFunction(`f.${metricData.alias}_denominator`)} AS denominator
-                      , ${denominatorAggFns.partialAggregationFunction(`f.${metricData.alias}_denominator`)} AS denominator_for_reaggregation`
+                      ? `, ${metricData.denominatorAggFns.fullAggregationFunction(`f.${metricData.alias}_denominator`)} AS denominator
+                      , ${metricData.denominatorAggFns.partialAggregationFunction(`f.${metricData.alias}_denominator`)} AS denominator_for_reaggregation`
                       : ""
                   }
           
@@ -1022,10 +1026,24 @@ export default abstract class SqlIntegration
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
-            , ${numeratorAggFns.reAggregationFunction("value_for_reaggregation")} AS value
+            , ${metricData.aggregatedValueTransformation({
+              column: metricData.numeratorAggFns.reAggregationFunction(
+                "value_for_reaggregation",
+              ),
+              initialTimestampColumn: this.toTimestamp(settings.startDate),
+              analysisEndDate: settings.endDate,
+            })} AS value
             ${
               metricData.ratioMetric
-                ? `, ${denominatorAggFns.reAggregationFunction("denominator_for_reaggregation")} AS denominator`
+                ? `, ${metricData.aggregatedValueTransformation({
+                    column: metricData.denominatorAggFns.reAggregationFunction(
+                      "denominator_for_reaggregation",
+                    ),
+                    initialTimestampColumn: this.toTimestamp(
+                      settings.startDate,
+                    ),
+                    analysisEndDate: settings.endDate,
+                  })} AS denominator`
                 : ""
             }
           FROM
@@ -1722,7 +1740,7 @@ export default abstract class SqlIntegration
     endDate: Date,
     overrideConversionWindows: boolean,
   ): string {
-    let windowHours = getConversionWindowHours(metric.windowSettings);
+    let windowHours = getMetricWindowHours(metric.windowSettings);
     const delayHours = getDelayWindowHours(metric.windowSettings);
 
     // all metrics have to be after the base timestamp +- delay hours
@@ -1802,7 +1820,7 @@ export default abstract class SqlIntegration
       if (m.windowSettings.type === "conversion") {
         const hours =
           runningHours +
-          getConversionWindowHours(m.windowSettings) +
+          getMetricWindowHours(m.windowSettings) +
           getDelayWindowHours(m.windowSettings);
         if (hours > maxHours) maxHours = hours;
         runningHours = hours;
@@ -1829,7 +1847,7 @@ export default abstract class SqlIntegration
       if (m.windowSettings.type === "conversion") {
         const metricHours =
           getDelayWindowHours(m.windowSettings) +
-          getConversionWindowHours(m.windowSettings);
+          getMetricWindowHours(m.windowSettings);
         if (funnelMetric) {
           // funnel metric windows can cascade, so sum each metric hours to get max
           neededHoursForConversion += metricHours;
@@ -1845,7 +1863,7 @@ export default abstract class SqlIntegration
     ) {
       neededHoursForConversion +=
         getDelayWindowHours(activationMetric.windowSettings) +
-        getConversionWindowHours(activationMetric.windowSettings);
+        getMetricWindowHours(activationMetric.windowSettings);
     }
     return neededHoursForConversion;
   }
@@ -2755,6 +2773,29 @@ export default abstract class SqlIntegration
       useDenominator: true,
     });
 
+    // Create aggregated value transformation function
+    // For dailyParticipation metrics, this divides by the participation window
+    // For all other metrics, this is an identity function
+    const aggregatedValueTransformation =
+      metric.metricType === "dailyParticipation"
+        ? ({
+            column,
+            initialTimestampColumn,
+            analysisEndDate,
+          }: {
+            column: string;
+            initialTimestampColumn: string;
+            analysisEndDate: Date;
+          }) =>
+            this.applyDailyParticipationTransformation({
+              column,
+              initialTimestampColumn,
+              analysisEndDate,
+              metric,
+              overrideConversionWindows,
+            })
+        : ({ column }: { column: string }) => column;
+
     return {
       alias,
       id: metric.id,
@@ -2784,6 +2825,7 @@ export default abstract class SqlIntegration
       metricStart,
       metricEnd,
       maxHoursToConvert,
+      aggregatedValueTransformation,
     };
   }
 
@@ -3224,6 +3266,7 @@ export default abstract class SqlIntegration
         , __userMetricJoin${f.index === 0 ? "" : f.index} as (
           SELECT
             d.variation AS variation
+            , d.timestamp AS timestamp
             ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
             ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
             , d.${baseIdType} AS ${baseIdType}
@@ -3299,25 +3342,32 @@ export default abstract class SqlIntegration
           ${banditDates?.length ? `, umj.bandit_period` : ""}
           , umj.${baseIdType}
           ${metricData
-            .map(
-              (data) =>
-                `${
-                  data.numeratorSourceIndex === f.index
-                    ? `, ${data.numeratorAggFns.fullAggregationFunction(
+            .map((data) => {
+              return `${
+                data.numeratorSourceIndex === f.index
+                  ? `, ${data.aggregatedValueTransformation({
+                      column: data.numeratorAggFns.fullAggregationFunction(
                         `umj.${data.alias}_value`,
                         `qm.${data.alias}_quantile`,
-                      )} AS ${data.alias}_value`
-                    : ""
-                }
+                      ),
+                      initialTimestampColumn: "MIN(umj.timestamp)",
+                      analysisEndDate: params.settings.endDate,
+                    })} AS ${data.alias}_value`
+                  : ""
+              }
                 ${
                   data.ratioMetric && data.denominatorSourceIndex === f.index
-                    ? `, ${data.denominatorAggFns.fullAggregationFunction(
-                        `umj.${data.alias}_denominator`,
-                        `qm.${data.alias}_quantile`,
-                      )} AS ${data.alias}_denominator`
+                    ? `, ${data.aggregatedValueTransformation({
+                        column: data.denominatorAggFns.fullAggregationFunction(
+                          `umj.${data.alias}_denominator`,
+                          `qm.${data.alias}_quantile`,
+                        ),
+                        initialTimestampColumn: "MIN(umj.timestamp)",
+                        analysisEndDate: params.settings.endDate,
+                      })} AS ${data.alias}_denominator`
                     : ""
-                }`,
-            )
+                }`;
+            })
             .join("\n")}
           ${eventQuantileData
             .map(
@@ -6205,6 +6255,79 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     `;
   }
 
+  computeParticipationDenominator({
+    initialTimestampColumn,
+    analysisEndDate,
+    metric,
+    overrideConversionWindows,
+  }: {
+    initialTimestampColumn: string;
+    analysisEndDate: Date;
+    metric: FactMetricInterface;
+    overrideConversionWindows: boolean;
+  }): string {
+    // get start date of metric analysis window
+    const delayHours = getDelayWindowHours(metric.windowSettings);
+    const windowHours = getMetricWindowHours(metric.windowSettings);
+
+    let startDateString = this.castToTimestamp(initialTimestampColumn);
+    if (delayHours > 0) {
+      startDateString = this.addHours(startDateString, delayHours);
+    }
+
+    let endDateString = this.castToTimestamp(this.toTimestamp(analysisEndDate));
+
+    if (metric.windowSettings.type === "lookback") {
+      const lookbackStartDate = new Date(analysisEndDate);
+      lookbackStartDate.setHours(lookbackStartDate.getHours() - windowHours);
+      // Only override start date for lookback
+      startDateString = `GREATEST(${startDateString}, ${this.castToTimestamp(this.toTimestamp(lookbackStartDate))})`;
+    } else if (
+      metric.windowSettings.type === "conversion" &&
+      !overrideConversionWindows
+    ) {
+      endDateString = `LEAST(${this.getCurrentTimestamp()}, ${this.addHours(startDateString, windowHours)})`;
+    }
+
+    return this.ensureFloat(
+      `GREATEST(${this.dateDiff(startDateString, endDateString)} + 1, 1)`,
+    );
+  }
+
+  /**
+   * Applies the daily participation transformation to an aggregated value.
+   * For dailyParticipation metrics, this divides the count by the number of days
+   * in the participation window to get a participation rate.
+   * For all other metric types, this returns the value unchanged.
+   */
+  applyDailyParticipationTransformation({
+    column,
+    initialTimestampColumn,
+    analysisEndDate,
+    metric,
+    overrideConversionWindows,
+  }: {
+    column: string;
+    initialTimestampColumn: string;
+    analysisEndDate: Date;
+    metric: FactMetricInterface;
+    overrideConversionWindows: boolean;
+  }): string {
+    if (metric.metricType !== "dailyParticipation") {
+      return column;
+    }
+
+    return `
+      ${this.ensureFloat(column)} / 
+      ${this.computeParticipationDenominator({
+        initialTimestampColumn,
+        analysisEndDate,
+        metric,
+        overrideConversionWindows,
+      })}
+    `;
+  }
+
   getAggregationMetadata({
     metric,
     useDenominator,
@@ -6602,7 +6725,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO(incremental-refresh): activation metric
     if (activationMetric) {
       throw new Error(
-        "Activation metrics are not supported for incremental refresh",
+        "Activation metrics are not yet supported for incremental refresh",
       );
     }
 
@@ -7519,14 +7642,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${metricData
               // TODO(incremental-refresh): here is where we need to nullif 0 for
               // quantiles with ignore zeros. Otherwise the coalesce seems fine.
-              .map(
-                (data) =>
-                  `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0) AS ${data.alias}_value ${
-                    data.ratioMetric
-                      ? `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0) AS ${data.alias}_denominator`
-                      : ""
-                  }`,
-              )
+              .map((data) => {
+                return `, ${data.aggregatedValueTransformation({
+                  column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
+                  initialTimestampColumn: "u.first_exposure_timestamp",
+                  analysisEndDate: params.settings.endDate,
+                })} AS ${data.alias}_value ${
+                  data.ratioMetric
+                    ? `, ${data.aggregatedValueTransformation({
+                        column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        initialTimestampColumn: "u.first_exposure_timestamp",
+                        analysisEndDate: params.settings.endDate,
+                      })} AS ${data.alias}_denominator`
+                    : ""
+                }`;
+              })
               .join("\n")}
           FROM __experimentUnits u
           LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}

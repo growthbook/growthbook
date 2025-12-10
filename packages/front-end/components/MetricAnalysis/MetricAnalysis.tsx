@@ -323,6 +323,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           <Callout status="warning" mt="2" mb="2">
             Standalone metric analysis not available for quantile metrics.
           </Callout>
+        ) : factMetric.metricType === "dailyParticipation" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for daily participation
+            metrics.
+          </Callout>
         ) : (
           <>
             <div
