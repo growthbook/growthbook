@@ -103,7 +103,14 @@ export async function _dangerouseUpdateSSOConnection(
     );
   }
 
-  await SSOConnectionModel.updateOne({ id: existing.id }, { $set: data });
+  const updates = { ...data };
+  // Leave the client secret unchanged if an empty string is passed
+  // We don't pass clientSecret to the front-end, so this is how we indicate no change
+  if (data.clientSecret === "") {
+    delete updates.clientSecret;
+  }
+
+  await SSOConnectionModel.updateOne({ id: existing.id }, { $set: updates });
 }
 
 export function getSSOConnectionSummary(
