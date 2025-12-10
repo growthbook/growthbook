@@ -14,6 +14,7 @@ import {
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
+  ExperimentDimensionWithSpecifiedSlices,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
@@ -295,17 +296,6 @@ const startExperimentIncrementalRefreshQueries = async (
 
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
-  }
-
-  let dimensionsForTraffic: ExperimentDimension[] = [];
-  if (exposureQuery?.dimensionMetadata) {
-    dimensionsForTraffic = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
-        type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
   }
 
   const experimentDimensions: ExperimentDimension[] =
@@ -772,6 +762,12 @@ const startExperimentIncrementalRefreshQueries = async (
     params.snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
 
   if (runTrafficQuery) {
+    const dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
+      experimentDimensions.flatMap((d) =>
+        d.specifiedSlices !== undefined
+          ? [{ ...d, specifiedSlices: d.specifiedSlices }]
+          : [],
+      );
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
