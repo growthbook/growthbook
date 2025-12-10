@@ -1,12 +1,12 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CustomFieldSection,
   CustomFieldsInterface,
   CustomFieldTypes,
   CreateCustomFieldProps,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 // region POST /custom-fields
 

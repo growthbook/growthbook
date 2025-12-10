@@ -3,14 +3,14 @@ import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
-import { ExperimentInterface, Variation } from "back-end/types/experiment";
-import { ApiVisualChangeset } from "back-end/types/openapi";
-import { ReqContext } from "back-end/types/organization";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
-} from "back-end/types/visual-changeset";
+} from "shared/types/visual-changeset";
+import { ExperimentInterface, Variation } from "back-end/types/experiment";
+import { ApiVisualChangeset } from "back-end/types/openapi";
+import { ReqContext } from "back-end/types/request";
 import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import { ApiReqContext } from "back-end/types/api";

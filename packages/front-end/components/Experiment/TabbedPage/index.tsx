@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
@@ -11,7 +11,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { FeatureInterface } from "back-end/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";

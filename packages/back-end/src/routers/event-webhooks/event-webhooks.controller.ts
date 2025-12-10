@@ -1,4 +1,8 @@
 import type { Response } from "express";
+import {
+  CreateWebhookSecretProps,
+  UpdateWebhookSecretProps,
+} from "shared/validators";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   EventWebHookInterface,
@@ -21,11 +25,7 @@ import {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
 } from "back-end/types/event-webhook-log";
-import { NotificationEventName } from "back-end/src/events/base-types";
-import {
-  CreateWebhookSecretProps,
-  UpdateWebhookSecretProps,
-} from "back-end/src/validators/webhook-secrets";
+import { NotificationEventName } from "back-end/types/events/base-types";
 
 // region GET /event-webhooks
 

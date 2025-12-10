@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
 import { OrganizationSettings } from "back-end/types/organization";
-import { SegmentInterface } from "back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
 
 type Props = {
   metrics: MetricInterface[];

@@ -1,5 +1,9 @@
 import type { Response } from "express";
 import { filterEnvironmentsByFeature } from "shared/util";
+import {
+  ArchetypeAttributeValues,
+  ArchetypeInterface,
+} from "shared/types/archetype";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
@@ -7,10 +11,6 @@ import {
   getEnvironments,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import {
-  ArchetypeAttributeValues,
-  ArchetypeInterface,
-} from "back-end/types/archetype";
 import {
   createArchetype,
   deleteArchetypeById,

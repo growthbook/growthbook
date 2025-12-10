@@ -1,10 +1,10 @@
 import { z } from "zod";
+import { statsEngines } from "shared/constants";
 import {
   featurePrerequisite,
   savedGroupTargeting,
-} from "back-end/src/validators/shared";
-import { statsEngines } from "back-end/src/util/constants";
-import { customMetricSlice } from "back-end/src/validators/experiments";
+  customMetricSlice,
+} from "shared/validators";
 
 export const experimentTemplateInterface = z
   .object({

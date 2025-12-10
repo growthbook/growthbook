@@ -1,5 +1,5 @@
 import { FC, useState, useMemo } from "react";
-import { AuditInterface, EventType } from "back-end/types/audit";
+import { AuditInterface, EventType } from "shared/types/audit";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { BsArrowRepeat } from "react-icons/bs";

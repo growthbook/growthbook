@@ -254,16 +254,11 @@ results of these tests.
 
 ### Interaction effects
 
-When you run more than one test at a time, there is a chance that the tests may interfere with each
-other. For example, you could have two tests that change the price on two different parts of your
-product. Some combinations of the two experiments can cause users to see two different prices
-confused and lose trust in your product. This is an extreme example. A more common example is someone
-who sees an experiment on the account registration page, and then another test on the checkout page.
-If the tests are run in parallel, you will have users who see all combinations of variations: **AA, AB, BA**,
-and **BB**. A _meaningful_ interaction effect would be the combination of AA, for example, out performs
-the other combinations more than each test alone. If there are interaction effects of tests run
-in parallel, but they are unlikely to be meaningful. Most often they will just increase the variance of
-the tests without changing the results.
+When you run multiple tests simultaneously, there's a chance they may interfere with each other. For example, two tests that change prices in different parts of your product could cause some users to see conflicting prices, eroding trust.
+
+That's an extreme case. A more common scenario is when someone sees one experiment on the account registration page and another on the checkout page. If the tests run in parallel, users will see all combinations of variations: AA, AB, BA, and BB. A meaningful interaction effect would occur if, say, the AA combination outperforms the others by more than each test's individual effect would predict.
+
+In practice, meaningful interaction effects are rare. More often, running tests in parallel simply increases variance without changing the overall results.
 
 ### Novelty and Primacy Effects
 

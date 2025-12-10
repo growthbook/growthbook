@@ -26,7 +26,7 @@ import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
@@ -44,7 +44,8 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "back-end/types/experiment-snapshot";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   FactTableMap,
@@ -120,7 +121,7 @@ export function reportArgsFromSnapshot(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
-): ExperimentReportArgs {
+): LegacyExperimentReportArgs {
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
     throw new Error("Unknown experiment phase");
@@ -159,12 +160,14 @@ export function reportArgsFromSnapshot(
 }
 
 export function getAnalysisSettingsFromReportArgs(
-  args: ExperimentReportArgs,
+  args: LegacyExperimentReportArgs,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: args.dimension ? [args.dimension] : [],
     statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
     regressionAdjusted: args.regressionAdjustmentEnabled,
+    // legacy report args do not support post stratification
+    postStratificationEnabled: false,
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
@@ -175,7 +178,7 @@ export function getAnalysisSettingsFromReportArgs(
   };
 }
 export function getSnapshotSettingsFromReportArgs(
-  args: ExperimentReportArgs,
+  args: LegacyExperimentReportArgs,
   metricMap: Map<string, ExperimentMetricInterface>,
   factTableMap?: FactTableMap,
   experiment?: ExperimentInterface,

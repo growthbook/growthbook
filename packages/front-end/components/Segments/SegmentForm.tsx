@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { SegmentInterface } from "back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";

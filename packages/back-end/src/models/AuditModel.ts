@@ -1,7 +1,6 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import uniqid from "uniqid";
-import { AuditInterface } from "back-end/types/audit";
-import { EntityType } from "back-end/src/types/Audit";
+import { AuditInterface, EntityType } from "shared/types/audit";
 import {
   removeMongooseFields,
   ToInterface,

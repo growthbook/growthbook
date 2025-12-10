@@ -12,12 +12,12 @@ import {
   DataVizConfig,
   SavedQuery,
   QueryExecutionResult,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
-import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
