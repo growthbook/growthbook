@@ -121,9 +121,9 @@ export default function LinkedChange({
                                 </>
                               }
                             />
-                            <Box>&middot;</Box>
                           </Box>
                         )}
+                      <Box>&middot;</Box>
                       <Box className="text-muted">
                         {(changes?.length || 0) > 0
                           ? joinWithOxfordComma(changes) + " changes"
