@@ -1,7 +1,13 @@
 import { Response } from "express";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { OrganizationInterface } from "back-end/types/organization";
 import { UserInterface } from "back-end/types/user";
-import { getAllSSOConnections } from "back-end/src/models/SSOConnectionModel";
+import {
+  _dangerousCreateSSOConnection,
+  _dangerouseUpdateSSOConnection,
+  _dangerousGetAllSSOConnections,
+  _dangerousGetSSOConnectionById,
+} from "back-end/src/models/SSOConnectionModel";
 import {
   getAllUsersFiltered,
   getTotalNumUsers,
@@ -15,12 +21,18 @@ import {
   findOrganizationsByMemberIds,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { getOrganizationById } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getOrganizationById,
+} from "back-end/src/services/organizations";
 import { setLicenseKey } from "back-end/src/routers/organizations/organizations.controller";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+} from "back-end/src/services/audit";
 import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
 
-export async function getOrganizations(
+export async function _dangerousAdminGetOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response,
 ) {
@@ -38,13 +50,12 @@ export async function getOrganizations(
     search || "",
   );
 
-  const rawSSOs = await getAllSSOConnections();
-  // we don't want to expose sensitive information, so strip out the clientSecret and some other fields
+  const rawSSOs = await _dangerousGetAllSSOConnections();
+  // we don't want to expose sensitive information, so strip out the clientSecret
   const ssoConnections = rawSSOs.map((sso) => {
     return {
-      id: sso.id,
-      emailDomains: sso.emailDomains,
-      organization: sso.organization,
+      ...sso,
+      clientSecret: "",
     };
   });
 
@@ -62,7 +73,7 @@ export async function getOrganizations(
   });
 }
 
-export async function putOrganization(
+export async function _dangerousAdminPutOrganization(
   req: AuthRequest<{
     orgId: string;
     name: string;
@@ -156,7 +167,7 @@ export async function putOrganization(
 }
 
 // delete organization - For now, we're just marking the organization as deleted
-export async function disableOrganization(
+export async function _dangerousAdminDisableOrganization(
   req: AuthRequest<{ orgId: string }>,
   res: Response,
 ) {
@@ -198,7 +209,7 @@ export async function disableOrganization(
   });
 }
 
-export async function enableOrganization(
+export async function _dangerousAdminEnableOrganization(
   req: AuthRequest<{ orgId: string }>,
   res: Response,
 ) {
@@ -239,7 +250,7 @@ export async function enableOrganization(
     status: 200,
   });
 }
-export async function getMembers(
+export async function _dangerousAdminGetMembers(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response,
 ) {
@@ -291,7 +302,7 @@ export async function getMembers(
   });
 }
 
-export async function getOrganizationMembers(
+export async function _dangerousAdminGetOrganizationMembers(
   req: AuthRequest<
     null,
     {
@@ -326,7 +337,7 @@ export async function getOrganizationMembers(
   });
 }
 
-export async function putMember(
+export async function _dangerousAdminPutMember(
   req: AuthRequest<{
     userId: string;
     name: string;
@@ -379,4 +390,113 @@ export async function putMember(
   return res.status(200).json({
     status: 200,
   });
+}
+
+export async function _dangerousAdminUpsertSSOConnection(
+  req: AuthRequest<
+    SSOConnectionInterface & {
+      enforceSSO: boolean;
+    }
+  >,
+  res: Response,
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can upsert SSO connections",
+    });
+  }
+
+  const context = getContextFromReq(req);
+
+  const {
+    clientId,
+    clientSecret,
+    id,
+    organization,
+    additionalScope,
+    audience,
+    metadata,
+    baseURL,
+    emailDomains,
+    extraQueryParams,
+    idpType,
+    tenantId,
+    enforceSSO,
+  } = req.body;
+
+  if (organization !== context.org.id) {
+    throw new Error("SSO connection organization must match selected org");
+  }
+
+  const all = await _dangerousGetAllSSOConnections();
+  const existing = all.find((sso) => sso.id === id);
+
+  if (existing) {
+    // Update existing SSO Connection
+    const updates: Partial<SSOConnectionInterface> = {
+      clientId,
+      clientSecret,
+      additionalScope,
+      audience,
+      metadata,
+      baseURL,
+      emailDomains,
+      extraQueryParams,
+      idpType,
+      tenantId,
+    };
+    await _dangerouseUpdateSSOConnection(existing, updates);
+    await req.audit({
+      event: "ssoConnection.update",
+      entity: {
+        object: "ssoConnection",
+        id: id || "",
+      },
+      details: auditDetailsUpdate(existing, updates),
+    });
+  } else {
+    // Create new SSO Connection
+    const ssoConnection = await _dangerousCreateSSOConnection({
+      id,
+      organization,
+      clientId,
+      clientSecret,
+      additionalScope,
+      audience,
+      metadata,
+      baseURL,
+      emailDomains,
+      extraQueryParams,
+      idpType,
+      tenantId,
+    });
+    await req.audit({
+      event: "ssoConnection.create",
+      entity: {
+        object: "ssoConnection",
+        id: ssoConnection.id || "",
+      },
+      details: auditDetailsCreate(ssoConnection),
+    });
+  }
+
+  const currentEnforce = context.org.restrictLoginMethod === id;
+  if (enforceSSO !== currentEnforce) {
+    const newValue = enforceSSO ? id : "";
+    await updateOrganization(context.org.id, {
+      restrictLoginMethod: newValue,
+    });
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: context.org.id,
+      },
+      details: auditDetailsUpdate(
+        { restrictLoginMethod: context.org.restrictLoginMethod },
+        { restrictLoginMethod: newValue },
+      ),
+    });
+  }
 }

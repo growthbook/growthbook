@@ -4,7 +4,7 @@ import {
   OrganizationInterface,
 } from "back-end/types/organization";
 import clsx from "clsx";
-import { Box } from "@radix-ui/themes";
+import { Box, useThemeContext } from "@radix-ui/themes";
 import {
   FaAngleDown,
   FaAngleRight,
@@ -18,6 +18,9 @@ import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
 import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "back-end/types/datasource";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { useForm } from "react-hook-form";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -34,17 +37,15 @@ import Modal from "@/components/Modal";
 import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
+import SelectField from "@/components/Forms/SelectField";
+import StringArrayField from "@/components/Forms/StringArrayField";
+import Checkbox from "@/ui/Checkbox";
 
 interface memberOrgProps {
   id: string;
   name: string;
   members: number;
   role: string;
-}
-interface ssoInfoProps {
-  id: string;
-  emailDomains: string[];
-  organization: string;
 }
 const numberFormatter = new Intl.NumberFormat();
 
@@ -64,7 +65,7 @@ function OrganizationRow({
   showExternalId: boolean;
   showVerfiedDomain: boolean;
   onEdit: () => void;
-  ssoInfo: ssoInfoProps | undefined;
+  ssoInfo: SSOConnectionInterface | undefined;
   datasources: DataSourceInterface[];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -81,6 +82,7 @@ function OrganizationRow({
   const [managedWarehouseId, setManagedWarehouseId] = useState(
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
+  const [editSSOOpen, setEditSSOOpen] = useState(false);
 
   useEffect(() => {
     if (isCloud() && expanded && !license) {
@@ -161,6 +163,14 @@ function OrganizationRow({
           Are you sure you want to create a Managed Warehouse data source for
           this organization?
         </Modal>
+      )}
+      {editSSOOpen && (
+        <EditSSOModal
+          close={() => setEditSSOOpen(false)}
+          organizationId={organization.id}
+          currentSSO={ssoInfo}
+          enforced={organization.restrictLoginMethod === ssoInfo?.id}
+        />
       )}
       <tr
         className={clsx({
@@ -261,14 +271,27 @@ function OrganizationRow({
                   {ssoInfo
                     ? `yes (${
                         ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains.join(", ")})`
+                      } for domains: ${ssoInfo.emailDomains?.join(", ")})`
                     : "no"}
                 </div>
+                {isCloud() && (
+                  <div className="col-auto">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditSSOOpen(true);
+                      }}
+                    >
+                      Edit
+                    </a>
+                  </div>
+                )}
               </div>
               <div className="row">
                 <div className="col-2 text-right">Restrict Login Method:</div>
                 <div className="col-auto font-weight-bold">
-                  {organization?.restrictLoginMethod ? "yes" : "no"}
+                  {organization?.restrictLoginMethod}
                 </div>
               </div>
               <div className="row">
@@ -539,7 +562,9 @@ const Admin: FC = () => {
 
   const { license, superAdmin } = useUser();
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
-  const [ssoConnections, setSsoConnections] = useState<ssoInfoProps[]>([]);
+  const [ssoConnections, setSsoConnections] = useState<
+    SSOConnectionInterface[]
+  >([]);
   const [datasources, setDatasources] = useState<DataSourceInterface[]>([]);
   const [total, setTotal] = useState(0);
   const [members, setMembers] = useState<ExpandedMember[]>([]);
@@ -563,7 +588,7 @@ const Admin: FC = () => {
       try {
         const res = await apiCall<{
           organizations: OrganizationInterface[];
-          ssoConnections: ssoInfoProps[];
+          ssoConnections: SSOConnectionInterface[];
           datasources: DataSourceInterface[];
           total: number;
         }>(`/admin/organizations?${params.toString()}`);
@@ -932,5 +957,282 @@ const EditMember: FC<{
     </Modal>
   );
 };
+
+function generateSSOConnection(
+  data: SSOConnectionInterface,
+): SSOConnectionInterface {
+  const res: SSOConnectionInterface = {
+    ...data,
+  };
+
+  // Generate additionalScope, extraQueryParams, metadata based on idP type
+  if (data.idpType === "okta") {
+    if (data.baseURL) {
+      res.additionalScope = "offline_access";
+      res.metadata = {
+        issuer: `${data.baseURL}`,
+        authorization_endpoint: `${data.baseURL}/oauth2/v1/authorize`,
+        id_token_signing_alg_values_supported: ["RS256"],
+        jwks_uri: `${data.baseURL}/oauth2/v1/keys`,
+        token_endpoint: `${data.baseURL}/oauth2/v1/token`,
+        code_challenge_methods_supported: ["S256"],
+      };
+    }
+  } else if (data.idpType === "google") {
+    res.extraQueryParams = {
+      access_type: "offline",
+      prompt: "consent",
+    };
+    res.metadata = {
+      issuer: "https://accounts.google.com",
+      authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+      token_endpoint: "https://oauth2.googleapis.com/token",
+      jwks_uri: "https://www.googleapis.com/oauth2/v3/certs",
+      id_token_signing_alg_values_supported: ["RS256"],
+      code_challenge_methods_supported: ["S256"],
+    };
+  } else if (data.idpType === "auth0") {
+    if (data.tenantId) {
+      res.additionalScope = "offline_access";
+      res.metadata = {
+        issuer: `https://${data.tenantId}.auth0.com/`,
+        authorization_endpoint: `https://${data.tenantId}.auth0.com/authorize`,
+        logout_endpoint: `https://${data.tenantId}.auth0.com/v2/logout?client_id=CLIENT_ID`,
+        id_token_signing_alg_values_supported: ["HS256", "RS256"],
+        jwks_uri: `https://${data.tenantId}.auth0.com/.well-known/jwks.json`,
+        token_endpoint: `https://${data.tenantId}.auth0.com/oauth/token`,
+        code_challenge_methods_supported: ["S256", "plain"],
+        audience: data.audience || "",
+      };
+    }
+  } else if (data.idpType === "azure") {
+    if (data.tenantId) {
+      res.additionalScope = "offline_access";
+      res.metadata = {
+        token_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/token`,
+        jwks_uri: `https://login.microsoftonline.com/${data.tenantId}/discovery/v2.0/keys`,
+        id_token_signing_alg_values_supported: ["RS256"],
+        code_challenge_methods_supported: ["S256"],
+        issuer: `https://login.microsoftonline.com/${data.tenantId}/v2.0`,
+        authorization_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/authorize`,
+        logout_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/logout`,
+      };
+    }
+  } else if (data.idpType === "onelogin") {
+    if (data.baseURL) {
+      res.metadata = {
+        issuer: `${data.baseURL}/oidc/2`,
+        authorization_endpoint: `${data.baseURL}/oidc/2/auth`,
+        token_endpoint: `${data.baseURL}/oidc/2/token`,
+        id_token_signing_alg_values_supported: ["RS256", "HS256", "PS256"],
+        jwks_uri: `${data.baseURL}/oidc/2/certs`,
+        code_challenge_methods_supported: ["S256"],
+        logout_endpoint: `${data.baseURL}/oidc/2/logout`,
+      };
+    }
+  } else if (data.idpType === "jumpcloud") {
+    res.additionalScope = "offline_access";
+    res.metadata = {
+      token_endpoint: "https://oauth.id.jumpcloud.com/oauth2/token",
+      jwks_uri: "https://oauth.id.jumpcloud.com/.well-known/jwks.json",
+      id_token_signing_alg_values_supported: ["RS256"],
+      code_challenge_methods_supported: ["S256"],
+      issuer: "https://oauth.id.jumpcloud.com/",
+      authorization_endpoint: "https://oauth.id.jumpcloud.com/oauth2/auth",
+      logout_endpoint: "https://oauth.id.jumpcloud.com/oauth2/sessions/logout",
+      audience: "",
+    };
+  }
+
+  return res;
+}
+
+function EditSSOModal({
+  close,
+  organizationId,
+  currentSSO,
+  enforced,
+}: {
+  close: () => void;
+  organizationId: string;
+  currentSSO?: SSOConnectionInterface;
+  enforced?: boolean;
+}) {
+  const { apiCall } = useAuth();
+
+  const [enforceSSO, setEnforceSSO] = useState<boolean>(enforced || false);
+
+  const form = useForm<
+    Omit<SSOConnectionInterface, "metadata"> & {
+      metadata: string;
+    }
+  >({
+    defaultValues: {
+      id: currentSSO?.id || "",
+      organization: organizationId,
+      clientId: currentSSO?.clientId || "",
+      clientSecret: currentSSO?.clientSecret || "",
+      additionalScope: currentSSO?.additionalScope || "",
+      metadata: currentSSO?.metadata ? JSON.stringify(currentSSO.metadata) : "",
+      emailDomains: currentSSO?.emailDomains || [],
+      idpType: currentSSO?.idpType,
+      extraQueryParams: currentSSO?.extraQueryParams || {},
+      baseURL: currentSSO?.baseURL || "",
+      tenantId: currentSSO?.tenantId || "",
+      audience: currentSSO?.audience || "",
+    },
+  });
+
+  const idpType = form.watch("idpType");
+
+  const { appearance } = useThemeContext();
+
+  if (!isCloud()) {
+    return null;
+  }
+
+  return (
+    <Modal
+      trackingEventModalType=""
+      submit={form.handleSubmit(async (data) => {
+        const payload = generateSSOConnection({
+          ...data,
+          metadata: data.metadata ? JSON.parse(data.metadata) : {},
+        });
+
+        await apiCall(`/admin/sso-connection`, {
+          method: "POST",
+          body: JSON.stringify({
+            ...payload,
+            enforceSSO: enforceSSO,
+          }),
+          headers: { "X-Organization": organizationId },
+        });
+        close();
+      })}
+      open={true}
+      header={currentSSO ? "Edit SSO Connection" : "Create SSO Connection"}
+      cta={currentSSO ? "Save Changes" : "Create Connection"}
+      close={close}
+      inline={!close}
+    >
+      <h3>{currentSSO ? "Edit SSO Connection" : "Create SSO Connection"}</h3>
+
+      <SelectField
+        label="Identity Provider Type"
+        value={form.watch("idpType") || ""}
+        onChange={(idpType) =>
+          form.setValue("idpType", idpType as SSOConnectionInterface["idpType"])
+        }
+        options={[
+          { label: "Okta", value: "okta" },
+          { label: "Azure/Entra", value: "azure" },
+          { label: "Google", value: "google" },
+          { label: "OneLogin", value: "onelogin" },
+          { label: "JumpCloud", value: "jumpcloud" },
+          { label: "Auth0", value: "auth0" },
+          { label: "Other OIDC", value: "oidc" },
+        ]}
+        initialOption="Select One..."
+        required
+      />
+
+      <Field
+        label="Internal Id"
+        {...form.register("id")}
+        pattern="^[a-zA-Z0-9_]+$"
+        required
+        disabled={!!currentSSO}
+      />
+
+      <Field label="Client ID" {...form.register("clientId")} required />
+
+      <Field
+        label="Client Secret"
+        type="text"
+        {...form.register("clientSecret")}
+        placeholder={currentSSO ? "(unchanged)" : ""}
+        required={!currentSSO}
+      />
+
+      <StringArrayField
+        label="Email Domains"
+        value={form.watch("emailDomains") || []}
+        onChange={(emailDomains) => form.setValue("emailDomains", emailDomains)}
+        required
+      />
+
+      {idpType === "okta" || idpType === "onelogin" || idpType === "azure" ? (
+        <Field
+          label="Base URL"
+          {...form.register("baseURL")}
+          type="url"
+          required
+        />
+      ) : null}
+      {idpType === "azure" || idpType === "auth0" ? (
+        <Field label="Tenant ID" {...form.register("tenantId")} required />
+      ) : null}
+      {idpType === "auth0" ? (
+        <Field label="Audience" {...form.register("audience")} />
+      ) : null}
+
+      {idpType === "oidc" ? (
+        <>
+          <Field
+            label="Additional Scope"
+            {...form.register("additionalScope")}
+          />
+          <Field
+            label="Metadata (JSON)"
+            textarea
+            {...form.register("metadata")}
+            required
+          />
+        </>
+      ) : currentSSO?.metadata ? (
+        <>
+          <h3>Changes</h3>
+          <ReactDiffViewer
+            oldValue={JSON.stringify(currentSSO, null, 2)}
+            newValue={JSON.stringify(
+              generateSSOConnection({
+                ...form.getValues(),
+                metadata: { issuer: "" },
+              }),
+              null,
+              2,
+            )}
+            compareMethod={DiffMethod.LINES}
+            useDarkTheme={appearance === "dark"}
+            styles={{
+              contentText: {
+                wordBreak: "break-all",
+              },
+            }}
+          />
+        </>
+      ) : (
+        <Code
+          language="json"
+          code={stringify(
+            generateSSOConnection({
+              ...form.getValues(),
+              metadata: { issuer: "" },
+            }),
+          )}
+          filename={"Preview"}
+        />
+      )}
+
+      <Checkbox
+        label="Enforce SSO Login"
+        id="enforce-sso"
+        value={enforceSSO}
+        setValue={(v) => setEnforceSSO(v)}
+      />
+    </Modal>
+  );
+}
 
 export default Admin;
