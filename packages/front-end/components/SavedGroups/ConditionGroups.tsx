@@ -157,7 +157,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                         <td>
                           <ConditionDisplay
                             condition={s.condition || ""}
-                            savedGroups={s.savedGroups}
+                            savedGroups={[]}
                           />
                         </td>
                         <td>{truncateString(s.description || "", 40)}</td>
