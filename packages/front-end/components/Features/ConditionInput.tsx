@@ -32,6 +32,8 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import styles from "./ConditionInput.module.scss";
+import { SavedGroupTargetingRow } from "./SavedGroupTargetingField";
+import type { SavedGroupTargeting } from "back-end/types/feature";
 
 interface Props {
   defaultValue: string;
@@ -43,6 +45,38 @@ interface Props {
   require?: boolean;
   allowNestedSavedGroups?: boolean;
   excludeSavedGroupId?: string;
+  renderConditionGroups?: boolean;
+}
+
+export interface ConditionFieldSelectorRowProps {
+  field: string;
+  attributeSchema: Array<{ property: string; description?: string }>;
+  onChange: (newField: string) => void;
+  className?: string;
+}
+
+export function ConditionFieldSelectorRow({
+  field,
+  attributeSchema,
+  onChange,
+  className,
+}: ConditionFieldSelectorRowProps) {
+  return (
+    <SelectField
+      value={field}
+      options={attributeSchema.map((s) => ({
+        label: s.property,
+        value: s.property,
+        tooltip: s.description || "",
+      }))}
+      formatOptionLabel={(o) => (
+        <span title={o.tooltip}>{o.label}</span>
+      )}
+      name="field"
+      className={className}
+      onChange={onChange}
+    />
+  );
 }
 
 export default function ConditionInput(props: Props) {
@@ -149,27 +183,49 @@ export default function ConditionInput(props: Props) {
         <label className={props.labelClassName || ""}>{title}</label>
         <div>
           <div className="font-italic text-muted mr-3">{emptyText}</div>
-          <div
-            className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              const prop = attributeSchema[0];
-              setConds([
-                {
-                  field: prop?.property || "",
-                  operator:
-                    prop?.datatype === "boolean"
-                      ? "$true"
-                      : prop?.disableEqualityConditions
-                        ? "$regex"
-                        : "$eq",
-                  value: "",
-                },
-              ]);
-            }}
-          >
-            <FaPlusCircle className="mr-1" />
-            Add attribute targeting
+          <div className="d-flex flex-column mt-2">
+            {attributeSchema.length > 0 && (
+              <div
+                className="d-inline-block link-purple font-weight-bold cursor-pointer mb-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const prop = attributeSchema[0];
+                  setConds([
+                    {
+                      field: prop?.property || "",
+                      operator:
+                        prop?.datatype === "boolean"
+                          ? "$true"
+                          : prop?.disableEqualityConditions
+                            ? "$regex"
+                            : "$eq",
+                      value: "",
+                    },
+                  ]);
+                }}
+              >
+                <FaPlusCircle className="mr-1" />
+                Add attribute targeting
+              </div>
+            )}
+            {props.renderConditionGroups && (
+              <div
+                className="d-inline-block link-purple font-weight-bold cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConds([
+                    {
+                      field: "$savedGroups",
+                      operator: "$in",
+                      value: "",
+                    },
+                  ]);
+                }}
+              >
+                <FaPlusCircle className="mr-1" />
+                Add targeting group
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -206,73 +262,85 @@ export default function ConditionInput(props: Props) {
               handleCondsChange(value, name);
             };
 
-            const fieldSelector = (
-              <SelectField
-                value={field}
-                options={[
-                  ...attributeSchema.map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    tooltip: s.description || "",
-                  })),
-                  ...(props.allowNestedSavedGroups || field === "$savedGroups"
-                    ? [
-                        {
-                          label: "Saved Group",
-                          value: "$savedGroups",
-                        },
-                      ]
-                    : []),
-                ]}
-                formatOptionLabel={(o) => (
-                  <span title={o.tooltip}>{o.label}</span>
-                )}
-                name="field"
+            const handleFieldSelectorChange = (newField: string) => {
+              const newConds = [...conds];
+              newConds[i] = { ...newConds[i] };
+              newConds[i]["field"] = newField;
+
+              if (newField === "$savedGroups" && props.renderConditionGroups) {
+                newConds[i]["operator"] = "$in";
+                newConds[i]["value"] = "";
+                setConds(newConds);
+                return;
+              }
+
+              const newAttribute = attributes.get(newField);
+              const hasAttrChanged =
+                newAttribute?.datatype !== attribute?.datatype ||
+                newAttribute?.array !== attribute?.array ||
+                !!newAttribute?.disableEqualityConditions !==
+                  !!attribute?.disableEqualityConditions;
+
+              if (hasAttrChanged && newAttribute) {
+                newConds[i]["operator"] = getDefaultOperator(newAttribute);
+                newConds[i]["value"] = newConds[i]["value"] || "";
+              } else if (
+                newAttribute &&
+                newAttribute.format !== attribute?.format
+              ) {
+                const desiredOperator = getFormatEquivalentOperator(
+                  conds[i].operator,
+                  newAttribute?.format,
+                );
+                if (desiredOperator) {
+                  newConds[i]["operator"] = desiredOperator;
+                } else {
+                  newConds[i]["operator"] =
+                    getDefaultOperator(newAttribute);
+                  newConds[i]["value"] = newConds[i]["value"] || "";
+                }
+              }
+              setConds(newConds);
+            };
+
+            // Convert condition value to SavedGroupTargeting format
+            const conditionValueToTargeting = (): SavedGroupTargeting => {
+              const ids = value
+                ? value.split(",").map((val) => val.trim()).filter((v) => !!v)
+                : [];
+              const match = operator === "$nin" ? "none" : "any";
+              return { match, ids };
+            };
+
+            // Convert SavedGroupTargeting back to condition format
+            const handleSavedGroupTargetingChange = (targeting: SavedGroupTargeting[]) => {
+              if (targeting.length === 0) {
+                const newConds = [...conds];
+                newConds.splice(i, 1);
+                setConds(newConds);
+                return;
+              }
+              const first = targeting[0];
+              const newConds = [...conds];
+              newConds[i] = {
+                ...newConds[i],
+                field: "$savedGroups",
+                operator: first.match === "none" ? "$nin" : "$in",
+                value: first.ids.join(","),
+              };
+              setConds(newConds);
+            };
+
+            const fieldSelector = props.renderConditionGroups && field === "$savedGroups" ? null : (
+              <ConditionFieldSelectorRow
+                field={field}
+                attributeSchema={attributeSchema}
+                onChange={handleFieldSelectorChange}
                 className={styles.firstselect}
-                onChange={(value) => {
-                  const newConds = [...conds];
-                  newConds[i] = { ...newConds[i] };
-                  newConds[i]["field"] = value;
-
-                  if (value === "$savedGroups") {
-                    newConds[i]["operator"] = "$in";
-                    newConds[i]["value"] = "";
-                    setConds(newConds);
-                    return;
-                  }
-
-                  const newAttribute = attributes.get(value);
-                  const hasAttrChanged =
-                    newAttribute?.datatype !== attribute?.datatype ||
-                    newAttribute?.array !== attribute?.array ||
-                    !!newAttribute?.disableEqualityConditions !==
-                      !!attribute?.disableEqualityConditions;
-
-                  if (hasAttrChanged && newAttribute) {
-                    newConds[i]["operator"] = getDefaultOperator(newAttribute);
-                    newConds[i]["value"] = newConds[i]["value"] || "";
-                  } else if (
-                    newAttribute &&
-                    newAttribute.format !== attribute?.format
-                  ) {
-                    const desiredOperator = getFormatEquivalentOperator(
-                      conds[i].operator,
-                      newAttribute?.format,
-                    );
-                    if (desiredOperator) {
-                      newConds[i]["operator"] = desiredOperator;
-                    } else {
-                      newConds[i]["operator"] =
-                        getDefaultOperator(newAttribute);
-                      newConds[i]["value"] = newConds[i]["value"] || "";
-                    }
-                  }
-                  setConds(newConds);
-                }}
               />
             );
 
-            if (field === "$savedGroups") {
+            if (field === "$savedGroups" && props.renderConditionGroups) {
               const groupOptions = savedGroups
                 .filter((g) => g.type === "condition")
                 .filter((g) => g.id !== props.excludeSavedGroupId)
@@ -281,15 +349,10 @@ export default function ConditionInput(props: Props) {
                   value: g.id,
                 }));
 
+              const targeting = conditionValueToTargeting();
+              
               // Add any missing ids to options
-              const ids = value
-                ? value
-                    .split(",")
-                    .map((val) => val.trim())
-                    .filter((v) => !!v)
-                : [];
-
-              ids.forEach((id) => {
+              targeting.ids.forEach((id) => {
                 if (!groupOptions.find((option) => option.value === id)) {
                   groupOptions.push({ label: id, value: id });
                 }
@@ -303,51 +366,18 @@ export default function ConditionInput(props: Props) {
                     ) : (
                       <span className={`${styles.and} mr-2`}>IF</span>
                     )}
-                    <div className="col-sm-12 col-md mb-2">{fieldSelector}</div>
-                    <SelectField
-                      value={operator}
-                      name="operator"
-                      options={[
-                        {
-                          label: "in",
-                          value: "$in",
-                        },
-                        {
-                          label: "not in",
-                          value: "$nin",
-                        },
-                      ]}
-                      sort={false}
-                      onChange={(v) => {
-                        handleCondsChange(v, "operator");
-                      }}
-                      containerClassName="col-sm-12 col-md-auto mb-2"
-                    />
-                    <MultiSelectField
-                      value={ids}
-                      options={groupOptions}
-                      onChange={handleListChange}
-                      name="value"
-                      containerClassName="col-sm-12 col-md mb-2"
-                      required
-                    />
-                    {(conds.length > 1 || !props.require) && (
-                      <div className="col-md-auto col-sm-12">
-                        <button
-                          className="btn btn-link text-danger"
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const newConds = [...conds];
-                            newConds.splice(i, 1);
-                            setConds(newConds);
-                          }}
-                        >
-                          <FaMinusCircle className="mr-1" />
-                          remove
-                        </button>
-                      </div>
-                    )}
+                    <div className="col-12">
+                      <SavedGroupTargetingRow
+                        targeting={targeting}
+                        index={0}
+                        value={[targeting]}
+                        setValue={handleSavedGroupTargetingChange}
+                        options={groupOptions}
+                        getSavedGroupById={getSavedGroupById}
+                        isFirst={i === 0}
+                        hideLabel={true}
+                      />
+                    </div>
                   </div>
                 </li>
               );
@@ -749,36 +779,57 @@ export default function ConditionInput(props: Props) {
             );
           })}
         </ul>
-        <div className="d-flex align-items-center">
-          {attributeSchema.length > 0 && (
+        <div className="d-flex flex-column">
+          <div className="d-flex align-items-center mb-2">
+            {attributeSchema.length > 0 && (
+              <span
+                className="link-purple font-weight-bold cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const prop = attributeSchema[0];
+                  setConds([
+                    ...conds,
+                    {
+                      field: prop?.property || "",
+                      operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                      value: "",
+                    },
+                  ]);
+                }}
+              >
+                <FaPlusCircle className="mr-1" />
+                Add attribute targeting
+              </span>
+            )}
+            {props.renderConditionGroups && (
+              <span
+                className={attributeSchema.length > 0 ? "ml-3 link-purple font-weight-bold cursor-pointer" : "link-purple font-weight-bold cursor-pointer"}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConds([
+                    ...conds,
+                    {
+                      field: "$savedGroups",
+                      operator: "$in",
+                      value: "",
+                    },
+                  ]);
+                }}
+              >
+                <FaPlusCircle className="mr-1" />
+                Add targeting group
+              </span>
+            )}
             <span
-              className="link-purple font-weight-bold cursor-pointer"
+              className="ml-auto link-purple cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = attributeSchema[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
+                setAdvanced(true);
               }}
             >
-              <FaPlusCircle className="mr-1" />
-              Add another condition
+              <RxLoop /> Advanced mode
             </span>
-          )}
-          <span
-            className="ml-auto link-purple cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setAdvanced(true);
-            }}
-          >
-            <RxLoop /> Advanced mode
-          </span>
+          </div>
         </div>
         {usingDisabledEqualityAttributes && (
           <Callout status="warning" mt="4">

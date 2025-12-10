@@ -3,6 +3,7 @@ import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import { PiArrowSquareOut } from "react-icons/pi";
 import React from "react";
 import Link from "next/link";
+import { SavedGroupInterface } from "shared/types/groups";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -14,6 +15,107 @@ export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
+}
+
+export interface SavedGroupTargetingRowProps {
+  targeting: SavedGroupTargeting;
+  index: number;
+  value: SavedGroupTargeting[];
+  setValue: (savedGroups: SavedGroupTargeting[]) => void;
+  options: Array<{ value: string; label: string }>;
+  getSavedGroupById: (id: string) => null | SavedGroupInterface;
+  isFirst: boolean;
+  hideLabel?: boolean;
+}
+
+export function SavedGroupTargetingRow({
+  targeting,
+  index,
+  value,
+  setValue,
+  options,
+  getSavedGroupById,
+  isFirst,
+  hideLabel = false,
+}: SavedGroupTargetingRowProps) {
+  return (
+    <div className="row align-items-center mb-3">
+      {!hideLabel && (
+        <div className="col-auto" style={{ width: 70 }}>
+          {isFirst ? "In" : "AND"}
+        </div>
+      )}
+      <div className="col-auto">
+        <SelectField
+          value={targeting.match}
+          onChange={(match) => {
+            const newValue = [...value];
+            newValue[index] = { ...targeting };
+            newValue[index].match = match as "all" | "any" | "none";
+            setValue(newValue);
+          }}
+          sort={false}
+          options={[
+            {
+              value: "any",
+              label: "Any of",
+            },
+            {
+              value: "all",
+              label: "All of",
+            },
+            {
+              value: "none",
+              label: "None of",
+            },
+          ]}
+        />
+      </div>
+      <div className="col">
+        <MultiSelectField
+          value={targeting.ids}
+          onChange={(ids) => {
+            const newValue = [...value];
+            newValue[index] = { ...targeting };
+            newValue[index].ids = ids;
+            setValue(newValue);
+          }}
+          options={options}
+          formatOptionLabel={(o, meta) => {
+            if (meta.context !== "value") return o.label;
+            const group = getSavedGroupById(o.value);
+            const link =
+              group?.type === "list"
+                ? `/saved-groups/${group.id}`
+                : "/saved-groups#conditionGroups";
+            return (
+              <Link href={link} target="_blank">
+                {o.label} <PiArrowSquareOut />
+              </Link>
+            );
+          }}
+          required
+          placeholder="Select groups..."
+          closeMenuOnSelect={true}
+        />
+      </div>
+      <div className="col-auto ml-auto">
+        <button
+          className="btn btn-link text-danger"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            const newValue = [...value];
+            newValue.splice(index, 1);
+            setValue(newValue);
+          }}
+        >
+          <FaMinusCircle className="mr-1" />
+          remove
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function SavedGroupTargetingField({
@@ -98,84 +200,18 @@ export default function SavedGroupTargetingField({
               ))}
             </div>
           )}
-          {value.map((v, i) => {
-            return (
-              <div className="row align-items-center mb-3" key={i}>
-                <div className="col-auto" style={{ width: 70 }}>
-                  {i === 0 ? "In" : "AND"}
-                </div>
-                <div className="col-auto">
-                  <SelectField
-                    value={v.match}
-                    onChange={(match) => {
-                      const newValue = [...value];
-                      newValue[i] = { ...v };
-                      newValue[i].match = match as "all" | "any" | "none";
-                      setValue(newValue);
-                    }}
-                    sort={false}
-                    options={[
-                      {
-                        value: "any",
-                        label: "Any of",
-                      },
-                      {
-                        value: "all",
-                        label: "All of",
-                      },
-                      {
-                        value: "none",
-                        label: "None of",
-                      },
-                    ]}
-                  />
-                </div>
-                <div className="col">
-                  <MultiSelectField
-                    value={v.ids}
-                    onChange={(ids) => {
-                      const newValue = [...value];
-                      newValue[i] = { ...v };
-                      newValue[i].ids = ids;
-                      setValue(newValue);
-                    }}
-                    options={options}
-                    formatOptionLabel={(o, meta) => {
-                      if (meta.context !== "value") return o.label;
-                      const group = getSavedGroupById(o.value);
-                      const link =
-                        group?.type === "list"
-                          ? `/saved-groups/${group.id}`
-                          : "/saved-groups#conditionGroups";
-                      return (
-                        <Link href={link} target="_blank">
-                          {o.label} <PiArrowSquareOut />
-                        </Link>
-                      );
-                    }}
-                    required
-                    placeholder="Select groups..."
-                    closeMenuOnSelect={true}
-                  />
-                </div>
-                <div className="col-auto ml-auto">
-                  <button
-                    className="btn btn-link text-danger"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const newValue = [...value];
-                      newValue.splice(i, 1);
-                      setValue(newValue);
-                    }}
-                  >
-                    <FaMinusCircle className="mr-1" />
-                    remove
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {value.map((v, i) => (
+            <SavedGroupTargetingRow
+              key={i}
+              targeting={v}
+              index={i}
+              value={value}
+              setValue={setValue}
+              options={options}
+              getSavedGroupById={getSavedGroupById}
+              isFirst={i === 0}
+            />
+          ))}
           <span
             className="link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {

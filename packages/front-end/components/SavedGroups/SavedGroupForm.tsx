@@ -223,6 +223,7 @@ const SavedGroupForm: FC<{
           require
           allowNestedSavedGroups={true}
           excludeSavedGroupId={current.id}
+          renderConditionGroups={true}
         />
       ) : (
         <>
