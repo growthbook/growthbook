@@ -38,8 +38,7 @@
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
     "sass": "^1.55.0",
-    "sass-loader": "16.0.5",
-    "shared": "0.0.1"
+    "sass-loader": "16.0.5"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",

@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   notificationEvents,
   notificationEventPayload,
-} from "shared/validators";
+} from "shared/src/validators/events";
 import { z } from "zod";
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "..");
