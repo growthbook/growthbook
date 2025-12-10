@@ -12,6 +12,7 @@ import {
   CreateFactTableProps,
   FactFilterInterface,
 } from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import {
@@ -60,7 +61,7 @@ export interface BuildImportedDataOptions {
   skipAttributeMapping?: boolean;
   useBackendProxy?: boolean;
   project?: string;
-  datasource?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   projects?: ProjectInterface[];
   existingAttributeSchema?: Array<{
     property: string;
@@ -99,7 +100,7 @@ export interface RunImportOptions {
   callback: (data: ImportData) => void;
   featuresMap: Map<string, FeatureInterface>;
   project?: string;
-  datasource?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   exposureQueryId?: string;
   categoryEnabled?: {
     environments: boolean;
@@ -751,6 +752,36 @@ export async function buildImportedData(
         // Get available environments
         const availableEnvironments = Array.from(existingEnvironments.keys());
 
+        // Build combined features map for prerequisite lookups
+        // This includes existing GrowthBook features and Statsig features being imported
+        const combinedFeaturesMap = new Map<string, FeatureInterface>(
+          features.map((f) => [f.id, f]),
+        );
+        // Add Statsig feature gates (boolean) and dynamic configs (json) to the map
+        // We create minimal feature objects with just the id and valueType for prerequisite lookups
+        data.featureGates?.forEach((gateImport) => {
+          if (gateImport.featureGate) {
+            const fg = gateImport.featureGate as StatsigFeatureGate;
+            if (!combinedFeaturesMap.has(fg.id)) {
+              combinedFeaturesMap.set(fg.id, {
+                id: fg.id,
+                valueType: "boolean",
+              } as FeatureInterface);
+            }
+          }
+        });
+        data.dynamicConfigs?.forEach((configImport) => {
+          if (configImport.dynamicConfig) {
+            const dc = configImport.dynamicConfig as StatsigDynamicConfig;
+            if (!combinedFeaturesMap.has(dc.id)) {
+              combinedFeaturesMap.set(dc.id, {
+                id: dc.id,
+                valueType: "json",
+              } as FeatureInterface);
+            }
+          }
+        });
+
         // Transform and compare environments
         if (data.environments) {
           for (const envImport of data.environments) {
@@ -896,7 +927,7 @@ export async function buildImportedData(
           for (const gateImport of data.featureGates) {
             if (gateImport.featureGate) {
               try {
-                const transformed = transformStatsigFeatureGateToGB(
+                const transformed = await transformStatsigFeatureGateToGB(
                   gateImport.featureGate,
                   availableEnvironments,
                   existingAttributeSchema,
@@ -905,6 +936,7 @@ export async function buildImportedData(
                   project,
                   skipAttributeMapping,
                   savedGroupIdMap,
+                  combinedFeaturesMap,
                 );
                 gateImport.feature = transformed;
 
@@ -1000,7 +1032,7 @@ export async function buildImportedData(
           for (const configImport of data.dynamicConfigs) {
             if (configImport.dynamicConfig) {
               try {
-                const transformed = transformStatsigFeatureGateToGB(
+                const transformed = await transformStatsigFeatureGateToGB(
                   configImport.dynamicConfig,
                   availableEnvironments,
                   existingAttributeSchema,
@@ -1009,6 +1041,7 @@ export async function buildImportedData(
                   project,
                   skipAttributeMapping,
                   savedGroupIdMap,
+                  combinedFeaturesMap,
                 );
                 configImport.feature = transformed;
 
@@ -1249,7 +1282,7 @@ export async function buildImportedData(
                 metricSourceIdMap,
                 savedFilterIdMap,
                 project || "",
-                datasource || "",
+                datasource?.id || "",
               );
               metricImport.transformedMetric =
                 transformed as CreateFactMetricProps;
@@ -1314,7 +1347,7 @@ export async function buildImportedData(
                 (await transformStatsigMetricSourceToFactTable(
                   msImport.metricSource,
                   project || "",
-                  datasource || "",
+                  datasource,
                 )) as FactTableInterface;
 
               // First add, fitlers from existing metric source (if exists)
@@ -1663,6 +1696,35 @@ export async function runImport(options: RunImportOptions) {
   });
   await queue.onIdle();
 
+  // Build combined features map for prerequisite lookups
+  // This includes existing GrowthBook features and Statsig features being imported
+  const combinedFeaturesMap = new Map<string, FeatureInterface>(
+    Array.from(featuresMap.entries()),
+  );
+  // Add Statsig feature gates (boolean) and dynamic configs (json) to the map
+  data.featureGates?.forEach((gateImport) => {
+    if (gateImport.featureGate) {
+      const fg = gateImport.featureGate as StatsigFeatureGate;
+      if (!combinedFeaturesMap.has(fg.id)) {
+        combinedFeaturesMap.set(fg.id, {
+          id: fg.id,
+          valueType: "boolean",
+        } as FeatureInterface);
+      }
+    }
+  });
+  data.dynamicConfigs?.forEach((configImport) => {
+    if (configImport.dynamicConfig) {
+      const dc = configImport.dynamicConfig as StatsigDynamicConfig;
+      if (!combinedFeaturesMap.has(dc.id)) {
+        combinedFeaturesMap.set(dc.id, {
+          id: dc.id,
+          valueType: "json",
+        } as FeatureInterface);
+      }
+    }
+  });
+
   // Import Feature Gates
   data.featureGates?.forEach((featureGate, index) => {
     if (
@@ -1684,6 +1746,7 @@ export async function runImport(options: RunImportOptions) {
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
+
           const transformedFeature = await transformStatsigFeatureGateToGB(
             fg,
             availableEnvironments,
@@ -1693,6 +1756,7 @@ export async function runImport(options: RunImportOptions) {
             project,
             skipAttributeMapping,
             savedGroupIdMap,
+            combinedFeaturesMap,
           );
 
           const featureIsUpdate = !!featureGate.existing;
@@ -1740,6 +1804,7 @@ export async function runImport(options: RunImportOptions) {
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
+
           const transformedFeature = await transformStatsigFeatureGateToGB(
             dc,
             availableEnvironments,
@@ -1749,6 +1814,7 @@ export async function runImport(options: RunImportOptions) {
             project,
             skipAttributeMapping,
             savedGroupIdMap,
+            combinedFeaturesMap,
           );
 
           const isUpdate = !!dynamicConfig.existing;
@@ -1807,7 +1873,7 @@ export async function runImport(options: RunImportOptions) {
 
           // Set project and datasource (will be provided by the importer)
           transformedExperiment.project = project || "";
-          transformedExperiment.datasource = datasource || "";
+          transformedExperiment.datasource = datasource?.id || "";
           transformedExperiment.exposureQueryId = exposureQueryId || "";
 
           // Check if experiment already exists (by trackingKey)
@@ -2013,7 +2079,7 @@ export async function runImport(options: RunImportOptions) {
             await transformStatsigMetricSourceToFactTable(
               metricSource,
               project || "",
-              datasource || "",
+              datasource,
             );
 
           const existingMetricSource = metricSourceImport.existingMetricSource;
@@ -2107,7 +2173,7 @@ export async function runImport(options: RunImportOptions) {
             metricSourceIdMap,
             savedFilterIdMap,
             project || "",
-            datasource || "",
+            datasource?.id || "",
           );
 
           const existingMetric = metricImport.existingMetric;

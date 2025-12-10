@@ -1,4 +1,6 @@
 import { ConditionInterface } from "@growthbook/growthbook-react";
+import { FeatureInterface } from "shared/types/feature";
+import { getDefaultPrerequisiteCondition } from "shared/util";
 import { StatsigCondition } from "@/services/importing/statsig/types";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 
@@ -25,6 +27,7 @@ export function transformStatsigConditionsToGB(
   conditions: StatsigCondition[],
   skipAttributeMapping: boolean = false,
   savedGroupIdMap?: Map<string, string>,
+  featuresMap?: Map<string, FeatureInterface>,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
   const savedGroups: Array<{ ids: string[]; match: "all" | "any" | "none" }> =
@@ -56,20 +59,27 @@ export function transformStatsigConditionsToGB(
 
     if (operator === null || operator === undefined) {
       switch (type) {
-        case "passes_gate":
-          // These become prerequisites with exists (live) condition
+        case "passes_gate": {
+          // These become prerequisites - use default condition based on feature value type
+          const prerequisiteFeatureId = String(targetValue);
+          const prerequisiteFeature = featuresMap?.get(prerequisiteFeatureId);
+          const condition =
+            getDefaultPrerequisiteCondition(prerequisiteFeature);
           prerequisites.push({
-            id: String(targetValue),
-            condition: JSON.stringify({ value: { $exists: true } }),
+            id: prerequisiteFeatureId,
+            condition,
           });
           return;
-        case "fails_gate":
-          // These become prerequisites with not exists (not live)condition
+        }
+        case "fails_gate": {
+          // These become prerequisites with not exists (not live) condition
+          // For fails_gate, we always use $exists: false regardless of value type
           prerequisites.push({
             id: String(targetValue),
             condition: JSON.stringify({ value: { $exists: false } }),
           });
           return;
+        }
         case "passes_segment": {
           // These become saved groups with inclusion
           const segmentName = String(targetValue);
@@ -175,13 +185,21 @@ function transformTargetingConditions(
   const conditionObj: ConditionInterface = {};
 
   conditions.forEach((condition) => {
-    const { type, operator, targetValue, field } = condition;
+    const { type, operator, targetValue, field, customID } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // For custom_field type, use the field value as the attribute name
-    // Otherwise, use the type as the attribute name
-    const attributeName =
-      type === "custom_field" ? field || "custom_field" : type;
+    // Determine the attribute name:
+    // - For custom_field type, use the field value
+    // - For unit_id type with customID, use the customID (custom unit ID)
+    // - Otherwise, use the type as the attribute name
+    let attributeName: string;
+    if (type === "custom_field") {
+      attributeName = field || "custom_field";
+    } else if (type === "unit_id" && customID) {
+      attributeName = customID;
+    } else {
+      attributeName = type;
+    }
     const gbAttributeName = mapStatsigAttributeToGB(
       attributeName,
       skipAttributeMapping,

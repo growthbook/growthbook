@@ -2782,7 +2782,7 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.minBucketVersion !== undefined
       ? { minBucketVersion: payload.minBucketVersion }
       : {}),
-    autoSnapshots: true,
+    autoSnapshots: payload.autoRefresh ?? true,
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
@@ -2907,6 +2907,7 @@ export function updateExperimentApiPayloadToInterface(
     pinnedMetricSlices,
     customMetricSlices,
     customFields,
+    autoRefresh,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -3006,6 +3007,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
+    ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

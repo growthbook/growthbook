@@ -104,8 +104,21 @@ export async function transformStatsigSegmentToSavedGroup(
       >();
 
       allConditions.forEach((cond) => {
+        // Determine the attribute name:
+        // - For custom_field type, use the field value
+        // - For unit_id type with customID, use the customID (custom unit ID)
+        // - Otherwise, use the type as the attribute name
+        let statsigAttributeName: string;
+        if (cond.type === "custom_field") {
+          statsigAttributeName = cond.field || "custom_field";
+        } else if (cond.type === "unit_id" && cond.customID) {
+          statsigAttributeName = cond.customID;
+        } else {
+          statsigAttributeName = cond.type;
+        }
+
         const attributeName = mapStatsigAttributeToGB(
-          cond.type,
+          statsigAttributeName,
           skipAttributeMapping,
         );
         if (!attributeOperatorMap.has(attributeName)) {
