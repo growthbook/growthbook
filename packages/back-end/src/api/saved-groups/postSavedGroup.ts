@@ -49,7 +49,6 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
       }
-      // Allow empty condition if savedGroups is provided
       if (conditionRes.empty) {
         throw new Error("Condition cannot be empty");
       }

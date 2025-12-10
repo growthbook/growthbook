@@ -6,7 +6,6 @@ import {
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,
-  isSavedGroupCyclic,
   validateAndFixCondition,
 } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
@@ -25,7 +24,6 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/ui/Callout";
 import SelectOwner from "../Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
@@ -83,20 +81,11 @@ const SavedGroupForm: FC<{
         (!listAboveSizeLimit || adminBypassSizeLimit)
       : !!form.watch("condition"));
 
-  // Check for circular references in condition groups
-  const conditionValue = form.watch("condition");
-
   // Create a Map from saved groups for cycle detection
   const groupMap = useMemo(
     () => Object.fromEntries(savedGroups.map((group) => [group.id, group])),
     [savedGroups],
   );
-  const [isCyclic, cyclicGroupId] = useMemo(() => {
-    if (type !== "condition") return [false, null];
-    if (!conditionValue) return [false, null];
-
-    return isSavedGroupCyclic(conditionValue, groupMap);
-  }, [type, conditionValue, groupMap]);
 
   return upgradeModal ? (
     <UpgradeModal
@@ -223,18 +212,6 @@ const SavedGroupForm: FC<{
         />
       )}
 
-      {isCyclic && (
-        <div className="mb-3">
-          <Callout status="warning" contentsAs="div">
-            <strong>Circular Reference Detected</strong>
-            <div className="mt-2">
-              This saved group creates a circular reference
-              {cyclicGroupId && <> (cycle includes group: {cyclicGroupId})</>}.
-              Please remove the circular dependency before saving.
-            </div>
-          </Callout>
-        </div>
-      )}
       {type === "condition" ? (
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
@@ -245,6 +222,7 @@ const SavedGroupForm: FC<{
           title="Include all users who match the following"
           require
           allowNestedSavedGroups={true}
+          excludeSavedGroupId={current.id}
         />
       ) : (
         <>

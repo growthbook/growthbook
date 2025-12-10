@@ -42,6 +42,7 @@ interface Props {
   title?: string;
   require?: boolean;
   allowNestedSavedGroups?: boolean;
+  excludeSavedGroupId?: string;
 }
 
 export default function ConditionInput(props: Props) {
@@ -274,6 +275,7 @@ export default function ConditionInput(props: Props) {
             if (field === "$savedGroups") {
               const groupOptions = savedGroups
                 .filter((g) => g.type === "condition")
+                .filter((g) => g.id !== props.excludeSavedGroupId)
                 .map((g) => ({
                   label: g.groupName,
                   value: g.id,
@@ -302,26 +304,25 @@ export default function ConditionInput(props: Props) {
                       <span className={`${styles.and} mr-2`}>IF</span>
                     )}
                     <div className="col-sm-12 col-md mb-2">{fieldSelector}</div>
-                    <div className="col-sm-12 col-md mb-2">
-                      <SelectField
-                        value={operator}
-                        name="operator"
-                        options={[
-                          {
-                            label: "in",
-                            value: "$in",
-                          },
-                          {
-                            label: "not in",
-                            value: "$nin",
-                          },
-                        ]}
-                        sort={false}
-                        onChange={(v) => {
-                          handleCondsChange(v, "operator");
-                        }}
-                      />
-                    </div>
+                    <SelectField
+                      value={operator}
+                      name="operator"
+                      options={[
+                        {
+                          label: "in",
+                          value: "$in",
+                        },
+                        {
+                          label: "not in",
+                          value: "$nin",
+                        },
+                      ]}
+                      sort={false}
+                      onChange={(v) => {
+                        handleCondsChange(v, "operator");
+                      }}
+                      containerClassName="col-sm-12 col-md-auto mb-2"
+                    />
                     <MultiSelectField
                       value={ids}
                       options={groupOptions}
@@ -330,6 +331,23 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
+                    {(conds.length > 1 || !props.require) && (
+                      <div className="col-md-auto col-sm-12">
+                        <button
+                          className="btn btn-link text-danger"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const newConds = [...conds];
+                            newConds.splice(i, 1);
+                            setConds(newConds);
+                          }}
+                        >
+                          <FaMinusCircle className="mr-1" />
+                          remove
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </li>
               );

@@ -447,6 +447,11 @@ export const putSavedGroup = async (
     const savedGroupsObj = Object.fromEntries(
       allSavedGroups.map((sg) => [sg.id, sg]),
     );
+    // Include the updated condition in the savedGroupsObj for validation
+    savedGroupsObj[savedGroup.id] = {
+      ...savedGroup,
+      condition,
+    };
     const conditionRes = validateCondition(condition, savedGroupsObj);
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
