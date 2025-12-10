@@ -15,7 +15,7 @@ import {
   NodeHandler,
   recursiveWalk,
 } from "../util";
-import { SDKCapability } from "./index";
+import { SDKCapability } from "./types";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
 const strictFeatureRuleKeys = [
