@@ -325,6 +325,8 @@ const startExperimentIncrementalRefreshQueries = async (
             };
           });
 
+  const precomputedDimensions = snapshotSettings.dimensions;
+
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
@@ -746,7 +748,11 @@ const startExperimentIncrementalRefreshQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensions: [], // TODO(incremental-refresh): pre-compute dimensions
+        dimensions: snapshotSettings.dimensions.map((d) => ({
+          type: "experiment",
+          id: d.id,
+          specifiedSlices: d.specifiedSlices,
+        })),
         metricSourceCovariateTableFullName,
       }),
       dependencies: [

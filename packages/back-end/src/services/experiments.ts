@@ -179,6 +179,7 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
+import { IncrementalRefreshModel } from "../models/IncrementalRefreshModel";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -481,6 +482,7 @@ export function getSnapshotSettings({
   metricMap,
   factTableMap,
   metricGroups,
+  incrementalRefreshModel,
   reweight,
   datasource,
 }: {
@@ -495,6 +497,7 @@ export function getSnapshotSettings({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
+  incrementalRefreshModel: IncrementalRefreshInterface | null;
   reweight?: boolean;
   datasource?: DataSourceInterface;
 }): ExperimentSnapshotSettings {
@@ -518,6 +521,7 @@ export function getSnapshotSettings({
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
 
+  // if standard snapshot with no dimension set, we should pre-compute dimensions
   const precomputeDimensions =
     snapshotType === "standard" &&
     experiment.type !== "multi-armed-bandit" &&
@@ -529,11 +533,18 @@ export function getSnapshotSettings({
 
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
   if (precomputeDimensions) {
-    // if standard snapshot with no dimension set, we should pre-compute dimensions
+    const possibleDimensions = (exposureQuery.dimensionMetadata ?? []) // Start with dimensions with specified slices
+      .filter(
+        (d) =>
+          // Only include dimensions still in the exposure query
+          exposureQuery.dimensions.includes(d.dimension) &&
+          // and only include dimensions that are in the units table
+          // if incremental refresh is enabled
+          (!incrementalRefreshModel ||
+            incrementalRefreshModel.unitsDimensions.includes(d.dimension)),
+      );
     const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      (exposureQuery.dimensionMetadata ?? []).filter((d) =>
-        exposureQuery.dimensions.includes(d.dimension),
-      ),
+      possibleDimensions,
       experiment.variations.length,
     );
     dimensions =
@@ -725,6 +736,9 @@ export function getSnapshotSettings({
   };
 }
 
+/**
+ * @deprecated Manual (e.g. manually inputting data) snapshots are no longer supported
+ */
 export async function createManualSnapshot({
   experiment,
   phaseIndex,
@@ -754,8 +768,9 @@ export async function createManualSnapshot({
     regressionAdjustmentEnabled: false,
     settingsForSnapshotMetrics: [],
     metricMap,
-    factTableMap: new Map(), // todo
-    metricGroups: [], // todo?
+    factTableMap: new Map(),
+    metricGroups: [],
+    incrementalRefreshModel: null,
   });
 
   const { srm, variations } = await getManualSnapshotData(
@@ -1198,6 +1213,9 @@ export async function createSnapshot({
     throw new Error("Could not load data source");
   }
 
+  const incrementalRefreshModel =
+    await context.models.incrementalRefresh.getByExperimentId(experiment.id);
+
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -1213,6 +1231,7 @@ export async function createSnapshot({
     metricGroups,
     reweight,
     datasource,
+    incrementalRefreshModel,
   });
 
   const data: ExperimentSnapshotInterface = {
