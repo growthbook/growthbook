@@ -14,6 +14,7 @@ import {
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
+  ExperimentDimensionWithSpecifiedSlices,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
@@ -766,6 +767,12 @@ const startExperimentIncrementalRefreshQueries = async (
     params.snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
 
   if (runTrafficQuery) {
+    const dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
+      experimentDimensions.flatMap((d) =>
+        d.specifiedSlices !== undefined
+          ? [{ ...d, specifiedSlices: d.specifiedSlices }]
+          : [],
+      );
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({

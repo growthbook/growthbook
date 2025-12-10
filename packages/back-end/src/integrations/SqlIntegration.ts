@@ -2234,12 +2234,7 @@ export default abstract class SqlIntegration
     const { activationMetric, segment, settings, factTableMap, useUnitsTable } =
       params;
 
-    // unitDimensions not supported yet
-    const { experimentDimensions } = this.processDimensions(
-      params.dimensions,
-      settings,
-      activationMetric,
-    );
+    const experimentDimensions = params.dimensions;
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
@@ -2295,7 +2290,15 @@ export default abstract class SqlIntegration
             this.dateTrunc("first_exposure_timestamp"),
           )} AS dim_exposure_date
           ${banditDates ? `${this.getBanditCaseWhen(banditDates)}` : ""}
-          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
+          ${experimentDimensions
+            .map(
+              (d) =>
+                `, ${this.getDimensionInStatement(
+                  `dim_exp_${d.id}`,
+                  d.specifiedSlices,
+                )} AS dim_exp_${d.id}`,
+            )
+            .join("\n")}
           ${
             activationMetric
               ? `, ${this.ifElse(
