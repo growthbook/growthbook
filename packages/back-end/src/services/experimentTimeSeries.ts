@@ -15,18 +15,18 @@ import {
   GoalMetricStatus,
   GuardrailMetricStatus,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
   SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 

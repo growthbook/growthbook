@@ -4,6 +4,7 @@ import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
+import { evalCondition } from "@growthbook/growthbook";
 import {
   FeatureInterface,
   FeatureRule,
@@ -12,17 +13,16 @@ import {
   SchemaField,
   SimpleSchema,
   ScheduleRule,
-} from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { evalCondition } from "@growthbook/growthbook";
+} from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   OrganizationSettings,
   RequireReview,
   Environment,
-} from "back-end/types/organization";
-import { ProjectInterface } from "back-end/types/project";
-import { ApiFeature } from "back-end/types/openapi";
+} from "shared/types/organization";
+import { ProjectInterface } from "shared/types/project";
+import { ApiFeature } from "shared/types/openapi";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload, isDefined } from ".";
 

@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QueryInterface, QueryType } from "back-end/types/query";
+import { QueryInterface, QueryType } from "shared/types/query";
+import { QueryLanguage } from "shared/types/datasource";
+import { ApiQuery } from "shared/types/openapi";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
-import { QueryLanguage } from "back-end/types/datasource";
-import { ApiQuery } from "back-end/types/openapi";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 

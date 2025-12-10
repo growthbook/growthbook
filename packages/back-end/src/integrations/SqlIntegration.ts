@@ -113,10 +113,8 @@ import {
   CovariatePhaseStartSettings,
   PipelineIntegration,
 } from "shared/types/integrations";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
-import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { ReqContext } from "back-end/types/request";
-import { MetricInterface, MetricType } from "back-end/types/metric";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
@@ -125,39 +123,41 @@ import {
   DataSourceInterface,
   AutoFactTableSchemas,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "shared/types/experiment-snapshot";
+import {
+  ColumnRef,
+  FactMetricInterface,
+  FactTableInterface,
+  MetricQuantileSettings,
+} from "shared/types/fact-table";
+import type { PopulationDataQuerySettings } from "shared/types/query";
+import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { ReqContext } from "back-end/types/request";
 import {
   MissingDatasourceParamsError,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
-import { DimensionInterface } from "back-end/types/dimension";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import {
-  ExperimentSnapshotSettings,
-  SnapshotBanditSettings,
-  SnapshotSettingsVariation,
-} from "back-end/types/experiment-snapshot";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  ColumnRef,
-  FactMetricInterface,
-  FactTableInterface,
-  MetricQuantileSettings,
-} from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
-import type { PopulationDataQuerySettings } from "back-end/types/query";
 import {
   INCREMENTAL_METRICS_TABLE_PREFIX,
   INCREMENTAL_UNITS_TABLE_PREFIX,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;

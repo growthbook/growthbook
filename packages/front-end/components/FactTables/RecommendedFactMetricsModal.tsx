@@ -3,7 +3,7 @@ import {
   CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { canInlineFilterColumn } from "shared/experiments";
 import { useState } from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";

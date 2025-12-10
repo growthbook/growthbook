@@ -6,7 +6,9 @@ import {
   createSegmentModelValidator,
   updateSegmentModelValidator,
 } from "shared/validators";
-import { EventUserForResponseLocals } from "back-end/types/events/event-types";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { MetricInterface } from "shared/types/metric";
+import { ExperimentInterface } from "shared/types/experiment";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -21,8 +23,6 @@ import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
 } from "back-end/src/models/ExperimentModel";
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentInterface } from "back-end/types/experiment";
 
 // region GET /segments
 

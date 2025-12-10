@@ -3,12 +3,9 @@ import {
   FeatureRule,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import {
-  OrganizationSettings,
-  RequireReview,
-} from "back-end/types/organization";
+} from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   validateFeatureValue,
   getValidation,

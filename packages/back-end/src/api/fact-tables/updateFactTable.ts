@@ -1,7 +1,7 @@
 import { omit } from "lodash";
 import { UpdateFactTableResponse } from "shared/types/openapi";
 import { updateFactTableValidator } from "shared/validators";
-import { UpdateFactTableProps } from "back-end/types/fact-table";
+import { UpdateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {

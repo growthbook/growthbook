@@ -15,10 +15,10 @@ import {
   ColumnRef,
   CreateFactMetricProps,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { OrganizationInterface } from "shared/types/organization";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { OrganizationInterface } from "back-end/types/organization";
 
 export function validateAggregationSpecification({
   column,

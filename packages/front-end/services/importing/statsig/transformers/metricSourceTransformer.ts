@@ -1,4 +1,4 @@
-import { CreateFactTableProps } from "back-end/types/fact-table";
+import { CreateFactTableProps } from "shared/types/fact-table";
 import { StatsigMetricSource } from "@/services/importing/statsig/types";
 
 /**

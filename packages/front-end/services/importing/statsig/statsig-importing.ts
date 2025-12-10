@@ -1,9 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Environment } from "back-end/types/organization";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Environment } from "shared/types/organization";
 import { SavedGroupInterface } from "shared/types/groups";
 import { TagInterface } from "shared/types/tag";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { cloneDeep, omit } from "lodash";
 import {
   FactMetricInterface,
@@ -11,7 +11,7 @@ import {
   CreateFactMetricProps,
   CreateFactTableProps,
   FactFilterInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import {

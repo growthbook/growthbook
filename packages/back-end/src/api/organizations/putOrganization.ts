@@ -1,5 +1,6 @@
 import { PostOrganizationResponse } from "shared/types/openapi";
 import { putOrganizationValidator } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   createApiRequestHandler,
   validateIsSuperUserRequest,
@@ -9,7 +10,6 @@ import {
   toOrganizationApiInterface,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { OrganizationInterface } from "back-end/types/organization";
 
 export const putOrganization = createApiRequestHandler(
   putOrganizationValidator,

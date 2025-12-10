@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,

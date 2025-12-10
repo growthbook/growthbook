@@ -2,7 +2,7 @@ import React, { FC, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";

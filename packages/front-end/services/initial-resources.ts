@@ -5,12 +5,12 @@ import {
   CreateFactMetricProps,
   CreateFactTableProps,
   FactTableInterface,
-} from "back-end/types/fact-table";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 import { getTablePrefix } from "@/services/datasources";

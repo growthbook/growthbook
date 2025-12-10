@@ -7,7 +7,34 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface } from "back-end/types/metric";
+import { LegacyMetricInterface } from "shared/types/metric";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "shared/types/datasource";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { LegacyFactMetricInterface } from "shared/types/fact-table";
+import {
+  ExperimentRule,
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureInterface,
+} from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
+import {
+  ExperimentSnapshotInterface,
+  LegacyExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
+import {
+  ExperimentReportResultDimension,
+  LegacyReportInterface,
+} from "shared/types/report";
+import { Queries } from "shared/types/query";
+import { ExperimentPhase } from "shared/types/experiment";
+import { LegacySavedGroupInterface } from "shared/types/saved-group";
+import { encryptParams } from "back-end/src/services/datasource";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import {
   migrateExperimentReport,
   migrateSavedGroup,
@@ -19,33 +46,6 @@ import {
   upgradeMetricDoc,
   upgradeOrganizationDoc,
 } from "back-end/src/util/migrations";
-import {
-  DataSourceInterface,
-  DataSourceSettings,
-} from "back-end/types/datasource";
-import { FactMetricModel } from "back-end/src/models/FactMetricModel";
-import { encryptParams } from "back-end/src/services/datasource";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { LegacyFactMetricInterface } from "back-end/types/fact-table";
-import {
-  ExperimentRule,
-  FeatureInterface,
-  FeatureRule,
-  LegacyFeatureInterface,
-} from "back-end/types/feature";
-import { OrganizationInterface } from "back-end/types/organization";
-import {
-  ExperimentSnapshotInterface,
-  LegacyExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import {
-  ExperimentReportResultDimension,
-  LegacyReportInterface,
-} from "back-end/types/report";
-import { Queries } from "back-end/types/query";
-import { ExperimentPhase } from "back-end/types/experiment";
-import { LegacySavedGroupInterface } from "back-end/types/saved-group";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {

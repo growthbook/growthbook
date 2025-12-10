@@ -3,9 +3,9 @@ import {
   FactTableInterface,
   ColumnInterface,
   FactFilterInterface,
-} from "back-end/types/fact-table";
-import { IndexedPValue } from "back-end/types/stats";
-import { ExperimentDimensionMetadata } from "back-end/types/datasource";
+} from "shared/types/fact-table";
+import { IndexedPValue } from "shared/types/stats";
+import { ExperimentDimensionMetadata } from "shared/types/datasource";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,

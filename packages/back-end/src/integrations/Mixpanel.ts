@@ -39,14 +39,16 @@ import {
   CreateMetricSourceCovariateTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
 } from "shared/types/integrations";
-import { ReqContext } from "back-end/types/request";
 import {
   DataSourceInterface,
   DataSourceProperties,
-} from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
-import { MetricInterface, MetricType } from "back-end/types/metric";
+} from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import { MetricInterface, MetricType } from "shared/types/metric";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { ReqContext } from "back-end/types/request";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { formatQuery, runQuery } from "back-end/src/services/mixpanel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -56,9 +58,7 @@ import {
   getMixpanelPropertyColumn,
 } from "back-end/src/util/mixpanel";
 import { compileSqlTemplate } from "back-end/src/util/sql";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { FactMetricInterface } from "back-end/types/fact-table";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   context: ReqContext;

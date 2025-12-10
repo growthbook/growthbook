@@ -1,13 +1,17 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import { snapshotSatisfiesBlock, blockHasFieldOfType } from "shared/enterprise";
+import {
+  snapshotSatisfiesBlock,
+  blockHasFieldOfType,
+  DashboardInterface,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -15,7 +19,6 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { DashboardInterface } from "../enterprise/validators/dashboard";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";

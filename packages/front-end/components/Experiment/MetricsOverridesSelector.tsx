@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
 import {

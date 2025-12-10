@@ -8,18 +8,18 @@ import {
   getMetricResultStatus,
   isFactMetric,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentWithSnapshot,
   SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";

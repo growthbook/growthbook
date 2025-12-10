@@ -2,7 +2,7 @@ import { FC, useEffect, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
+} from "shared/types/saved-group";
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,

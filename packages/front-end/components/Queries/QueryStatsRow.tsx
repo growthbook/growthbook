@@ -1,4 +1,4 @@
-import { QueryInterface, QueryStatistics } from "back-end/types/query";
+import { QueryInterface, QueryStatistics } from "shared/types/query";
 import { ReactElement } from "react";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";

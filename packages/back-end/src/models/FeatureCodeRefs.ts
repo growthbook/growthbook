@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { ApiCodeRef } from "shared/types/openapi";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { ApiCodeRef } from "back-end/types/openapi";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 

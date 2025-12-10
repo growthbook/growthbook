@@ -1,6 +1,6 @@
 import React, { useState, FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";

@@ -1,10 +1,10 @@
 import { PostBulkImportFactsResponse } from "shared/types/openapi";
 import { postBulkImportFactsValidator } from "shared/validators";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   CreateFactTableProps,
   FactMetricInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import {

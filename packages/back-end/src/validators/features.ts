@@ -7,8 +7,8 @@ import {
   namespaceValue,
   savedGroupTargeting,
   safeRolloutStatusArray,
+  eventUser,
 } from "shared/validators";
-import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),

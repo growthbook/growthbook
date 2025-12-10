@@ -5,7 +5,9 @@ import {
 } from "shared/util";
 import { isEqual } from "lodash";
 import { UpdateFeatureResponse } from "shared/types/openapi";
-import { updateFeatureValidator } from "shared/validators";
+import { updateFeatureValidator, RevisionRules } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getFeature,
@@ -18,7 +20,6 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { FeatureInterface } from "back-end/types/feature";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -26,9 +27,7 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validation";
 

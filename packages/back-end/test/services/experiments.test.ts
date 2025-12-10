@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { postMetricValidator, putMetricValidator } from "shared/validators";
+import { DataSourceInterface } from "shared/types/datasource";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
 } from "back-end/src/services/experiments";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { OrganizationInterface } from "back-end/types/organization";
 
 describe("experiments utils", () => {
   describe("postMetricApiPayloadIsValid", () => {

@@ -1,8 +1,8 @@
 import { DeleteEnvironmentResponse } from "shared/types/openapi";
 import { deleteEnvironmentValidator } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteEnvironment = createApiRequestHandler(

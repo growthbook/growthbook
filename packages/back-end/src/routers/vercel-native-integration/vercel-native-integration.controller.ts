@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import { ManagedBy } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -21,7 +22,6 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 import {
   getVercelSSOToken,

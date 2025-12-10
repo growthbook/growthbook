@@ -1,12 +1,12 @@
 import { UpdateDimensionResponse } from "shared/types/openapi";
 import { updateDimensionValidator } from "shared/validators";
+import { DimensionInterface } from "shared/types/dimension";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   findDimensionById,
   updateDimension as updateDimensionModel,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
-import { DimensionInterface } from "back-end/types/dimension";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const updateDimension = createApiRequestHandler(

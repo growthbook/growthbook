@@ -4,7 +4,7 @@ import {
   FeatureInterface,
   FeaturePrerequisite,
   ForceRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import {
   FaExclamationCircle,
   FaExclamationTriangle,
@@ -25,7 +25,7 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";

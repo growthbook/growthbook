@@ -1,13 +1,13 @@
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+} from "shared/enterprise";
 import React, { useEffect, useState } from "react";
 import { Flex, TextField, Text, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiSlidersHorizontal, PiWrench } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";

@@ -6,7 +6,7 @@ import {
   FactMetricType,
   FactTableInterface,
   UpdateFactMetricProps,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";

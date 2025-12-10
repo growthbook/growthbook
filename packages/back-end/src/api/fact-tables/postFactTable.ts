@@ -1,6 +1,6 @@
 import { PostFactTableResponse } from "shared/types/openapi";
 import { postFactTableValidator } from "shared/validators";
-import { CreateFactTableProps } from "back-end/types/fact-table";
+import { CreateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {

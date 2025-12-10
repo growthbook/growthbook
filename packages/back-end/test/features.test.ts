@@ -1,6 +1,20 @@
 import cloneDeep from "lodash/cloneDeep";
 import { GroupMap, SavedGroupInterface } from "shared/types/groups";
 import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { FeatureInterface, ScheduleRule } from "shared/types/feature";
+import {
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "shared/types/organization";
+import { ExperimentInterface } from "shared/types/experiment";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import {
+  getFeatureDefinitionsResponse,
+  hashStrings,
+  sha256,
+} from "back-end/src/services/features";
+import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -11,20 +25,6 @@ import {
   replaceSavedGroupsInCondition,
   roundVariationWeight,
 } from "back-end/src/util/features";
-import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
-import { FeatureInterface, ScheduleRule } from "back-end/types/feature";
-import {
-  getFeatureDefinitionsResponse,
-  hashStrings,
-  sha256,
-} from "back-end/src/services/features";
-import {
-  OrganizationInterface,
-  SDKAttribute,
-  SDKAttributeSchema,
-} from "back-end/types/organization";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { SafeRolloutInterface } from "../types/safe-rollout";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();

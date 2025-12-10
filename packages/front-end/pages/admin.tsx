@@ -2,7 +2,7 @@ import { FC, useCallback, useEffect, useState } from "react";
 import {
   ExpandedMember,
   OrganizationInterface,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import {
@@ -17,7 +17,7 @@ import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
 import { LicenseInterface } from "shared/enterprise";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";

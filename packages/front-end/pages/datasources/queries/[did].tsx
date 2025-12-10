@@ -7,7 +7,7 @@ import {
 } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
-import { QueryInterface } from "back-end/types/query";
+import { QueryInterface } from "shared/types/query";
 import { capitalize } from "lodash";
 import { useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";

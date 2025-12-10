@@ -10,8 +10,8 @@ import {
   featuresReferencingSavedGroups,
   isIdListSupportedAttribute,
 } from "shared/util";
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isEmpty } from "lodash";
 import { Container, Flex, Text } from "@radix-ui/themes";
 import Link from "@/ui/Link";

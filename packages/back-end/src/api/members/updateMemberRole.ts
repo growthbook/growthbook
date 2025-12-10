@@ -2,15 +2,15 @@ import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
 import { UpdateMemberRoleResponse } from "shared/types/openapi";
 import { updateMemberRoleValidator } from "shared/validators";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   Member,
   OrganizationInterface,
   ProjectMemberRole,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export function validateRoleAndEnvs(
   org: OrganizationInterface,

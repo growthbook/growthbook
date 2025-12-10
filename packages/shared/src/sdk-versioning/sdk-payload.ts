@@ -1,7 +1,7 @@
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,

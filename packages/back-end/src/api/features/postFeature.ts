@@ -2,11 +2,12 @@ import { z } from "zod";
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
 import { PostFeatureResponse } from "shared/types/openapi";
 import { postFeatureValidator } from "shared/validators";
+import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { FeatureInterface, JSONSchemaDef } from "back-end/types/feature";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToRules,
@@ -15,7 +16,6 @@ import {
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { OrganizationInterface } from "back-end/types/organization";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
