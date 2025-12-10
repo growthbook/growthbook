@@ -40,20 +40,18 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         );
       }
 
-      // Validate condition if provided
-      if (condition) {
-        const allSavedGroups = await getAllSavedGroups(req.organization.id);
-        const savedGroupsObj = Object.fromEntries(
-          allSavedGroups.map((sg) => [sg.id, sg]),
-        );
-        const conditionRes = validateCondition(condition, savedGroupsObj);
-        if (!conditionRes.success) {
-          throw new Error(conditionRes.error);
-        }
-        // Allow empty condition if savedGroups is provided
-        if (conditionRes.empty) {
-          throw new Error("Condition cannot be empty");
-        }
+      // Validate condition
+      const allSavedGroups = await getAllSavedGroups(req.organization.id);
+      const savedGroupsObj = Object.fromEntries(
+        allSavedGroups.map((sg) => [sg.id, sg]),
+      );
+      const conditionRes = validateCondition(condition, savedGroupsObj);
+      if (!conditionRes.success) {
+        throw new Error(conditionRes.error);
+      }
+      // Allow empty condition if savedGroups is provided
+      if (conditionRes.empty) {
+        throw new Error("Condition cannot be empty");
       }
     }
     // If this is a list group, make sure the attributeKey is specified
@@ -93,7 +91,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       values: values || [],
       groupName: name,
       owner: owner || "",
-      condition: condition || undefined,
+      condition: condition || "",
       attributeKey,
       projects,
     });
