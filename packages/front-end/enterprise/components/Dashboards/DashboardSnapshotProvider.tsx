@@ -475,6 +475,7 @@ export function useDashboardMetricAnalysis(
       endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
+      force: true,
       source: "metric",
       additionalNumeratorFilters:
         block.analysisSettings.additionalNumeratorFilters,
