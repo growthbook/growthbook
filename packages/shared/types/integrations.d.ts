@@ -234,6 +234,13 @@ export type ExperimentDimension = {
   id: string;
   specifiedSlices?: string[];
 };
+
+export type ExperimentDimensionWithSpecifiedSlices = Omit<
+  ExperimentDimension,
+  "specifiedSlices"
+> & {
+  specifiedSlices: string[];
+};
 export type DateDimension = {
   type: "date";
 };
@@ -401,7 +408,8 @@ export interface PopulationFactMetricsQueryParams
     PopulationBaseQueryParams {}
 
 export interface ExperimentAggregateUnitsQueryParams
-  extends ExperimentBaseQueryParams {
+  extends Omit<ExperimentBaseQueryParams, "dimensions"> {
+  dimensions: ExperimentDimensionWithSpecifiedSlices[];
   useUnitsTable: boolean;
 }
 
