@@ -129,7 +129,7 @@ export const postStaleFeatures = createApiRequestHandler(
 
   const allFeatures = await getAllFeatures(req.context, {
     projects: projectId ? [projectId] : undefined,
-    includeArchived: false,
+    includeArchived: false, // Should we include archived features? Archived features are not necessarily marked as stale.
   });
 
   let featuresToCheck = allFeatures;
@@ -154,8 +154,6 @@ export const postStaleFeatures = createApiRequestHandler(
     req.organization.settings?.environments?.map((e) => e.id) || [];
 
   // Sort by dateUpdated (oldest first) to prioritize the most stale features
-  // This matches the pattern in listFeatures.ts but uses dateUpdated instead of dateCreated
-  // since staleness is determined by when the feature was last updated
   const sortedFeatures = featuresToCheck.sort(
     (a, b) => a.dateUpdated.getTime() - b.dateUpdated.getTime(),
   );
