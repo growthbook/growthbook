@@ -97,6 +97,12 @@ export async function _dangerousUpdateSSOConnection(
   if ("organization" in data) {
     throw new Error("SSO Connection organization cannot be changed");
   }
+  if ("_id" in data) {
+    throw new Error("SSO Connection _id cannot be changed");
+  }
+  if (!existing.id) {
+    throw new Error("Existing SSO Connection must have an id");
+  }
   if (!IS_CLOUD) {
     throw new Error(
       "SSO Connections can only be updated via UI in GrowthBook Cloud",
