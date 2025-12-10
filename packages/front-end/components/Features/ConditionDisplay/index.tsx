@@ -1,9 +1,6 @@
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
-import {
-  FeaturePrerequisite,
-  SavedGroupTargeting,
-} from "back-end/types/feature";
+import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupInterface } from "shared/types/groups";
 import { Flex, Text } from "@radix-ui/themes";

@@ -1,4 +1,4 @@
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import { useMemo, useState } from "react";
 import {
   PiUserBold,

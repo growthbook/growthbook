@@ -19,9 +19,9 @@ if [ -n "$openapi" ] | [ -n "$modelschanged" ]
   then
     echo "#### Running generate-api-types and adding changes"
     yarn generate-api-types
-    git add packages/back-end/types/openapi.d.ts
+    git add packages/shared/types/openapi.d.ts
     git add packages/back-end/generated/spec.yaml
-    git add packages/back-end/src/validators/openapi.ts
+    git add packages/shared/src/validators/openapi.ts
 fi
 
 echo "#### Linting typescript, scss, and markdown files"

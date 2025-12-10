@@ -7,14 +7,14 @@ import {
   validateCondition,
 } from "shared/util";
 import { SavedGroupInterface } from "shared/types/groups";
+import {
+  CreateSavedGroupProps,
+  UpdateSavedGroupProps,
+} from "shared/types/saved-group";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import {
-  CreateSavedGroupProps,
-  UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,

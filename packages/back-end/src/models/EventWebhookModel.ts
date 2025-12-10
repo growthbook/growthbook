@@ -4,17 +4,17 @@ import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
 import intersection from "lodash/intersection";
-import { NotificationEventName } from "back-end/types/events/base-types";
-import { zodNotificationEventNamesEnum } from "back-end/src/validators/events";
-import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { logger } from "back-end/src/util/logger";
+import { NotificationEventName } from "shared/types/events/base-types";
 import {
+  zodNotificationEventNamesEnum,
   eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "back-end/src/validators/event-webhook";
+} from "shared/validators";
+import { EventWebHookInterface } from "shared/types/event-webhook";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 

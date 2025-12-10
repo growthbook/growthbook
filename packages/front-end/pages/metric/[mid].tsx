@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import Link from "next/link";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "shared/types/idea";

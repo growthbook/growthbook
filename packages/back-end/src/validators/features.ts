@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
 import {
+  banditStageType,
+  experimentType,
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
   safeRolloutStatusArray,
+  eventUser,
 } from "shared/validators";
-import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -84,9 +86,6 @@ const experimentValue = z
   .strict();
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
-
-export const experimentType = ["standard", "multi-armed-bandit"] as const;
-export const banditStageType = ["explore", "exploit", "paused"] as const;
 
 const experimentRule = baseRule
   .extend({

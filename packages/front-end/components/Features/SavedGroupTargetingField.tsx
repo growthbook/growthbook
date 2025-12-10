@@ -1,4 +1,4 @@
-import { SavedGroupTargeting } from "back-end/types/feature";
+import { SavedGroupTargeting } from "shared/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import { PiArrowSquareOut } from "react-icons/pi";
 import React from "react";

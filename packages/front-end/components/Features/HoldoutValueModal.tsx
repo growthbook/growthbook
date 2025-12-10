@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { PiInfo } from "react-icons/pi";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";

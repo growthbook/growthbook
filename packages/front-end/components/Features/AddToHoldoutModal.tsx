@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

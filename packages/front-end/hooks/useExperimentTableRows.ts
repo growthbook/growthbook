@@ -2,13 +2,13 @@ import { useMemo } from "react";
 import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import { MetricOverride } from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+} from "shared/types/report";
+import { MetricOverride } from "shared/types/experiment";
+import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,

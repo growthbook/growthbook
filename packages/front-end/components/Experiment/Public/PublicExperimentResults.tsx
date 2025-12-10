@@ -1,13 +1,13 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
+import {ExperimentInterfaceStringDates} from "shared/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";

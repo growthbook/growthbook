@@ -1,4 +1,4 @@
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureValueType } from "shared/types/feature";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import Code from "@/components/SyntaxHighlighting/Code";
 

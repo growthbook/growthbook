@@ -6,7 +6,7 @@ import { TbCloudOff } from "react-icons/tb";
 import React, { useState } from "react";
 import { isFactMetricId } from "shared/experiments";
 import { date } from "shared/dates";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";

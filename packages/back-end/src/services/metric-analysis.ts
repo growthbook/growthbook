@@ -1,10 +1,10 @@
 import { cloneDeep } from "lodash";
 import { SegmentInterface } from "shared/types/segment";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 import {
   MetricAnalysisSettings,
   MetricAnalysisSource,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";

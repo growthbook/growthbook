@@ -1,11 +1,11 @@
 import React, { useState, ReactNode, useContext } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 

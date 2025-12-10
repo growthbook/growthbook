@@ -11,7 +11,7 @@ import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
 } from "shared/types/archetype";
-import { FeatureTestResult } from "back-end/types/feature";
+import { FeatureTestResult } from "shared/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";

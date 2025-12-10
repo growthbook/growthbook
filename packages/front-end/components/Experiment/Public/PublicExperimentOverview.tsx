@@ -1,7 +1,7 @@
-import {ExperimentInterfaceStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
+import {ExperimentInterfaceStringDates, LinkedFeatureInfo} from "shared/types/experiment";
 import React from "react";
 import {VisualChangesetInterface} from "shared/types/visual-changeset";
-import {URLRedirectInterface} from "back-end/types/url-redirect";
+import {URLRedirectInterface} from "shared/types/url-redirect";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";

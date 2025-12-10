@@ -4,9 +4,9 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   SavedGroupTargeting,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";

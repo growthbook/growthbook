@@ -1,14 +1,14 @@
 import React, { FC, ReactElement, useState } from "react";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+} from "shared/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";

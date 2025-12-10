@@ -2,7 +2,7 @@ import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
   expandMetricGroups,
@@ -12,7 +12,7 @@ import {
   quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,

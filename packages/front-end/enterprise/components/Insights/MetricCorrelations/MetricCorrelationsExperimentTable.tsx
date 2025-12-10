@@ -7,18 +7,18 @@ import {
   ExperimentMetricInterface,
   getMetricResultStatus,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentWithSnapshot,
   SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";

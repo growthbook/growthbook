@@ -3,12 +3,12 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  dashboardBlockHasIds,
+} from "shared/enterprise";
 import React, { useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
-import { dashboardBlockHasIds } from "shared/enterprise";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenuItem,

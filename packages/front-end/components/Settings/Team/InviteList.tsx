@@ -1,5 +1,5 @@
 import React, { FC, useState, ReactElement } from "react";
-import { Invite, MemberRoleInfo } from "back-end/types/organization";
+import { Invite, MemberRoleInfo } from "shared/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import ConfirmModal from "@/components/ConfirmModal";

@@ -4,6 +4,7 @@ import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
 } from "shared/types/archetype";
+import { FeatureTestResult } from "shared/types/feature";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
@@ -23,7 +24,6 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
-import { FeatureTestResult } from "back-end/types/feature";
 import {
   evaluateFeature,
   getSavedGroupMap,

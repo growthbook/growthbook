@@ -15,7 +15,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CSS } from "@dnd-kit/utilities";
 import { GrDrag } from "react-icons/gr";
 import Link from "next/link";

@@ -3,28 +3,28 @@ import formatNumber from "number-format.js";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import isEqual from "lodash/isEqual";
-import { logger } from "back-end/src/util/logger";
-import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "back-end/types/events/notification-events";
-import { EventInterface } from "back-end/types/events/event";
-import { getEvent } from "back-end/src/models/EventModel";
-import { SlackIntegrationInterface } from "back-end/types/slack-integration";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
+} from "shared/types/events/notification-events";
+import { EventInterface } from "shared/types/events/event";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import {
+  ExperimentWarningNotificationPayload,
+  ExperimentInfoSignificancePayload,
+  ExperimentDecisionNotificationPayload,
+  SafeRolloutDecisionNotificationPayload,
+  SafeRolloutUnhealthyNotificationPayload,
+} from "shared/validators";
+import { DiffResult } from "shared/types/events/diff";
 import {
   FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
 } from "back-end/src/events/handlers/utils";
-import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
-import { ExperimentInfoSignificancePayload } from "back-end/src/validators/experiment-info";
-import { ExperimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
-import {
-  SafeRolloutDecisionNotificationPayload,
-  SafeRolloutUnhealthyNotificationPayload,
-} from "back-end/src/validators/safe-rollout-notifications";
-import { DiffResult } from "back-end/types/events/diff";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { getEvent } from "back-end/src/models/EventModel";
+import { cancellableFetch } from "back-end/src/util/http.util";
+import { logger } from "back-end/src/util/logger";
 
 // region Filtering
 

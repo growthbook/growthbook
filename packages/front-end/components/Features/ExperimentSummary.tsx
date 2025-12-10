@@ -1,6 +1,6 @@
-import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
+import { ExperimentRule, FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";

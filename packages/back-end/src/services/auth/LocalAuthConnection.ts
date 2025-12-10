@@ -2,8 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import jwtExpress from "express-jwt";
 import jwt from "jsonwebtoken";
 import { UnauthenticatedResponse } from "shared/types/sso-connection";
+import { UserInterface } from "shared/types/user";
 import { JWT_SECRET } from "back-end/src/util/secrets";
-import { UserInterface } from "back-end/types/user";
 import {
   AuthRefreshModel,
   createRefreshToken,

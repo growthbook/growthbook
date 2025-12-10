@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 

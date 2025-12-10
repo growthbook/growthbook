@@ -1,13 +1,13 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import React, { useState } from "react";
-import { ExperimentReportVariation } from "back-end/types/report";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { ExperimentReportVariation } from "shared/types/report";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { FaExclamationCircle } from "react-icons/fa";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
@@ -21,8 +21,8 @@ import {
 } from "shared/experiments";
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { RiBarChartFill } from "react-icons/ri";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Switch from "@/ui/Switch";

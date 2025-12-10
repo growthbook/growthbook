@@ -7,9 +7,9 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
 } from "shared/types/integrations";
-import { QueryStatistics } from "back-end/types/query";
+import { QueryStatistics } from "shared/types/query";
+import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import { getKerberosHeader } from "../util/kerberos.util";
 import SqlIntegration from "./SqlIntegration";
 

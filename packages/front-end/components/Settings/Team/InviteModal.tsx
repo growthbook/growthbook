@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   DefaultMemberRole,
   MemberRoleWithProjects,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";

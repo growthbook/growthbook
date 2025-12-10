@@ -2,6 +2,15 @@ import type { Response } from "express";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { Environment } from "shared/types/organization";
+import {
+  createEnvValidator,
+  deleteEnvValidator,
+  updateEnvOrderValidator,
+  updateEnvValidator,
+  updateEnvsValidator,
+} from "shared/validators";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
@@ -16,17 +25,8 @@ import {
   getEnvironments,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/types/events/event-types";
-import { Environment } from "back-end/types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import {
-  createEnvValidator,
-  deleteEnvValidator,
-  updateEnvOrderValidator,
-  updateEnvValidator,
-  updateEnvsValidator,
-} from "./environment.validators";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
+import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import React, { useMemo } from "react";
 import {
   evaluatePrerequisiteState,
@@ -15,7 +15,7 @@ import {
   FaRecycle,
 } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaRegCircleQuestion } from "react-icons/fa6";

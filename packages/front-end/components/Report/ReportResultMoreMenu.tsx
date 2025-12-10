@@ -1,9 +1,9 @@
-import { Queries } from "back-end/types/query";
+import { Queries } from "shared/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import React from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";

@@ -7,7 +7,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { FaRedo } from "react-icons/fa";

@@ -11,7 +11,7 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { ApiSdkConnection } from "back-end/types/openapi";
+import { ApiSdkConnection } from "shared/types/openapi";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,

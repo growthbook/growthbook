@@ -1,4 +1,4 @@
-import { ExperimentPhaseStringDates } from "back-end/types/experiment";
+import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import React, { ReactNode } from "react";
 import qs from "query-string";
 import { getEqualWeights } from "shared/experiments";

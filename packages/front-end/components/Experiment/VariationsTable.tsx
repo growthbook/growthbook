@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";

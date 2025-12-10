@@ -2,7 +2,7 @@ import {
   FeatureInterface,
   FeatureTestResult,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { CSSProperties, useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
 import { Flex, IconButton } from "@radix-ui/themes";

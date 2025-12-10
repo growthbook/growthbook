@@ -1,5 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import Link from "next/link";

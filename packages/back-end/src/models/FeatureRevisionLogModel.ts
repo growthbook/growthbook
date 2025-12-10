@@ -1,8 +1,8 @@
+import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionLogInterface,
   featureRevisionLogValidator,
 } from "back-end/src/validators/feature-revision-log";
-import { FeatureInterface } from "back-end/types/feature";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";

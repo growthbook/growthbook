@@ -1,6 +1,6 @@
 import { ReactNode, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { MemberRoleInfo } from "back-end/types/organization";
+import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
 import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";

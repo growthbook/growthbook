@@ -19,7 +19,7 @@ import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

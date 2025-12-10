@@ -6,14 +6,14 @@ import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
   MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
+import { metricAnalysisSettingsValidator } from "shared/validators";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { metricAnalysisSettingsValidator } from "./metric-analysis.validators";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,

@@ -1,5 +1,5 @@
 import { SavedGroupInterface } from "shared/types/groups";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute } from "shared/types/organization";
 import { StatsigSavedGroup } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";

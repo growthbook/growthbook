@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import { ReqContext } from "back-end/types/request";
 
 /**

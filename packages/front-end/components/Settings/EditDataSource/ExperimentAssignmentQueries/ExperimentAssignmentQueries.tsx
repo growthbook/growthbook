@@ -2,11 +2,11 @@ import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";

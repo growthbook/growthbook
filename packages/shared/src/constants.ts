@@ -1,4 +1,4 @@
-import { FactMetricType } from "back-end/types/fact-table";
+import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;

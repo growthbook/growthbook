@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { baseSchema } from "shared/validators";
-import { eventUser } from "./events";
+import { baseSchema, eventUser } from "shared/validators";
 
 export const featureRevisionLog = z
   .object({

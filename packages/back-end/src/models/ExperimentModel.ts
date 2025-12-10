@@ -13,7 +13,9 @@ import {
   ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { DiffResult } from "shared/types/events/diff";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -27,7 +29,6 @@ import {
   VisualExperiment,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { FeatureInterface } from "back-end/types/feature";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
@@ -45,7 +46,6 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
-import { DiffResult } from "back-end/types/events/diff";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";

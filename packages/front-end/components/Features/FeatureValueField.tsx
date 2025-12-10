@@ -3,7 +3,7 @@ import {
   FeatureValueType,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { ReactElement, ReactNode, useId, useState } from "react";
 import { getValidation } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";

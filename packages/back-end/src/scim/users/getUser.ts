@@ -1,6 +1,6 @@
 import { Response } from "express";
+import { ExpandedMember } from "shared/types/organization";
 import { ScimError, ScimGetRequest, ScimUser } from "back-end/types/scim";
-import { ExpandedMember } from "back-end/types/organization";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 
 export const expandedMembertoScimUser = (

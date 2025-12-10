@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import Modal from "@/components/Modal";

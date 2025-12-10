@@ -6,7 +6,7 @@ import {
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   ExperimentRefRule,
   ExperimentRule,
@@ -17,10 +17,10 @@ import {
   ForceRule,
   RolloutRule,
   ComputedFeatureInterface,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureUsageRecords } from "back-end/types/realtime";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
@@ -31,12 +31,12 @@ import {
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/types/groups";
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { SafeRolloutRule } from "shared/validators";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";

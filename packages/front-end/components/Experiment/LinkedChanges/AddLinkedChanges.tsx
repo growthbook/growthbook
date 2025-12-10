@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,

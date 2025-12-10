@@ -11,7 +11,7 @@ import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,

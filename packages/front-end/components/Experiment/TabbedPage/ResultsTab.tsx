@@ -1,16 +1,16 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import React, { useMemo, useState } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import {
   getAllMetricIdsFromExperiment,

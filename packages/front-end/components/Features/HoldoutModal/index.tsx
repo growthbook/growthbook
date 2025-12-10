@@ -1,6 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import { useExperiments } from "@/hooks/useExperiments";

@@ -5,8 +5,8 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
-} from "back-end/types/datasource";
-import { MetricType } from "back-end/types/metric";
+} from "shared/types/datasource";
+import { MetricType } from "shared/types/metric";
 
 function camelToUnderscore(orig: string) {
   return orig

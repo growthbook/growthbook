@@ -1,6 +1,6 @@
 import { FC, useMemo } from "react";
-import { Environment } from "back-end/types/organization";
-import { FeatureEnvironment } from "back-end/types/feature";
+import { Environment } from "shared/types/organization";
+import { FeatureEnvironment } from "shared/types/feature";
 import { Box, Grid, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

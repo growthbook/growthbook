@@ -3,7 +3,7 @@ import {
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useAttributeSchema } from "@/services/features";

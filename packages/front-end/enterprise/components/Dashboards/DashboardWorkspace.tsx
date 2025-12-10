@@ -1,11 +1,13 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
+  DashboardInterface,
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  CREATE_BLOCK_TYPE,
+  getBlockData,
+} from "shared/enterprise";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
@@ -15,7 +17,6 @@ import {
 } from "react-icons/pi";
 import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
-import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
 
 import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";

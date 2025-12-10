@@ -11,5 +11,5 @@ dist
 *.hbs
 packages/back-end/src/templates/javascript.js
 # Auto-generated files
-packages/back-end/src/validators/openapi.ts
-packages/back-end/types/openapi.d.ts
+packages/shared/src/validators/openapi.ts
+packages/shared/types/openapi.d.ts

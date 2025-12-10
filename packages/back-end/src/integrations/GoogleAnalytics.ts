@@ -36,9 +36,16 @@ import {
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
 } from "shared/types/integrations";
+import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import {
+  DataSourceInterface,
+  DataSourceProperties,
+} from "shared/types/datasource";
+import { MetricInterface } from "shared/types/metric";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
@@ -46,14 +53,7 @@ import {
   APP_ORIGIN,
 } from "back-end/src/util/secrets";
 import { sumSquaresFromStats } from "back-end/src/util/stats";
-import {
-  DataSourceInterface,
-  DataSourceProperties,
-} from "back-end/types/datasource";
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { FactMetricInterface } from "back-end/types/fact-table";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(

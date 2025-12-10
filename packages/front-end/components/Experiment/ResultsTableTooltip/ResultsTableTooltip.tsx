@@ -2,13 +2,13 @@ import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+} from "shared/types/report";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { BsX } from "react-icons/bs";
 import clsx from "clsx";
 import { ExperimentMetricInterface } from "shared/experiments";

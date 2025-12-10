@@ -1,6 +1,6 @@
 import React from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import ActivityList from "@/components/ActivityList";

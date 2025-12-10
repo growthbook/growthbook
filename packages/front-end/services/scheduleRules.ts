@@ -1,4 +1,4 @@
-import { FeatureRule, ScheduleRule } from "back-end/types/feature";
+import { FeatureRule, ScheduleRule } from "shared/types/feature";
 
 export function getUpcomingScheduleRule(
   rule: FeatureRule,

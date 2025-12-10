@@ -2,8 +2,8 @@ import {
   SDKAttributeType,
   OrganizationInterface,
   SDKAttribute,
-} from "back-end/types/organization";
-import { AttributeMap } from "back-end/types/feature";
+} from "shared/types/organization";
+import { AttributeMap } from "shared/types/feature";
 import {
   GroupMap,
   SavedGroupsValues,

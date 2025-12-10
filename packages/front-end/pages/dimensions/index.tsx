@@ -1,11 +1,11 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import { DimensionInterface } from "back-end/types/dimension";
+import { DimensionInterface } from "shared/types/dimension";
 import clsx from "clsx";
 import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";

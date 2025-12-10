@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tooltip } from "@radix-ui/themes";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";

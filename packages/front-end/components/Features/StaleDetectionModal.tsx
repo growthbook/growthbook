@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 

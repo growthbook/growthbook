@@ -1,10 +1,10 @@
-import { ProjectInterface } from "back-end/types/project";
-import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "shared/types/project";
+import { Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { ConditionInterface } from "@growthbook/growthbook-react";
 import { uniqBy } from "lodash";
 import { ApiCallType } from "@/services/auth";

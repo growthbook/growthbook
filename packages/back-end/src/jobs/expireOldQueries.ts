@@ -1,5 +1,5 @@
 import Agenda from "agenda";
-import { Queries } from "back-end/types/query";
+import { Queries } from "shared/types/query";
 import {
   findRunningSnapshotsByQueryId,
   updateSnapshot,

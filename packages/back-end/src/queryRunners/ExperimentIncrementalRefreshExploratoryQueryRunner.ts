@@ -8,18 +8,18 @@ import {
   Dimension,
   IncrementalRefreshStatisticsQueryParams,
 } from "shared/types/integrations";
-import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotType,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   ExperimentQueryMetadata,
   Queries,
   QueryPointer,
   QueryStatus,
-} from "back-end/types/query";
+} from "shared/types/query";
+import { ApiReqContext } from "back-end/types/api";
 import {
   findSnapshotById,
   updateSnapshot,

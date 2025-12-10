@@ -10,8 +10,8 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   ColumnInterface,
-} from "back-end/types/fact-table";
-import { ApiFactTable, ApiFactTableFilter } from "back-end/types/openapi";
+} from "shared/types/fact-table";
+import { ApiFactTable, ApiFactTableFilter } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "../util/promise";

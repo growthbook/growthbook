@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MetricType } from "back-end/types/metric";
+import { MetricType } from "shared/types/metric";
 import { FC, Fragment, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -14,7 +14,7 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";

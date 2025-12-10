@@ -1,8 +1,8 @@
 import React, { FC } from "react";
 import dynamic from "next/dynamic";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PresentationInterface } from "shared/types/presentation";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";

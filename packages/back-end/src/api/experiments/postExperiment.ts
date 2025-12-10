@@ -2,8 +2,9 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   Variation,
+  postExperimentValidator,
 } from "shared/validators";
-import { PostExperimentResponse } from "back-end/types/openapi";
+import { PostExperimentResponse } from "shared/types/openapi";
 import {
   createExperiment,
   getExperimentByTrackingKey,
@@ -14,7 +15,6 @@ import {
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postExperimentValidator } from "back-end/src/validators/openapi";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";

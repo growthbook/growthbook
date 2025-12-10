@@ -54,13 +54,13 @@ import {
   DataSourceInterface,
   DataSourceProperties,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { AdditionalQueryMetadata } from "shared/types/query";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { DimensionInterface } from "shared/types/dimension";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import { ReqContext } from "back-end/types/request";
-import { AdditionalQueryMetadata } from "back-end/types/query";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { DimensionInterface } from "back-end/types/dimension";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { MetricInterface, MetricType } from "back-end/types/metric";
 
 export type { MetricAnalysisParams };
 

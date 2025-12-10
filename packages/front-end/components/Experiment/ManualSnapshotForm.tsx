@@ -2,9 +2,9 @@ import { FC } from "react";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { MetricInterface, MetricStats } from "back-end/types/metric";
+} from "shared/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { MetricInterface, MetricStats } from "shared/types/metric";
 import { useForm } from "react-hook-form";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";

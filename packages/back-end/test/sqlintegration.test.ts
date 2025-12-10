@@ -1,13 +1,13 @@
 import { format } from "shared/sql";
-import BigQuery from "back-end/src/integrations/BigQuery";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
   FactMetricInterface,
   FactMetricType,
   MetricCappingSettings,
-} from "back-end/types/fact-table";
-import { ExposureQuery } from "back-end/types/datasource";
+} from "shared/types/fact-table";
+import { ExposureQuery } from "shared/types/datasource";
+import BigQuery from "back-end/src/integrations/BigQuery";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 

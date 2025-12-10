@@ -1,11 +1,11 @@
 import React, { Fragment, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute } from "shared/types/organization";
 import { recursiveWalk } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import { BsXCircle } from "react-icons/bs";
-import { FeatureInterface } from "back-end/src/validators/features";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureInterface } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupInterface } from "shared/types/groups";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";

@@ -1,4 +1,5 @@
-import { ListOrganizationsResponse } from "back-end/types/openapi";
+import { ListOrganizationsResponse } from "shared/types/openapi";
+import { listOrganizationsValidator } from "shared/validators";
 import {
   findAllOrganizations,
   toOrganizationApiInterface,
@@ -8,7 +9,6 @@ import {
   getPaginationReturnFields,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
-import { listOrganizationsValidator } from "back-end/src/validators/openapi";
 
 export const listOrganizations = createApiRequestHandler(
   listOrganizationsValidator,

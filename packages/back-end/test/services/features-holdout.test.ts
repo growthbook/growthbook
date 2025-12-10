@@ -21,6 +21,7 @@ jest.mock("back-end/src/models/SdkPayloadModel", () => ({
 }));
 
 // Now import the features service after mocking its dependencies
+import { ReqContext } from "shared/types/organization";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
 // Import mocked dependencies
@@ -38,7 +39,6 @@ import {
   getSDKPayload,
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
-import { ReqContext } from "../../types/organization";
 
 // Mock shared/util functions
 jest.mock("shared/util", () => ({

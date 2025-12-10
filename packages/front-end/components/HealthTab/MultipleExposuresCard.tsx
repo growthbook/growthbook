@@ -4,8 +4,8 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
-import { SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";

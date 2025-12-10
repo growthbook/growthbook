@@ -1,5 +1,5 @@
-import { MetricOverride } from "back-end/types/experiment";
-import { MetricWindowSettings } from "back-end/types/fact-table";
+import { MetricOverride } from "shared/types/experiment";
+import { MetricWindowSettings } from "shared/types/fact-table";
 import { SettingsResolver, Settings, ScopeDefinition } from "../types";
 import {
   getConversionWindowHours,

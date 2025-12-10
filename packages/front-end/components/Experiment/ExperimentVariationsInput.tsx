@@ -1,4 +1,4 @@
-import { Variation } from "back-end/types/experiment";
+import { Variation } from "shared/types/experiment";
 import { generateVariationId } from "@/services/features";
 import { GBAddCircle } from "@/components/Icons";
 import SortableVariationsList from "@/components/Features/SortableVariationsList";

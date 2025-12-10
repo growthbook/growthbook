@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { DataSourceType } from "back-end/types/datasource";
+import { DataSourceType } from "shared/types/datasource";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

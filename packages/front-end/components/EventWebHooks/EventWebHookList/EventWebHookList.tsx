@@ -1,5 +1,5 @@
 import React, { FC, useCallback, useState } from "react";
-import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";

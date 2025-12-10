@@ -1,11 +1,11 @@
-import { ListMembersResponse } from "back-end/types/openapi";
+import { ListMembersResponse } from "shared/types/openapi";
+import { listMembersValidator } from "shared/validators";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listMembersValidator } from "back-end/src/validators/openapi";
 
 export const listMembers = createApiRequestHandler(listMembersValidator)(async (
   req,

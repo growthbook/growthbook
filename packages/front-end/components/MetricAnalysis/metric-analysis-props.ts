@@ -1,7 +1,7 @@
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisSource,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
 import { MetricAnalysisFormFields } from "@/components/MetricAnalysis/MetricAnalysis";
 
 export function getMetricAnalysisProps({

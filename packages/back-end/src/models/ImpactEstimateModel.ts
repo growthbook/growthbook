@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { getConversionWindowHours } from "shared/experiments";
 import { SegmentInterface } from "shared/types/segment";
-import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
+import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";

@@ -2,7 +2,7 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,

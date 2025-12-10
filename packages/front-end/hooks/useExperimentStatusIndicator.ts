@@ -10,7 +10,7 @@ import {
   DecisionCriteriaInterface,
   ExperimentDataForStatusStringDates,
   ExperimentHealthSettings,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";

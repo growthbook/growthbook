@@ -1,6 +1,7 @@
 import { Response } from "express";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ExperimentInterface } from "back-end/types/experiment";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -10,7 +11,6 @@ import {
   getExperimentLaunchChecklistById,
   updateExperimentLaunchChecklist,
 } from "back-end/src/models/ExperimentLaunchChecklistModel";
-import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
 import {
   getExperimentById,
   updateExperiment,

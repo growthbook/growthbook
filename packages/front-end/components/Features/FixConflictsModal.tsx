@@ -1,8 +1,8 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaCheck } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   MergeConflict,
   MergeStrategy,

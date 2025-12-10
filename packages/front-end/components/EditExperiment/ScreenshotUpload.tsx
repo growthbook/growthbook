@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { useDropzone } from "react-dropzone";
-import { Screenshot } from "back-end/types/experiment";
+import { Screenshot } from "shared/types/experiment";
 import clsx from "clsx";
 import { BiImageAdd } from "react-icons/bi";
 import { useAuth } from "@/services/auth";

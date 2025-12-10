@@ -1,5 +1,5 @@
 import { FaPlusCircle } from "react-icons/fa";
-import { ExperimentStatus } from "back-end/types/experiment";
+import { ExperimentStatus } from "shared/types/experiment";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Button from "@/ui/Button";

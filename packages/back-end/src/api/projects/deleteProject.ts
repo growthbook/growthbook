@@ -1,6 +1,6 @@
-import { DeleteProjectResponse } from "back-end/types/openapi";
+import { DeleteProjectResponse } from "shared/types/openapi";
+import { deleteProjectValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteProjectValidator } from "back-end/src/validators/openapi";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteProject = createApiRequestHandler(deleteProjectValidator)(

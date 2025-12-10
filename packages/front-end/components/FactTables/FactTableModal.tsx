@@ -2,7 +2,7 @@ import {
   CreateFactTableProps,
   FactTableInterface,
   UpdateFactTableProps,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";

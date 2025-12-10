@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FaClock, FaPencilAlt } from "react-icons/fa";
 import {
   experimentHasLinkedChanges,

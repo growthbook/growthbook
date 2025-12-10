@@ -4,8 +4,8 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { StatsEngine, PValueCorrection } from "back-end/types/stats";
-import { MetricDefaults } from "back-end/types/organization";
+import { StatsEngine, PValueCorrection } from "shared/types/stats";
+import { MetricDefaults } from "shared/types/organization";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";

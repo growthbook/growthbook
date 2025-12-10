@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useMemo } from "react";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { OrganizationSettings } from "back-end/types/organization";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useUser } from "@/services/UserContext";

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import { ComputedExperimentInterface } from "shared/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";

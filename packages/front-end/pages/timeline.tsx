@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Flex, Heading } from "@radix-ui/themes";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import { ComputedExperimentInterface } from "shared/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";

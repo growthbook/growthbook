@@ -1,5 +1,5 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { SDKAttribute } from "back-end/types/organization";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { SDKAttribute } from "shared/types/organization";
 import { StatsigFeatureGate, StatsigDynamicConfig } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
