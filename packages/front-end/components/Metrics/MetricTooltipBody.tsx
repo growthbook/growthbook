@@ -19,7 +19,7 @@ import { getPercentileLabel } from "@/services/metrics";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
-import FactMetricTypeName from "./FactMetricTypeName";
+import FactMetricTypeDisplayName from "./FactMetricTypeDisplayName";
 
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
@@ -58,7 +58,7 @@ const MetricTooltipBody = ({
       body: (
         <>
           {isFactMetric(metric) ? (
-            <FactMetricTypeName type={metric.metricType} />
+            <FactMetricTypeDisplayName type={metric.metricType} />
           ) : (
             metric.type
           )}

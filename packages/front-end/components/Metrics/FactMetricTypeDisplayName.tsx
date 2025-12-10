@@ -1,7 +1,11 @@
 import { FactMetricType } from "back-end/types/fact-table";
 import { capitalizeFirstLetter } from "@/services/utils";
 
-export default function FactMetricTypeName({ type }: { type: FactMetricType }) {
+export default function FactMetricTypeDisplayName({
+  type,
+}: {
+  type: FactMetricType;
+}) {
   switch (type) {
     case "proportion":
     case "mean":

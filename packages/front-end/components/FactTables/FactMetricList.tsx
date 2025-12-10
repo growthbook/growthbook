@@ -14,7 +14,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
-import FactMetricTypeName from "@/components/Metrics/FactMetricTypeName";
+import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -248,7 +248,7 @@ export default function FactMetricList({
                     </Link>
                   </td>
                   <td>
-                    <FactMetricTypeName type={metric.metricType} />
+                    <FactMetricTypeDisplayName type={metric.metricType} />
                   </td>
                   {shouldShowSliceAnalysisColumn && (
                     <td>

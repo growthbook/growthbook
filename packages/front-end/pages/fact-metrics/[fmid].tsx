@@ -153,6 +153,10 @@ function MetricType({
           percentage of days after exposure that a user is in the Fact Table
         </div>
       );
+    default: {
+      const exhaustiveCheck: never = type;
+      throw new Error(`Unhandled MetricType type: ${exhaustiveCheck}`);
+    }
   }
 }
 
