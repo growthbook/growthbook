@@ -122,7 +122,7 @@ export interface SourceIntegrationInterface {
     timestampCols?: string[],
   ): Promise<TestQueryResult>;
   getMetricAnalysisQuery(
-    metric: FactMetricInterface,
+    metrics: FactMetricInterface[],
     params: Omit<MetricAnalysisParams, "metric">,
   ): string;
   runMetricAnalysisQuery(

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryPointerValidator } from "shared/validators";
+import { customMetricSlice, queryPointerValidator } from "shared/validators";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([
   "metric",
@@ -21,6 +21,8 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
     additionalNumeratorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
     additionalDenominatorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
   })
@@ -42,6 +44,8 @@ export const createMetricAnalysisPropsValidator = z
     populationId: z.string().nullable(),
     source: metricAnalysisSourceValidator,
     force: z.boolean().optional(),
+    metricAutoSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
     additionalNumeratorFilters: z.array(z.string()).optional(),
     additionalDenominatorFilters: z.array(z.string()).optional(),
   })
@@ -73,6 +77,20 @@ export const metricAnalysisResultValidator = z
           stddev: z.number().optional(),
           numerator: z.number().optional(),
           denominator: z.number().optional(),
+          slices: z
+            .array(
+              z
+                .object({
+                  slice: z.record(z.string(), z.string().nullable()).optional(),
+                  units: z.number(),
+                  mean: z.number(),
+                  stddev: z.number().optional(),
+                  numerator: z.number().optional(),
+                  denominator: z.number().optional(),
+                })
+                .strict(),
+            )
+            .optional(),
         }),
       )
       .optional(),
