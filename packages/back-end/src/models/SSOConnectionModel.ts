@@ -87,7 +87,7 @@ export async function _dangerousCreateSSOConnection(
   return toInterface(doc);
 }
 
-export async function _dangerouseUpdateSSOConnection(
+export async function _dangerousUpdateSSOConnection(
   existing: SSOConnectionInterface,
   data: Partial<SSOConnectionInterface>,
 ) {

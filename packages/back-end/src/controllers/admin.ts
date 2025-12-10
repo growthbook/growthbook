@@ -4,7 +4,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { UserInterface } from "back-end/types/user";
 import {
   _dangerousCreateSSOConnection,
-  _dangerouseUpdateSSOConnection,
+  _dangerousUpdateSSOConnection,
   _dangerousGetAllSSOConnections,
   _dangerousGetSSOConnectionById,
 } from "back-end/src/models/SSOConnectionModel";
@@ -446,7 +446,7 @@ export async function _dangerousAdminUpsertSSOConnection(
       idpType,
       tenantId,
     };
-    await _dangerouseUpdateSSOConnection(existing, updates);
+    await _dangerousUpdateSSOConnection(existing, updates);
     await req.audit({
       event: "ssoConnection.update",
       entity: {
