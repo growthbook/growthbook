@@ -53,7 +53,7 @@
     "test": "jest",
     "clean": "rimraf node_modules",
     "type-safe-tests": "node scripts/type-safe-tests.js",
-    "type-check": "tsc --pretty --noEmit",
+    "type-check": "tsgo --pretty --noEmit",
     "size": "gzip-size ./dist/bundles/index.min.js --include-original",
     "bump-version": "node scripts/bump-version.js"
   },
