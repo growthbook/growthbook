@@ -107,7 +107,8 @@ export function validateLoginMethod(
 ) {
   if (
     org.restrictLoginMethod &&
-    req.loginMethod?.id !== org.restrictLoginMethod
+    req.loginMethod?.id !== org.restrictLoginMethod &&
+    !req.superAdmin
   ) {
     throw new Error(
       `Your organization requires you to login with ${
@@ -130,7 +131,8 @@ export function validateLoginMethod(
   // For that, we set `restrictAuthSubPrefix` to "google"
   if (
     org.restrictAuthSubPrefix &&
-    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix) &&
+    !req.superAdmin
   ) {
     throw new Error(
       `Your organization requires you to login with ${org.restrictAuthSubPrefix}`,
