@@ -26,7 +26,7 @@ import {
 } from "back-end/src/services/organizations";
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
+import { _dangerousGetSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
 import { UserInterface } from "back-end/types/user";
 import {
   resetMinTokenDate,
@@ -357,7 +357,7 @@ export async function getResetPassword(
 export async function getSSOConnectionFromDomain(req: Request, res: Response) {
   const { domain } = req.body;
 
-  const sso = await getSSOConnectionByEmailDomain(domain as string);
+  const sso = await _dangerousGetSSOConnectionByEmailDomain(domain as string);
 
   if (!sso?.id) {
     throw new Error(`Unknown SSO Connection for *@${domain}`);

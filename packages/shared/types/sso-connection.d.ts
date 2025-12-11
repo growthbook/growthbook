@@ -6,11 +6,21 @@ export interface SSOConnectionInterface {
   organization?: string;
   emailDomains?: string[];
   additionalScope?: string;
-  idpType?: string;
+  idpType?:
+    | "okta"
+    | "azure"
+    | "google"
+    | "onelogin"
+    | "jumpcloud"
+    | "auth0"
+    | "oidc";
   clientId: string;
   clientSecret?: string;
   extraQueryParams?: Record<string, string>;
   metadata: IssuerMetadata;
+  tenantId?: string;
+  baseURL?: string;
+  audience?: string;
 }
 
 export type RedirectResponse = { redirectURI: string; confirm?: boolean };
