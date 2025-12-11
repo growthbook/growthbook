@@ -63,21 +63,6 @@ import { FactMetricInterface } from "back-end/types/fact-table";
 import { MetricInterface, MetricType } from "back-end/types/metric";
 
 export type { MetricAnalysisParams };
-
-export class MissingDatasourceParamsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MissingDatasourceParamsError";
-  }
-}
-
-export class DataSourceNotSupportedError extends Error {
-  constructor() {
-    super("This data source is not supported yet.");
-    this.name = "DataSourceNotSupportedError";
-  }
-}
-
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;

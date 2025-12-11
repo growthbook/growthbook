@@ -5,8 +5,8 @@ import {
   StripeAddress,
   TaxIdType,
 } from "shared/types/subscriptions";
+import { LicenseServerError } from "shared/util";
 import {
-  LicenseServerError,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
