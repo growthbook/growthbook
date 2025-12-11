@@ -45,12 +45,11 @@ export type CreateZodObject<T extends BaseSchema> = z.ZodType<
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
-      uid: true,
       organization: true,
       dateCreated: true,
       dateUpdated: true,
     })
-    .extend({ id: z.string().optional() })
+    .extend({ id: z.string().optional(), uid: z.string().optional() })
     .strict() as unknown as CreateZodObject<T>;
 
 export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
