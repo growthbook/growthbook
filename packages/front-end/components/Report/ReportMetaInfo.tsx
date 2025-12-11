@@ -406,7 +406,7 @@ export default function ReportMetaInfo({
       </div>
 
       <div className="mb-4">
-        <Markdown isPublic={isPublic} experimentUid={experiment?.uid}>
+        <Markdown isPublic={isPublic} shareUid={report.uid} shareType="report">
           {report.description}
         </Markdown>
       </div>
