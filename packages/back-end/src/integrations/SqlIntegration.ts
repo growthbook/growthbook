@@ -6759,7 +6759,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             }
             ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           FROM ${params.unitsTableFullName}
-          ${params.lastMaxTimestamp ? `WHERE max_timestamp <= ${this.toTimestampWithMs(params.lastMaxTimestamp)}` : ""}
         )
         ${
           segment
