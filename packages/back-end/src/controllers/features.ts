@@ -2337,6 +2337,7 @@ export async function putFeature(
     "owner",
     "customFields",
     "holdout",
+    "datasourceId",
   ];
 
   if (

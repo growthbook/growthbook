@@ -2,6 +2,7 @@ import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
 import {
+  FeatureUsageQueryResponseRows,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -223,6 +224,47 @@ export async function runUserExposureQuery(
   try {
     const { rows, statistics } =
       await integration.runUserExperimentExposuresQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
+}
+
+export async function runFeatureUsageQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  feature: string,
+): Promise<{
+  rows?: FeatureUsageQueryResponseRows;
+  statistics?: QueryStatistics;
+  error?: string;
+  sql?: string;
+}> {
+  // TODO: Add a permission check for feature usage queries
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support feature usage queries
+  if (!integration.getFeatureUsageQuery || !integration.runFeatureUsageQuery) {
+    throw new Error("Unable to run feature usage query.");
+  }
+
+  const sql = integration.getFeatureUsageQuery({
+    feature,
+  });
+
+  try {
+    const { rows, statistics } = await integration.runFeatureUsageQuery(sql);
     return {
       rows,
       statistics,

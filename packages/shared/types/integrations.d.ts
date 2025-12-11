@@ -399,6 +399,10 @@ export type UserExperimentExposuresQueryParams = {
   lookbackDays: number;
 };
 
+export type FeatureUsageQueryParams = {
+  feature: string;
+};
+
 export type PastExperimentParams = {
   from: Date;
   forceRefresh?: boolean;
@@ -611,6 +615,12 @@ export type UserExperimentExposuresQueryResponseRows = {
   [key: string]: string | null;
 }[];
 
+export type FeatureUsageQueryResponseRows = {
+  timestamp: string;
+  feature_key: string;
+  [key: string]: string | null;
+}[];
+
 export type QueryResponseColumnData = {
   name: string;
   dataType?: FactTableColumnType;
@@ -650,6 +660,10 @@ export type ColumnTopValuesResponse = QueryResponse<
 >;
 export type UserExperimentExposuresQueryResponse =
   QueryResponse<UserExperimentExposuresQueryResponseRows> & {
+    truncated?: boolean;
+  };
+export type FeatureUsageQueryResponse =
+  QueryResponse<FeatureUsageQueryResponseRows> & {
     truncated?: boolean;
   };
 

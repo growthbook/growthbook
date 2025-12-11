@@ -27,8 +27,9 @@ import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import { useExperiments } from "@/hooks/useExperiments";
+import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 
-const featureTabs = ["overview", "stats", "test"] as const;
+const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
 export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
@@ -352,6 +353,10 @@ export default function FeaturePage() {
 
       {tab === "stats" && (
         <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+      )}
+
+      {tab === "diagnostics" && (
+        <FeatureDiagnostics feature={feature} mutate={() => fetchData()} />
       )}
 
       {editTagsModal && (

@@ -92,6 +92,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  FeatureUsageQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -104,6 +105,7 @@ import {
   FactMetricQuantileData,
   FactMetricPercentileData,
   FactMetricAggregationMetadata,
+  FeatureUsageQueryResponse,
   UserExperimentExposuresQueryParams,
   UserExperimentExposuresQueryResponse,
   CovariateWindowType,
@@ -121,6 +123,7 @@ import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
+  FeatureUsageQuery,
   SchemaFormatConfig,
   DataSourceInterface,
   AutoFactTableSchemas,
@@ -445,6 +448,17 @@ export default abstract class SqlIntegration
       );
     }
 
+    return match;
+  }
+
+  private getFeatureEvalQuery(featureUsageQueryId: string): FeatureUsageQuery {
+    const queries = this.datasource.settings?.queries?.featureUsage || [];
+
+    const match = queries.find((q) => q.id === featureUsageQueryId);
+
+    if (!match) {
+      throw new Error("Unknown feature usage query - " + featureUsageQueryId);
+    }
     return match;
   }
 
@@ -2579,6 +2593,35 @@ export default abstract class SqlIntegration
     );
   }
 
+  getFeatureUsageQuery(params: FeatureUsageQueryParams): string {
+    // Get all feature evaluation queries
+    const allFeatureEvalQueries = (
+      this.datasource.settings?.queries?.featureUsage || []
+    ).map((q) => this.getFeatureEvalQuery(q.id));
+
+    return format(
+      `-- Feature Usage Query
+      WITH __featureUsage AS (
+        ${allFeatureEvalQueries
+          .map((q, i) => {
+            const tableAlias = `t${i}`;
+            return `
+            SELECT * FROM (
+              ${q.query}
+            ) ${tableAlias}
+             WHERE feature_key = '${params.feature}'
+          `;
+          })
+          .join("\nUNION ALL\n")}
+      )
+      SELECT * FROM __featureUsage
+      ORDER BY timestamp DESC
+      LIMIT ${SQL_ROW_LIMIT}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
   public async runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse> {
@@ -2593,6 +2636,27 @@ export default abstract class SqlIntegration
           timestamp: row.timestamp,
           experiment_id: row.experiment_id,
           variation_id: row.variation_id,
+          ...row,
+        };
+      }),
+      statistics,
+      truncated,
+    };
+  }
+
+  public async runFeatureUsageQuery(
+    query: string,
+  ): Promise<FeatureUsageQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
+
+    // Check if SQL_ROW_LIMIT was reached
+    const truncated = rows.length === SQL_ROW_LIMIT;
+
+    return {
+      rows: rows.map((row) => {
+        return {
+          timestamp: row.timestamp,
+          feature_key: row.feature_key,
           ...row,
         };
       }),

@@ -276,6 +276,7 @@ export const featureInterface = z
         value: z.string(),
       })
       .optional(),
+    datasourceId: z.string().optional(),
   })
   .strict();
 

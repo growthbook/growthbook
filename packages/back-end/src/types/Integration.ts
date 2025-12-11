@@ -26,6 +26,8 @@ import {
   ExternalIdCallback,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
+  FeatureUsageQueryParams,
+  FeatureUsageQueryResponse,
   IncrementalRefreshStatisticsQueryParams,
   IncrementalWithNoOutputQueryResponse,
   InformationSchema,
@@ -205,6 +207,8 @@ export interface SourceIntegrationInterface {
   runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse>;
+  getFeatureUsageQuery(params: FeatureUsageQueryParams): string;
+  runFeatureUsageQuery(query: string): Promise<FeatureUsageQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

@@ -510,6 +510,10 @@ app.post(
   "/query/user-exposures",
   datasourcesController.runUserExperimentExposuresQuery,
 );
+app.post(
+  "/query/feature-eval-diagnostic",
+  datasourcesController.runFeatureEvalDiagnosticQuery,
+);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
