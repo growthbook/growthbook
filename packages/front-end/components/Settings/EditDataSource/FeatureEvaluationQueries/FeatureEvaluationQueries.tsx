@@ -12,7 +12,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
@@ -124,17 +123,12 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         <Box>
           <Flex align="center" gap="3" mb="0">
             <Heading as="h3" size="4" mb="0">
-              Feature Usage Queries
+              Feature Usage Query
             </Heading>
-            <Badge
-              label={featureUsageQueries.length + ""}
-              color="gray"
-              radius="medium"
-            />
           </Flex>
         </Box>
 
-        {canEdit && (
+        {canEdit && featureUsageQueries.length === 0 && (
           <Box>
             <Button onClick={handleAdd}>
               <FaPlus className="mr-1" /> Add
@@ -143,17 +137,15 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         )}
       </Flex>
       <p>
-        Queries that return a list of feature evaluation events. Returns a
-        record of every time a particular feature was evaluated as well as any
-        additional metadata about the evaluation you wish to include (e.g. the
-        value that was returned, the reason it was returned, the unit id, etc.)
+        Return a list of feature evaluation events for feature evaluation
+        diagnostics.
       </p>
 
       {/* region Empty state */}
       {featureUsageQueries.length === 0 ? (
         <Callout status="info">
-          No feature usage queries. Feature usage queries are required for
-          feature evaluation diagnostics.
+          A feature usage query has not been added. Feature usage queries are
+          required for feature evaluation diagnostics.
         </Callout>
       ) : null}
       {/* endregion Empty state */}
