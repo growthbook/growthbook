@@ -92,6 +92,22 @@ export type CovariateFirstExposureSettings = {
   alias: string;
 };
 
+/**
+ * Transformation function applied to aggregated metric values at the user level.
+ * For most metrics, this is an identity function that returns the column unchanged.
+ * For dailyParticipation metrics, this divides by the participation window to
+ * produce a participation rate.
+ */
+export type AggregatedValueTransformation = ({
+  column,
+  initialTimestampColumn,
+  analysisEndDate,
+}: {
+  column: string;
+  initialTimestampColumn: string;
+  analysisEndDate: Date;
+}) => string;
+
 export type FactMetricData = {
   alias: string;
   id: string;
@@ -121,6 +137,8 @@ export type FactMetricData = {
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
+  // Transformation applied to aggregated values at the user level
+  aggregatedValueTransformation: AggregatedValueTransformation;
 };
 
 export type FactMetricSourceData = {
@@ -215,6 +233,13 @@ export type ExperimentDimension = {
   type: "experiment";
   id: string;
   specifiedSlices?: string[];
+};
+
+export type ExperimentDimensionWithSpecifiedSlices = Omit<
+  ExperimentDimension,
+  "specifiedSlices"
+> & {
+  specifiedSlices: string[];
 };
 export type DateDimension = {
   type: "date";
@@ -383,7 +408,8 @@ export interface PopulationFactMetricsQueryParams
     PopulationBaseQueryParams {}
 
 export interface ExperimentAggregateUnitsQueryParams
-  extends ExperimentBaseQueryParams {
+  extends Omit<ExperimentBaseQueryParams, "dimensions"> {
+  dimensions: ExperimentDimensionWithSpecifiedSlices[];
   useUnitsTable: boolean;
 }
 
