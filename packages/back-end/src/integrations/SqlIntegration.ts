@@ -2594,6 +2594,8 @@ export default abstract class SqlIntegration
   }
 
   getFeatureUsageQuery(params: FeatureUsageQueryParams): string {
+    const featureKey = this.escapeStringLiteral(params.feature);
+
     // Get all feature evaluation queries
     const allFeatureEvalQueries = (
       this.datasource.settings?.queries?.featureUsage || []
@@ -2609,7 +2611,7 @@ export default abstract class SqlIntegration
             SELECT * FROM (
               ${q.query}
             ) ${tableAlias}
-             WHERE feature_key = '${params.feature}'
+             WHERE feature_key = '${featureKey}'
           `;
           })
           .join("\nUNION ALL\n")}

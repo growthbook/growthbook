@@ -58,6 +58,8 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource.settings?.queries?.featureUsage],
   );
 
+  console.log("featureUsageQueries", featureUsageQueries);
+
   const handleAdd = useCallback(() => {
     setUiMode("add");
     setEditingIndex(featureUsageQueries.length);
@@ -86,6 +88,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
   const handleSave = useCallback(
     (idx: number) => async (featureUsageQuery: FeatureUsageQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      if (!copy.settings.queries.featureUsage) {
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+        copy.settings.queries.featureUsage = [];
+      }
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.queries.featureUsage[idx] = featureUsageQuery;
       await onSave(copy);

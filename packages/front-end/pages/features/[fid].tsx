@@ -13,6 +13,7 @@ import {
 import { SafeRolloutInterface } from "shared/validators";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
+import { FeatureUsageQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -44,6 +45,9 @@ export default function FeaturePage() {
   const [lastDisplayedVersion, setLastDisplayedVersion] = useState<
     number | null
   >(null);
+  const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
+    FeatureUsageQueryResponseRows[number] & { id: string }
+  > | null>(null);
 
   const { apiCall } = useAuth();
 
@@ -356,7 +360,11 @@ export default function FeaturePage() {
       )}
 
       {tab === "diagnostics" && (
-        <FeatureDiagnostics feature={feature} mutate={() => fetchData()} />
+        <FeatureDiagnostics
+          feature={feature}
+          results={diagnosticsResults}
+          setResults={setDiagnosticsResults}
+        />
       )}
 
       {editTagsModal && (
