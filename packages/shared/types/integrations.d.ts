@@ -369,7 +369,8 @@ export interface InsertMetricSourceCovariateDataQueryParams {
 export interface IncrementalRefreshStatisticsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
-  dimensions: Dimension[];
+  dimensionsWithSpecifiedSlices: ExperimentDimensionWithSpecifiedSlices[];
+  dimensionsForExploratoryAnalysis: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
   metricSourceCovariateTableFullName: string | null;

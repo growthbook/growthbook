@@ -167,7 +167,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const metricParams: IncrementalRefreshStatisticsQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      dimensions: dimensionObjs,
+      // unused in exploratory analysis, use dimensionsForExploratoryAnalysis instead
+      dimensionsWithSpecifiedSlices: [],
+      dimensionsForExploratoryAnalysis: dimensionObjs,
       factTableMap: params.factTableMap,
       metricSourceTableFullName: existingSource.tableFullName,
       metricSourceCovariateTableFullName:

@@ -298,6 +298,8 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
+  // experimentDimensions are all dimensions that we can save in the units table
+  // or that already exist in the units table if this is not a full refresh
   const experimentDimensions: ExperimentDimension[] =
     params.fullRefresh || !incrementalRefreshModel
       ? exposureQuery.dimensions.map((d) => {
@@ -314,6 +316,25 @@ const startExperimentIncrementalRefreshQueries = async (
               id: d,
             };
           });
+  // dimensionsForTraffic are the dimensions that we can use for traffic analysis
+  // this is a subset of experimentDimensions that have specified slices
+  const dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
+    experimentDimensions.flatMap((d) => {
+      const specifiedSlices = exposureQuery?.dimensionMetadata?.find(
+        (dm) => dm.dimension === d.id,
+      )?.specifiedSlices;
+      if (specifiedSlices) {
+        return [{ ...d, specifiedSlices }];
+      }
+      return [];
+    });
+  // precomputedDimensions are the dimensions that are determined we can precompute in `getSnapshotSettings`
+  // (which is the intersection of dimensions that have specified slices, dimensions that are in
+  // the units table, AND dimensions that will fit in the return object (e.g. < 1000 rows).
+  const precomputedDimensions: ExperimentDimensionWithSpecifiedSlices[] =
+    dimensionsForTraffic.filter((d) =>
+      experimentDimensions.some((ed) => ed.id === d.id),
+    );
 
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
@@ -736,7 +757,8 @@ const startExperimentIncrementalRefreshQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensions: snapshotSettings.dimensions,
+        dimensionsWithSpecifiedSlices: precomputedDimensions,
+        dimensionsForExploratoryAnalysis: [],
         metricSourceCovariateTableFullName,
       }),
       dependencies: [
@@ -756,12 +778,6 @@ const startExperimentIncrementalRefreshQueries = async (
     params.snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
 
   if (runTrafficQuery) {
-    const dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
-      experimentDimensions.flatMap((d) =>
-        d.specifiedSlices !== undefined
-          ? [{ ...d, specifiedSlices: d.specifiedSlices }]
-          : [],
-      );
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({

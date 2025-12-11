@@ -7529,8 +7529,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       percentileTableIndices.add(0);
     }
 
+    // exploratory dimensions
     const { unitDimensions } = this.processDimensions(
-      params.dimensions,
+      params.dimensionsForExploratoryAnalysis,
       params.settings,
       params.activationMetric,
     );
@@ -7551,6 +7552,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const unitDimensionCols = unitDimensions.map((d) =>
       this.getDimensionCol(d),
     );
+
+    // TODO, split out exploratory dimensions from pre-computed dimensions
+    // but group by all of them once you process them and have the data for how they
+    // should be computed
     const nonUnitDimensionCols = params.dimensions
       .filter((d) => d.type !== "user")
       .map((d) => this.getDimensionCol(d));
