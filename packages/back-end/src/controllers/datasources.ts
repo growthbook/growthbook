@@ -789,12 +789,11 @@ export async function getQueries(
   req: AuthRequest<null, { ids: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { ids } = req.params;
   const queries = ids.split(",");
 
-  const docs = await getQueriesByIds(org.id, queries);
-
+  const docs = await getQueriesByIds(context, queries);
   // Lookup table so we can return queries in the same order we received them
   const map = new Map(docs.map((d) => [d.id, d]));
 

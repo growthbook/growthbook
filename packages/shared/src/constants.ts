@@ -209,6 +209,7 @@ export const entityEvents = {
   vector: ["create", "update", "delete"],
   customHook: ["create", "update", "delete"],
   ssoConnection: ["create", "update", "delete"],
+  sqlResultChunk: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
