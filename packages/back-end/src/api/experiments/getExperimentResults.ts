@@ -1,9 +1,9 @@
-import { GetExperimentResultsResponse } from "back-end/types/openapi";
+import { GetExperimentResultsResponse } from "shared/types/openapi";
+import { getExperimentResultsValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getExperimentResultsValidator } from "back-end/src/validators/openapi";
 
 export const getExperimentResults = createApiRequestHandler(
   getExperimentResultsValidator,

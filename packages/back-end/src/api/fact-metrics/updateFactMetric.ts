@@ -1,14 +1,14 @@
 import { z } from "zod";
+import { UpdateFactMetricResponse } from "shared/types/openapi";
+import { updateFactMetricValidator } from "shared/validators";
 import {
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
   UpdateFactMetricProps,
 } from "back-end/types/fact-table";
-import { UpdateFactMetricResponse } from "back-end/types/openapi";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateFactMetricValidator } from "back-end/src/validators/openapi";
 import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
 
 function expectsDenominator(metricType: FactMetricType) {

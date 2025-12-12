@@ -9,15 +9,15 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getSelectedColumnDatatype } from "shared/experiments";
+import { PostFactMetricResponse } from "shared/types/openapi";
+import { postFactMetricValidator } from "shared/validators";
 import {
   ColumnRef,
   CreateFactMetricProps,
   FactTableInterface,
 } from "back-end/types/fact-table";
-import { PostFactMetricResponse } from "back-end/types/openapi";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postFactMetricValidator } from "back-end/src/validators/openapi";
 import { OrganizationInterface } from "back-end/types/organization";
 
 export function validateAggregationSpecification({

@@ -1,9 +1,9 @@
-import { GetMetricResponse } from "back-end/types/openapi";
+import { GetMetricResponse } from "shared/types/openapi";
+import { getMetricValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getMetricValidator } from "back-end/src/validators/openapi";
 
 export const getMetric = createApiRequestHandler(getMetricValidator)(async (
   req,

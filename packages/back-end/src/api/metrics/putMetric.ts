@@ -1,7 +1,7 @@
+import { PutMetricResponse } from "shared/types/openapi";
+import { putMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
-import { PutMetricResponse } from "back-end/types/openapi";
-import { putMetricValidator } from "back-end/src/validators/openapi";
 import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,

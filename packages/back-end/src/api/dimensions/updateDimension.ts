@@ -1,11 +1,11 @@
-import { UpdateDimensionResponse } from "back-end/types/openapi";
+import { UpdateDimensionResponse } from "shared/types/openapi";
+import { updateDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   findDimensionById,
   updateDimension as updateDimensionModel,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
-import { updateDimensionValidator } from "back-end/src/validators/openapi";
 import { DimensionInterface } from "back-end/types/dimension";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 

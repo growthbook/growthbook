@@ -1,6 +1,7 @@
 import { omit } from "lodash";
+import { UpdateFactTableResponse } from "shared/types/openapi";
+import { updateFactTableValidator } from "shared/validators";
 import { UpdateFactTableProps } from "back-end/types/fact-table";
-import { UpdateFactTableResponse } from "back-end/types/openapi";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -11,7 +12,6 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateFactTableValidator } from "back-end/src/validators/openapi";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
 type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {

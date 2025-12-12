@@ -1,6 +1,6 @@
-import { PutAttributeResponse } from "back-end/types/openapi";
+import { PutAttributeResponse } from "shared/types/openapi";
+import { putAttributeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { putAttributeValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsUpdate } from "back-end/src/services/audit";

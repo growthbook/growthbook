@@ -1,6 +1,7 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { ListFeaturesResponse } from "shared/types/openapi";
+import { listFeaturesValidator } from "shared/validators";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
-import { ListFeaturesResponse } from "back-end/types/openapi";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
@@ -12,7 +13,6 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listFeaturesValidator } from "back-end/src/validators/openapi";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(

@@ -1,6 +1,6 @@
-import { DeleteMemberResponse } from "back-end/types/openapi";
+import { DeleteMemberResponse } from "shared/types/openapi";
+import { deleteMemberValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteMemberValidator } from "back-end/src/validators/openapi";
 import { removeUserFromOrg } from "back-end/src/scim/users/patchUser";
 
 export const deleteMember = createApiRequestHandler(deleteMemberValidator)(

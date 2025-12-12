@@ -1,6 +1,6 @@
+import { deleteSegmentValidator } from "shared/validators";
+import { DeleteSegmentResponse } from "shared/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteSegmentValidator } from "back-end/src/validators/openapi";
-import { DeleteSegmentResponse } from "back-end/types/openapi";
 
 export const deleteSegment = createApiRequestHandler(deleteSegmentValidator)(
   async (req): Promise<DeleteSegmentResponse> => {

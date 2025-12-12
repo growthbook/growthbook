@@ -56,8 +56,18 @@ import {
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
   SafeRolloutInterface,
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
+import {
+  ApiExperiment,
+  ApiExperimentMetric,
+  ApiExperimentResults,
+  ApiMetric,
+} from "shared/types/openapi";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -118,21 +128,9 @@ import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { DataSourceInterface, ExposureQuery } from "back-end/types/datasource";
 import {
-  ApiExperiment,
-  ApiExperimentMetric,
-  ApiExperimentResults,
-  ApiMetric,
-} from "back-end/types/openapi";
-import {
   ExperimentReportAnalysisSettings,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import {
-  postExperimentValidator,
-  postMetricValidator,
-  putMetricValidator,
-  updateExperimentValidator,
-} from "back-end/src/validators/openapi";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
