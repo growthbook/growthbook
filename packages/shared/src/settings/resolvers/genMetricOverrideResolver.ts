@@ -1,10 +1,7 @@
 import { MetricOverride } from "back-end/types/experiment";
 import { MetricWindowSettings } from "back-end/types/fact-table";
 import { SettingsResolver, Settings, ScopeDefinition } from "../types";
-import {
-  getConversionWindowHours,
-  getDelayWindowHours,
-} from "../../experiments";
+import { getMetricWindowHours, getDelayWindowHours } from "../../experiments";
 
 // skip RA and prior fields because they are handled by custom
 // resolvers that take into account whether the requisite override
@@ -42,7 +39,7 @@ export default function genMetricOverrideResolver(
         break;
       case "windowHours":
         metricValue = ctx.scopes?.metric?.windowSettings
-          ? getConversionWindowHours(ctx.scopes?.metric?.windowSettings)
+          ? getMetricWindowHours(ctx.scopes?.metric?.windowSettings)
           : null;
         break;
       case "windowType":

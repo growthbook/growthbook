@@ -360,7 +360,7 @@ export function isRegressionAdjusted(
   );
 }
 
-export function getConversionWindowHours(
+export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.windowValue;

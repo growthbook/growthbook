@@ -336,6 +336,8 @@ export function getExperimentMetricFormatter(
 
   // Fact metric
   switch (metric.metricType) {
+    case "dailyParticipation":
+      return metric.displayAsPercentage ? formatPercent : formatNumber;
     case "proportion":
     case "retention":
       if (proportionFormat === "number") {
