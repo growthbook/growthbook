@@ -245,9 +245,10 @@ export function getRowFilterSQL({
     factTable,
     jsonExtract,
   );
-  const columnType = factTable.columns?.find(
-    (c) => c.column === rowFilter.column,
-  )?.datatype;
+  const columnType = getSelectedColumnDatatype({
+    factTable,
+    column: rowFilter.column,
+  });
 
   // If a boolean column is using equals operator, convert to is_true/is_false
   let operator = rowFilter.operator;
@@ -285,8 +286,14 @@ export function getRowFilterSQL({
   }
   const escapedValues = [
     ...new Set(
-      // TODO: handle number columns
-      rowFilter.values.map((v) => escapeStringLiteral(v)),
+      rowFilter.values.map((v) => {
+        // Number, don't wrap in quotes
+        if (columnType === "number" && v.match(/^[-]?\d+(\.\d+)?$/)) {
+          return v;
+        }
+
+        return "'" + escapeStringLiteral(v) + "'";
+      }),
     ),
   ];
 
@@ -301,7 +308,10 @@ export function getRowFilterSQL({
     }
   }
 
-  const likeEscapedValue = firstEscapedValue.replace(/([%_])/g, "\\$1");
+  const likeEscapedValue = escapeStringLiteral(rowFilter.values[0]).replace(
+    /([%_])/g,
+    "\\$1",
+  );
 
   // Handle remaining operators
   switch (operator) {
@@ -311,11 +321,11 @@ export function getRowFilterSQL({
     case "<=":
     case ">":
     case ">=":
-      return `(${columnExpr} ${operator} '${firstEscapedValue}')`;
+      return `(${columnExpr} ${operator} ${firstEscapedValue})`;
     case "in":
-      return `(${columnExpr} IN (\n  ${escapedValues.map((v) => `'${v}'`).join(",\n  ")}\n))`;
+      return `(${columnExpr} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "not_in":
-      return `(${columnExpr} NOT IN (\n  ${escapedValues.map((v) => `'${v}'`).join(",\n  ")}\n))`;
+      return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "starts_with":
       return `(${columnExpr} LIKE '${likeEscapedValue}%')`;
     case "ends_with":

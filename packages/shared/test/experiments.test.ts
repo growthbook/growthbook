@@ -81,6 +81,7 @@ describe("Experiments", () => {
         b: { datatype: "number" },
         "c.d": { datatype: "string" },
         "c.e": { datatype: "number" },
+        bool: { datatype: "boolean" },
       },
     };
     const boolColumn: ColumnInterface = {
@@ -325,7 +326,7 @@ describe("Experiments", () => {
           }),
         ).toStrictEqual([
           "(unknown_column = 'unknown_value')",
-          `(${numericColumn.column} = '1')`,
+          `(${numericColumn.column} = 1)`,
           `(${deletedColumn.column} = 'deleted')`,
           `(${userIdColumn.column} = 'user')`,
         ]);
@@ -600,7 +601,22 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${boolColumn.column} IS FALSE)`);
         });
-        it("handles direct operators", () => {
+        it("can detect column types for JSON fields", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: `${jsonColumn.column}.bool`,
+                operator: "=",
+                values: ["true"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+            }),
+          ).toStrictEqual(`(${jsonColumn.column}:'bool' IS TRUE)`);
+        });
+        it("handles direct operators for strings", () => {
           const operators = [">", "<", ">=", "<=", "!=", "="] as const;
           for (const operator of operators) {
             expect(
@@ -618,6 +634,72 @@ describe("Experiments", () => {
             ).toStrictEqual(`(${column.column} ${operator} 'foo')`);
           }
         });
+        it("handles direct operators for integers", () => {
+          const operators = [">", "<", ">=", "<=", "!=", "="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: numericColumn.column,
+                  operator,
+                  values: ["42"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+              }),
+            ).toStrictEqual(`(${numericColumn.column} ${operator} 42)`);
+          }
+        });
+        it("handles direct operators for floats and negatives", () => {
+          const operators = [">", "<", ">=", "<=", "!=", "="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: numericColumn.column,
+                  operator,
+                  values: ["-42.5"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+              }),
+            ).toStrictEqual(`(${numericColumn.column} ${operator} -42.5)`);
+          }
+        });
+        it("quotes non-numbers even for numeric columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: numericColumn.column,
+                operator: "=",
+                values: ["123a"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+            }),
+          ).toStrictEqual(`(${numericColumn.column} = '123a')`);
+        });
+        it("quotes numbers for string columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "=",
+                values: ["123"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+            }),
+          ).toStrictEqual(`(${column.column} = '123')`);
+        });
         it("handles not_in operator", () => {
           expect(
             getRowFilterSQL({
@@ -632,6 +714,23 @@ describe("Experiments", () => {
               evalBoolean,
             }),
           ).toStrictEqual(`(${column.column} NOT IN (\n  'foo',\n  'bar'\n))`);
+        });
+        it("handles not_in operator for numbers", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: numericColumn.column,
+                operator: "not_in",
+                values: ["1", "-2", "3.5", "5c"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+            }),
+          ).toStrictEqual(
+            `(${numericColumn.column} NOT IN (\n  1,\n  -2,\n  3.5,\n  '5c'\n))`,
+          );
         });
         it("handles is_null operator", () => {
           expect(
