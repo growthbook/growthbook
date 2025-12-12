@@ -140,6 +140,14 @@ function getCachedUsageIfValid(
   if (!IS_CLOUD) {
     return UNLIMITED_USAGE;
   }
+
+  // An old manual flag that gives orgs the starter plan, but with unlimited members
+  // and blocks them from upgrading to a paid plan. For now we will just give them
+  // unlimited cdn usage
+  if (organization.disableSelfServeBilling) {
+    return UNLIMITED_USAGE;
+  }
+
   const plan = getEffectiveAccountPlan(organization);
 
   if (PLANS_WITH_UNLIMITED_USAGE.includes(plan)) return UNLIMITED_USAGE;
