@@ -89,7 +89,6 @@ export default function FeatureDiagnostics({
     >,
   ) => void;
 }) {
-  // const [openDatasourceModal, setOpenDatasourceModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
