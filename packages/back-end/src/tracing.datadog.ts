@@ -4,6 +4,7 @@ import { Attributes, setMetrics } from "./util/metrics";
 
 tracer.init({
   logInjection: true,
+  runtimeMetrics: true,
 });
 
 class Counter {

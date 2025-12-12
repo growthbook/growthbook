@@ -29,6 +29,7 @@ interface FormValues {
   sequentialTestingEnabled: boolean;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
+  postStratificationDisabled: boolean;
 }
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;
@@ -175,43 +176,37 @@ export default function StatsEngineSettings() {
       <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
-            Regression Adjustment (CUPED)
+            Variance Reduction (CUPEDps)
           </PremiumTooltip>
         </Heading>
-        <Flex align="start" gap="3">
-          <Checkbox
-            id="toggle-regressionAdjustmentEnabled"
-            value={form.watch("regressionAdjustmentEnabled")}
-            setValue={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v);
-            }}
-            disabled={
-              !hasCommercialFeature("regression-adjustment") || hasFileConfig()
-            }
-          />
-          <Box>
-            <Text size="2" className="font-weight-semibold">
-              <label htmlFor="toggle-regressionAdjustmentEnabled">
-                Apply regression adjustment by default
-              </label>
-            </Text>
-            <Box
-              className="form-group mt-3 mb-0 mr-2"
-              style={{
-                opacity: form.watch("regressionAdjustmentEnabled")
-                  ? "1"
-                  : "0.5",
+        <Flex direction="column" gap="3">
+          <Flex align="start" gap="3">
+            <Checkbox
+              id="toggle-regressionAdjustmentEnabled"
+              value={form.watch("regressionAdjustmentEnabled")}
+              setValue={(v) => {
+                form.setValue("regressionAdjustmentEnabled", v);
               }}
-            >
+              disabled={
+                !hasCommercialFeature("regression-adjustment") ||
+                hasFileConfig()
+              }
+            />
+            <Box>
+              <Text size="2" className="font-weight-semibold">
+                <label htmlFor="toggle-regressionAdjustmentEnabled">
+                  Use CUPEDps by default on all experiments
+                </label>
+              </Text>
               <Text as="p" mb="1" size="2" className="font-weight-semibold">
-                Pre-exposure lookback period (days)
+                Default CUPED lookback (days)
               </Text>
               <Box mb="2">
-                <Text as="span" className="text-muted">
+                <Text as="span" size="1" className="text-muted">
                   ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is default)
                 </Text>
               </Box>
-              <Box width="140px">
+              <Box width="140px" mb="4">
                 <Field
                   type="number"
                   style={{
@@ -242,7 +237,28 @@ export default function StatsEngineSettings() {
                 </Callout>
               )}
             </Box>
-          </Box>
+          </Flex>
+          <Flex align="start" gap="3">
+            <Checkbox
+              id="toggle-postStratification"
+              value={!form.watch("postStratificationDisabled")}
+              setValue={(v) => {
+                form.setValue("postStratificationDisabled", !v);
+              }}
+              disabled={hasFileConfig()}
+            />
+            <Flex direction="column">
+              <Text size="2" className="font-weight-semibold">
+                <label htmlFor="toggle-postStratification">
+                  Enable post-stratification
+                </label>
+              </Text>
+              <Text size="1">
+                When checked, post-stratification will be used whenever CUPEDps
+                is enabled and pre-computed dimensions are available.
+              </Text>
+            </Flex>
+          </Flex>
         </Flex>
       </Box>
     </Box>

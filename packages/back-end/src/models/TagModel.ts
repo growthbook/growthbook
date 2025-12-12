@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { TagDBInterface, TagInterface } from "back-end/types/tag";
+import { TagDBInterface, TagInterface } from "shared/types/tag";
 
 const tagSchema = new mongoose.Schema({
   organization: {

@@ -5,6 +5,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
+import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import {
   SubmitDashboard,
   UpdateDashboardArgs,
@@ -66,6 +67,9 @@ export default function NewDashboardPage() {
               experimentId: "",
               projects: dashboard.projects || [],
               blocks: args.data.blocks || dashboard.blocks,
+              updateSchedule:
+                args.data.updateSchedule || dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);
@@ -83,6 +87,9 @@ export default function NewDashboardPage() {
               editLevel: args.data.editLevel ?? dashboard.editLevel,
               enableAutoUpdates:
                 args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
+              updateSchedule:
+                args.data.updateSchedule ?? dashboard.updateSchedule,
+              userId: args.data.userId,
             }),
           });
           setDashboard(res.dashboard);
@@ -116,14 +123,20 @@ export default function NewDashboardPage() {
   }
 
   return (
-    <DashboardWorkspace
-      isTabActive={true}
-      experiment={null}
+    <DashboardSnapshotProvider
+      experiment={undefined}
       dashboard={dashboard}
-      mutate={mutateDashboards}
-      submitDashboard={handleSubmitDashboard}
-      close={handleClose}
-      dashboardFirstSave={true}
-    />
+      mutateDefinitions={mutateDashboards}
+    >
+      <DashboardWorkspace
+        isTabActive={true}
+        experiment={null}
+        dashboard={dashboard}
+        mutate={mutateDashboards}
+        submitDashboard={handleSubmitDashboard}
+        close={handleClose}
+        dashboardFirstSave={true}
+      />
+    </DashboardSnapshotProvider>
   );
 }

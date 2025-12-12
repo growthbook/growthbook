@@ -5,7 +5,7 @@ import { QueryInterface, QueryType } from "back-end/types/query";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { QueryLanguage } from "back-end/types/datasource";
 import { ApiQuery } from "back-end/types/openapi";
-import type { ReqContext } from "back-end/types/organization";
+import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
 export const queriesSchema = [

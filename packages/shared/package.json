@@ -26,7 +26,7 @@
     "node-gyp": "10.3.1",
     "sql-formatter": "^11.0.2",
     "uniqid": "^5.4.0",
-    "zod": "^3.22.4"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@swc-node/register": "^1.9.0",

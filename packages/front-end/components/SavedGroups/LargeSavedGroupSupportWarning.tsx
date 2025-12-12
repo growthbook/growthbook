@@ -1,5 +1,5 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React from "react";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";

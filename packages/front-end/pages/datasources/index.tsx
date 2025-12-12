@@ -161,8 +161,6 @@ const DataSourcesPage: FC = () => {
       !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
 
-  const useNewSampleData = gb.isOn("new-sample-data");
-
   return (
     <div className="container-fluid pagecontents">
       {newModalData && (
@@ -187,7 +185,7 @@ const DataSourcesPage: FC = () => {
             onClick={async () => {
               try {
                 await apiCall(
-                  useNewSampleData
+                  isCloud() && gb.isOn("new-sample-data")
                     ? "/demo-datasource-project/new"
                     : "/demo-datasource-project",
                   {

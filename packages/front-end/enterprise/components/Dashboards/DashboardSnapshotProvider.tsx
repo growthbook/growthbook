@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -21,7 +22,7 @@ import {
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -170,6 +171,26 @@ export default function DashboardSnapshotProvider({
       mutateAllSnapshots();
     }
   }, [snapshotsMap, dashboard, mutateAllSnapshots]);
+
+  // Refetch snapshots/metric analyses when blocks change (for existing dashboards)
+  const prevBlocksRef = useRef<DashboardInterface["blocks"] | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    if (!dashboard || dashboard.id === "new") {
+      prevBlocksRef.current = dashboard?.blocks;
+      return;
+    }
+
+    // Only refetch if blocks actually changed (not just a new array reference)
+    if (
+      prevBlocksRef.current !== undefined &&
+      !isEqual(prevBlocksRef.current, dashboard.blocks)
+    ) {
+      mutateAllSnapshots();
+    }
+    prevBlocksRef.current = dashboard.blocks;
+  }, [dashboard, mutateAllSnapshots]);
 
   // Periodically check for the status of all snapshots
   useEffect(() => {
@@ -475,7 +496,12 @@ export function useDashboardMetricAnalysis(
       endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
       populationType: block.analysisSettings.populationType,
       populationId: block.analysisSettings.populationId || null,
+      force: true,
       source: "metric",
+      additionalNumeratorFilters:
+        block.analysisSettings.additionalNumeratorFilters,
+      additionalDenominatorFilters:
+        block.analysisSettings.additionalDenominatorFilters,
     };
 
     setPostLoading(true);
@@ -495,7 +521,7 @@ export function useDashboardMetricAnalysis(
     } finally {
       setPostLoading(false);
     }
-  }, [apiCall, block, blockHasMetricAnalysis, setBlock, mutateAnalysesMap]);
+  }, [setBlock, blockHasMetricAnalysis, block, apiCall, mutateAnalysesMap]);
 
   useEffect(() => {
     if (
@@ -512,14 +538,25 @@ export function useDashboardMetricAnalysis(
         startDate: getValidDate(block.analysisSettings.startDate),
         endDate: getValidDate(block.analysisSettings.endDate),
         populationId: block.analysisSettings.populationId || "",
+        additionalNumeratorFilters:
+          block.analysisSettings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          block.analysisSettings.additionalDenominatorFilters ?? [],
       };
       const metricAnalysisSettings = {
         ...metricAnalysis.settings,
         startDate: getValidDate(metricAnalysis.settings.startDate),
         endDate: getValidDate(metricAnalysis.settings.endDate),
         populationId: metricAnalysis.settings.populationId || "",
+        additionalNumeratorFilters:
+          metricAnalysis.settings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          metricAnalysis.settings.additionalDenominatorFilters ?? [],
       };
-      if (isEqual(blockSettings, metricAnalysisSettings)) return;
+      // Check if analysisSettings match (including filters)
+      if (isEqual(blockSettings, metricAnalysisSettings)) {
+        return; // Skip refresh if everything matches
+      }
     }
 
     refreshAnalysis();

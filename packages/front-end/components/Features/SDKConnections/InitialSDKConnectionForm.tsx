@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React, { ReactElement, useEffect, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";

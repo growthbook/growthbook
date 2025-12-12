@@ -206,7 +206,8 @@ describe("sdk-connections API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [language] Required",
+      message:
+        "Request body: [language] Invalid input: expected string, received undefined",
     });
   });
 
@@ -513,7 +514,7 @@ describe("sdk-connections API", () => {
     expect(auditMock).toHaveBeenCalledWith({
       details: `{"pre":{"id":"${
         existing.id
-      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         existing.key
       }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript"},"context":{}}`,
       entity: { id: existing.id, object: "sdk-connection" },

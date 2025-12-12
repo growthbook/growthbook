@@ -52,6 +52,7 @@
     "@stdlib/random": "^0.1.1",
     "@stdlib/stats": "^0.1.1",
     "@types/handlebars": "^4.1.0",
+    "@types/presto-client": "^1.0.2",
     "agenda": "^5.0.0",
     "asn1.js": "^5.4.1",
     "async": "^3.1.0",
@@ -80,6 +81,7 @@
     "json5": "^2.2.3",
     "jsonwebtoken": "^8.5.1",
     "jwks-rsa": "^1.8.0",
+    "kerberos": "^2.1.1",
     "lodash": "^4.17.21",
     "md5": "^2.3.0",
     "module-alias": "^2.2.3",
@@ -91,7 +93,7 @@
     "nodemailer": "^6.9.12",
     "number-format.js": "^2.0.9",
     "nunjucks": "^3.2.4",
-    "openai": "5.11.0",
+    "openai": "6.10.0",
     "openid-client": "^5.1.10",
     "pg": "^8.9.0",
     "pino": "^9.7.0",
@@ -108,7 +110,7 @@
     "tiktoken": "1.0.21",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
-    "zod": "^3.22.4"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@slack/types": "^1.7.0",
@@ -129,6 +131,7 @@
     "@types/jest": "^27.0.1",
     "@types/js-yaml": "^4.0.2",
     "@types/jsonwebtoken": "^8.5.1",
+    "@types/kerberos": "^1.1.5",
     "@types/lodash": "^4.14.157",
     "@types/md5": "^2.2.0",
     "@types/module-alias": "^2.0.4",
@@ -159,7 +162,7 @@
   "optionalDependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
     "concurrently": "^7.4.0",
-    "json-schema-to-zod": "^2.1.0",
+    "json-schema-to-zod": "^2.6.1",
     "nodemon": "^2.0.20",
     "objects-to-csv": "^1.3.6",
     "openapi-typescript": "^6.1.1",

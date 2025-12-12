@@ -15,9 +15,10 @@ import {
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
+import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -117,13 +118,15 @@ function toggleBlockConfigItem(
   // Type guard to ensure we have a sql-explorer block with blockConfig
   if (!("blockConfig" in block)) return;
 
-  const currentBlockConfig = block.blockConfig || [];
+  const currentBlockConfig = block.blockConfig;
+  // Remove dataVizConfigIndex from legacy blocks so the new config format takes effect
+  const { dataVizConfigIndex: _, ...blockToSet } = block;
 
   if (value) {
     // Add item to blockConfig
     const newBlockConfig = [...currentBlockConfig, itemId];
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: newBlockConfig,
     });
   } else {
@@ -132,7 +135,7 @@ function toggleBlockConfigItem(
       (id: string) => id !== itemId,
     );
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: filteredBlockConfig,
     });
   }
@@ -187,30 +190,32 @@ export default function EditSingleBlock({
   const blockContext = useBlockContext(blockId);
 
   // TODO: does this need to handle metric groups
-  const factMetricOptions = useMemo(
-    () =>
-      factMetrics
+  const factMetricOptions = useMemo(() => {
+    return factMetrics
+      .filter((factMetric) => {
+        // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
+        if (
+          blockHasFieldOfType(block, "factMetricId", isString) &&
+          factMetric.id === block.factMetricId
+        ) {
+          return true;
+        }
+
+        if (UNSUPPORTED_METRIC_EXPLORER_TYPES.includes(factMetric.metricType)) {
+          return false;
+        }
+
         // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
-        .filter((factMetric) => {
-          if (!projects.length || !factMetric.projects.length) {
-            return true;
-          }
+        if (!projects.length || !factMetric.projects.length) {
+          return true;
+        }
 
-          // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
-          if (
-            blockHasFieldOfType(block, "factMetricId", isString) &&
-            factMetric.id === block.factMetricId
-          ) {
-            return true;
-          }
-
-          return projects.every((project) =>
-            factMetric.projects.includes(project),
-          );
-        })
-        .map((m) => ({ label: m.name, value: m.id })),
-    [block, factMetrics, projects],
-  );
+        return projects.every((project) =>
+          factMetric.projects.includes(project),
+        );
+      })
+      .map((m) => ({ label: m.name, value: m.id }));
+  }, [block, factMetrics, projects]);
 
   const metricOptions = useMemo(() => {
     // For general dashboards without experiment, return empty options
@@ -729,12 +734,31 @@ export default function EditSingleBlock({
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
+                  const isMetricExplorer = block.type === "metric-explorer";
                   setBlock({
                     ...block,
                     title:
                       factMetricOptions.find((option) => option.value === value)
                         ?.label || "Metric",
                     factMetricId: value,
+                    ...(isMetricExplorer && {
+                      metricAnalysisId: "",
+                      analysisSettings: (() => {
+                        const {
+                          additionalNumeratorFilters:
+                            _additionalNumeratorFilters,
+                          additionalDenominatorFilters:
+                            _additionalDenominatorFilters,
+                          ...restSettings
+                        } = block.analysisSettings;
+                        return {
+                          ...restSettings,
+                          populationId: "",
+                          populationType: "factTable",
+                          userIdType: "",
+                        };
+                      })(),
+                    }),
                   });
                 }}
                 options={factMetricOptions}

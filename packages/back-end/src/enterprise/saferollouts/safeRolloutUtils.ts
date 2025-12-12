@@ -4,12 +4,13 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { autoMerge } from "shared/util";
+import { SafeRolloutStatus } from "shared/validators";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "back-end/types/safe-rollout";
-import { SafeRolloutStatus } from "back-end/src/validators/safe-rollout";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
 import {

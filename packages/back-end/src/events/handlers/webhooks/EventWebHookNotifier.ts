@@ -18,8 +18,8 @@ import {
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
-import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
-import { NotificationEventName } from "back-end/types/event";
+import { LegacyNotificationEvent } from "back-end/types/events/notification-events";
+import { NotificationEventName } from "back-end/types/events/event";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
 import {

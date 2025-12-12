@@ -10,8 +10,8 @@ import {
   getDependentFeatures,
   mergeRevision,
 } from "shared/util";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { SafeRolloutInterface } from "shared/validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";

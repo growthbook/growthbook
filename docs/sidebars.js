@@ -532,6 +532,12 @@ const sidebars = {
             { type: "doc", id: "lib/go", label: "Go" },
             {
               type: "doc",
+              id: "lib/rust",
+              label: "Rust",
+              className: "pill-new",
+            },
+            {
+              type: "doc",
               id: "lib/elixir",
               label: "Elixir",
               className: "pill-new",

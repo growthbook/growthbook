@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";

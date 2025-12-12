@@ -3,7 +3,7 @@ import {
   PastExperimentParams,
   PastExperimentResponseRows,
   PastExperimentResult,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   PastExperiment,
   PastExperimentsInterface,
