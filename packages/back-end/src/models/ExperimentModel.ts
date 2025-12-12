@@ -751,28 +751,19 @@ export async function getExperimentsUsingMetric({
     : await context.models.metricGroups.findByMetric(metricId);
 
   const metricGroupIds = metricGroups?.map((g) => g.id);
+  const allIds = metricGroupIds ? [metricId, ...metricGroupIds] : [metricId];
 
   const experiments = await findExperiments(
     context,
     {
       organization: context.org.id,
       $or: [
-        { metrics: metricId },
-        { goalMetrics: metricId },
-        { guardrails: metricId },
-        { guardrailMetrics: metricId },
-        { secondaryMetrics: metricId },
-        { activationMetric: metricId },
-        ...(metricGroupIds
-          ? [
-              { metrics: { $in: metricGroupIds } },
-              { goalMetrics: { $in: metricGroupIds } },
-              { guardrails: { $in: metricGroupIds } },
-              { guardrailMetrics: { $in: metricGroupIds } },
-              { secondaryMetrics: { $in: metricGroupIds } },
-              { activationMetric: { $in: metricGroupIds } },
-            ]
-          : []),
+        { metrics: { $in: allIds } },
+        { goalMetrics: { $in: allIds } },
+        { guardrails: { $in: allIds } },
+        { guardrailMetrics: { $in: allIds } },
+        { secondaryMetrics: { $in: allIds } },
+        { activationMetric: { $in: allIds } },
       ],
       archived: {
         $ne: true,
