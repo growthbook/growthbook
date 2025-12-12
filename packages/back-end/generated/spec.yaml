@@ -950,7 +950,7 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
-        - name: flagids
+        - name: flagIds
           in: query
           required: false
           description: 'Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided).'
@@ -963,7 +963,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl "https://api.growthbook.io/api/v1/stale-features?flagids=feature-1&flagids=feature-2" \
+            curl "https://api.growthbook.io/api/v1/stale-features?flagIds=feature-1&flagIds=feature-2" \
               -u secret_abc123DEF456:
       responses:
         '200':

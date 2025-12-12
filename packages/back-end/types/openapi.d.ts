@@ -8004,7 +8004,7 @@ export interface operations {
         projectId?: string;
         limit?: number;
         offset?: number;
-        flagids?: (string)[];
+        flagIds?: (string)[];
       };
     };
     responses: {
