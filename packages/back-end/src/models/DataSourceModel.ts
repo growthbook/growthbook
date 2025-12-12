@@ -23,7 +23,7 @@ import { upgradeDatasourceObject } from "back-end/src/util/migrations";
 import { ApiDataSource } from "back-end/types/openapi";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";

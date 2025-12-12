@@ -1,4 +1,5 @@
 import { cloneDeep } from "lodash";
+import { SegmentInterface } from "shared/types/segment";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   MetricAnalysisSettings,
@@ -7,8 +8,7 @@ import {
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";
-import { SegmentInterface } from "back-end/types/segment";
-import { MetricAnalysisParams } from "../types/Integration";
+import { MetricAnalysisParams } from "back-end/src/types/Integration";
 import { getIntegrationFromDatasourceId } from "./datasource";
 
 // When creating an analysis for metrics via a Dashboard, we sometimes apply adhoc filters to the analysis, that aren't a part of the metric itself (e.g. adding additional row filters)

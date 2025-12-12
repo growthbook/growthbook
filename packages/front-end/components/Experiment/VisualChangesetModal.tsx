@@ -1,4 +1,4 @@
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FC, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";

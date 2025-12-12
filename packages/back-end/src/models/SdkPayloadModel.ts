@@ -3,7 +3,7 @@ import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
-} from "back-end/types/api";
+} from "shared/types/sdk";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,

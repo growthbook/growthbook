@@ -50,6 +50,7 @@ properties:
       - mean
       - quantile
       - ratio
+      - dailyParticipation
   numerator:
     type: object
     required:

@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
+import { FactMetricType } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
@@ -83,51 +84,57 @@ function MetricType({
   type,
   quantileType,
 }: {
-  type: "proportion" | "retention" | "mean" | "ratio" | "quantile";
+  type: FactMetricType;
   quantileType?: "" | "unit" | "event";
 }) {
-  if (type === "proportion") {
-    return (
-      <div>
-        <strong>Proportion Metric</strong> - Percent of experiment users who
-        exist in a Fact Table
-      </div>
-    );
+  switch (type) {
+    case "proportion":
+      return (
+        <div>
+          <strong>Proportion Metric</strong> - Percent of experiment users who
+          exist in a Fact Table
+        </div>
+      );
+    case "retention":
+      return (
+        <div>
+          <strong>Retention Metric</strong> - Percent of experiment users who
+          exist in a Fact Table a certain period after experiment exposure
+        </div>
+      );
+    case "mean":
+      return (
+        <div>
+          <strong>Mean Metric</strong> - The average of a numeric value among
+          all experiment users
+        </div>
+      );
+    case "ratio":
+      return (
+        <div>
+          <strong>Ratio Metric</strong> - The ratio of two numeric values among
+          experiment users
+        </div>
+      );
+    case "quantile":
+      return (
+        <div>
+          <strong>Quantile Metric</strong> - The quantile of values{" "}
+          {quantileType === "unit" ? "after aggregating per user" : ""}
+        </div>
+      );
+    case "dailyParticipation":
+      return (
+        <div>
+          <strong>Daily Participation Metric</strong> - The average of the
+          percentage of days after exposure that a user is in the Fact Table
+        </div>
+      );
+    default: {
+      const exhaustiveCheck: never = type;
+      throw new Error(`Unhandled MetricType type: ${exhaustiveCheck}`);
+    }
   }
-  if (type === "retention") {
-    return (
-      <div>
-        <strong>Retention Metric</strong> - Percent of experiment users who
-        exist in a Fact Table a certain period after experiment exposure
-      </div>
-    );
-  }
-  if (type === "mean") {
-    return (
-      <div>
-        <strong>Mean Metric</strong> - The average of a numeric value among all
-        experiment users
-      </div>
-    );
-  }
-  if (type === "ratio") {
-    return (
-      <div>
-        <strong>Ratio Metric</strong> - The ratio of two numeric values among
-        experiment users
-      </div>
-    );
-  }
-  if (type === "quantile") {
-    return (
-      <div>
-        <strong>Quantile Metric</strong> - The quantile of values{" "}
-        {quantileType === "unit" ? "after aggregating per user" : ""}
-      </div>
-    );
-  }
-
-  return null;
 }
 
 export default function FactMetricPage() {

@@ -1,5 +1,5 @@
 import React, { ReactElement, useState } from "react";
-import { WebhookInterface } from "back-end/types/webhook";
+import { WebhookInterface } from "shared/types/webhook";
 import {
   FaCheck,
   FaExclamationTriangle,
@@ -7,7 +7,7 @@ import {
   FaPaperPlane,
 } from "react-icons/fa";
 import { ago } from "shared/dates";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,

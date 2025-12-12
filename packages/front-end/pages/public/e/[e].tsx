@@ -8,7 +8,7 @@ import { truncateString } from "shared/util";
 import {date, daysBetween} from "shared/dates";
 import React, {useEffect, useRef, useState} from "react";
 import clsx from "clsx";
-import {VisualChangesetInterface} from "back-end/types/visual-changeset";
+import {VisualChangesetInterface} from "shared/types/visual-changeset";
 import {URLRedirectInterface} from "back-end/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";

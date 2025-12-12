@@ -5,6 +5,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
+import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import {
   SubmitDashboard,
   UpdateDashboardArgs,
@@ -122,14 +123,20 @@ export default function NewDashboardPage() {
   }
 
   return (
-    <DashboardWorkspace
-      isTabActive={true}
-      experiment={null}
+    <DashboardSnapshotProvider
+      experiment={undefined}
       dashboard={dashboard}
-      mutate={mutateDashboards}
-      submitDashboard={handleSubmitDashboard}
-      close={handleClose}
-      dashboardFirstSave={true}
-    />
+      mutateDefinitions={mutateDashboards}
+    >
+      <DashboardWorkspace
+        isTabActive={true}
+        experiment={null}
+        dashboard={dashboard}
+        mutate={mutateDashboards}
+        submitDashboard={handleSubmitDashboard}
+        close={handleClose}
+        dashboardFirstSave={true}
+      />
+    </DashboardSnapshotProvider>
   );
 }

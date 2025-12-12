@@ -1,6 +1,5 @@
-import { roleToPermissionMap } from "back-end/src/util/organization.util";
 import { OrganizationInterface } from "back-end/types/organization";
-import { Permissions } from "../permissions";
+import { roleToPermissionMap, Permissions } from "../permissions";
 
 describe("Role permissions", () => {
   const testOrg: OrganizationInterface = {

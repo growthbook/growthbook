@@ -25,6 +25,7 @@ import { useAuth } from "@/services/auth";
 //import track from "@/services/track";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 
 export default function MetricGroupDetails({
   metricGroup,
@@ -261,7 +262,11 @@ function MetricRow({
         <Link href={metricUrl}>{metric.name}</Link>
       </td>
       <td style={{ width: "27%" }}>
-        {isFactMetric(metric) ? metric.metricType : metric.type}
+        {isFactMetric(metric) ? (
+          <FactMetricTypeDisplayName type={metric.metricType} />
+        ) : (
+          metric.type
+        )}
       </td>
       <td style={{ width: "30%" }}>
         {metric.datasource ? getDatasourceById(metric.datasource)?.name : ""}

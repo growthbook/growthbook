@@ -1,8 +1,5 @@
-import { Permissions } from "shared/permissions";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "back-end/src/util/organization.util";
+import { Permissions, roleToPermissionMap } from "shared/permissions";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import { OrganizationInterface } from "back-end/types/organization";
 import { TeamInterface } from "back-end/types/team";
 import { FeatureInterface } from "back-end/types/feature";

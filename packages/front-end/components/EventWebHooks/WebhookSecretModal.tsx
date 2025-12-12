@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { UpdateWebhookSecretProps } from "back-end/src/validators/webhook-secrets";
+import { UpdateWebhookSecretProps } from "shared/validators";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
