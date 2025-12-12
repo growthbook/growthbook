@@ -247,9 +247,8 @@ export async function runFeatureEvalDiagnosticsQuery(
   error?: string;
   sql?: string;
 }> {
-  // TODO: Add a permission check for feature usage queries
-  if (!context.permissions.canRunExperimentQueries(datasource)) {
-    throw new Error("Permission denied");
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+    context.permissions.throwPermissionError();
   }
 
   const integration = getSourceIntegrationObject(context, datasource);
