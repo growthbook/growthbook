@@ -50,6 +50,7 @@ export default function ReportMetaInfo({
   canDelete,
   showEditControls,
   showPrivateLink,
+  isPublic,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
@@ -62,6 +63,7 @@ export default function ReportMetaInfo({
   canDelete?: boolean;
   showEditControls?: boolean;
   showPrivateLink?: boolean;
+  isPublic?: boolean;
 }) {
   const HOST = globalThis?.window?.location?.origin;
   const shareableLink = report.uid
@@ -404,7 +406,9 @@ export default function ReportMetaInfo({
       </div>
 
       <div className="mb-4">
-        <Markdown>{report.description}</Markdown>
+        <Markdown isPublic={isPublic} shareUid={report.uid} shareType="report">
+          {report.description}
+        </Markdown>
       </div>
 
       {generalModalOpen && (
