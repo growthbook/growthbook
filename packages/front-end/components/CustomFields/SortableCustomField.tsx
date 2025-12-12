@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { CustomField } from "back-end/types/custom-fields";
+import { CustomField } from "shared/types/custom-fields";
 import { RiDraggable } from "react-icons/ri";
 import { GBEdit } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";

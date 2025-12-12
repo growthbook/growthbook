@@ -7,7 +7,7 @@ import {
   truncateString,
 } from "shared/util";
 import Link from "next/link";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { PiInfoFill } from "react-icons/pi";
 import { isEmpty } from "lodash";

@@ -1,7 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import { ApiArchetype } from "back-end/types/openapi";
 import { logger } from "back-end/src/util/logger";
 

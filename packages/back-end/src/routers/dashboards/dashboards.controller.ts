@@ -7,6 +7,7 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
+import { SavedQuery } from "shared/validators";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -22,7 +23,6 @@ import {
   findSnapshotsByIds,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";

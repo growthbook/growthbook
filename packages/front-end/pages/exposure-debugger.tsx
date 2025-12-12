@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { UserExperimentExposuresQueryResponseRows } from "back-end/src/types/Integration";
+import { UserExperimentExposuresQueryResponseRows } from "shared/types/integrations";
 import { QueryStatistics } from "back-end/types/query";
 import { useEffect, useState } from "react";
 import { datetime } from "shared/dates";

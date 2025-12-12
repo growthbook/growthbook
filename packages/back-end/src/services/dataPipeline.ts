@@ -4,9 +4,9 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { IncrementalRefreshInterface } from "shared/validators";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
 import { OrganizationInterface } from "back-end/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";

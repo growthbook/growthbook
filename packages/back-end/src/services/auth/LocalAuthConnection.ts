@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import jwtExpress from "express-jwt";
 import jwt from "jsonwebtoken";
+import { UnauthenticatedResponse } from "shared/types/sso-connection";
 import { JWT_SECRET } from "back-end/src/util/secrets";
 import { UserInterface } from "back-end/types/user";
 import {
@@ -9,7 +10,6 @@ import {
   getUserIdFromAuthRefreshToken,
 } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie } from "back-end/src/util/cookie";
-import { UnauthenticatedResponse } from "back-end/types/sso-connection";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,

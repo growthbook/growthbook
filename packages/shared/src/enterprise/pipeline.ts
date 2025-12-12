@@ -3,7 +3,7 @@ import type {
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "back-end/types/datasource";
-import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import type { PipelineIntegration } from "shared/types/integrations";
 
 export type PipelineValidationResult = {
   result: "success" | "skipped" | "failed";
@@ -64,7 +64,7 @@ export function getPipelineValidationCreateTableQuery({
   integration,
 }: {
   tableFullName: string;
-  integration: SqlIntegration;
+  integration: PipelineIntegration;
 }): string {
   return integration.getExperimentUnitsTableQueryFromCte(
     tableFullName,
@@ -77,7 +77,7 @@ export function getPipelineValidationInsertQuery({
   integration,
 }: {
   tableFullName: string;
-  integration: SqlIntegration;
+  integration: PipelineIntegration;
 }): string {
   return integration.getPipelineValidationInsertQuery({ tableFullName });
 }
@@ -87,7 +87,7 @@ export function getPipelineValidationDropTableQuery({
   integration,
 }: {
   tableFullName: string;
-  integration: SqlIntegration;
+  integration: PipelineIntegration;
 }): string {
   return integration.getDropUnitsTableQuery({
     fullTablePath: tableFullName,

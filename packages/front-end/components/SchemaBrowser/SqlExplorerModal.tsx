@@ -12,12 +12,12 @@ import {
   DataVizConfig,
   SavedQuery,
   QueryExecutionResult,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
-import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
@@ -251,15 +251,6 @@ export default function SqlExplorerModal({
       setIsEditingName(true);
       setTempName("");
       throw new Error("You must enter a name for your query");
-    }
-
-    // Validate that the name only contains letters, numbers, hyphens, and underscores
-    if (!currentName.match(/^[a-zA-Z0-9_.:|\s-]+$/)) {
-      setLoading(false);
-      setIsEditingName(true);
-      throw new Error(
-        "Query name can only contain letters, numbers, hyphens, underscores, and spaces",
-      );
     }
 
     // If we have an empty object for dataVizConfig, set it to an empty array

@@ -5,6 +5,8 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { VisualChange } from "shared/types/visual-changeset";
+import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
@@ -12,8 +14,7 @@ import {
   LegacyExperimentInterface,
   Variation,
 } from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
-import { VisualChange } from "back-end/types/visual-changeset";
+import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -44,11 +45,8 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
-import {
-  DiffResult,
-  getObjectDiff,
-} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
+import { DiffResult } from "back-end/types/events/diff";
+import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -1380,11 +1378,18 @@ export async function getExperimentMapForFeature(
 
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string,
+  projects?: string[],
 ): Promise<Map<string, ExperimentInterface>> {
+  const projectFilter =
+    !projects || !projects.length
+      ? {}
+      : projects.length === 1
+        ? { project: projects[0] }
+        : { project: { $in: projects } };
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...(project ? { project } : {}),
+    ...projectFilter,
     archived: { $ne: true },
     $or: [
       {

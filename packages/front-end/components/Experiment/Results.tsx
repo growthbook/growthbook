@@ -14,7 +14,7 @@ import {
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -26,7 +26,6 @@ import AnalysisSettingsBar, {
   AnalysisBarSettings,
 } from "@/components/Experiment/AnalysisSettingsBar";
 import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -474,58 +473,6 @@ const Results: FC<{
             analysisBarSettings={analysisBarSettings}
           />
         </>
-      ) : null}
-
-      {!draftMode && hasData ? (
-        <div className="row align-items-center mx-2 my-3">
-          <div className="col-auto small" style={{ lineHeight: 1.2 }}>
-            <div className="text-muted mb-1">
-              The above results were computed with:
-            </div>
-            <div>
-              <span className="text-muted">Engine:</span>{" "}
-              <span>
-                {analysis?.settings?.statsEngine === "frequentist"
-                  ? "Frequentist"
-                  : "Bayesian"}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted">
-                <GBCuped size={13} /> CUPED:
-              </span>{" "}
-              <span>
-                {analysis?.settings?.regressionAdjusted
-                  ? "Enabled"
-                  : "Disabled"}
-              </span>
-            </div>
-            {analysis?.settings?.statsEngine === "frequentist" && (
-              <div>
-                <span className="text-muted">
-                  <GBSequential size={13} /> Sequential:
-                </span>{" "}
-                <span>
-                  {analysis?.settings?.sequentialTesting
-                    ? "Enabled"
-                    : "Disabled"}
-                </span>
-              </div>
-            )}
-            <div>
-              <span className="text-muted">Run date:</span>{" "}
-              <span>
-                {getValidDate(snapshot?.dateCreated ?? "").toLocaleString([], {
-                  year: "numeric",
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
       ) : null}
     </>
   );

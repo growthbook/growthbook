@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import { paddedVersionString } from "@growthbook/growthbook";
