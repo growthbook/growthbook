@@ -175,14 +175,17 @@ export function experimentHasLiveLinkedChanges(
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: FeatureInterface[] = [],
+  includeDraftExperiments: boolean = false,
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes, unless includeDraftExperiments is true
+  // (Visual/redirect experiments are always included if draft, feature flag experiments respect the setting)
   if (
+    !includeDraftExperiments &&
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&
     exp.status === "draft"
