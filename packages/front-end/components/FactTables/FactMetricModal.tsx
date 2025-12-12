@@ -576,7 +576,7 @@ function ColumnRefSelector({
       </div>
 
       {factTable && (
-        <div>
+        <div className="mb-3">
           <RowFilterInput
             factTable={factTable}
             value={value.rowFilters || []}
@@ -647,7 +647,7 @@ function ColumnRefSelector({
                   ) : null}
                 </div>
               ) : (
-                <div className="py-2">
+                <div className="py-1">
                   <a
                     href="#"
                     onClick={(e) => {
@@ -1882,6 +1882,7 @@ export default function FactMetricModal({
               />
               {type === "proportion" ? (
                 <div>
+                  <label>Metric Event</label>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
@@ -1953,6 +1954,7 @@ export default function FactMetricModal({
                 </div>
               ) : type === "dailyParticipation" ? (
                 <div>
+                  <label>Participation Event</label>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>

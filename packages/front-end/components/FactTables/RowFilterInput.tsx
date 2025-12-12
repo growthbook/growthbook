@@ -3,7 +3,10 @@ import { FactTableInterface, RowFilter } from "back-end/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
 
@@ -16,37 +19,18 @@ export function RowFilterInput({
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
 }) {
-  if (!value.length) {
-    return (
-      <Button
-        variant="soft"
-        onClick={() => {
-          setValue([
-            {
-              operator: "=",
-              column: "",
-              values: [],
-            },
-          ]);
-        }}
-      >
-        Filter Rows
-      </Button>
-    );
-  }
-
   return (
     <Flex direction="column" gap="2">
-      <strong>Row Filters</strong>
+      <strong>Row Filter</strong>
       {value.map((filter, i) => {
-        const firstSelectOptions: SingleValue[] = [];
+        const columnOptions: SingleValue[] = [];
 
         factTable.columns.forEach((col) => {
           if (col.datatype === "date") return;
           if (factTable.userIdTypes?.includes(col.column)) return;
           if (col.deleted) return;
 
-          firstSelectOptions.push({
+          columnOptions.push({
             label: col.name || col.column,
             value: col.column,
           });
@@ -54,7 +38,7 @@ export function RowFilterInput({
           // Add JSON fields as separate options
           if (col.jsonFields) {
             Object.keys(col.jsonFields).forEach((field) => {
-              firstSelectOptions.push({
+              columnOptions.push({
                 label: `${col.name || col.column}.${field}`,
                 value: `${col.column}.${field}`,
               });
@@ -63,29 +47,42 @@ export function RowFilterInput({
         });
         if (
           filter.column &&
-          !firstSelectOptions.find((o) => o.value === filter.column)
+          !columnOptions.find((o) => o.value === filter.column)
         ) {
-          firstSelectOptions.push({
+          columnOptions.push({
             label: `${filter.column} (Invalid)`,
             value: filter.column,
           });
         }
-        firstSelectOptions.push({
-          label: "SQL Expression",
-          value: "$$sql_expr",
-        });
-        if (
-          factTable.filters.length > 0 ||
-          filter.operator === "saved_filter"
-        ) {
-          firstSelectOptions.push({
-            label: "Saved Filter",
-            value: "$$saved_filter",
-          });
-        }
+        const firstSelectOptions: GroupedValue[] = [
+          {
+            label: "Columns",
+            options: columnOptions,
+          },
+          {
+            label: "Other",
+            options: [
+              {
+                label: "SQL Expression",
+                value: "$$sql_expr",
+              },
+              ...(factTable.filters.length > 0 ||
+              filter.operator === "saved_filter"
+                ? [
+                    {
+                      label: "Saved Filter",
+                      value: "$$saved_filter",
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ];
 
         const operatorInputRequired =
           filter.operator !== "sql_expr" && filter.operator !== "saved_filter";
+
+        const firstSelectCompleted = !operatorInputRequired || !!filter.column;
 
         const operatorOptions: SingleValue[] = [];
         const valueOptions: SingleValue[] = [];
@@ -141,14 +138,8 @@ export function RowFilterInput({
           );
 
           if (topValues) {
-            valueOptions.push(
-              ...topValues.map((v) => ({
-                label: v,
-                value: v,
-              })),
-            );
-            filter.values?.forEach((v) => {
-              if (!valueOptions.find((o) => o.value === v)) {
+            topValues.forEach((v) => {
+              if (v) {
                 valueOptions.push({
                   label: v,
                   value: v,
@@ -221,6 +212,18 @@ export function RowFilterInput({
           (valueOptions.length > 0 || !allowCreatingNewOptions) &&
           ["in", "not_in", "=", "!=", "saved_filter"].includes(filter.operator);
 
+        // Make sure all current values are in the options
+        if (useValueOptions) {
+          filter.values?.forEach((v) => {
+            if (v && !valueOptions.find((o) => o.value === v)) {
+              valueOptions.push({
+                label: v,
+                value: v,
+              });
+            }
+          });
+        }
+
         const updateRowFilter = (updates: Partial<RowFilter>) => {
           const newFilters = [...value];
           newFilters[i] = {
@@ -230,8 +233,12 @@ export function RowFilterInput({
           setValue(newFilters);
         };
 
+        // Only auto-focus if it's the last row
+        const autoFocus = i === value.length - 1;
+
         return (
           <Flex direction="row" gap="2" key={i} align="center">
+            {i > 0 && <div>AND</div>}
             <SelectField
               value={
                 filter.operator === "sql_expr"
@@ -256,9 +263,12 @@ export function RowFilterInput({
                 }
               }}
               options={firstSelectOptions}
-              autoFocus={i === value.length - 1}
+              autoFocus={autoFocus}
+              sort={false}
+              placeholder="Filter by..."
+              required
             />
-            {operatorInputRequired && (
+            {operatorInputRequired && firstSelectCompleted && (
               <SelectField
                 value={filter.operator}
                 onChange={(v: RowFilter["operator"]) => {
@@ -267,9 +277,11 @@ export function RowFilterInput({
                   });
                 }}
                 options={operatorOptions}
+                sort={false}
+                required
               />
             )}
-            {valueInputRequired && (
+            {valueInputRequired && firstSelectCompleted && (
               <>
                 {multiValueInput && useValueOptions ? (
                   <MultiSelectField
@@ -281,6 +293,9 @@ export function RowFilterInput({
                     }}
                     options={valueOptions}
                     creatable={allowCreatingNewOptions}
+                    sort={false}
+                    autoFocus={autoFocus}
+                    required
                   />
                 ) : multiValueInput ? (
                   <StringArrayField
@@ -291,6 +306,8 @@ export function RowFilterInput({
                       });
                     }}
                     delimiters={["Enter", "Tab"]}
+                    autoFocus={autoFocus}
+                    required
                   />
                 ) : useValueOptions ? (
                   <SelectField
@@ -302,6 +319,9 @@ export function RowFilterInput({
                     }}
                     options={valueOptions}
                     createable={allowCreatingNewOptions}
+                    sort={false}
+                    autoFocus={autoFocus}
+                    required
                   />
                 ) : (
                   <Field
@@ -313,6 +333,8 @@ export function RowFilterInput({
                     }}
                     textarea={filter.operator === "sql_expr"}
                     minRows={1}
+                    autoFocus={autoFocus}
+                    required
                   />
                 )}
               </>
@@ -331,20 +353,23 @@ export function RowFilterInput({
           </Flex>
         );
       })}
-      <Button
-        variant="soft"
-        onClick={() => {
-          const newFilters = [...value];
-          newFilters.push({
-            column: "",
-            operator: "=",
-            values: [""],
-          });
-          setValue(newFilters);
-        }}
-      >
-        <PiPlus /> Row Filter
-      </Button>
+      <div>
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            const newFilters = [...value];
+            newFilters.push({
+              column: "",
+              operator: "=",
+              values: [""],
+            });
+            setValue(newFilters);
+          }}
+        >
+          <PiPlus /> Add
+        </a>
+      </div>
     </Flex>
   );
 }
