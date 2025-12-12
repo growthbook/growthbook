@@ -55,10 +55,10 @@ export interface paths {
   };
   "/stale-features": {
     /**
-     * Check if features are stale 
-     * @description Check whether the provided features (or all features) are stale based on staleness heuristics
+     * Get stale and archived features 
+     * @description Get stale and archived features based on staleness heuristics. Only returns features that are either stale or archived.
      */
-    post: operations["postStaleFeatures"];
+    get: operations["getStaleFeatures"];
   };
   "/projects": {
     /** Get all projects */
@@ -7990,27 +7990,21 @@ export interface operations {
       };
     };
   };
-  postStaleFeatures: {
+  getStaleFeatures: {
     /**
-     * Check if features are stale 
-     * @description Check whether the provided features (or all features) are stale based on staleness heuristics
+     * Get stale and archived features 
+     * @description Get stale and archived features based on staleness heuristics. Only returns features that are either stale or archived.
      */
     parameters: {
         /** @description Filter by project id */
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided). */
       query: {
         projectId?: string;
         limit?: number;
         offset?: number;
-      };
-    };
-    requestBody?: {
-      content: {
-        "application/json": {
-          /** @description Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided). */
-          featureIds?: (string)[];
-        };
+        flagids?: (string)[];
       };
     };
     responses: {
@@ -8023,9 +8017,7 @@ export interface operations {
                 id: string;
                 /** @description The owner/creator of the feature flag */
                 owner: string;
-                /** @description The project ID this feature belongs to */
-                project: string;
-                /** @description Whether the feature is archived (always false in this response as archived features are excluded) */
+                /** @description Whether the feature is archived */
                 archived: boolean;
                 /**
                  * Format: date-time 
@@ -8037,24 +8029,21 @@ export interface operations {
                  * @description When the feature was last updated. Features are sorted by this field (oldest first) to prioritize the most stale features.
                  */
                 dateUpdated: string;
-                /** @description Whether the feature is considered stale */
-                stale: boolean;
-                /**
-                 * @description The reason why the feature is stale (only present if stale is true) 
-                 * @enum {string}
-                 */
-                reason?: "error" | "no-rules" | "rules-one-sided";
                 /**
                  * @description The type of the feature value 
                  * @enum {string}
                  */
                 valueType: "boolean" | "string" | "number" | "json";
+                /** @description Custom fields associated with the feature */
+                customFields: {
+                  [key: string]: unknown | undefined;
+                };
                 /** @description Map of environment IDs to their effective values. Follows the same structure as the features endpoint for consistency. */
                 environments: {
-                  [key: string]: {
-                    /** @description The effective value for this environment (stored as string, parse based on valueType). This is the value that should be used when removing the stale flag in this environment. */
-                    value: string;
-                  } | undefined;
+                  [key: string]: ({
+                    /** @description The effective value for this environment (stored as string, parse based on valueType). This is the value that should be used when removing the stale flag in this environment. For archived features or disabled environments with non-boolean types, this will be null since we don't know the fallback value in code. */
+                    value: string | null;
+                  }) | undefined;
                 };
               })[];
           }) & {
@@ -14072,7 +14061,7 @@ export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["20
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
-export type PostStaleFeaturesResponse = operations["postStaleFeatures"]["responses"]["200"]["content"]["application/json"];
+export type GetStaleFeaturesResponse = operations["getStaleFeatures"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];

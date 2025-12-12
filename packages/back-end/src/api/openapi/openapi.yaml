@@ -150,8 +150,8 @@ paths:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
   /stale-features:
-    post:
-      $ref: "./paths/postStaleFeatures.yaml"
+    get:
+      $ref: "./paths/getStaleFeatures.yaml"
   /projects:
     get:
       $ref: "./paths/listProjects.yaml"

@@ -146,9 +146,14 @@ export const getFeatureKeysValidator = {
   paramsSchema: z.never(),
 };
 
-export const postStaleFeaturesValidator = {
-  bodySchema: z.object({ "featureIds": z.array(z.string()).describe("Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided).").optional() }).strict(),
-  querySchema: z.object({ "projectId": z.string().optional(), "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0) }).strict(),
+export const getStaleFeaturesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "projectId": z.string().optional(), "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "flagIds": z.preprocess((val) => {
+    if (val === undefined) return undefined;
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") return [val];
+    return val;
+  }, z.array(z.string()).optional()) }).strict(),
   paramsSchema: z.never(),
 };
 

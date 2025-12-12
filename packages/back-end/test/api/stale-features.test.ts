@@ -1,7 +1,7 @@
 import request from "supertest";
 import { FeatureInterface } from "back-end/types/feature";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -9,7 +9,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 }));
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getAllPayloadExperiments: jest.fn(),
+  getAllExperiments: jest.fn(),
 }));
 
 describe("stale-features API", () => {
@@ -92,54 +92,34 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-1", "feature-2"] })
+      .get("/api/v1/stale-features?flagIds=feature-1&flagIds=feature-2")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(response.body.features).toHaveLength(2);
+    // Only stale or archived features are returned
+    expect(response.body.features).toHaveLength(1);
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
       owner: "",
-      project: "",
       archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
       dateUpdated: new Date("2020-01-01").toISOString(),
-      stale: true,
-      reason: "no-rules",
       valueType: "boolean",
+      customFields: {},
       environments: {
         production: { value: "false" },
-        dev: { value: "false" },
+        dev: { value: null }, // dev environment not configured, so returns null
       },
-    });
-    // feature-2 has a recent dateUpdated, so it's not stale
-    // We can't use new Date() in the assertion as it changes, so we check it's recent
-    expect(response.body.features[1].id).toBe("feature-2");
-    expect(response.body.features[1].owner).toBe("");
-    expect(response.body.features[1].project).toBe("");
-    expect(response.body.features[1].archived).toBe(false);
-    expect(response.body.features[1].dateCreated).toBe(
-      new Date("2024-01-01").toISOString(),
-    );
-    expect(
-      new Date(response.body.features[1].dateUpdated).getTime(),
-    ).toBeGreaterThan(new Date("2024-01-01").getTime());
-    expect(response.body.features[1].stale).toBe(false);
-    expect(response.body.features[1].valueType).toBe("boolean");
-    expect(response.body.features[1].environments).toEqual({
-      production: { value: "false" },
-      dev: { value: "false" },
     });
     // Check pagination fields
     expect(response.body).toMatchObject({
       limit: 10,
       offset: 0,
-      count: 2,
-      total: 2,
+      count: 1,
+      total: 1,
       hasMore: false,
       nextOffset: null,
     });
@@ -162,11 +142,10 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({})
+      .get("/api/v1/stale-features")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
@@ -195,11 +174,10 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features?projectId=proj_123")
-      .send({})
+      .get("/api/v1/stale-features?projectId=proj_123")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
@@ -207,12 +185,16 @@ describe("stale-features API", () => {
       expect.anything(),
       expect.objectContaining({
         projects: ["proj_123"],
-        includeArchived: false,
+        includeArchived: true,
       }),
     );
-    expect(getAllPayloadExperiments).toHaveBeenCalledWith(expect.anything(), [
-      "proj_123",
-    ]);
+    expect(getAllExperiments).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        project: "proj_123",
+        includeArchived: true,
+      }),
+    );
   });
 
   it("handles features with rules-one-sided reason", async () => {
@@ -240,27 +222,24 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-1"] })
+      .get("/api/v1/stale-features?flagIds=feature-1")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
     expect(response.body.features[0]).toEqual({
       id: "feature-1",
       owner: "",
-      project: "",
       archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
       dateUpdated: new Date("2020-01-01").toISOString(),
-      stale: true,
-      reason: "rules-one-sided",
       valueType: "boolean",
+      customFields: {},
       environments: {
         production: { value: "true" }, // Value from the rollout rule, not the feature's default
-        dev: { value: "false" }, // No rules in dev, so uses default
+        dev: { value: null }, // No rules in dev, so returns null
       },
     });
     expect(response.body.total).toBe(1);
@@ -290,27 +269,24 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-force"] })
+      .get("/api/v1/stale-features?flagIds=feature-force")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
     expect(response.body.features[0]).toEqual({
       id: "feature-force",
       owner: "",
-      project: "",
       archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
       dateUpdated: new Date("2020-01-01").toISOString(),
-      stale: true,
-      reason: "rules-one-sided",
       valueType: "boolean",
+      customFields: {},
       environments: {
         production: { value: "true" }, // Value from the force rule, not the feature's default
-        dev: { value: "false" }, // No rules in dev, so uses default
+        dev: { value: null }, // No rules in dev, so returns null
       },
     });
   });
@@ -352,24 +328,21 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-env-specific"] })
+      .get("/api/v1/stale-features?flagIds=feature-env-specific")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
     expect(response.body.features[0]).toEqual({
       id: "feature-env-specific",
       owner: "",
-      project: "",
       archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
       dateUpdated: new Date("2020-01-01").toISOString(),
-      stale: true,
-      reason: "rules-one-sided",
       valueType: "boolean",
+      customFields: {},
       environments: {
         production: { value: "true" }, // Production value from force rule
         dev: { value: "false" }, // Dev value from force rule
@@ -385,11 +358,12 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["non-existent-1", "non-existent-2"] })
+      .get(
+        "/api/v1/stale-features?flagIds=non-existent-1&flagIds=non-existent-2",
+      )
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
@@ -422,11 +396,10 @@ describe("stale-features API", () => {
         context.permissions.canReadSingleProjectResource(f.project),
       );
     });
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({})
+      .get("/api/v1/stale-features")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
@@ -446,28 +419,15 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-1"] })
+      .get("/api/v1/stale-features?flagIds=feature-1")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(response.body.features[0]).toEqual({
-      id: "feature-1",
-      owner: "",
-      project: "",
-      archived: false,
-      dateCreated: new Date("2024-01-01").toISOString(),
-      dateUpdated: new Date("2020-01-01").toISOString(),
-      stale: false,
-      valueType: "boolean",
-      environments: {
-        production: { value: "false" },
-        dev: { value: "false" },
-      },
-    });
+    // Feature with neverStale flag is not stale, so it won't be returned
+    expect(response.body.features).toHaveLength(0);
   });
 
   it("handles features with draft revisions", async () => {
@@ -482,28 +442,15 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-1"] })
+      .get("/api/v1/stale-features?flagIds=feature-1")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(response.body.features[0]).toEqual({
-      id: "feature-1",
-      owner: "",
-      project: "",
-      archived: false,
-      dateCreated: new Date("2024-01-01").toISOString(),
-      dateUpdated: new Date("2020-01-01").toISOString(),
-      stale: false,
-      valueType: "boolean",
-      environments: {
-        production: { value: "false" },
-        dev: { value: "false" },
-      },
-    });
+    // Feature with draft revisions is not stale, so it won't be returned
+    expect(response.body.features).toHaveLength(0);
   });
 
   it("supports pagination with limit and offset", async () => {
@@ -516,12 +463,11 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     // First page (limit=2, offset=0)
     const response1 = await request(app)
-      .post("/api/v1/stale-features?limit=2&offset=0")
-      .send({})
+      .get("/api/v1/stale-features?limit=2&offset=0")
       .set("Authorization", "Bearer foo");
 
     expect(response1.status).toBe(200);
@@ -539,8 +485,7 @@ describe("stale-features API", () => {
 
     // Second page (limit=2, offset=2)
     const response2 = await request(app)
-      .post("/api/v1/stale-features?limit=2&offset=2")
-      .send({})
+      .get("/api/v1/stale-features?limit=2&offset=2")
       .set("Authorization", "Bearer foo");
 
     expect(response2.status).toBe(200);
@@ -568,12 +513,11 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     // Empty array should be treated the same as undefined (return all features)
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: [] })
+      .get("/api/v1/stale-features")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
@@ -621,29 +565,24 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(
-      new Map(experiments.map((e) => [e.id, e])),
-    );
+    (getAllExperiments as jest.Mock).mockResolvedValue(experiments);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-with-stopped-exp"] })
+      .get("/api/v1/stale-features?flagIds=feature-with-stopped-exp")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
     expect(response.body.features[0]).toEqual({
       id: "feature-with-stopped-exp",
       owner: "",
-      project: "",
       archived: false,
       dateCreated: new Date("2024-01-01").toISOString(),
       dateUpdated: new Date("2020-01-01").toISOString(),
-      stale: true,
-      reason: "rules-one-sided",
       valueType: "boolean",
+      customFields: {},
       environments: {
         production: { value: "true" }, // Value from winning variation
-        dev: { value: "false" }, // No rules in dev, uses default
+        dev: { value: null }, // No rules in dev, so returns null
       },
     });
   });
@@ -675,17 +614,64 @@ describe("stale-features API", () => {
     ];
 
     (getAllFeatures as jest.Mock).mockResolvedValue(features);
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
     const response = await request(app)
-      .post("/api/v1/stale-features")
-      .send({ featureIds: ["feature-disabled-env"] })
+      .get("/api/v1/stale-features?flagIds=feature-disabled-env")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
     expect(response.body.features[0].environments).toEqual({
-      production: { value: "false" }, // Uses default when environment is disabled
+      production: { value: null }, // Returns null when environment is disabled
       dev: { value: "true" }, // Uses rule value when enabled
+    });
+  });
+
+  it("returns archived features even if not stale", async () => {
+    const features = [
+      createFeature("feature-archived", {
+        dateUpdated: new Date(), // Recent date, not stale
+        archived: true, // But archived
+        defaultValue: "false",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "force-rule",
+                enabled: true,
+                description: "",
+                condition: "",
+                value: "true",
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    (getAllFeatures as jest.Mock).mockResolvedValue(features);
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
+
+    const response = await request(app)
+      .get("/api/v1/stale-features?flagIds=feature-archived")
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.features).toHaveLength(1);
+    expect(response.body.features[0]).toEqual({
+      id: "feature-archived",
+      owner: "",
+      archived: true,
+      dateCreated: new Date("2024-01-01").toISOString(),
+      dateUpdated: expect.any(String),
+      valueType: "boolean",
+      customFields: {},
+      environments: {
+        production: { value: "true" }, // Effective value from force rule
+        dev: { value: null }, // No rules in dev, so null for archived feature
+      },
     });
   });
 });

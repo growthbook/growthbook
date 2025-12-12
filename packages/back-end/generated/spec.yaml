@@ -940,35 +940,31 @@ paths:
                 items:
                   type: string
   /stale-features:
-    post:
+    get:
       tags:
         - features
-      summary: Check if features are stale
-      description: Check whether the provided features (or all features) are stale based on staleness heuristics
-      operationId: postStaleFeatures
+      summary: Get stale and archived features
+      description: Get stale and archived features based on staleness heuristics. Only returns features that are either stale or archived.
+      operationId: getStaleFeatures
       parameters:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - name: flagids
+          in: query
+          required: false
+          description: 'Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided).'
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/stale-features \
-              -d '{"featureIds": ["feature-1", "feature-2"]}' \
-              -H "Content-Type: application/json" \
+            curl "https://api.growthbook.io/api/v1/stale-features?flagids=feature-1&flagids=feature-2" \
               -u secret_abc123DEF456:
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                featureIds:
-                  type: array
-                  items:
-                    type: string
-                  description: 'Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided).'
       responses:
         '200':
           description: Success
@@ -987,12 +983,11 @@ paths:
                           required:
                             - id
                             - owner
-                            - project
                             - archived
                             - dateCreated
                             - dateUpdated
-                            - stale
                             - valueType
+                            - customFields
                             - environments
                           properties:
                             id:
@@ -1001,12 +996,9 @@ paths:
                             owner:
                               type: string
                               description: The owner/creator of the feature flag
-                            project:
-                              type: string
-                              description: The project ID this feature belongs to
                             archived:
                               type: boolean
-                              description: Whether the feature is archived (always false in this response as archived features are excluded)
+                              description: Whether the feature is archived
                             dateCreated:
                               type: string
                               format: date-time
@@ -1015,16 +1007,6 @@ paths:
                               type: string
                               format: date-time
                               description: When the feature was last updated. Features are sorted by this field (oldest first) to prioritize the most stale features.
-                            stale:
-                              type: boolean
-                              description: Whether the feature is considered stale
-                            reason:
-                              type: string
-                              enum:
-                                - error
-                                - no-rules
-                                - rules-one-sided
-                              description: The reason why the feature is stale (only present if stale is true)
                             valueType:
                               type: string
                               enum:
@@ -1033,6 +1015,10 @@ paths:
                                 - number
                                 - json
                               description: The type of the feature value
+                            customFields:
+                              type: object
+                              additionalProperties: true
+                              description: Custom fields associated with the feature
                             environments:
                               type: object
                               additionalProperties:
@@ -1042,7 +1028,8 @@ paths:
                                 properties:
                                   value:
                                     type: string
-                                    description: 'The effective value for this environment (stored as string, parse based on valueType). This is the value that should be used when removing the stale flag in this environment.'
+                                    nullable: true
+                                    description: 'The effective value for this environment (stored as string, parse based on valueType). This is the value that should be used when removing the stale flag in this environment. For archived features or disabled environments with non-boolean types, this will be null since we don''t know the fallback value in code.'
                               description: Map of environment IDs to their effective values. Follows the same structure as the features endpoint for consistency.
                   - $ref: '#/components/schemas/PaginationFields'
   /projects:
