@@ -566,11 +566,11 @@ export const getMetricExperimentResults = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const experiments = await getExperimentsUsingMetric(
+  const experiments = await getExperimentsUsingMetric({
     context,
-    req.params.id,
-    500,
-  );
+    metricId: req.params.id,
+    limit: 500,
+  });
 
   const snapshots = await _getSnapshots(context, experiments);
 
@@ -627,11 +627,11 @@ export const getMetricNorthstarData = async (
   // get metric analysis and latest experiments
   const context = getContextFromReq(req);
 
-  const experiments = await getExperimentsUsingMetric(
+  const experiments = await getExperimentsUsingMetric({
     context,
-    req.params.id,
-    100,
-  );
+    metricId: req.params.id,
+    limit: 100,
+  });
 
   // get analysis
   let analysis: MetricAnalysisInterface | null = null;
