@@ -5,6 +5,7 @@ import {
   metricSelectors,
   pinSources,
 } from "shared/enterprise";
+import { dataVizConfigValidator } from "shared/validators";
 import {
   metricAnalysisSettingsStringDatesValidator,
   metricAnalysisSettingsValidator,
@@ -226,6 +227,33 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
+const metricVisualizationConfiguration = z.object({
+  dataType: z.literal("metric"),
+  factMetricId: z.string(),
+  factTableId: z.string(),
+  metricAnalysisId: z.string(),
+});
+
+const sqlVisualizationConfiguration = z.object({
+  dataType: z.literal("sql"),
+  savedQueryId: z.string(),
+});
+
+//MKTODO: The actual content of the block should likely be a discriminated union of the different data visualization types (sql-explorer, metric-explorer, etc.)
+//MKTODO: Doesn't currently handle customSlices
+const dataVisualizationBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("data-visualization"),
+    // union or discriminated union?
+    dataSourceConfig: z.discriminatedUnion("dataType", [
+      metricVisualizationConfiguration,
+      sqlVisualizationConfiguration,
+    ]),
+    dataVizConfig: z.array(dataVizConfigValidator).max(1).optional(), // Limit to 1 viz per block, but allows for expansion
+    //
+  })
+  .strict();
+
 export const dashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface,
   experimentMetadataBlockInterface,
@@ -306,6 +334,7 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .omit(createOmits)
     .partial()
     .required({ type: true }),
+  //Add dataVisualizationBlockInterface
 ]);
 
 export type DashboardBlockData<T extends DashboardBlockInterface> =
