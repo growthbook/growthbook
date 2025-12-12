@@ -9,12 +9,6 @@ const BaseClass = MakeModelClass({
   schema: sqlResultChunkValidator,
   collectionName: "sqlresultchunks",
   idPrefix: "sqlres_",
-  auditLog: {
-    entity: "sqlResultChunk",
-    createEvent: "sqlResultChunk.create",
-    updateEvent: "sqlResultChunk.update",
-    deleteEvent: "sqlResultChunk.delete",
-  },
   globallyUniqueIds: true,
   additionalIndexes: [
     { fields: { organization: 1, queryId: 1, chunkNumber: 1 }, unique: true },
