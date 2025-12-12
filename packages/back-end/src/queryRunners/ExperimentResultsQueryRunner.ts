@@ -302,7 +302,6 @@ export const startExperimentResultQueries = async (
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentUnits",
     });
     queries.push(unitQuery);
@@ -350,7 +349,6 @@ export const startExperimentResultQueries = async (
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId) =>
           integration.runExperimentMetricQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "experimentMetric",
       }),
     );
@@ -390,7 +388,6 @@ export const startExperimentResultQueries = async (
             query,
             setExternalId,
           ),
-        process: (rows) => rows,
         queryType: "experimentMultiMetric",
       }),
     );
@@ -425,7 +422,6 @@ export const startExperimentResultQueries = async (
       dependencies: unitQuery ? [unitQuery.query] : [],
       run: (query, setExternalId) =>
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
@@ -445,7 +441,6 @@ export const startExperimentResultQueries = async (
       runAtEnd: true,
       run: (query, setExternalId) =>
         integration.runDropTableQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentDropUnitsTable",
     });
     queries.push(dropUnitsTableQuery);

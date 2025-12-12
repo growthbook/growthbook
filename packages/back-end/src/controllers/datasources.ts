@@ -296,13 +296,6 @@ export async function postManagedWarehouse(
     context.permissions.throwPermissionError();
   }
 
-  if (!context.superAdmin && !context.hasPremiumFeature("managed-warehouse")) {
-    return res.status(403).json({
-      status: 403,
-      message: "This requires a Pro account.",
-    });
-  }
-
   // Start out with some default materialized columns
   // These can be changed by the user later
   const identifiers = ["device_id", "user_id"];
@@ -797,12 +790,11 @@ export async function getQueries(
   req: AuthRequest<null, { ids: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { ids } = req.params;
   const queries = ids.split(",");
 
-  const docs = await getQueriesByIds(org.id, queries);
-
+  const docs = await getQueriesByIds(context, queries);
   // Lookup table so we can return queries in the same order we received them
   const map = new Map(docs.map((d) => [d.id, d]));
 
