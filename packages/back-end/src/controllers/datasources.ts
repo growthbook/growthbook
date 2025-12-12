@@ -947,7 +947,7 @@ export async function runUserExperimentExposuresQuery(
   });
 }
 
-export async function runFeatureEvalDiagnosticQuery(
+export async function getFeatureEvalDiagnostics(
   req: AuthRequest<{
     feature: string;
     datasourceId: string;
