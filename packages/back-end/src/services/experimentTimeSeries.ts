@@ -242,8 +242,6 @@ export function getFiltersForHash(
     .filter((f) => f.operator === "saved_filter")
     .map((f) => f.values?.[0]);
 
-  // TODO: also include other inline filters
-
   return factTable.filters
     .filter((it) => savedFilterIds.includes(it.id))
     .map((it) => ({

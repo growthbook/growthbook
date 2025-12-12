@@ -241,15 +241,20 @@ export default function FactMetricPage() {
     ...(factMetric.numerator.rowFilters || []).map((rf) => {
       return {
         label: "Row Filter",
-        value: factTable
-          ? getRowFilterSQL({
+        value: factTable ? (
+          <pre>
+            {getRowFilterSQL({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
               evalBoolean: (col, value) => `${col} = ${value}`,
               jsonExtract: (col, path) => `${col}.${path}`,
-            })
-          : `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`,
+              showSourceComment: true,
+            })}
+          </pre>
+        ) : (
+          `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`
+        ),
       };
     }),
     ...(!isBinomialMetric(factMetric)
@@ -317,13 +322,18 @@ export default function FactMetricPage() {
           ...(factMetric.denominator.rowFilters || []).map((rf) => {
             return {
               label: "Row Filter",
-              value: getRowFilterSQL({
-                rowFilter: rf,
-                factTable: denominatorFactTable,
-                escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
-                evalBoolean: (col, value) => `${col} = ${value}`,
-                jsonExtract: (col, path) => `${col}.${path}`,
-              }),
+              value: (
+                <pre>
+                  {getRowFilterSQL({
+                    rowFilter: rf,
+                    factTable: denominatorFactTable,
+                    escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
+                    evalBoolean: (col, value) => `${col} = ${value}`,
+                    jsonExtract: (col, path) => `${col}.${path}`,
+                    showSourceComment: true,
+                  })}
+                </pre>
+              ),
             };
           }),
           {

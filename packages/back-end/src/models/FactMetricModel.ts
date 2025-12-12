@@ -258,11 +258,13 @@ export class FactMetricModel extends BaseClass {
 
     if (data.numerator.rowFilters?.length) {
       for (const filter of data.numerator.rowFilters) {
+        const filterId = filter.values?.[0];
         if (
           filter.operator === "saved_filter" &&
-          !numeratorFactTable.filters.some((f) => f.id === filter.values?.[0])
+          filterId &&
+          !numeratorFactTable.filters.some((f) => f.id === filterId)
         ) {
-          throw new Error(`Invalid numerator filter id: ${filter.values?.[0]}`);
+          throw new Error(`Invalid numerator filter id: ${filterId}`);
         }
       }
     }
@@ -313,15 +315,13 @@ export class FactMetricModel extends BaseClass {
 
         if (data.denominator.rowFilters?.length) {
           for (const filter of data.denominator.rowFilters) {
+            const filterId = filter.values?.[0];
             if (
               filter.operator === "saved_filter" &&
-              !denominatorFactTable.filters.some(
-                (f) => f.id === filter.values?.[0],
-              )
+              filterId &&
+              !denominatorFactTable.filters.some((f) => f.id === filterId)
             ) {
-              throw new Error(
-                `Invalid denominator filter id: ${filter.values?.[0]}`,
-              );
+              throw new Error(`Invalid denominator filter id: ${filterId}`);
             }
           }
         }
