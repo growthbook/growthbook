@@ -15,7 +15,7 @@ import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
+  ExperimentDimensionWithSpecifiedSlices,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
@@ -234,7 +234,7 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
-  const dimensionObjs: Dimension[] = (
+  const snapshotDimensions: Dimension[] = (
     await Promise.all(
       snapshotSettings.dimensions.map(
         async (d) => await parseDimension(d.id, d.slices, org.id),
@@ -266,7 +266,7 @@ export const startExperimentResultQueries = async (
   // Settings for health query
   const runTrafficQuery =
     snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
-  let dimensionsForTraffic: ExperimentDimension[] = [];
+  let dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
       .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
@@ -279,7 +279,9 @@ export const startExperimentResultQueries = async (
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
+    dimensions: snapshotDimensions.length
+      ? snapshotDimensions
+      : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -333,7 +335,7 @@ export const startExperimentResultQueries = async (
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
+      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -362,7 +364,7 @@ export const startExperimentResultQueries = async (
 
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
+      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -394,13 +396,30 @@ export const startExperimentResultQueries = async (
     );
   }
 
+  // test if precomputed dimensions fails
   let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
+    // the basic traffic query should only use experiment dimensions with specified slices
+    // and if there are snapshot dimensions, it should be a subset of those that
+    // have specified slices
+    const snapshotDimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
+      [];
+    snapshotDimensions.forEach((d) => {
+      if (d.type === "experiment" && d.specifiedSlices !== undefined) {
+        snapshotDimensionsForTraffic.push({
+          ...d,
+          specifiedSlices: d.specifiedSlices,
+        });
+      }
+    });
+
     trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
+        dimensions: snapshotDimensionsForTraffic.length
+          ? snapshotDimensionsForTraffic
+          : dimensionsForTraffic,
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
