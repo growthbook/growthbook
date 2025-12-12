@@ -13,3 +13,4 @@ export * from "./saved-queries";
 export * from "./segment";
 export * from "./shared";
 export * from "./webhook-secrets";
+export * from "./webhooks";
