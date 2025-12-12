@@ -137,7 +137,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         )}
       </Flex>
       <p>
-        Return a list of feature evaluation events for feature evaluation
+        Returns a list of feature evaluation events for feature evaluation
         diagnostics.
       </p>
 

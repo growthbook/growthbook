@@ -399,7 +399,7 @@ export type UserExperimentExposuresQueryParams = {
   lookbackDays: number;
 };
 
-export type FeatureUsageQueryParams = {
+export type FeatureEvalDiagnosticsQueryParams = {
   feature: string;
 };
 
@@ -615,10 +615,10 @@ export type UserExperimentExposuresQueryResponseRows = {
   [key: string]: string | null;
 }[];
 
-export type FeatureUsageQueryResponseRows = {
+export type FeatureEvalDiagnosticsQueryResponseRows = {
   timestamp: string;
   feature_key: string;
-  [key: string]: string | null;
+  [key: string]: unknown;
 }[];
 
 export type QueryResponseColumnData = {
@@ -662,8 +662,8 @@ export type UserExperimentExposuresQueryResponse =
   QueryResponse<UserExperimentExposuresQueryResponseRows> & {
     truncated?: boolean;
   };
-export type FeatureUsageQueryResponse =
-  QueryResponse<FeatureUsageQueryResponseRows> & {
+export type FeatureEvalDiagnosticsQueryResponse =
+  QueryResponse<FeatureEvalDiagnosticsQueryResponseRows> & {
     truncated?: boolean;
   };
 

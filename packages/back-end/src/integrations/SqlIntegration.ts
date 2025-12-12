@@ -92,7 +92,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
-  FeatureUsageQueryParams,
+  FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -105,7 +105,7 @@ import {
   FactMetricQuantileData,
   FactMetricPercentileData,
   FactMetricAggregationMetadata,
-  FeatureUsageQueryResponse,
+  FeatureEvalDiagnosticsQueryResponse,
   UserExperimentExposuresQueryParams,
   UserExperimentExposuresQueryResponse,
   CovariateWindowType,
@@ -123,7 +123,6 @@ import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
-  FeatureUsageQuery,
   SchemaFormatConfig,
   DataSourceInterface,
   AutoFactTableSchemas,
@@ -448,17 +447,6 @@ export default abstract class SqlIntegration
       );
     }
 
-    return match;
-  }
-
-  private getFeatureEvalQuery(featureUsageQueryId: string): FeatureUsageQuery {
-    const queries = this.datasource.settings?.queries?.featureUsage || [];
-
-    const match = queries.find((q) => q.id === featureUsageQueryId);
-
-    if (!match) {
-      throw new Error("Unknown feature usage query - " + featureUsageQueryId);
-    }
     return match;
   }
 
@@ -2593,30 +2581,23 @@ export default abstract class SqlIntegration
     );
   }
 
-  getFeatureUsageQuery(params: FeatureUsageQueryParams): string {
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string {
     const featureKey = this.escapeStringLiteral(params.feature);
 
-    // Get all feature evaluation queries
-    const allFeatureEvalQueries = (
-      this.datasource.settings?.queries?.featureUsage || []
-    ).map((q) => this.getFeatureEvalQuery(q.id));
+    // We only support one feature usage query per data source for now
+    // Always use the first query in the array for now
+    const featureEvalQuery = this.datasource.settings?.queries?.featureUsage
+      ? this.datasource.settings.queries.featureUsage[0].query
+      : "";
 
     return format(
-      `-- Feature Usage Query
-      WITH __featureUsage AS (
-        ${allFeatureEvalQueries
-          .map((q, i) => {
-            const tableAlias = `t${i}`;
-            return `
-            SELECT * FROM (
-              ${q.query}
-            ) ${tableAlias}
-             WHERE feature_key = '${featureKey}'
-          `;
-          })
-          .join("\nUNION ALL\n")}
+      `-- Feature Evaluation Diagnostics Query
+      SELECT * FROM (
+        ${featureEvalQuery}
+        WHERE feature_key = '${featureKey}'
       )
-      SELECT * FROM __featureUsage
       ORDER BY timestamp DESC
       LIMIT ${SQL_ROW_LIMIT}
       `,
@@ -2646,9 +2627,9 @@ export default abstract class SqlIntegration
     };
   }
 
-  public async runFeatureUsageQuery(
+  public async runFeatureEvalDiagnosticsQuery(
     query: string,
-  ): Promise<FeatureUsageQueryResponse> {
+  ): Promise<FeatureEvalDiagnosticsQueryResponse> {
     const { rows, statistics } = await this.runQuery(query);
 
     // Check if SQL_ROW_LIMIT was reached

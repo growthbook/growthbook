@@ -4,39 +4,54 @@ import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { isProjectListValidForProject } from "shared/util";
-import { FeatureUsageQueryResponseRows } from "shared/types/integrations";
+import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { QueryStatistics } from "back-end/types/query";
 import { Box, Flex } from "@radix-ui/themes";
+import { getValidDate } from "shared/dates";
+import { format } from "date-fns";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import LinkButton from "@/ui/LinkButton";
-import { SearchFields, useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
-import EmptyState from "../EmptyState";
+import Tooltip from "@/ui/Tooltip";
+import EmptyState from "@/components/EmptyState";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
-  rows?: FeatureUsageQueryResponseRows;
+  rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
   error?: string;
   sql?: string;
   truncated?: boolean;
 };
 
+// Helper function to format a value for display
+const formatDisplayValue = (value: unknown): string => {
+  if (value === null) {
+    return "";
+  } else if (value === undefined) {
+    return "";
+  } else if (typeof value === "boolean") {
+    return String(value);
+  } else if (typeof value === "object") {
+    return JSON.stringify(value);
+  } else {
+    return String(value);
+  }
+};
+
 export function getFeatureDatasourceDefaults(
   datasources: DataSourceInterfaceWithParams[],
   settings: OrganizationSettings,
   project?: string,
-  initialValue?: Partial<FeatureInterface>,
-): Pick<FeatureInterface, "datasourceId"> {
-  const validDatasources = datasources.filter(
-    (d) =>
-      d.id === initialValue?.datasourceId ||
-      isProjectListValidForProject(d.projects, project),
+): { datasourceId: string } {
+  const validDatasources = datasources.filter((d) =>
+    isProjectListValidForProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasourceId: "" };
@@ -44,13 +59,11 @@ export function getFeatureDatasourceDefaults(
   // Default to the first datasource with a feature usage query
   // If no datasource with a feature usage query is found, default to the default datasource
   const initialId =
-    initialValue?.datasourceId ||
     validDatasources.find(
       (d) =>
         d.settings.queries?.featureUsage &&
         d.settings.queries?.featureUsage.length > 0,
-    )?.id ||
-    settings.defaultDataSource;
+    )?.id || settings.defaultDataSource;
 
   const initialDatasource =
     (initialId && validDatasources.find((d) => d.id === initialId)) ||
@@ -67,9 +80,13 @@ export default function FeatureDiagnostics({
   setResults,
 }: {
   feature: FeatureInterface;
-  results: Array<FeatureUsageQueryResponseRows[number] & { id: string }> | null;
+  results: Array<
+    FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+  > | null;
   setResults: (
-    results: Array<FeatureUsageQueryResponseRows[number] & { id: string }>,
+    results: Array<
+      FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+    >,
   ) => void;
 }) {
   // const [openDatasourceModal, setOpenDatasourceModal] = useState(false);
@@ -88,12 +105,7 @@ export default function FeatureDiagnostics({
 
   const form = useForm({
     defaultValues: {
-      ...getFeatureDatasourceDefaults(
-        datasources,
-        settings,
-        feature.project,
-        feature,
-      ),
+      ...getFeatureDatasourceDefaults(datasources, settings, feature.project),
     },
   });
 
@@ -107,8 +119,7 @@ export default function FeatureDiagnostics({
 
   // Extract all unique keys from results (excluding 'id' which is added internally)
   const columns = useMemo(() => {
-    if (results === null || results.length === 0)
-      return ["timestamp", "feature_key"];
+    if (results === null || results.length === 0) return [];
     const keysSet = new Set<string>();
     // Only iterate over the first row since all rows have the same structure
     Object.keys(results[0]).forEach((key) => {
@@ -116,19 +127,33 @@ export default function FeatureDiagnostics({
         keysSet.add(key);
       }
     });
-    // Ensure timestamp and feature_key are first
-    const priorityKeys = ["timestamp", "feature_key"];
-    return [...priorityKeys, ...Array.from(keysSet)];
+
+    return Array.from(keysSet);
   }, [results]);
 
+  const evalItems = useAddComputedFields(
+    results ?? [],
+    (row) => {
+      // Compute display values for all columns
+      const displayValues: Record<string, string> = {};
+      columns.forEach((key) => {
+        displayValues[key] = formatDisplayValue(row[key]);
+      });
+
+      return {
+        timestamp: format(getValidDate(row.timestamp), "PPpp"),
+        ...displayValues,
+      };
+    },
+    [results, columns],
+  );
+
   const { items, pagination, SortableTH } = useSearch({
-    items: results ?? [],
+    items: evalItems,
     defaultSortField: "timestamp",
     defaultSortDir: -1,
     localStorageKey: "feature-diagnostics",
-    searchFields: columns as SearchFields<
-      FeatureUsageQueryResponseRows[number]
-    >,
+    searchFields: ["timestamp", ...columns],
     pageSize: 100,
   });
 
@@ -219,16 +244,21 @@ export default function FeatureDiagnostics({
 
       <Frame mt="4">
         <Flex direction="row" justify="end" mb="4">
-          <Button
-            onClick={onRunFeatureUsageQuery}
-            disabled={loading || !datasourceHasFeatureUsageQuery}
+          <Tooltip
+            content="Setup a feature usage query in your data source to view feature evaluations."
+            enabled={!datasourceHasFeatureUsageQuery && !loading}
           >
-            {loading
-              ? "Running..."
-              : !results
-                ? "View recent feature evaluations"
-                : "Refresh feature evaluations"}
-          </Button>
+            <Button
+              onClick={onRunFeatureUsageQuery}
+              disabled={loading || !datasourceHasFeatureUsageQuery}
+            >
+              {loading
+                ? "Running..."
+                : !results
+                  ? "View recent feature evaluations"
+                  : "Refresh feature evaluations"}
+            </Button>
+          </Tooltip>
         </Flex>
         {error && (
           <Callout status="error">
@@ -244,6 +274,7 @@ export default function FeatureDiagnostics({
             <table className="table experiment-table gbtable">
               <thead>
                 <tr>
+                  <SortableTH field="timestamp">Timestamp</SortableTH>
                   {columns.map((key) => (
                     <SortableTH key={key} field={key}>
                       {key
@@ -261,9 +292,14 @@ export default function FeatureDiagnostics({
               <tbody>
                 {items.map((row) => (
                   <tr key={row.id}>
+                    <td>{format(getValidDate(row.timestamp), "PPpp")}</td>
                     {columns.map((key) => (
                       <td key={key}>
-                        {JSON.stringify(row[key as keyof typeof row])}
+                        {typeof row[key] === "string" ||
+                        typeof row[key] === "number" ||
+                        typeof row[key] === "boolean"
+                          ? String(row[key])
+                          : ""}
                       </td>
                     ))}
                   </tr>

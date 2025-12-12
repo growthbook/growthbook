@@ -155,7 +155,6 @@ const featureSchema = new mongoose.Schema({
     id: String,
     value: String,
   },
-  datasourceId: String,
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });

@@ -25,7 +25,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
-  FeatureUsageQueryResponse,
+  FeatureEvalDiagnosticsQueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -225,10 +225,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getFeatureUsageQuery(): string {
+  getFeatureEvalDiagnosticsQuery(): string {
     throw new Error("Method not implemented.");
   }
-  runFeatureUsageQuery(): Promise<FeatureUsageQueryResponse> {
+  runFeatureEvalDiagnosticsQuery(): Promise<FeatureEvalDiagnosticsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   private getMetricAggregationExpression(metric: MetricInterface) {

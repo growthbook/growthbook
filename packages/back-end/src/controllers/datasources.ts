@@ -34,7 +34,7 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
-  runFeatureUsageQuery,
+  runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
@@ -965,7 +965,7 @@ export async function runFeatureEvalDiagnosticQuery(
     return;
   }
 
-  const { rows, statistics, error, sql } = await runFeatureUsageQuery(
+  const { rows, statistics, error, sql } = await runFeatureEvalDiagnosticsQuery(
     context,
     datasource,
     feature,

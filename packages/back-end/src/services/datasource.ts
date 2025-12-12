@@ -2,7 +2,7 @@ import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
 import {
-  FeatureUsageQueryResponseRows,
+  FeatureEvalDiagnosticsQueryResponseRows,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -237,12 +237,12 @@ export async function runUserExposureQuery(
   }
 }
 
-export async function runFeatureUsageQuery(
+export async function runFeatureEvalDiagnosticsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   feature: string,
 ): Promise<{
-  rows?: FeatureUsageQueryResponseRows;
+  rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
   error?: string;
   sql?: string;
@@ -255,16 +255,20 @@ export async function runFeatureUsageQuery(
   const integration = getSourceIntegrationObject(context, datasource);
 
   // The Mixpanel and GA integrations do not support feature usage queries
-  if (!integration.getFeatureUsageQuery || !integration.runFeatureUsageQuery) {
+  if (
+    !integration.getFeatureEvalDiagnosticsQuery ||
+    !integration.runFeatureEvalDiagnosticsQuery
+  ) {
     throw new Error("Unable to run feature usage query.");
   }
 
-  const sql = integration.getFeatureUsageQuery({
+  const sql = integration.getFeatureEvalDiagnosticsQuery({
     feature,
   });
 
   try {
-    const { rows, statistics } = await integration.runFeatureUsageQuery(sql);
+    const { rows, statistics } =
+      await integration.runFeatureEvalDiagnosticsQuery(sql);
     return {
       rows,
       statistics,
