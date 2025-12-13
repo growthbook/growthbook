@@ -225,4 +225,63 @@ describe("expandNestedSavedGroups", () => {
       foo: "bar",
     });
   });
+  it("merges into existing $and", () => {
+    const savedGroups: GroupMap = new Map(
+      Object.entries({
+        sg_1: {
+          id: "sg_1",
+          type: "condition",
+          condition: JSON.stringify({
+            foo: "bar",
+          }),
+        },
+        sg_2: {
+          id: "sg_2",
+          type: "condition",
+          condition: JSON.stringify({
+            bar: "baz",
+            $savedGroups: ["sg_1"],
+          }),
+        },
+      }),
+    );
+
+    const condition = {
+      $and: [{ country: "US" }, { platform: "ios" }],
+      $savedGroups: ["sg_2"],
+    };
+    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+    expect(condition).toEqual({
+      $and: [
+        { country: "US" },
+        { platform: "ios" },
+        { bar: "baz" },
+        { foo: "bar" },
+      ],
+    });
+    expect(conditionHasSavedGroupErrors(condition)).toBe(false);
+  });
+  it("works with existing broken $and (non-array)", () => {
+    const savedGroups: GroupMap = new Map(
+      Object.entries({
+        sg_1: {
+          id: "sg_1",
+          type: "condition",
+          condition: JSON.stringify({
+            foo: "bar",
+          }),
+        },
+      }),
+    );
+
+    const condition = {
+      $and: { country: "US" },
+      $savedGroups: ["sg_1"],
+    };
+    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+    expect(condition).toEqual({
+      $and: [{ $and: { country: "US" } }, { foo: "bar" }],
+    });
+    expect(conditionHasSavedGroupErrors(condition)).toBe(false);
+  });
 });
