@@ -447,13 +447,17 @@ describe("getParsedCondition", () => {
           country: "US",
         },
         {
-          foo: "bar",
-        },
-        {
-          bar: "baz",
-        },
-        {
-          baz: "foo",
+          $and: [
+            {
+              foo: "bar",
+            },
+            {
+              bar: "baz",
+            },
+            {
+              baz: "foo",
+            },
+          ],
         },
       ],
     });
