@@ -24,6 +24,8 @@ import {
   ExperimentUnitsQueryParams,
   ExperimentUnitsQueryResponse,
   ExternalIdCallback,
+  FeatureEvalDiagnosticsQueryParams,
+  FeatureEvalDiagnosticsQueryResponse,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   IncrementalRefreshStatisticsQueryParams,
@@ -205,6 +207,12 @@ export interface SourceIntegrationInterface {
   runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse>;
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string;
+  runFeatureEvalDiagnosticsQuery(
+    query: string,
+  ): Promise<FeatureEvalDiagnosticsQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

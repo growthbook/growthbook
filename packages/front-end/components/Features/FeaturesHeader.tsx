@@ -402,6 +402,7 @@ export default function FeaturesHeader({
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="test">Simulate</TabsTrigger>
               <TabsTrigger value="stats">Code Refs</TabsTrigger>
+              <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
             </TabsList>
           </Tabs>
         </Box>

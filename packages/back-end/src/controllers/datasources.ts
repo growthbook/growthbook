@@ -34,6 +34,7 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
+  runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
@@ -932,6 +933,39 @@ export async function runUserExperimentExposuresQuery(
     status: 200,
     rows,
     experimentMap: Object.fromEntries(experimentMap),
+    statistics,
+    error,
+    sql,
+  });
+}
+
+export async function getFeatureEvalDiagnostics(
+  req: AuthRequest<{
+    feature: string;
+    datasourceId: string;
+  }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { feature, datasourceId } = req.body;
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  const { rows, statistics, error, sql } = await runFeatureEvalDiagnosticsQuery(
+    context,
+    datasource,
+    feature,
+  );
+
+  res.status(200).json({
+    status: 200,
+    rows,
     statistics,
     error,
     sql,

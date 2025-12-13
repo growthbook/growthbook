@@ -22,6 +22,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  FeatureEvalDiagnosticsQueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -250,6 +251,12 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getFeatureEvalDiagnosticsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runFeatureEvalDiagnosticsQuery(): Promise<FeatureEvalDiagnosticsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
