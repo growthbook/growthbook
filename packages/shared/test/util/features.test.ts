@@ -1333,7 +1333,7 @@ describe("validateCondition", () => {
     ).toEqual({
       success: false,
       empty: false,
-      error: "Saved group contains unknown group ID: a",
+      error: "Condition includes invalid or cyclic saved group reference",
     });
   });
   it("returns success when condition has known nested saved group id", () => {
