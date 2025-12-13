@@ -3,6 +3,7 @@ import { validateCondition } from "shared/util";
 import { logger } from "back-end/src/util/logger";
 import { UpdateSavedGroupResponse } from "back-end/types/openapi";
 import {
+  getAllSavedGroups,
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
@@ -65,7 +66,15 @@ export const updateSavedGroup = createApiRequestHandler(
     condition &&
     condition !== savedGroup.condition
   ) {
-    const conditionRes = validateCondition(condition);
+    const allSavedGroups = await getAllSavedGroups(req.organization.id);
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    // Include the updated condition in the groupMap for validation
+    groupMap.set(savedGroup.id, {
+      ...savedGroup,
+      condition,
+    });
+
+    const conditionRes = validateCondition(condition, groupMap);
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
