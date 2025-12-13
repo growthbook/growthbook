@@ -1,0 +1,36 @@
+allOf:
+  - type: object
+    required:
+      - features
+    properties:
+      features:
+        type: array
+        items:
+          type: object
+          required:
+            - id
+            - owner
+            - dateCreated
+            - stale
+          properties:
+            id:
+              type: string
+              description: The feature ID
+            owner:
+              type: string
+              description: The owner/creator of the feature flag
+            dateCreated:
+              type: string
+              format: date-time
+              description: When the feature was created
+            stale:
+              type: boolean
+              description: Whether the feature is considered stale
+            reason:
+              type: string
+              enum:
+                - error
+                - no-rules
+                - rules-one-sided
+              description: The reason why the feature is stale (only present if stale is true)
+  - $ref: "./PaginationFields.yaml"
