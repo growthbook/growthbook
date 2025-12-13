@@ -24,10 +24,10 @@ import {
 import { ProjectInterface } from "back-end/types/project";
 import { ApiFeature } from "back-end/types/openapi";
 import { getValidDate } from "../dates";
-import { SavedGroupInterface } from "../../types/groups";
+import { GroupMap } from "../../types/groups";
 import {
   conditionHasSavedGroupErrors,
-  replaceSavedGroups,
+  expandNestedSavedGroups,
 } from "../sdk-versioning";
 import {
   getMatchingRules,
@@ -608,7 +608,7 @@ export type ValidateConditionReturn = {
 };
 export function validateCondition(
   condition?: string,
-  savedGroups?: Record<string, SavedGroupInterface>,
+  groupMap?: GroupMap,
 ): ValidateConditionReturn {
   if (!condition || condition === "{}") {
     return { success: true, empty: true };
@@ -620,7 +620,7 @@ export function validateCondition(
     }
 
     const scrubbed = cloneDeep(res);
-    recursiveWalk(scrubbed, replaceSavedGroups(savedGroups || {}, {}));
+    recursiveWalk(scrubbed, expandNestedSavedGroups(groupMap || new Map()));
     if (conditionHasSavedGroupErrors(scrubbed)) {
       return {
         success: false,
@@ -651,9 +651,9 @@ export function validateAndFixCondition(
   condition: string | undefined,
   applySuggestion: (suggestion: string) => void,
   throwOnSuggestion: boolean = true,
-  savedGroups?: Record<string, SavedGroupInterface>,
+  groupMap?: GroupMap,
 ): ValidateConditionReturn {
-  const res = validateCondition(condition, savedGroups);
+  const res = validateCondition(condition, groupMap);
   if (res.success) return res;
   if (res.suggestedValue) {
     applySuggestion(res.suggestedValue);

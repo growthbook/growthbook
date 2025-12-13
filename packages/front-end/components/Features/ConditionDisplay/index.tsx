@@ -188,11 +188,7 @@ function getConditionParts({
     let fieldEl: ReactNode = (
       <Badge
         color="gray"
-        label={
-          <Text style={{ color: "var(--slate-12)" }}>
-            {field === "$savedGroups" ? "Saved Group" : field}
-          </Text>
-        }
+        label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
       />
     );
     let parentIdEl: ReactNode = null;
@@ -234,6 +230,17 @@ function getConditionParts({
         );
       }
     }
+
+    // For saved groups, hide the "field" element and tweak the operator
+    if (field === "$savedGroups") {
+      fieldEl = null;
+      if (operator === "$in") {
+        operator = "$inGroup";
+      } else if (operator === "$nin") {
+        operator = "$notInGroup";
+      }
+    }
+
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}

@@ -1,45 +1,42 @@
-import { SavedGroupInterface } from "../types/groups";
+import { GroupMap, SavedGroupInterface } from "../types/groups";
 import {
   conditionHasSavedGroupErrors,
-  replaceSavedGroups,
+  expandNestedSavedGroups,
 } from "../src/sdk-versioning";
-import { isSavedGroupCyclic, recursiveWalk } from "../util";
+import { recursiveWalk } from "../util";
 
-describe("replaceSavedGroups", () => {
+describe("expandNestedSavedGroups", () => {
   it("allows valid nested saved groups", () => {
-    const savedGroups = {
-      sg_1: {
-        id: "sg_1",
-        type: "condition",
-        condition: JSON.stringify({ country: "US" }),
-      },
-      sg_2: {
-        id: "sg_2",
-        type: "condition",
-        condition: JSON.stringify({
-          browser: "chrome",
-          $savedGroups: ["sg_1"],
-        }),
-      },
-    } as unknown as Record<string, SavedGroupInterface>;
+    const savedGroups: GroupMap = new Map(
+      Object.entries({
+        sg_1: {
+          id: "sg_1",
+          type: "condition",
+          condition: JSON.stringify({ country: "US" }),
+        },
+        sg_2: {
+          id: "sg_2",
+          type: "condition",
+          condition: JSON.stringify({
+            browser: "chrome",
+            $savedGroups: ["sg_1"],
+          }),
+        },
+      }),
+    );
 
     const condition = {
       os: "ios",
       $savedGroups: ["sg_2"],
     };
 
-    recursiveWalk(condition, replaceSavedGroups(savedGroups, {}));
+    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
 
     expect(condition).toEqual({
       os: "ios",
       country: "US",
       browser: "chrome",
     });
-
-    expect(isSavedGroupCyclic(JSON.stringify(condition), savedGroups)).toEqual([
-      false,
-      null,
-    ]);
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(false);
   });
@@ -67,16 +64,12 @@ describe("replaceSavedGroups", () => {
       $savedGroups: ["sg_1"],
     };
 
-    recursiveWalk(condition, replaceSavedGroups(savedGroups, {}));
+    const groupMap = new Map(Object.entries(savedGroups));
+    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
     expect(condition).toEqual({
       os: "ios",
       __sgCycle__: "sg_1",
     });
-
-    expect(isSavedGroupCyclic(JSON.stringify(condition), savedGroups)).toEqual([
-      true,
-      "sg_1",
-    ]);
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
   });
@@ -87,15 +80,11 @@ describe("replaceSavedGroups", () => {
       $savedGroups: ["sg_2"],
     };
 
-    recursiveWalk(condition, replaceSavedGroups({}, {}));
+    recursiveWalk(condition, expandNestedSavedGroups(new Map()));
     expect(condition).toEqual({
       os: "ios",
       __sgUnknown__: "sg_2",
     });
-    expect(isSavedGroupCyclic(JSON.stringify(condition), {})).toEqual([
-      false,
-      null,
-    ]);
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
   });
@@ -126,18 +115,14 @@ describe("replaceSavedGroups", () => {
       $savedGroups: ["sg_2"],
     };
 
-    recursiveWalk(condition, replaceSavedGroups(savedGroups, {}));
+    const groupMap = new Map(Object.entries(savedGroups));
+    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
     expect(condition).toEqual({
       country: "GB",
       foo: "bar",
       bar: "baz",
       $and: [{ country: { $ne: "CA" } }, { country: { $nin: ["US"] } }],
     });
-
-    expect(isSavedGroupCyclic(JSON.stringify(condition), savedGroups)).toEqual([
-      false,
-      null,
-    ]);
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(false);
   });
@@ -158,7 +143,8 @@ describe("replaceSavedGroups", () => {
     const condition = {
       $savedGroups: ["sg_1"],
     };
-    recursiveWalk(condition, replaceSavedGroups(savedGroups, {}));
+    const groupMap = new Map(Object.entries(savedGroups));
+    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
     expect(condition).toEqual({
       level1: true,
       level2: true,
@@ -172,11 +158,6 @@ describe("replaceSavedGroups", () => {
       level10: true,
       __sgMaxDepth__: true,
     });
-
-    expect(isSavedGroupCyclic(JSON.stringify(condition), savedGroups)).toEqual([
-      true,
-      null,
-    ]);
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
   });
@@ -195,17 +176,13 @@ describe("replaceSavedGroups", () => {
       $savedGroups: ["sg_1"],
     };
 
-    recursiveWalk(condition, replaceSavedGroups(savedGroups, {}));
+    const groupMap = new Map(Object.entries(savedGroups));
+    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
 
     expect(condition).toEqual({
       os: "ios",
       __sgInvalid__: "sg_1",
     });
-
-    expect(isSavedGroupCyclic(JSON.stringify(condition), savedGroups)).toEqual([
-      false,
-      null,
-    ]);
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
   });

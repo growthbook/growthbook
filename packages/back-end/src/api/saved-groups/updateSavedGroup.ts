@@ -67,16 +67,14 @@ export const updateSavedGroup = createApiRequestHandler(
     condition !== savedGroup.condition
   ) {
     const allSavedGroups = await getAllSavedGroups(req.organization.id);
-    const savedGroupsObj = Object.fromEntries(
-      allSavedGroups.map((sg) => [sg.id, sg]),
-    );
-    // Include the updated condition in the savedGroupsObj for validation
-    savedGroupsObj[savedGroup.id] = {
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    // Include the updated condition in the groupMap for validation
+    groupMap.set(savedGroup.id, {
       ...savedGroup,
       condition,
-    };
+    });
 
-    const conditionRes = validateCondition(condition, savedGroupsObj);
+    const conditionRes = validateCondition(condition, groupMap);
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }

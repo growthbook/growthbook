@@ -9,8 +9,6 @@ import {
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/groups";
-import { replaceSavedGroups } from "../sdk-versioning";
-import { recursiveWalk } from "./index";
 
 export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const SMALL_GROUP_SIZE_LIMIT = 100;
@@ -89,44 +87,4 @@ export function getSavedGroupValueType(
   }
 
   return "";
-}
-
-/**
- * Check if a saved group creates a circular reference.
- * Returns [isCyclic, cyclicGroupId]
- * Similar to isFeatureCyclic for prerequisites.
- *
- * @param groupId - The ID of the group being created/updated (optional for new groups)
- * @param condition - The condition string to check
- * @param groupMap - Map of all existing saved groups
- * @param excludeGroupId - For updates, exclude this group from cycle check
- * @param savedGroups - Optional savedGroups targeting array to check
- */
-export function isSavedGroupCyclic(
-  condition: string | undefined | null,
-  savedGroups: Record<string, SavedGroupInterface>,
-): [boolean, string | null] {
-  if (!condition) return [false, null];
-
-  try {
-    const parsed = JSON.parse(condition);
-    recursiveWalk(parsed, replaceSavedGroups(savedGroups, {}));
-
-    const stringified = JSON.stringify(parsed);
-    const matches = stringified.match(/"__sgCycle__"\s*:\s*"([^"]*)"/);
-
-    if (matches) {
-      return [true, matches[1] || null];
-    }
-
-    const maxDepthMatches = stringified.match(/"__sgMaxDepth__"\s*:/);
-    if (maxDepthMatches) {
-      return [true, null];
-    }
-  } catch (e) {
-    // If condition is invalid JSON, we can't determine if it's cyclic
-    return [false, null];
-  }
-
-  return [false, null];
 }

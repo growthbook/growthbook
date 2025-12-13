@@ -73,10 +73,8 @@ export const postSavedGroup = async (
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const allSavedGroups = await getAllSavedGroups(org.id);
-    const savedGroupsObj = Object.fromEntries(
-      allSavedGroups.map((sg) => [sg.id, sg]),
-    );
-    const conditionRes = validateCondition(condition, savedGroupsObj);
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    const conditionRes = validateCondition(condition, groupMap);
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
@@ -444,15 +442,13 @@ export const putSavedGroup = async (
   ) {
     // Validate condition to make sure it's valid
     const allSavedGroups = await getAllSavedGroups(org.id);
-    const savedGroupsObj = Object.fromEntries(
-      allSavedGroups.map((sg) => [sg.id, sg]),
-    );
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
     // Include the updated condition in the savedGroupsObj for validation
-    savedGroupsObj[savedGroup.id] = {
+    groupMap.set(savedGroup.id, {
       ...savedGroup,
       condition,
-    };
-    const conditionRes = validateCondition(condition, savedGroupsObj);
+    });
+    const conditionRes = validateCondition(condition, groupMap);
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }

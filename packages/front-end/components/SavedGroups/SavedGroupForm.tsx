@@ -83,7 +83,7 @@ const SavedGroupForm: FC<{
 
   // Create a Map from saved groups for cycle detection
   const groupMap = useMemo(
-    () => Object.fromEntries(savedGroups.map((group) => [group.id, group])),
+    () => new Map(savedGroups.map((group) => [group.id, group])),
     [savedGroups],
   );
 

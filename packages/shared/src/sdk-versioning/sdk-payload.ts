@@ -8,7 +8,11 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "shared/types/sdk";
-import { SavedGroupsValues, SavedGroupInterface } from "shared/types/groups";
+import {
+  GroupMap,
+  SavedGroupsValues,
+  SavedGroupInterface,
+} from "shared/types/groups";
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
@@ -235,19 +239,11 @@ export function conditionHasSavedGroupErrors(condition: unknown) {
   return false;
 }
 
-// Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
-// Supports recursive unfurling of nested condition groups with maxDepth and cycle detection
-export const replaceSavedGroups: (
-  savedGroups: Record<string, SavedGroupInterface>,
-  organization: Pick<OrganizationInterface, "settings">,
+export const expandNestedSavedGroups: (
+  savedGroups: GroupMap,
   visited?: Set<string>,
   depth?: number,
-) => NodeHandler = (
-  savedGroups: Record<string, SavedGroupInterface>,
-  organization,
-  visited = new Set(),
-  depth = 0,
-) => {
+) => NodeHandler = (savedGroups: GroupMap, visited = new Set(), depth = 0) => {
   return ([key, value], object) => {
     if (key === "$savedGroups") {
       delete object.$savedGroups;
@@ -275,7 +271,7 @@ export const replaceSavedGroups: (
         const newVisited = new Set(visited);
         newVisited.add(groupId);
 
-        const nestedCondition = savedGroups[groupId]?.condition;
+        const nestedCondition = savedGroups.get(groupId)?.condition;
         if (nestedCondition) {
           try {
             const cond = JSON.parse(nestedCondition);
@@ -284,12 +280,7 @@ export const replaceSavedGroups: (
             // Pass depth + 1 to track nesting level
             recursiveWalk(
               cond,
-              replaceSavedGroups(
-                savedGroups,
-                organization,
-                newVisited,
-                depth + 1,
-              ),
+              expandNestedSavedGroups(savedGroups, newVisited, depth + 1),
             );
 
             // Loop over cond keys and merge into value
@@ -325,7 +316,18 @@ export const replaceSavedGroups: (
         }
       }
     }
+  };
+};
 
+// Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
+export const replaceSavedGroups: (
+  savedGroups: Record<string, SavedGroupInterface>,
+  organization: Pick<OrganizationInterface, "settings">,
+) => NodeHandler = (
+  savedGroups: Record<string, SavedGroupInterface>,
+  organization,
+) => {
+  return ([key, value], object) => {
     if (key === "$inGroup" || key === "$notInGroup") {
       const group = savedGroups[value];
 

@@ -404,6 +404,56 @@ describe("getParsedCondition", () => {
 
     groupMap.clear();
   });
+
+  it("works with nested condition groups", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      type: "condition",
+      condition: JSON.stringify({
+        foo: "bar",
+        $savedGroups: ["b"],
+      }),
+    });
+    groupMap.set("b", {
+      type: "condition",
+      condition: JSON.stringify({
+        bar: "baz",
+        $savedGroups: ["c"],
+      }),
+    });
+    groupMap.set("c", {
+      type: "condition",
+      condition: JSON.stringify({
+        baz: "foo",
+      }),
+    });
+
+    expect(
+      getParsedCondition(
+        groupMap,
+        JSON.stringify({
+          country: "US",
+        }),
+        [
+          {
+            match: "all",
+            ids: ["a"],
+          },
+        ],
+      ),
+    ).toEqual({
+      $and: [
+        {
+          country: "US",
+        },
+        {
+          foo: "bar",
+          bar: "baz",
+          baz: "foo",
+        },
+      ],
+    });
+  });
 });
 
 describe("Hashing secureString types", () => {
@@ -1545,7 +1595,7 @@ describe("SDK Payloads", () => {
         dateUpdated: new Date(),
         projects: [],
         capabilities: [],
-        savedGroups: [cloneDeep(groupDef)],
+        usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
@@ -1577,7 +1627,7 @@ describe("SDK Payloads", () => {
         projects: [],
         capabilities: ["savedGroupReferences"],
         savedGroupReferencesEnabled: true,
-        savedGroups: [cloneDeep(groupDef)],
+        usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",

@@ -42,10 +42,8 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
 
       // Validate condition
       const allSavedGroups = await getAllSavedGroups(req.organization.id);
-      const savedGroupsObj = Object.fromEntries(
-        allSavedGroups.map((sg) => [sg.id, sg]),
-      );
-      const conditionRes = validateCondition(condition, savedGroupsObj);
+      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
       }
