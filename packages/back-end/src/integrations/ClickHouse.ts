@@ -1,11 +1,11 @@
 import { createClient, ResponseJSON } from "@clickhouse/client";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import {
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";

@@ -18,7 +18,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -332,6 +332,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     experimentResultBlockTypes as readonly string[]
   ).includes(block.type as string);
 
+  function getDefaultValueForTitle(
+    blockType: DashboardBlockInterface["type"],
+  ): string {
+    return blockType === "markdown" ? "" : BLOCK_TYPE_INFO[blockType].name;
+  }
+
   return (
     <Flex
       ref={scrollRef}
@@ -414,7 +420,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         {canEditTitle && editTitle && setBlock ? (
           <Field
             autoFocus
-            defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}
+            defaultValue={block.title || getDefaultValueForTitle(block.type)}
             placeholder="Title"
             onFocus={(e) => {
               e.target.select();
@@ -454,7 +460,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 flexShrink: 1,
               }}
             >
-              {block.title || BLOCK_TYPE_INFO[block.type].name}
+              {block.title || getDefaultValueForTitle(block.type)}
             </h4>
             {canEditTitle && (
               <a

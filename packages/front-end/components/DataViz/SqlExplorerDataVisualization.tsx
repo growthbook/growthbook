@@ -8,11 +8,12 @@ import {
   xAxisDateAggregationUnit,
   yAxisAggregationType,
   dimensionAxisConfiguration,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
+import { formatNumber } from "@/services/metrics";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
@@ -83,6 +84,13 @@ function aggregate(
     case "none":
       return numericValues[0] || 0;
   }
+}
+
+function formatter(type: "number" | "string" | "date", value: number) {
+  if (type === "number") {
+    return formatNumber(value);
+  }
+  return value;
 }
 
 function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
@@ -703,6 +711,12 @@ export function DataVisualizationDisplay({
         axisPointer: {
           type: "shadow",
         },
+        valueFormatter: (value: number) => {
+          if (!yConfig?.type) {
+            return value;
+          }
+          return formatter(yConfig.type, value);
+        },
       },
       ...(dataVizConfig.title
         ? {
@@ -781,6 +795,7 @@ export function DataVisualizationDisplay({
     dimensionFields,
     dataVizConfig.title,
     textColor,
+    yConfig?.type,
   ]);
 
   if (dataVizConfig.chartType === "big-value") {

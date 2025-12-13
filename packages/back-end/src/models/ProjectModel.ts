@@ -1,35 +1,16 @@
-import { z } from "zod";
+import { ManagedBy } from "shared/validators";
 import { ApiProject } from "back-end/types/openapi";
-import { statsEngines } from "back-end/src/util/constants";
 import {
-  managedByValidator,
-  ManagedBy,
-} from "back-end/src/validators/managed-by";
-import { logger } from "back-end/src/util/logger";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
-import { ReqContext } from "back-end/types/organization";
+  ProjectInterface,
+  ProjectSettings,
+  projectValidator,
+} from "back-end/src/validators/projects";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { refreshSDKPayloadCache } from "../services/features";
+import { logger } from "../util/logger";
 import { getPayloadKeysForAllEnvs } from "./ExperimentModel";
-import { baseSchema, MakeModelClass } from "./BaseModel";
-export const statsEnginesValidator = z.enum(statsEngines);
-
-export const projectSettingsValidator = z.object({
-  statsEngine: statsEnginesValidator.optional(),
-});
-
-export const projectValidator = baseSchema
-  .extend({
-    name: z.string(),
-    publicId: z.string().optional(),
-    description: z.string().default("").optional(),
-    settings: projectSettingsValidator.default({}).optional(),
-    managedBy: managedByValidator.optional(),
-  })
-  .strict();
-
-export type StatsEngine = z.infer<typeof statsEnginesValidator>;
-export type ProjectSettings = z.infer<typeof projectSettingsValidator>;
-export type ProjectInterface = z.infer<typeof projectValidator>;
+import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: projectValidator,

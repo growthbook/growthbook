@@ -1,5 +1,9 @@
 import Stripe from "stripe";
-import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
+import {
+  OWNER_JOB_TITLES,
+  USAGE_INTENTS,
+  attributeDataTypes,
+} from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -14,13 +18,11 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { TiktokenModel } from "@dqbd/tiktoken";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { AgreementType } from "shared/validators";
 import { environment } from "back-end/src/routers/environment/environment.validators";
-import type { ReqContextClass } from "back-end/src/services/context";
-import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { TeamInterface } from "back-end/types/team";
-import { AgreementType } from "back-end/src/validators/agreements";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -259,6 +261,7 @@ export interface OrganizationSettings {
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
+  postStratificationDisabled?: boolean;
 }
 
 export interface OrganizationConnections {
@@ -359,8 +362,6 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type ReqContext = ReqContextClass;
-
 export type GetOrganizationResponse = {
   status: 200;
   organization: OrganizationInterface;
@@ -392,6 +393,7 @@ export type DailyUsage = {
   date: string;
   requests: number;
   bandwidth: number;
+  managedClickhouseEvents: number;
 };
 
 type UsageLimit = number | "unlimited";
@@ -399,14 +401,20 @@ type UsageLimit = number | "unlimited";
 export type UsageLimits = {
   cdnRequests: UsageLimit;
   cdnBandwidth: UsageLimit;
+  managedClickhouseEvents?: UsageLimit;
 };
 
 export type OrganizationUsage = {
   limits: {
     requests: UsageLimit;
     bandwidth: UsageLimit;
+    managedClickhouseEvents?: UsageLimit;
   };
   cdn: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };

@@ -3524,7 +3524,7 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
       numerator: {
         factTableId: string;
         column: string;
@@ -12672,7 +12672,7 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
                 numerator: {
                   factTableId: string;
                   column: string;
@@ -12787,10 +12787,10 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
           numerator: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
+            /** @description Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -12895,7 +12895,7 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
-          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
           displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
@@ -12927,7 +12927,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -13045,7 +13045,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -13159,10 +13159,10 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
           numerator?: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
+            /** @description Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -13256,7 +13256,7 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
-          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
           displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
@@ -13288,7 +13288,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -13508,10 +13508,10 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
                 numerator: {
                   factTableId: string;
-                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
+                  /** @description Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
                   column?: string;
                   /**
                    * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
@@ -13616,7 +13616,7 @@ export interface operations {
                 riskThresholdSuccess?: number;
                 /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
                 riskThresholdDanger?: number;
-                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
                 displayAsPercentage?: boolean;
                 /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
                 minPercentChange?: number;

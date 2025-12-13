@@ -17,6 +17,8 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { IdeaInterface } from "shared/types/idea";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
@@ -93,7 +95,6 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
-import { IdeaInterface } from "back-end/types/idea";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
@@ -108,9 +109,8 @@ import {
   SnapshotTriggeredBy,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import {
@@ -123,7 +123,8 @@ import {
   upsertWatch,
 } from "back-end/src/models/WatchModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
@@ -3101,7 +3102,7 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis({
+    await createSnapshotAnalysis(context, {
       experiment: experiment,
       organization: org,
       analysisSettings: analysisSettings,

@@ -34,20 +34,27 @@ import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
-} from "shared/src/types";
+} from "shared/types/groups";
 import { clone } from "lodash";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
-  ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
+} from "shared/types/sdk";
+import { ProjectInterface } from "back-end/types/project";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+
+import { HoldoutInterface } from "back-end/src/validators/holdout";
+import {
+  ApiReqContext,
   FeatureMetadata,
   ExperimentMetadata,
 } from "back-end/types/api";
-import { ProjectInterface } from "back-end/types/project";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
+  AttributeMap,
   ExperimentRefRule,
   ExperimentRule,
   FeatureDraftChanges,
@@ -77,10 +84,10 @@ import {
 import {
   Environment,
   OrganizationInterface,
-  ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getSDKPayload,
   getSDKPayloadCacheLocation,
@@ -98,24 +105,19 @@ import {
   ExperimentInterface,
   ExperimentPhase,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
-import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
-
-export type AttributeMap = Map<string, string>;
 
 export function generateFeaturesPayload({
   features,

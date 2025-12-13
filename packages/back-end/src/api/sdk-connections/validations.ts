@@ -3,16 +3,16 @@ import {
   getSDKCapabilities,
   getSDKVersions,
 } from "shared/sdk-versioning";
-import { ApiReqContext } from "back-end/types/api";
-import { sdkLanguages } from "back-end/src/util/constants";
-import { getEnvironments } from "back-end/src/services/organizations";
-import { IS_CLOUD } from "back-end/src/util/secrets";
-import { OrganizationInterface } from "back-end/types/organization";
+import { sdkLanguages } from "shared/constants";
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
+import { ApiReqContext } from "back-end/types/api";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { OrganizationInterface } from "back-end/types/organization";
 
 const capabilityParams = [
   ["encryption", "encryptPayload"],

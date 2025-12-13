@@ -3,7 +3,7 @@ import {
   CustomField,
   CustomFieldSection,
   CustomFieldTypes,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
 import React from "react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";

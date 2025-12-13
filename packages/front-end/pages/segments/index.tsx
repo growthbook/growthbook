@@ -1,7 +1,7 @@
 import React, { FC, Fragment, ReactElement, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import { SegmentInterface } from "back-end/types/segment";
-import { IdeaInterface } from "back-end/types/idea";
+import { SegmentInterface } from "shared/types/segment";
+import { IdeaInterface } from "shared/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
 import clsx from "clsx";

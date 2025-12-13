@@ -9,7 +9,6 @@ import {
   MetricQuantileSettings,
   MetricWindowSettings,
 } from "back-end/types/fact-table";
-import { TemplateVariables } from "back-end/types/sql";
 import {
   MetricDefaults,
   OrganizationSettings,
@@ -39,6 +38,7 @@ import {
 } from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
+import { TemplateVariables } from "../types/sql";
 import { stringToBoolean } from "./util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -360,7 +360,7 @@ export function isRegressionAdjusted(
   );
 }
 
-export function getConversionWindowHours(
+export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.windowValue;

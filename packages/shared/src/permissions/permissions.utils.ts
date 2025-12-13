@@ -173,3 +173,12 @@ export function roleSupportsEnvLimit(
 
   return policiesSupportEnvLimit(role?.policies || []);
 }
+
+export function roleToPermissionMap(
+  roleId: string,
+  org: OrganizationInterface,
+): PermissionsObject {
+  const role = getRoleById(roleId || "readonly", org);
+  const policies = role?.policies || [];
+  return getPermissionsObjectByPolicies(policies);
+}

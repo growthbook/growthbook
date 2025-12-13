@@ -25,7 +25,7 @@ import {
   deleteAllSlackIntegrationsForAProject,
   removeProjectFromSlackIntegration,
 } from "back-end/src/models/SlackIntegrationModel";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableModel";
 
 // region POST /projects

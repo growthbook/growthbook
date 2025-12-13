@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { ApiSavedGroup } from "back-end/types/openapi";
 import {
   CreateSavedGroupProps,

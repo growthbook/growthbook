@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,

@@ -4,6 +4,8 @@ import {
   getAggregateFilters,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { UpdateProps } from "shared/types/base-model";
+import { factMetricValidator } from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -12,9 +14,7 @@ import {
   LegacyFactMetricInterface,
 } from "back-end/types/fact-table";
 import { ApiFactMetric } from "back-end/types/openapi";
-import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
-import { UpdateProps } from "back-end/types/models";
 import { promiseAllChunks } from "../util/promise";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
@@ -221,12 +221,13 @@ export class FactMetricModel extends BaseClass {
     const metricSupportsDistinctDates =
       data.metricType === "mean" ||
       data.metricType === "ratio" ||
+      data.metricType === "dailyParticipation" ||
       (data.metricType === "quantile" &&
         data.quantileSettings?.type === "unit");
     if (data.numerator.column === "$$distinctDates") {
       if (!metricSupportsDistinctDates) {
         throw new Error(
-          "$$distinctDates is only supported for mean, ratio, and quantile metrics",
+          "$$distinctDates is only supported for mean, ratio, daily participation, and quantile metrics",
         );
       }
     }

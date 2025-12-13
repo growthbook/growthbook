@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 function rubySymbol(name: string): string {

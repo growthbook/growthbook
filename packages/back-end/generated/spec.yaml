@@ -4909,6 +4909,7 @@ paths:
                     - mean
                     - quantile
                     - ratio
+                    - dailyParticipation
                 numerator:
                   type: object
                   required:
@@ -4918,7 +4919,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
+                      description: 'Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -5104,7 +5105,7 @@ paths:
                   minimum: 0
                 displayAsPercentage:
                   type: boolean
-                  description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
+                  description: 'If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -5209,6 +5210,7 @@ paths:
                     - mean
                     - quantile
                     - ratio
+                    - dailyParticipation
                 numerator:
                   type: object
                   required:
@@ -5218,7 +5220,7 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
+                      description: 'Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
                     aggregation:
                       type: string
                       description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
@@ -5404,7 +5406,7 @@ paths:
                   minimum: 0
                 displayAsPercentage:
                   type: boolean
-                  description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
+                  description: 'If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -8027,6 +8029,7 @@ components:
             - mean
             - quantile
             - ratio
+            - dailyParticipation
         numerator:
           type: object
           required:
