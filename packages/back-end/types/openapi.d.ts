@@ -2787,7 +2787,7 @@ export interface components {
       includeRuleIds?: boolean;
       includeProjectPublicId?: boolean;
       includeCustomFields?: (string)[];
-      includeTags?: (string)[];
+      includeTags?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -8628,7 +8628,7 @@ export interface operations {
                 includeRuleIds?: boolean;
                 includeProjectPublicId?: boolean;
                 includeCustomFields?: (string)[];
-                includeTags?: (string)[];
+                includeTags?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -8704,7 +8704,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
-              includeTags?: (string)[];
+              includeTags?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8754,7 +8754,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
-              includeTags?: (string)[];
+              includeTags?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8829,7 +8829,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
-              includeTags?: (string)[];
+              includeTags?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -8897,7 +8897,7 @@ export interface operations {
               includeRuleIds?: boolean;
               includeProjectPublicId?: boolean;
               includeCustomFields?: (string)[];
-              includeTags?: (string)[];
+              includeTags?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;

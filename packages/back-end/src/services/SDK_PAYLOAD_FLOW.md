@@ -217,9 +217,7 @@
      - If includeCustomFields is provided and non-empty, filter existing
        `metadata.customFields` down to that whitelist; otherwise remove
      - Remove empty `metadata.customFields` objects
-     - If includeTags is provided and non-empty, filter existing
-       `metadata.tags` down to that whitelist; otherwise remove
-     - Remove empty `metadata.tags` arrays
+     - If includeTags is false, remove `metadata.tags`
      - Remove `metadata` object entirely if all fields are empty/removed
    • Strip temporary `.project` field
 

@@ -127,14 +127,6 @@ export default function SDKConnectionForm({
     initialCustomFieldSelection.length > 0,
   );
 
-  const initialTagsSelection = initialValue.includeTags ?? [];
-  const [tagsEnabled, setTagsEnabled] = useState(
-    initialTagsSelection.length > 0,
-  );
-  const [tagsPickerVisible, setTagsPickerVisible] = useState(
-    initialTagsSelection.length > 0,
-  );
-
   const form = useForm({
     defaultValues: {
       name: initialValue.name ?? "",
@@ -164,7 +156,7 @@ export default function SDKConnectionForm({
       includeRuleIds: initialValue.includeRuleIds ?? false,
       includeProjectPublicId: initialValue.includeProjectPublicId ?? false,
       includeCustomFields: initialValue.includeCustomFields ?? [],
-      includeTags: initialValue.includeTags ?? [],
+      includeTags: initialValue.includeTags || false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -191,8 +183,6 @@ export default function SDKConnectionForm({
   const languages = form.watch("languages");
   const includeCustomFieldsSelection = form.watch("includeCustomFields") || [];
   const includeCustomFieldsCount = includeCustomFieldsSelection.length;
-  const includeTagsSelection = form.watch("includeTags") || [];
-  const includeTagsCount = includeTagsSelection.length;
   const languageTypes: Set<LanguageType> = new Set(
     languages.map((l) => languageMapping[l].type),
   );
@@ -363,19 +353,10 @@ export default function SDKConnectionForm({
     if (includeCustomFieldsCount > 0 && !customFieldsPickerVisible) {
       setCustomFieldsPickerVisible(true);
     }
-    if (includeTagsCount > 0 && !tagsEnabled) {
-      setTagsEnabled(true);
-    }
-    if (includeTagsCount > 0 && !tagsPickerVisible) {
-      setTagsPickerVisible(true);
-    }
   }, [
     includeCustomFieldsCount,
     customFieldsEnabled,
     customFieldsPickerVisible,
-    includeTagsCount,
-    tagsEnabled,
-    tagsPickerVisible,
   ]);
 
   // If the SDK Connection is externally managed, filter the environments that are in 'All Projects' or where the current project is included
@@ -428,9 +409,6 @@ export default function SDKConnectionForm({
 
         if (!customFieldsEnabled && includeCustomFieldsCount === 0) {
           body.includeCustomFields = [];
-        }
-        if (!tagsEnabled && includeTagsCount === 0) {
-          body.includeTags = [];
         }
 
         if (edit) {
@@ -1288,41 +1266,9 @@ export default function SDKConnectionForm({
               <div className="mb-2">
                 <Checkbox
                   label="Include tags"
-                  value={tagsEnabled || includeTagsCount > 0}
-                  disabled={includeTagsCount > 0}
-                  setValue={(checked) => {
-                    if (checked) {
-                      setTagsPickerVisible(true);
-                      setTagsEnabled(true);
-                    } else {
-                      setTagsEnabled(false);
-                    }
-                  }}
+                  value={!!form.watch("includeTags")}
+                  setValue={(checked) => form.setValue("includeTags", checked)}
                 />
-                {(tagsPickerVisible || includeTagsCount > 0) && (
-                  <div className="mt-1 mb-3">
-                    <MultiSelectField
-                      placeholder="Select tags..."
-                      value={includeTagsSelection}
-                      onChange={(selectedTags) => {
-                        if (!tagsPickerVisible) {
-                          setTagsPickerVisible(true);
-                        }
-                        form.setValue("includeTags", selectedTags);
-                        if (selectedTags.length > 0) {
-                          setTagsEnabled(true);
-                        } else {
-                          setTagsEnabled(false);
-                        }
-                      }}
-                      options={tags.map((tag) => ({
-                        value: tag.id,
-                        label: tag.id,
-                      }))}
-                      sort={false}
-                    />
-                  </div>
-                )}
               </div>
             )}
             <div className="mb-2">

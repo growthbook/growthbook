@@ -160,7 +160,7 @@ export async function getPayloadParamsFromApiKey(
   includeRuleIds?: boolean;
   includeProjectPublicId?: boolean;
   includeCustomFields?: string[];
-  includeTags?: string[];
+  includeTags?: boolean;
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
@@ -272,7 +272,7 @@ export async function getFeatureDefinitionsFilteredByEnvironment({
   includeRuleIds: boolean | undefined;
   includeProjectPublicId: boolean | undefined;
   includeCustomFields: string[] | undefined;
-  includeTags: string[] | undefined;
+  includeTags: boolean | undefined;
   hashSecureAttributes: boolean | undefined;
   savedGroupReferencesEnabled: boolean | undefined;
   environment: string;

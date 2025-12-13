@@ -128,7 +128,6 @@ export function generateFeaturesPayload({
   safeRolloutMap,
   holdoutsMap,
   allowedCustomFields = new Set(),
-  allowedTags = new Set(),
   projectsMap,
 }: {
   features: FeatureInterface[];
@@ -142,7 +141,6 @@ export function generateFeaturesPayload({
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
   allowedCustomFields?: Set<string>;
-  allowedTags?: Set<string>;
   projectsMap?: Map<string, ProjectInterface>;
 }): Record<string, FeatureDefinitionWithProject> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
@@ -184,16 +182,8 @@ export function generateFeaturesPayload({
           metadata.customFields = filteredCustomFields;
         }
       }
-      if (allowedTags.size > 0 && feature.tags && feature.tags.length > 0) {
-        const filteredTags: string[] = [];
-        for (const tag of feature.tags) {
-          if (allowedTags.has(tag)) {
-            filteredTags.push(tag);
-          }
-        }
-        if (filteredTags.length > 0) {
-          metadata.tags = filteredTags;
-        }
+      if (feature.tags && feature.tags.length > 0) {
+        metadata.tags = feature.tags;
       }
       const defWithMeta: FeatureDefinitionWithProject = {
         ...def,
@@ -269,7 +259,6 @@ export function generateAutoExperimentsPayload({
   environment,
   prereqStateCache = {},
   allowedCustomFields = new Set(),
-  allowedTags = new Set(),
   projectsMap,
 }: {
   visualExperiments: VisualExperiment[];
@@ -279,7 +268,6 @@ export function generateAutoExperimentsPayload({
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
   allowedCustomFields?: Set<string>;
-  allowedTags?: Set<string>;
   projectsMap?: Map<string, ProjectInterface>;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
@@ -363,16 +351,8 @@ export function generateAutoExperimentsPayload({
           metadata.customFields = filteredCustomFields;
         }
       }
-      if (allowedTags.size > 0 && e.tags && e.tags.length > 0) {
-        const filteredTags: string[] = [];
-        for (const tag of e.tags) {
-          if (allowedTags.has(tag)) {
-            filteredTags.push(tag);
-          }
-        }
-        if (filteredTags.length > 0) {
-          metadata.tags = filteredTags;
-        }
+      if (e.tags && e.tags.length > 0) {
+        metadata.tags = e.tags;
       }
 
       const exp: AutoExperimentWithProject = {
@@ -587,7 +567,6 @@ export async function refreshSDKPayloadCache(
   const projectsMap = new Map<string, ProjectInterface>();
   allProjects.forEach((project) => projectsMap.set(project.id, project));
   const allowedCustomFields = await getAllowedCustomFieldsForPayloads(context);
-  const allowedTags = await getAllowedTagsForPayloads(context);
 
   // For each affected environment, generate a new SDK payload and update the cache
   const environments = Array.from(
@@ -612,7 +591,6 @@ export async function refreshSDKPayloadCache(
       safeRolloutMap,
       holdoutsMap,
       allowedCustomFields,
-      allowedTags,
       projectsMap,
     });
 
@@ -628,7 +606,6 @@ export async function refreshSDKPayloadCache(
       environment,
       prereqStateCache,
       allowedCustomFields,
-      allowedTags,
       projectsMap,
     });
 
@@ -684,24 +661,6 @@ export async function getAllowedCustomFieldsForPayloads(
   return whitelist.size > 0 ? whitelist : undefined;
 }
 
-// Returns the union of all tags enabled across SDK connections
-export async function getAllowedTagsForPayloads(
-  context: ReqContext | ApiReqContext,
-): Promise<Set<string> | undefined> {
-  const connections = await findSDKConnectionsByOrganization(context);
-  const whitelist = new Set<string>();
-
-  for (const connection of connections) {
-    connection.includeTags?.forEach((tag) => {
-      if (tag) {
-        whitelist.add(tag);
-      }
-    });
-  }
-
-  return whitelist.size > 0 ? whitelist : undefined;
-}
-
 // Checks if tags or customFields changed and if any SDK connections use them
 // Returns true if a cache refresh is needed for tags/customFields changes
 export async function shouldRefreshForMetadataChanges(
@@ -715,20 +674,20 @@ export async function shouldRefreshForMetadataChanges(
     newValue.customFields ?? null,
   );
 
-  if (!tagsChanged && !customFieldsChanged) {
-    return false;
+  if (tagsChanged) return true;
+
+  if (customFieldsChanged) {
+    const allowedCustomFields =
+      await getAllowedCustomFieldsForPayloads(context);
+
+    // Only refresh if any SDK connections actually use these fields
+    return !!(
+      customFieldsChanged &&
+      allowedCustomFields &&
+      allowedCustomFields.size > 0
+    );
   }
-
-  const [allowedCustomFields, allowedTags] = await Promise.all([
-    getAllowedCustomFieldsForPayloads(context),
-    getAllowedTagsForPayloads(context),
-  ]);
-
-  // Only refresh if any SDK connections actually use these fields
-  return !!(
-    (tagsChanged && allowedTags && allowedTags.size > 0) ||
-    (customFieldsChanged && allowedCustomFields && allowedCustomFields.size > 0)
-  );
+  return false;
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -744,7 +703,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeRuleIds?: boolean;
   includeProjectPublicId?: boolean;
   includeCustomFields?: string[];
-  includeTags?: string[];
+  includeTags?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -849,19 +808,8 @@ export async function getFeatureDefinitionsResponse({
         delete metadata.customFields;
       }
 
-      // Handle tags: only include if whitelist is non-empty
-      if (!includeTags || includeTags.length === 0) {
-        delete metadata.tags;
-      } else if (metadata.tags) {
-        const filteredTags = metadata.tags.filter((tag) =>
-          includeTags.includes(tag),
-        );
-        if (filteredTags.length > 0) {
-          metadata.tags = filteredTags;
-        } else {
-          delete metadata.tags;
-        }
-      } else {
+      // Handle tags
+      if (!includeTags) {
         delete metadata.tags;
       }
 
@@ -910,18 +858,7 @@ export async function getFeatureDefinitionsResponse({
     }
 
     // Handle tags: only include if whitelist is non-empty
-    if (!includeTags || includeTags.length === 0) {
-      delete metadata.tags;
-    } else if (metadata.tags) {
-      const filteredTags = metadata.tags.filter((tag) =>
-        includeTags.includes(tag),
-      );
-      if (filteredTags.length > 0) {
-        metadata.tags = filteredTags;
-      } else {
-        delete metadata.tags;
-      }
-    } else {
+    if (!includeTags) {
       delete metadata.tags;
     }
 
@@ -1063,7 +1000,7 @@ export type FeatureDefinitionArgs = {
   includeRuleIds?: boolean;
   includeProjectPublicId?: boolean;
   includeCustomFields?: string[];
-  includeTags?: string[];
+  includeTags?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -1186,7 +1123,6 @@ export async function getFeatureDefinitions({
   const holdoutsMap =
     await context.models.holdout.getAllPayloadHoldouts(environment);
   const allowedCustomFields = await getAllowedCustomFieldsForPayloads(context);
-  const allowedTags = await getAllowedTagsForPayloads(context);
   const allProjects = (await context.models.projects.getAll()) || [];
   const projectsMap = new Map<string, ProjectInterface>();
   allProjects.forEach((project) => projectsMap.set(project.id, project));
@@ -1205,7 +1141,6 @@ export async function getFeatureDefinitions({
     safeRolloutMap,
     holdoutsMap,
     allowedCustomFields,
-    allowedTags,
     projectsMap,
   });
 
@@ -1231,7 +1166,6 @@ export async function getFeatureDefinitions({
     environment,
     prereqStateCache,
     allowedCustomFields,
-    allowedTags,
     projectsMap,
   });
 
