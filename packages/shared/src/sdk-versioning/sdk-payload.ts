@@ -225,7 +225,19 @@ export const scrubSavedGroups = (
 // Maximum depth for recursive saved group resolution
 const MAX_SAVED_GROUP_DEPTH = 10;
 
-const sgErrorRegex = /"__sg(MaxDepth|Cycle|Invalid|Unknown)__"\s*:/;
+export const SAVED_GROUP_ERROR_MAX_DEPTH = "__sgMaxDepth__";
+export const SAVED_GROUP_ERROR_CYCLE = "__sgCycle__";
+export const SAVED_GROUP_ERROR_INVALID = "__sgInvalid__";
+export const SAVED_GROUP_ERROR_UNKNOWN = "__sgUnknown__";
+
+const sgErrorRegex = new RegExp(
+  `"(${[
+    SAVED_GROUP_ERROR_MAX_DEPTH,
+    SAVED_GROUP_ERROR_CYCLE,
+    SAVED_GROUP_ERROR_INVALID,
+    SAVED_GROUP_ERROR_UNKNOWN,
+  ].join("|")})"\\s*:`,
+);
 
 export function conditionHasSavedGroupErrors(condition: unknown) {
   if (!condition) return false;
@@ -253,7 +265,7 @@ export const expandNestedSavedGroups: (
       if (depth >= MAX_SAVED_GROUP_DEPTH) {
         // Gracefully truncate: replace with condition that is always false
         // This prevents infinite recursion and deep nesting issues
-        newConditions.push({ __sgMaxDepth__: true });
+        newConditions.push({ [SAVED_GROUP_ERROR_MAX_DEPTH]: true });
       }
 
       const savedGroupValues = Array.isArray(value) ? value : [value];
@@ -269,7 +281,7 @@ export const expandNestedSavedGroups: (
         if (visited.has(groupId)) {
           // Cycle detected - replace with always-false condition
           // Break out of the loop since the entire condition is already invalid
-          newConditions.push({ __sgCycle__: groupId });
+          newConditions.push({ [SAVED_GROUP_ERROR_CYCLE]: groupId });
           break;
         }
 
@@ -293,12 +305,12 @@ export const expandNestedSavedGroups: (
             }
           } catch (e) {
             // Invalid condition, replace with always-false condition
-            newConditions.push({ __sgInvalid__: groupId });
+            newConditions.push({ [SAVED_GROUP_ERROR_INVALID]: groupId });
             break;
           }
         } else {
           // Unknown group, replace with always-false condition
-          newConditions.push({ __sgUnknown__: groupId });
+          newConditions.push({ [SAVED_GROUP_ERROR_UNKNOWN]: groupId });
           break;
         }
       }

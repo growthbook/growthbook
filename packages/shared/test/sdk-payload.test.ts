@@ -2,6 +2,10 @@ import { GroupMap, SavedGroupInterface } from "../types/groups";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
+  SAVED_GROUP_ERROR_CYCLE,
+  SAVED_GROUP_ERROR_INVALID,
+  SAVED_GROUP_ERROR_MAX_DEPTH,
+  SAVED_GROUP_ERROR_UNKNOWN,
 } from "../src/sdk-versioning";
 import { recursiveWalk } from "../util";
 
@@ -65,7 +69,7 @@ describe("expandNestedSavedGroups", () => {
     const groupMap = new Map(Object.entries(savedGroups));
     recursiveWalk(condition, expandNestedSavedGroups(groupMap));
     expect(condition).toEqual({
-      $and: [{ os: "ios" }, { __sgCycle__: "sg_1" }],
+      $and: [{ os: "ios" }, { [SAVED_GROUP_ERROR_CYCLE]: "sg_1" }],
     });
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
@@ -79,7 +83,7 @@ describe("expandNestedSavedGroups", () => {
 
     recursiveWalk(condition, expandNestedSavedGroups(new Map()));
     expect(condition).toEqual({
-      $and: [{ os: "ios" }, { __sgUnknown__: "sg_2" }],
+      $and: [{ os: "ios" }, { [SAVED_GROUP_ERROR_UNKNOWN]: "sg_2" }],
     });
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
@@ -157,7 +161,7 @@ describe("expandNestedSavedGroups", () => {
         { level8: true },
         { level9: true },
         { level10: true },
-        { __sgMaxDepth__: true },
+        { [SAVED_GROUP_ERROR_MAX_DEPTH]: true },
       ],
     });
 
@@ -182,7 +186,7 @@ describe("expandNestedSavedGroups", () => {
     recursiveWalk(condition, expandNestedSavedGroups(groupMap));
 
     expect(condition).toEqual({
-      $and: [{ os: "ios" }, { __sgInvalid__: "sg_1" }],
+      $and: [{ os: "ios" }, { [SAVED_GROUP_ERROR_INVALID]: "sg_1" }],
     });
 
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
