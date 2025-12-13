@@ -248,23 +248,28 @@ export const expandNestedSavedGroups: (
     if (key === "$savedGroups") {
       delete object.$savedGroups;
 
+      const newConditions: unknown[] = [];
+
       if (depth >= MAX_SAVED_GROUP_DEPTH) {
         // Gracefully truncate: replace with condition that is always false
         // This prevents infinite recursion and deep nesting issues
-        object["__sgMaxDepth__"] = true;
-        return;
+        newConditions.push({ __sgMaxDepth__: true });
       }
 
       const savedGroupValues = Array.isArray(value) ? value : [value];
-
       for (let i = 0; i < savedGroupValues.length; i++) {
+        if (depth >= MAX_SAVED_GROUP_DEPTH) {
+          // Prevent infinite recursion
+          continue;
+        }
         const groupId = savedGroupValues[i];
         if (!groupId || typeof groupId !== "string") continue;
 
         // Prevent cycles
         if (visited.has(groupId)) {
           // Cycle detected - replace with always-false condition
-          object["__sgCycle__"] = groupId;
+          // Break out of the loop since the entire condition is already invalid
+          newConditions.push({ __sgCycle__: groupId });
           break;
         }
 
@@ -283,36 +288,92 @@ export const expandNestedSavedGroups: (
               expandNestedSavedGroups(savedGroups, newVisited, depth + 1),
             );
 
-            // Loop over cond keys and merge into value
-            for (const k in cond) {
-              // Merge $and conditions
-              if (k === "$and" && Array.isArray(cond[k])) {
-                if (!object["$and"]) {
-                  object["$and"] = [];
-                }
-                object["$and"] = object["$and"].concat(cond[k]);
-              }
-              // If key already exists in value
-              else if (k in object) {
-                // If $and already exists in object
-                if ("$and" in object) {
-                  object["$and"]?.push({ [k]: cond[k] });
-                }
-                // Otherwise, create $and
-                else {
-                  object["$and"] = [{ [k]: cond[k] }];
-                }
-              } else {
-                object[k] = cond[k];
-              }
+            if (cond && Object.keys(cond).length > 0) {
+              newConditions.push(cond);
             }
           } catch (e) {
             // Invalid condition, replace with always-false condition
-            object["__sgInvalid__"] = groupId;
+            newConditions.push({ __sgInvalid__: groupId });
+            break;
           }
         } else {
           // Unknown group, replace with always-false condition
-          object["__sgUnknown__"] = groupId;
+          newConditions.push({ __sgUnknown__: groupId });
+          break;
+        }
+      }
+
+      if (newConditions.length > 0) {
+        const newAnd: Record<string, unknown>[] = [];
+
+        // Existing and
+        if ("$and" in object) {
+          if (Array.isArray(object["$and"])) {
+            object["$and"].forEach((cond: unknown) => {
+              newAnd.push(cond as Record<string, unknown>);
+            });
+          } else {
+            // $and is invalid?? Nest it and continue on I guess?
+            newAnd.push({ $and: object["$and"] });
+          }
+        }
+
+        // Add existing conditions to a new object within $and
+        const existingCond: Record<string, unknown> = {};
+        for (const k in object) {
+          if (k !== "$and") {
+            existingCond[k] = object[k];
+          }
+        }
+        if (Object.keys(existingCond).length > 0) {
+          newAnd.push(existingCond);
+        }
+
+        // Add all new conditions from saved groups
+        newConditions.forEach((cond) => {
+          if (cond && typeof cond === "object") {
+            newAnd.push(cond as Record<string, unknown>);
+          }
+        });
+
+        // Flatten nested $ands
+        // { $and: [{ $and: [...] }] } => { $and: [...] }
+        newAnd.forEach((cond: unknown, i: number) => {
+          // Object with a single key "$and"
+          if (
+            typeof cond === "object" &&
+            cond !== null &&
+            Object.keys(cond).length === 1 &&
+            "$and" in cond &&
+            Array.isArray(cond["$and"])
+          ) {
+            cond["$and"].forEach((nestedCond: unknown) => {
+              if (nestedCond && typeof nestedCond === "object") {
+                newAnd.push(nestedCond as Record<string, unknown>);
+              }
+            });
+            delete newAnd[i];
+          }
+        });
+
+        // Remove any deleted entries from flattening
+        const finalAnd = newAnd.filter((cond) => cond !== undefined);
+
+        // Remove all existing keys from object
+        for (const k in object) {
+          delete object[k];
+        }
+
+        // If $and has only one condition, flatten it
+        if (finalAnd.length === 1) {
+          const singleCond = finalAnd[0];
+          for (const k in singleCond) {
+            object[k] = singleCond[k];
+          }
+        }
+        // Otherwise set $and to the combined conditions
+        else {
+          object["$and"] = finalAnd;
         }
       }
     }

@@ -448,7 +448,11 @@ describe("getParsedCondition", () => {
         },
         {
           foo: "bar",
+        },
+        {
           bar: "baz",
+        },
+        {
           baz: "foo",
         },
       ],
