@@ -107,13 +107,39 @@ export const columnAggregationValidator = z.enum([
   "count distinct",
 ]);
 
+export const rowFilterOperators = [
+  "=",
+  "!=",
+  "<",
+  "<=",
+  ">",
+  ">=",
+  "in",
+  "not_in",
+  "contains",
+  "not_contains",
+  "starts_with",
+  "ends_with",
+  "is_null",
+  "not_null",
+  "is_true",
+  "is_false",
+  "sql_expr",
+  "saved_filter",
+] as const;
+
+export const rowFilterValidator = z.object({
+  operator: z.enum(rowFilterOperators),
+  column: z.string().optional(),
+  values: z.array(z.string()).optional(),
+});
+
 export const columnRefValidator = z
   .object({
     factTableId: z.string(),
     column: z.string(),
     aggregation: columnAggregationValidator.optional(),
-    inlineFilters: z.record(z.string(), z.string().array()).optional(),
-    filters: z.array(z.string()),
+    rowFilters: z.array(rowFilterValidator).optional(),
     aggregateFilter: z.string().optional(),
     aggregateFilterColumn: z.string().optional(),
   })
@@ -202,7 +228,7 @@ export const factMetricValidator = z
     maxPercentChange: z.number(),
     minPercentChange: z.number(),
     minSampleSize: z.number(),
-    targetMDE: z.number(),
+    targetMDE: z.number().optional(),
     displayAsPercentage: z.boolean().optional(),
 
     winRisk: z.number(),
