@@ -405,7 +405,7 @@ export async function editSDKConnection(
   // Refresh SDK payload cache if includeTags changed (affects payload metadata.tags)
   if (
     "includeTags" in otherChanges &&
-    !isEqual(otherChanges.includeTags, connection.includeTags)
+    otherChanges.includeTags !== connection.includeTags
   ) {
     // Refresh cache for all environments since tags can be used across environments
     // If projects is empty, get all projects to ensure we refresh all environments

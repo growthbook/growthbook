@@ -31,9 +31,7 @@ properties:
     items:
       type: string
   includeTags:
-    type: array
-    items:
-      type: string
+    type: boolean
   proxyEnabled:
     type: boolean
   proxyHost:
