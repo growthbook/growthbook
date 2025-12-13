@@ -1,8 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import {
-  getConversionWindowHours,
-  getDelayWindowHours,
-} from "shared/experiments";
+import { getDelayWindowHours, getMetricWindowHours } from "shared/experiments";
 import {
   DimensionSlicesQueryResponse,
   DropTableQueryResponse,
@@ -820,7 +817,7 @@ function is${name}(event) {
     experimentEnd: Date,
     conversionWindowStart: string = "",
   ) {
-    const windowHours = getConversionWindowHours(metric.windowSettings);
+    const windowHours = getMetricWindowHours(metric.windowSettings);
     const checks: string[] = [];
     const start = getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000;
     // add conversion delay
