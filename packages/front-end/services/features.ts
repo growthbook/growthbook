@@ -950,11 +950,12 @@ export function jsonToConds(
   // Advanced use case where we can't use the simple editor
   if (json.match(/\$(or|nor|all|type)/)) return null;
 
-  const conds: Condition[] = [];
-  let valid = true;
-
   try {
     const parsed = JSON.parse(json);
+
+    const conds: Condition[] = [];
+    let valid = true;
+
     if (parsed["$not"]) {
       // Allow $savedGroups as the only key inside $not
       const notObj = parsed["$not"];

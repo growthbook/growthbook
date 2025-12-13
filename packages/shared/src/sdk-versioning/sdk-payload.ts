@@ -268,13 +268,13 @@ export const expandNestedSavedGroups: (
           break;
         }
 
-        const newVisited = new Set(visited);
-        newVisited.add(groupId);
-
         const nestedCondition = savedGroups.get(groupId)?.condition;
         if (nestedCondition) {
           try {
             const cond = JSON.parse(nestedCondition);
+
+            const newVisited = new Set(visited);
+            newVisited.add(groupId);
 
             // Recursively resolve nested $savedGroups in this condition
             // Pass depth + 1 to track nesting level
