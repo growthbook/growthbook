@@ -13,8 +13,6 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
-  ExperimentDimensionWithSpecifiedSlices,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
@@ -48,6 +46,7 @@ import {
 } from "back-end/src/services/experimentTimeSeries";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getExperimentById } from "../models/ExperimentModel";
 import {
   MAX_METRICS_PER_QUERY,
@@ -298,50 +297,24 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  // experimentDimensions are all dimensions that we can save in the units table
-  // or that already exist in the units table if this is not a full refresh
-  const experimentDimensions: ExperimentDimension[] =
-    params.fullRefresh || !incrementalRefreshModel
-      ? exposureQuery.dimensions.map((d) => {
-          return {
-            type: "experiment",
-            id: d,
-          };
-        })
-      : exposureQuery.dimensions
-          .filter((d) => incrementalRefreshModel?.unitsDimensions?.includes(d))
-          .map((d) => {
-            return {
-              type: "experiment",
-              id: d,
-            };
-          });
-  // dimensionsForTraffic are the dimensions that we can use for traffic analysis
-  // this is a subset of experimentDimensions that have specified slices
-  const dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
-    experimentDimensions.flatMap((d) => {
-      const specifiedSlices = exposureQuery?.dimensionMetadata?.find(
-        (dm) => dm.dimension === d.id,
-      )?.specifiedSlices;
-      if (specifiedSlices) {
-        return [{ ...d, specifiedSlices }];
-      }
-      return [];
-    });
-  // precomputedDimensions are the dimensions that are determined we can precompute in `getSnapshotSettings`
-  // (which is the intersection of dimensions that have specified slices, dimensions that are in
-  // the units table, AND dimensions that will fit in the return object (e.g. < 1000 rows).
-  const precomputedDimensions: ExperimentDimensionWithSpecifiedSlices[] =
-    dimensionsForTraffic.filter((d) =>
-      experimentDimensions.some((ed) => ed.id === d.id),
-    );
+  const {
+    eligibleDimensions,
+    // Used for traffic analysis
+    eligibleDimensionsWithSlices,
+    // Used for pre-computing/post-stratification
+    eligibleDimensionsWithSlicesUnderMaxCells,
+  } = getExposureQueryEligibleDimensions({
+    exposureQuery,
+    incrementalRefreshModel,
+    nVariations: params.variationNames.length,
+  });
 
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
     settings: snapshotSettings,
     activationMetric: null, // TODO(incremental-refresh): activation metric
-    dimensions: experimentDimensions,
+    dimensions: eligibleDimensions,
     segment: segmentObj,
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
@@ -442,7 +415,7 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
-            unitsDimensions: experimentDimensions.map((d) => d.id),
+            unitsDimensions: eligibleDimensions.map((d) => d.id),
           })
           .catch((e) => context.logger.error(e));
       }
@@ -757,7 +730,8 @@ const startExperimentIncrementalRefreshQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensionsWithSpecifiedSlices: precomputedDimensions,
+        dimensionsWithSpecifiedSlices:
+          eligibleDimensionsWithSlicesUnderMaxCells,
         dimensionsForExploratoryAnalysis: [],
         metricSourceCovariateTableFullName,
       }),
@@ -782,7 +756,7 @@ const startExperimentIncrementalRefreshQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: dimensionsForTraffic,
+        dimensions: eligibleDimensionsWithSlices,
         useUnitsTable: true,
       }),
       dependencies: [alterUnitsTableQuery.query],

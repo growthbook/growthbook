@@ -35,7 +35,6 @@ import {
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
-  getPredefinedDimensionSlicesByExperiment,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
@@ -56,6 +55,7 @@ import {
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
   SafeRolloutInterface,
+  IncrementalRefreshInterface,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -158,6 +158,7 @@ import { ExperimentQueryMetadata } from "back-end/types/query";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
@@ -179,7 +180,6 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
-import { IncrementalRefreshModel } from "../models/IncrementalRefreshModel";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -533,23 +533,15 @@ export function getSnapshotSettings({
 
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
   if (precomputeDimensions) {
-    const possibleDimensions = (exposureQuery.dimensionMetadata ?? []) // Start with dimensions with specified slices
-      .filter(
-        (d) =>
-          // Only include dimensions still in the exposure query
-          exposureQuery.dimensions.includes(d.dimension) &&
-          // and only include dimensions that are in the units table
-          // if incremental refresh is enabled
-          (!incrementalRefreshModel ||
-            incrementalRefreshModel.unitsDimensions.includes(d.dimension)),
-      );
-    const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      possibleDimensions,
-      experiment.variations.length,
-    );
+    const { eligibleDimensionsWithSlicesUnderMaxCells } =
+      getExposureQueryEligibleDimensions({
+        exposureQuery,
+        incrementalRefreshModel,
+        nVariations: experiment.variations.length,
+      });
     dimensions =
-      predefinedDimensions.map((d) => ({
-        id: "precomputed:" + d.dimension,
+      eligibleDimensionsWithSlicesUnderMaxCells.map((d) => ({
+        id: "precomputed:" + d.id,
         slices: d.specifiedSlices,
       })) ?? [];
   }
@@ -1296,8 +1288,6 @@ export async function createSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({ data });
   const integration = getSourceIntegrationObject(context, datasource, true);
-  const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(experiment.id);
   const fullRefresh = !useCache || !incrementalRefreshModel;
 
   const isIncrementalRefreshEnabledForExperiment =
