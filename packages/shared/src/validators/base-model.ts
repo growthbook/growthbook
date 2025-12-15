@@ -12,7 +12,6 @@ export const baseSchema = z
 export const apiBaseSchema = z
   .object({
     id: z.string(),
-    organization: z.string(),
     dateCreated: z.string(),
     dateUpdated: z.string(),
   })

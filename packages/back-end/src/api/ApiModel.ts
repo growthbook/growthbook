@@ -46,14 +46,20 @@ type CrudValidatorShapes<T extends ApiBaseSchema> = {
     z.ZodNever
   >;
 };
-export type ApiModelConfig<T extends ApiBaseSchema = ApiBaseSchema> = {
+export type ApiModelConfig<
+  T extends ApiBaseSchema = ApiBaseSchema,
+  C extends
+    ApiCreateZodObject<ApiBaseSchema> = ApiCreateZodObject<ApiBaseSchema>,
+  U extends
+    ApiUpdateZodObject<ApiBaseSchema> = ApiUpdateZodObject<ApiBaseSchema>,
+> = {
   modelKey: ModelName;
   modelSingular: string;
   modelPlural: string;
   apiInterface: T;
   schemas: {
-    createBody: ApiCreateZodObject<T>;
-    updateBody: ApiUpdateZodObject<T>;
+    createBody: C;
+    updateBody: U;
   };
   includeDefaultCrud?: boolean;
   crudActions?: CrudAction[];

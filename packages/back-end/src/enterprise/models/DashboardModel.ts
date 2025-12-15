@@ -378,9 +378,7 @@ export class DashboardModel extends BaseClass {
     });
   }
 
-  public toApiInterface(
-    dashboard: DashboardInterface | DashboardDocument,
-  ): ApiDashboard {
+  public toApiInterface(dashboard: DashboardInterface): ApiDashboard {
     return {
       ...removeMongooseFields(dashboard),
       blocks: dashboard.blocks.map(toBlockApiInterface),
