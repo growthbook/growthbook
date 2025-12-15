@@ -1,9 +1,9 @@
 import { Router, RequestHandler } from "express";
 import { z } from "zod";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ModelClass, ModelName } from "back-end/src/services/context";
 import { ApiRequestValidator, createApiRequestHandler } from "../util/handler";
-import { UpdateZodObject } from "../models/BaseModel";
 
 export const apiBaseSchema = z
   .object({
@@ -14,20 +14,14 @@ export const apiBaseSchema = z
   })
   .strict();
 export type ApiBaseSchema = typeof apiBaseSchema;
-type ApiCreateRawShape<T extends z.ZodRawShape> = {
-  [k in keyof Omit<
-    T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: T[k];
-};
-type ApiCreateZodObject<T> =
-  T extends z.ZodObject<
-    infer RawShape,
-    infer UnknownKeysParam,
-    infer ZodTypeAny
-  >
-    ? z.ZodObject<ApiCreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
-    : never;
+
+type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
+  CreateProps<z.infer<T>>
+>;
+
+type ApiUpdateZodObject<T extends ApiBaseSchema> = z.ZodType<
+  UpdateProps<z.infer<T>>
+>;
 
 const crudActions = ["get", "create", "list", "delete", "update"] as const;
 type CrudAction = (typeof crudActions)[number];
@@ -44,6 +38,17 @@ const defaultHandlers = {
   delete: "handleApiDelete",
   update: "handleApiUpdate",
 } as const;
+type CrudValidatorShapes<T extends ApiBaseSchema> = {
+  create: ApiRequestValidator<z.ZodNever, ApiCreateZodObject<T>, z.ZodNever>;
+  delete: ApiRequestValidator<z.Schema<{ id: string }>, z.ZodNever, z.ZodNever>;
+  get: ApiRequestValidator<z.Schema<{ id: string }>, z.ZodNever, z.ZodNever>;
+  list: ApiRequestValidator<z.ZodNever, z.ZodNever, z.ZodNever>;
+  update: ApiRequestValidator<
+    z.Schema<{ id: string }>,
+    ApiUpdateZodObject<T>,
+    z.ZodNever
+  >;
+};
 export type ApiModelConfig<T extends ApiBaseSchema = ApiBaseSchema> = {
   modelKey: ModelName;
   modelSingular: string;
@@ -51,14 +56,11 @@ export type ApiModelConfig<T extends ApiBaseSchema = ApiBaseSchema> = {
   apiInterface: T;
   schemas: {
     createBody: ApiCreateZodObject<T>;
-    updateBody: UpdateZodObject<T>;
+    updateBody: ApiUpdateZodObject<T>;
   };
   includeDefaultCrud?: boolean;
   crudActions?: CrudAction[];
-  crudValidatorOverrides?: Record<
-    CrudAction,
-    ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>
-  >;
+  crudValidatorOverrides?: Partial<CrudValidatorShapes<T>>;
   customHandlers?: CustomHandler[];
 };
 type ApiModel = {
@@ -127,7 +129,10 @@ export function defineRouterForApiModel(modelDef: ApiModel) {
   return r;
 }
 
-export function getCrudValidator(action: CrudAction, config: ApiModelConfig) {
+export function getCrudValidator<T extends ApiBaseSchema, A extends CrudAction>(
+  action: A,
+  config: ApiModelConfig,
+): CrudValidatorShapes<T>[A] {
   return (
     config.crudValidatorOverrides?.[action] ??
     getDefaultValidator(
@@ -138,41 +143,39 @@ export function getCrudValidator(action: CrudAction, config: ApiModelConfig) {
   );
 }
 
-function getDefaultValidator<T extends ApiBaseSchema = ApiBaseSchema>(
-  action: CrudAction,
+function getDefaultValidator<
+  A extends CrudAction,
+  T extends ApiBaseSchema = ApiBaseSchema,
+>(
+  action: A,
   createBodySchema: ApiCreateZodObject<T>,
-  updateBodySchema: UpdateZodObject<T>,
-): ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> {
-  switch (action) {
-    case "create":
-      return {
-        bodySchema: createBodySchema,
-        querySchema: z.never(),
-        paramsSchema: z.never(),
-      };
-    case "delete":
-      return {
-        bodySchema: z.never(),
-        querySchema: z.never(),
-        paramsSchema: z.object({ id: z.string() }).strict(),
-      };
-    case "get":
-      return {
-        bodySchema: z.never(),
-        querySchema: z.never(),
-        paramsSchema: z.object({ id: z.string() }).strict(),
-      };
-    case "list":
-      return {
-        bodySchema: z.never(),
-        querySchema: z.never(), // TODO: pagination?
-        paramsSchema: z.never(),
-      };
-    case "update":
-      return {
-        bodySchema: updateBodySchema,
-        querySchema: z.never(),
-        paramsSchema: z.object({ id: z.string() }).strict(),
-      };
-  }
+  updateBodySchema: ApiUpdateZodObject<T>,
+): CrudValidatorShapes<T>[A] {
+  return {
+    create: {
+      bodySchema: createBodySchema,
+      querySchema: z.never(),
+      paramsSchema: z.never(),
+    },
+    delete: {
+      bodySchema: z.never(),
+      querySchema: z.never(),
+      paramsSchema: z.object({ id: z.string() }).strict(),
+    },
+    get: {
+      bodySchema: z.never(),
+      querySchema: z.never(),
+      paramsSchema: z.object({ id: z.string() }).strict(),
+    },
+    list: {
+      bodySchema: z.never(),
+      querySchema: z.never(), // TODO: pagination?
+      paramsSchema: z.never(),
+    },
+    update: {
+      bodySchema: updateBodySchema,
+      querySchema: z.never(),
+      paramsSchema: z.object({ id: z.string() }).strict(),
+    },
+  }[action];
 }

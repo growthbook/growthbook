@@ -4,7 +4,7 @@ import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
-import { Schema, z } from "zod";
+import { z } from "zod";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
@@ -242,7 +242,7 @@ export abstract class BaseModel<
   protected async handleApiGet(
     req: ApiRequest<
       unknown,
-      Schema<{ id: string }>,
+      z.Schema<{ id: string }>,
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
@@ -272,7 +272,7 @@ export abstract class BaseModel<
   protected async handleApiDelete(
     req: ApiRequest<
       unknown,
-      Schema<{ id: string }>,
+      z.Schema<{ id: string }>,
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
@@ -283,8 +283,8 @@ export abstract class BaseModel<
   protected async handleApiUpdate(
     req: ApiRequest<
       unknown,
-      Schema<{ id: string }>,
-      Schema<UpdateProps<z.infer<T>>>,
+      z.Schema<{ id: string }>,
+      z.Schema<UpdateProps<z.infer<T>>>,
       z.ZodTypeAny
     >,
   ): Promise<z.infer<T> | null> {
