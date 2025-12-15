@@ -730,9 +730,8 @@ const startExperimentIncrementalRefreshQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensionsWithSpecifiedSlices:
-          eligibleDimensionsWithSlicesUnderMaxCells,
-        dimensionsForExploratoryAnalysis: [],
+        dimensionsForPrecomputation: eligibleDimensionsWithSlicesUnderMaxCells,
+        dimensionsForAnalysis: [],
         metricSourceCovariateTableFullName,
       }),
       dependencies: [

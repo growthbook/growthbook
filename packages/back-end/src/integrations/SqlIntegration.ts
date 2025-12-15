@@ -7530,8 +7530,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
 
     // exploratory dimensions
-    const { unitDimensions } = this.processDimensions(
-      params.dimensionsForExploratoryAnalysis,
+    const { experimentDimensions, unitDimensions } = this.processDimensions(
+      params.dimensionsForAnalysis,
       params.settings,
       params.activationMetric,
     );
@@ -7553,14 +7553,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       this.getDimensionCol(d),
     );
 
-    // TODO, split out exploratory dimensions from pre-computed dimensions
-    // but group by all of them once you process them and have the data for how they
-    // should be computed
-    const nonUnitDimensionCols = params.dimensions
-      .filter((d) => d.type !== "user")
-      .map((d) => this.getDimensionCol(d));
+    const experimentDimensionCols = experimentDimensions.map((d) =>
+      this.getDimensionCol(d),
+    );
 
-    const allDimensionCols = [...unitDimensionCols, ...nonUnitDimensionCols];
+    const precomputedDimensionCols = params.dimensionsForPrecomputation.map(
+      (d) => this.getDimensionCol(d),
+    );
+
+    const allDimensionCols = [
+      ...unitDimensionCols,
+      ...experimentDimensionCols,
+      ...precomputedDimensionCols,
+    ];
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -7590,7 +7595,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
             ${unitDimensions.map((d) => `, ${this.getDimensionColumn(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
-            ${nonUnitDimensionCols
+            ${experimentDimensionCols
+              .map((d) => {
+                return `, MIN(${d.value}) AS ${d.alias}`;
+              })
+              .join("")}
+            ${precomputedDimensionCols
               .map((d) => {
                 return `, MIN(${d.value}) AS ${d.alias}`;
               })
@@ -7614,7 +7624,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           e.${baseIdType} AS ${baseIdType}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
-            ${nonUnitDimensionCols
+          ${experimentDimensionCols
+            .map((d) => {
+              return `, ${d.value} AS ${d.alias}`;
+            })
+            .join("")}
+            ${precomputedDimensionCols
               .map((d) => {
                 return `, ${d.value} AS ${d.alias}`;
               })
