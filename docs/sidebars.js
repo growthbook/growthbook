@@ -88,6 +88,11 @@ const sidebars = {
           id: "features/approval-flows",
           label: "Approval Flows",
         },
+        {
+          type: "doc",
+          id: "features/custom-hooks",
+          label: "Custom Hooks",
+        },
       ],
     },
     {
@@ -303,7 +308,11 @@ const sidebars = {
           type: "doc",
           id: "experimentation-analysis/managed-warehouse",
           label: "Managed Warehouse",
-          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/event-forwarder",
+          label: "Event Forwarder",
         },
         {
           type: "doc",
@@ -481,6 +490,12 @@ const sidebars = {
       label: "Insights",
     },
     {
+      type: "doc",
+      id: "product-analytics",
+      label: "Product Analytics",
+      className: "pill-new",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -515,6 +530,12 @@ const sidebars = {
               label: "C#",
             },
             { type: "doc", id: "lib/go", label: "Go" },
+            {
+              type: "doc",
+              id: "lib/rust",
+              label: "Rust",
+              className: "pill-new",
+            },
             {
               type: "doc",
               id: "lib/elixir",
@@ -582,6 +603,11 @@ const sidebars = {
         "self-host/kubernetes",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        {
+          type: "doc",
+          id: "self-host/remote-evaluation",
+          label: "Remote Evaluation",
+        },
         { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
         "self-host/config-yml",
       ],
@@ -698,7 +724,6 @@ const sidebars = {
     {
       type: "category",
       label: "Security",
-      collapsed: false,
       items: [
         {
           type: "doc",

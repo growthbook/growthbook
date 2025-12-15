@@ -6,6 +6,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import clsx from "clsx";
+import { isEqual } from "lodash";
 import { isBinomialMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
@@ -156,10 +157,11 @@ function settingsMatch(
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
-  return Object.entries(settings).every(
-    ([key, value]) =>
-      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key),
-  );
+  return Object.entries(settings).every(([key, value]) => {
+    return (
+      fieldsThatCanDiffer.includes(key) || isEqual(value, desiredSettings[key])
+    );
+  });
 }
 
 function isOutdated(
@@ -190,6 +192,8 @@ function getAnalysisSettingsForm(
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
+    additionalNumeratorFilters: settings?.additionalNumeratorFilters,
+    additionalDenominatorFilters: settings?.additionalDenominatorFilters,
   };
 }
 
@@ -201,6 +205,8 @@ export type MetricAnalysisFormFields = {
 
   populationType: MetricAnalysisPopulationType;
   populationId: string | null;
+  additionalNumeratorFilters?: string[];
+  additionalDenominatorFilters?: string[];
 };
 
 interface MetricAnalysisProps {
@@ -317,6 +323,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           <Callout status="warning" mt="2" mb="2">
             Standalone metric analysis not available for quantile metrics.
           </Callout>
+        ) : factMetric.metricType === "dailyParticipation" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for daily participation
+            metrics.
+          </Callout>
         ) : (
           <>
             <div
@@ -383,13 +394,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               <div className="col-auto form-inline pr-5">
                 <PopulationChooser
                   value={populationValue ?? "factTable"}
-                  setValue={(v) =>
+                  setValue={(v, populationId) => {
                     setValue(
                       "populationType",
                       v as MetricAnalysisPopulationType,
-                    )
-                  }
-                  setPopulationValue={(v) => setValue("populationId", v)}
+                    );
+                    setValue("populationId", populationId);
+                  }}
                   userIdType={watch("userIdType")}
                   datasourceId={factMetric.datasource}
                 />

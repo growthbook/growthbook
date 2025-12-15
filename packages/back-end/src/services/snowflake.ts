@@ -1,8 +1,10 @@
 import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import { QueryResponse } from "back-end/src/types/Integration";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { QueryMetadata } from "back-end/types/query";
+import { logger } from "back-end/src/util/logger";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -25,10 +27,43 @@ function getProxySettings(): ProxyOptions {
   };
 }
 
+function getSnowflakeQueryTagString(queryMetadata?: QueryMetadata) {
+  const metadata = {
+    application: "growthbook",
+    ...queryMetadata,
+  };
+
+  // 2000 is the max length of a query tag
+  let json = JSON.stringify(metadata);
+
+  if (json.length > 2000) {
+    // delete any key that has tags and try again
+    const tagKeys = Object.keys(metadata).filter((key) => key.includes("tags"));
+    if (tagKeys.length > 0) {
+      json = JSON.stringify({
+        ...Object.fromEntries(
+          Object.entries(metadata).filter(([key]) => !tagKeys.includes(key)),
+        ),
+      });
+    }
+  }
+
+  // if still too long, just send the application key
+  if (json.length > 2000) {
+    logger.warn("Snowflake query tag is too long, truncating", { json });
+    json = JSON.stringify({
+      application: "growthbook",
+    });
+  }
+  return json;
+}
+
 // eslint-disable-next-line
 export async function runSnowflakeQuery<T extends Record<string, any>>(
   conn: SnowflakeConnectionParams,
   sql: string,
+  setExternalId?: ExternalIdCallback,
+  queryMetadata?: QueryMetadata,
 ): Promise<QueryResponse<T[]>> {
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
@@ -72,7 +107,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
     accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
-    queryTag: `{"application": "growthbook"}`,
+    queryTag: getSnowflakeQueryTagString(queryMetadata),
   });
 
   // promise with timeout to prevent hanging, esp. for test query
@@ -94,7 +129,13 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   const res = await new Promise<T[]>((resolve, reject) => {
     connection.execute({
       sqlText: sql,
-      complete: (err, stmt, rows) => {
+      complete: async (err, stmt, rows) => {
+        if (setExternalId) {
+          const queryId = await stmt.getQueryId();
+          if (queryId) {
+            setExternalId(queryId);
+          }
+        }
         if (err) {
           reject(err);
         } else {

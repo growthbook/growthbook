@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
+import Badge from "@/ui/Badge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -21,26 +22,32 @@ export default function HoldoutSummary({
 }) {
   return (
     <>
-      <Flex gap="3" mb="3">
-        <Box>
-          <strong className="font-weight-semibold">HOLDOUT</strong>
-        </Box>
-        <Box>
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {percentFormatter.format(holdoutWeight)}
-          </span>{" "}
-          of{" "}
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {hashAttribute}
-          </span>
-        </Box>
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">HOLDOUT</Text>
+        <Badge
+          color="gray"
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>
+              {percentFormatter.format(holdoutWeight)}
+            </Text>
+          }
+        />
+        of
+        <Badge
+          color="gray"
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
+          }
+        />
       </Flex>
-      <Flex gap="3">
-        <Box>
-          <strong className="font-weight-semibold">SERVE</strong>
-        </Box>
-        <Box>
-          <ValueDisplay value={value} type={feature.valueType} />
+      <Flex direction="row" gap="2">
+        <Text weight="medium">SERVE</Text>
+        <Box width="100%">
+          <ValueDisplay
+            value={value}
+            type={feature.valueType}
+            showFullscreenButton={true}
+          />
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />

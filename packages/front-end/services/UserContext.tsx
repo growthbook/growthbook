@@ -19,7 +19,7 @@ import type {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useRouter } from "next/router";
 import {
   createContext,
@@ -36,7 +36,7 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { useFeature } from "@growthbook/growthbook-react";
-import { AgreementType } from "back-end/src/validators/agreements";
+import { AgreementType } from "shared/validators";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -93,6 +93,7 @@ export interface UserContextValue {
   ready?: boolean;
   userId?: string;
   name?: string;
+  pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
   license?: Partial<LicenseInterface> | null;
@@ -134,6 +135,7 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
@@ -499,6 +501,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
+        pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
         updateUser,
         user,

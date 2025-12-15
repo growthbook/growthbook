@@ -1,8 +1,9 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useEffect, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -131,7 +132,7 @@ export default function BanditSummaryResultsTab({
         ) : null}
 
         {!isPublic && (
-          <div className="mx-3">
+          <Flex direction="column" gap="2" mx="3">
             <SRMWarning
               srm={
                 latest
@@ -146,7 +147,7 @@ export default function BanditSummaryResultsTab({
               totalUsers={totalUsers}
               multipleExposures={multipleExposures ?? 0}
             />
-          </div>
+          </Flex>
         )}
 
         {showVisualizations && (

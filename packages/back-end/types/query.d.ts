@@ -1,8 +1,6 @@
 import { z } from "zod";
-import {
-  queryPointerValidator,
-  queryStatusValidator,
-} from "back-end/src/validators/queries";
+import { queryPointerValidator, queryStatusValidator } from "shared/validators";
+import type { PopulationDataInterface } from "back-end/types/population-data";
 import { QueryLanguage } from "./datasource";
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;
@@ -17,8 +15,23 @@ export type QueryStatistics = {
   rowsProcessed?: number;
   bytesProcessed?: number;
   bytesBilled?: number;
+  rowsInserted?: number;
   warehouseCachedResult?: boolean;
   partitionsUsed?: boolean;
+  physicalWrittenBytes?: number;
+};
+
+export type ExperimentQueryMetadata = {
+  experimentProject?: string;
+  experimentOwner?: string;
+  experimentTags?: string[];
+};
+
+export type AdditionalQueryMetadata = ExperimentQueryMetadata;
+
+export type QueryMetadata = AdditionalQueryMetadata & {
+  userName?: string;
+  userId?: string;
 };
 
 export type QueryType =
@@ -33,10 +46,25 @@ export type QueryType =
   | "experimentTraffic"
   | "experimentMultiMetric"
   | "populationMetric"
-  | "populationMultiMetric";
+  | "populationMultiMetric"
+  | "experimentIncrementalRefreshCreateUnitsTable"
+  | "experimentIncrementalRefreshDropUnitsTable"
+  | "experimentIncrementalRefreshDropTempUnitsTable"
+  | "experimentIncrementalRefreshUpdateUnitsTable"
+  | "experimentIncrementalRefreshAlterUnitsTable"
+  | "experimentIncrementalRefreshMaxTimestampUnitsTable"
+  | "experimentIncrementalRefreshCreateMetricsSourceTable"
+  | "experimentIncrementalRefreshInsertMetricsSourceData"
+  | "experimentIncrementalRefreshMaxTimestampMetricsSource"
+  | "experimentIncrementalRefreshDropMetricsCovariateTable"
+  | "experimentIncrementalRefreshCreateMetricsCovariateTable"
+  | "experimentIncrementalRefreshInsertMetricsCovariateData"
+  | "experimentIncrementalRefreshStatistics"
+  | "experimentIncrementalRefreshHealth";
 
 export interface QueryInterface {
   id: string;
+  displayTitle?: string;
   organization: string;
   datasource: string;
   language: QueryLanguage;
@@ -57,4 +85,9 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  hasChunkedResults?: boolean;
 }
+export type PopulationDataQuerySettings = Pick<
+  PopulationDataInterface,
+  "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"
+>;

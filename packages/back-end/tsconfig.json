@@ -19,7 +19,6 @@
     "resolveJsonModule": true,
     "plugins": [{ "transform": "typescript-transform-paths" }],
     "inlineSources": true,
-    "skipLibCheck": true,
     // Set `sourceRoot` to  "/" to strip the build path prefix
     // from generated source code references.
     // This improves issue grouping in Sentry.

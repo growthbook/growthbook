@@ -8,7 +8,7 @@ import { truncateString } from "shared/util";
 import {date, daysBetween} from "shared/dates";
 import React, {useEffect, useRef, useState} from "react";
 import clsx from "clsx";
-import {VisualChangesetInterface} from "back-end/types/visual-changeset";
+import {VisualChangesetInterface} from "shared/types/visual-changeset";
 import {URLRedirectInterface} from "back-end/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
@@ -130,10 +130,10 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   return (
     <div className={`public pb-2 ${isBandit ? "bandit" : "experiment"}`}>
       <Head>
-        <title>{experiment?.name || "Experiment not found"}</title>
+        <title>{experiment?.name ? `${experiment.name} | GrowthBook` : "Experiment not found | GrowthBook"}</title>
         <meta
           property="og:title"
-          content={experiment?.name ? (`${isBandit ? "Bandit" : "Experiment"}: ${experiment?.name}`) : "Experiment not found"}
+          content={experiment?.name ? (`${isBandit ? "Bandit" : "Experiment"}: ${experiment?.name} | GrowthBook`) : "Experiment not found | GrowthBook"}
         />
         <meta
           property="og:description"

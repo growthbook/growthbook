@@ -64,6 +64,7 @@ export default function ConfigureLegacyReport({
     getDatasourceById,
     getMetricById,
     getExperimentMetricById,
+    metricGroups,
   } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
 
@@ -90,6 +91,7 @@ export default function ConfigureLegacyReport({
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     report.args,
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m),

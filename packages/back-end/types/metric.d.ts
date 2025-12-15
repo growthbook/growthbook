@@ -1,3 +1,4 @@
+import { TemplateVariables } from "shared/types/sql";
 import {
   CappingType,
   LegacyMetricWindowSettings,
@@ -6,7 +7,6 @@ import {
   MetricWindowSettings,
 } from "./fact-table";
 import { Queries } from "./query";
-import { TemplateVariables } from "./sql";
 
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
@@ -37,6 +37,7 @@ export interface Condition {
 }
 
 // admin is used for Official Metrics and can be managed by any admin, even in the UI
+// We have deprecated legacy metrics from having managedBy set to "admin". Existing legacy metrics will still work.
 export type ManagedBy = "" | "config" | "api" | "admin";
 
 export interface MetricInterface {

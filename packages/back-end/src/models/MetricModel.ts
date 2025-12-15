@@ -8,7 +8,7 @@ import {
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,
@@ -160,12 +160,9 @@ export async function insertMetric(
     );
   }
 
-  if (
-    metric.managedBy === "admin" &&
-    !context.hasPremiumFeature("manage-official-resources")
-  ) {
+  if (metric.managedBy === "admin") {
     throw new Error(
-      "Your organization's plan does not support creating official metrics.",
+      "We have deprecated support for marking Legacy Metrics as Official via the UI. We suggest using Fact Metrics instead.",
     );
   }
 
@@ -189,12 +186,9 @@ export async function insertMetrics(
         "Cannot mark a metric as managed by the API outside of the API.",
       );
     }
-    if (
-      metric.managedBy === "admin" &&
-      !context.hasPremiumFeature("manage-official-resources")
-    ) {
+    if (metric.managedBy === "admin") {
       throw new Error(
-        "Your organization's plan does not support creating official metrics.",
+        "We have deprecated support for marking Legacy Metrics as Official via the UI. We suggest using Fact Metrics instead.",
       );
     }
     if (!context.permissions.canCreateMetric(metric)) {

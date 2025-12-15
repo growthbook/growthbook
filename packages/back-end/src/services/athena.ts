@@ -4,13 +4,10 @@ import {
   ResultSet,
   StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-} from "back-end/src/types/Integration";
 
 async function assumeRole(params: AthenaConnectionParams) {
   // build sts client
@@ -73,6 +70,15 @@ export async function runAthenaQuery(
   sql: string,
   setExternalId: ExternalIdCallback,
 ): Promise<QueryResponse> {
+  // AWS Athena has a hard limit of 262,144 characters for the QueryString parameter
+  // Fail early to avoid CPU and memory issues on the server
+  const MAX_QUERY_LENGTH = 262144;
+  if (sql.length > MAX_QUERY_LENGTH) {
+    throw new Error(
+      `Query string length (${sql.length} characters) exceeds Athena's maximum allowed length of ${MAX_QUERY_LENGTH} characters. Please simplify your query.`,
+    );
+  }
+
   const athena = await getAthenaInstance(conn);
 
   const { database, bucketUri, workGroup, catalog } = conn;

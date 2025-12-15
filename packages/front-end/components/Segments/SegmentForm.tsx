@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { SegmentInterface } from "back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
@@ -129,6 +129,10 @@ const SegmentForm: FC<{
       {sqlOpen && datasource && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
+          sqlObjectInfo={{
+            objectType: "Segment",
+            objectName: form.watch("name"),
+          }}
           datasourceId={datasource.id || ""}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
           requiredColumns={requiredColumns}

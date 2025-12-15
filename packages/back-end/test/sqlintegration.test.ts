@@ -83,12 +83,14 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        false,
-        new Date(),
-      ).replace(/\s+/g, " "),
+      bqIntegration["addCaseWhenTimeFilter"]({
+        col: "val",
+        metric: normalSqlMetric,
+        overrideConversionWindows: false,
+        endDate: new Date(),
+        metricTimestampColExpr: "m.timestamp",
+        exposureTimestampColExpr: "d.timestamp",
+      }).replace(/\s+/g, " "),
     ).toEqual(
       "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)",
     );
@@ -98,26 +100,32 @@ describe("bigquery integration", () => {
       date,
     )}`;
     expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        true,
-        date,
-      ).replace(/\s+/g, " "),
+      bqIntegration["addCaseWhenTimeFilter"]({
+        col: "val",
+        metric: normalSqlMetric,
+        overrideConversionWindows: true,
+        endDate: date,
+        metricTimestampColExpr: "m.timestamp",
+        exposureTimestampColExpr: "d.timestamp",
+      }).replace(/\s+/g, " "),
     ).toEqual(
       `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`,
     );
 
     expect(
-      bqIntegration["getAggregateMetricColumn"]({
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
         metric: customNumberAggMetric,
       }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: customCountAgg }),
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+        metric: customCountAgg,
+      }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: normalSqlMetric }),
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+        metric: normalSqlMetric,
+      }),
     ).toEqual("SUM(COALESCE(value, 0))");
   });
   it("correctly picks date windows", () => {
@@ -714,6 +722,7 @@ describe("full fact metric experiment query - bigquery", () => {
     "amount",
     "$$count",
     "$$distinctUsers",
+    "$$distinctDates",
   ];
   const binomialColumns: ColumnRef["column"][] = ["$$distinctUsers"];
   const quantileSettings: FactMetricInterface["quantileSettings"][] = [

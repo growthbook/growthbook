@@ -3,8 +3,13 @@ import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
+import {
+  envAllowsCreatingMetrics,
+  hasFileConfig,
+  isCloud,
+} from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -52,18 +57,25 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const { apiCall } = useAuth();
 
+  const gb = useGrowthBook();
+
   const openSampleExperiment = async () => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>("/demo-datasource-project", {
-        method: "POST",
+      }>(
+        isCloud() && gb.isOn("new-sample-data")
+          ? "/demo-datasource-project/new"
+          : "/demo-datasource-project",
+        {
+          method: "POST",
+        },
+      );
+      track("Create Sample Project", {
+        source: "experiments-get-started",
       });
       await mutateDefinitions();
       if (res.experimentId) {

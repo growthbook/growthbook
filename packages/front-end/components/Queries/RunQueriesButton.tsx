@@ -59,7 +59,7 @@ export function getQueryStatus(
   }
 
   if (numFailed > 0) status = "partially-succeeded";
-  if (numFailed >= queries.length / 2) status = "failed";
+  if (queries.length > 0 && numFailed >= queries.length / 2) status = "failed";
   if (running) status = "running";
   return { status, numFailed, failedNames };
 }

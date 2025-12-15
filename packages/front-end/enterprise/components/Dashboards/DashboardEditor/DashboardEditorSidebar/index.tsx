@@ -8,7 +8,7 @@ import React, { useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
-import { isPersistedDashboardBlock } from "shared/enterprise";
+import { dashboardBlockHasIds } from "shared/enterprise";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenuItem,
@@ -20,8 +20,17 @@ import {
   DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING,
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
-import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO } from "..";
+import Button from "@/ui/Button";
+import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
+import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
 import EditSingleBlock from "./EditSingleBlock";
+
+// Block types that are allowed in general dashboards (non-experiment specific)
+const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+  "markdown",
+  "sql-explorer",
+  "metric-explorer",
+];
 
 function moveBlocks<T>(
   blocks: Array<T>,
@@ -37,7 +46,10 @@ function moveBlocks<T>(
 }
 
 interface Props {
-  experiment: ExperimentInterfaceStringDates;
+  dashboardId: string;
+  projects: string[];
+  experiment: ExperimentInterfaceStringDates | null;
+  isGeneralDashboard?: boolean;
   open: boolean;
   cancel: () => void;
   submit: () => void;
@@ -59,7 +71,10 @@ interface Props {
 }
 
 export default function DashboardEditorSidebar({
+  projects,
+  dashboardId,
   experiment,
+  isGeneralDashboard = false,
   open,
   cancel,
   submit,
@@ -79,6 +94,11 @@ export default function DashboardEditorSidebar({
   const [previewBlockPlacement, setPreviewBlockPlacement] = useState<
     number | undefined
   >(undefined);
+
+  // TODO(incremental-refresh): remove when dimensions supported in dashboard
+  const experimentalRefreshMode = useExperimentPipelineMode(
+    experiment ?? undefined,
+  );
 
   const resetDragState = () => {
     setDraggingBlockIndex(undefined);
@@ -105,67 +125,87 @@ export default function DashboardEditorSidebar({
       <Text style={{ color: "var(--color-text-mid)" }}>
         Click to add blocks.
       </Text>
-      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-        <Flex
-          direction="column"
-          gap="2"
-          align="start"
-          key={`${subgroup}-${i}`}
-          width="100%"
-        >
-          <Text
-            weight="medium"
-            size="1"
-            style={{
-              color: "var(--color-text-high)",
-              textTransform: "uppercase",
-            }}
+      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
+        // Filter block types based on dashboard type
+        const allowedBlockTypes = blockTypes.filter((bType) =>
+          isBlockTypeAllowed(
+            bType,
+            isGeneralDashboard,
+            experimentalRefreshMode === "incremental-refresh",
+          ),
+        );
+
+        // Don't render the subgroup if no block types are allowed
+        if (allowedBlockTypes.length === 0) {
+          return null;
+        }
+
+        return (
+          <Flex
+            direction="column"
+            gap="2"
+            align="start"
+            key={`${subgroup}-${i}`}
+            width="100%"
           >
-            {subgroup}
-          </Text>
-          {blockTypes.map((bType) => (
-            <a
-              href="#"
-              key={bType}
-              onClick={(e) => {
-                e.preventDefault();
-                addBlockType(bType);
-              }}
-              style={{
-                display: "block",
-                padding: "5px",
-                margin: "0 -5px",
-                width: "100%",
-                borderRadius: "6px",
-              }}
-              className="hover-show no-underline hover-border-violet"
-            >
-              <Flex align="center">
-                <Avatar
-                  radius="small"
-                  color="indigo"
-                  variant="soft"
-                  mr="2"
-                  size="sm"
-                >
-                  {BLOCK_TYPE_INFO[bType].icon}
-                </Avatar>
-                <Text
-                  size="2"
-                  weight="regular"
-                  style={{ color: "var(--color-text-high" }}
-                >
-                  {BLOCK_TYPE_INFO[bType].name}
-                </Text>
-                <div style={{ flex: 1 }} />
-                <Text color="violet" className="ml-auto show-target instant">
-                  <PiPlusCircle /> Add
-                </Text>
-              </Flex>
-            </a>
-          ))}
-        </Flex>
-      ))}
+            {/* We hide the `Other` subgroup title for general dashboards since those are the only available options */}
+            {experiment ? (
+              <Text
+                weight="medium"
+                size="1"
+                style={{
+                  color: "var(--color-text-high)",
+                  textTransform: "uppercase",
+                }}
+              >
+                {subgroup}
+              </Text>
+            ) : null}
+
+            {allowedBlockTypes.map((bType) => (
+              <a
+                href="#"
+                key={bType}
+                onClick={(e) => {
+                  e.preventDefault();
+                  addBlockType(bType);
+                }}
+                style={{
+                  display: "block",
+                  padding: "5px",
+                  margin: "0 -5px",
+                  width: "100%",
+                  borderRadius: "6px",
+                }}
+                className="hover-show no-underline hover-border-violet"
+              >
+                <Flex align="center">
+                  <Avatar
+                    radius="small"
+                    color="indigo"
+                    variant="soft"
+                    mr="2"
+                    size="sm"
+                  >
+                    {BLOCK_TYPE_INFO[bType].icon}
+                  </Avatar>
+                  <Text
+                    size="2"
+                    weight="regular"
+                    style={{ color: "var(--color-text-high" }}
+                  >
+                    {BLOCK_TYPE_INFO[bType].name}
+                  </Text>
+                  <div style={{ flex: 1 }} />
+                  <Text color="violet" className="ml-auto show-target instant">
+                    <PiPlusCircle /> Add
+                  </Text>
+                </Flex>
+              </a>
+            ))}
+          </Flex>
+        );
+      })}
     </Flex>
   );
 
@@ -198,13 +238,26 @@ export default function DashboardEditorSidebar({
         }}
       >
         {isDefined(stagedBlock) ? (
-          <EditSingleBlock
-            experiment={experiment}
-            cancel={cancel}
-            submit={submit}
-            block={stagedBlock}
-            setBlock={setStagedBlock}
-          />
+          // Only render EditSingleBlock if we have an experiment or if it's a general dashboard block
+          experiment ||
+          GENERAL_DASHBOARD_BLOCK_TYPES.includes(stagedBlock.type) ? (
+            <EditSingleBlock
+              dashboardId={dashboardId}
+              experiment={experiment}
+              projects={projects}
+              cancel={cancel}
+              submit={submit}
+              block={stagedBlock}
+              setBlock={setStagedBlock}
+            />
+          ) : (
+            <div style={{ width: "440px", padding: "20px" }}>
+              <Text>This block type requires an experiment to edit.</Text>
+              <Button onClick={cancel} style={{ marginTop: "10px" }}>
+                Cancel
+              </Button>
+            </div>
+          )
         ) : !blockNavigatorEnabled ? (
           <div style={{ width: "440px" }}>
             <Box px="4" pt="4">
@@ -230,7 +283,7 @@ export default function DashboardEditorSidebar({
                   <Flex
                     width="100%"
                     justify="between"
-                    key={isPersistedDashboardBlock(block) ? block.id : i}
+                    key={dashboardBlockHasIds(block) ? block.id : i}
                     my="2"
                     onClick={() => focusBlock(i)}
                     className="hover-border-violet"

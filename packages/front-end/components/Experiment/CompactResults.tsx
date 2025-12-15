@@ -1,4 +1,5 @@
 import { FC, ReactElement, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -15,13 +16,11 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { FaAngleRight, FaUsers } from "react-icons/fa";
 import {
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiPushPinFill,
 } from "react-icons/pi";
-import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -40,10 +39,7 @@ import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
-import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { ExperimentTab } from "./TabbedPage";
-
-const numberFormatter = Intl.NumberFormat();
 
 const CompactResults: FC<{
   experimentId: string;
@@ -156,15 +152,12 @@ const CompactResults: FC<{
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
 
-  const [totalUsers, variationUsers] = useMemo(() => {
+  const [totalUsers] = useMemo(() => {
     let totalUsers = 0;
-    const variationUsers: number[] = [];
-    results?.variations?.forEach((v, i) => {
+    results?.variations?.forEach((v) => {
       totalUsers += v.users;
-      variationUsers[i] = variationUsers[i] || 0;
-      variationUsers[i] += v.users;
     });
-    return [totalUsers, variationUsers];
+    return [totalUsers];
   }, [results]);
 
   const [expandedMetrics, setExpandedMetrics] = useState<
@@ -234,30 +227,7 @@ const CompactResults: FC<{
     <>
       {!mainTableOnly && (
         <>
-          {!isBandit && status !== "draft" && totalUsers > 0 && (
-            <div className="users">
-              <Collapsible
-                trigger={
-                  <div className="d-inline-flex mx-3 align-items-center">
-                    <FaUsers size={16} className="mr-1" />
-                    {numberFormatter.format(totalUsers)} total units
-                    <FaAngleRight className="chevron ml-1" />
-                  </div>
-                }
-                transitionTime={100}
-              >
-                <div style={{ maxWidth: "800px" }}>
-                  <VariationUsersTable
-                    variations={variations}
-                    users={variationUsers}
-                    srm={results.srm}
-                  />
-                </div>
-              </Collapsible>
-            </div>
-          )}
-
-          <div className="mx-3">
+          <Flex direction="column" gap="2" mx="3">
             {experimentType !== "multi-armed-bandit" && (
               <DataQualityWarning
                 results={results}
@@ -271,7 +241,7 @@ const CompactResults: FC<{
               totalUsers={totalUsers}
               multipleExposures={multipleExposures}
             />
-          </div>
+          </Flex>
         </>
       )}
 

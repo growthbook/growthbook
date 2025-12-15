@@ -13,8 +13,7 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
-    "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "typings.d.ts"]
+  "include": ["src/**/*", "typings.d.ts", "types", "types.js"]
 }

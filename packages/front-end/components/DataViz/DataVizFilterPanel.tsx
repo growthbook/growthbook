@@ -1,16 +1,15 @@
 import { Box, Flex, Separator, Text } from "@radix-ui/themes";
-import {
-  DataVizConfig,
-  FilterConfiguration,
-} from "back-end/src/validators/saved-queries";
+import { DataVizConfig, FilterConfiguration } from "shared/validators";
 import { useEffect, useState } from "react";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Badge from "@/ui/Badge";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
+import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import Tooltip from "../Tooltip/Tooltip";
 import { inferFieldType } from "./DataVizConfigPanel";
 import DataVizFilter from "./DataVizFilter";
 
@@ -30,14 +29,13 @@ function getColumnFilterOptions(
   sampleRow: Record<string, unknown>,
 ) {
   const filterableColumns: ColumnFilterOption[] = [];
-  if (requiresXAxis(dataVizConfig) && dataVizConfig.xAxis) {
-    if (
-      dataVizConfig.xAxis?.type === "date" ||
-      dataVizConfig.xAxis?.type === "number"
-    ) {
+  if (requiresXAxis(dataVizConfig)) {
+    const xAxisConfigs = getXAxisConfig(dataVizConfig);
+    const xConfig = xAxisConfigs[0];
+    if (xConfig && (xConfig.type === "date" || xConfig.type === "number")) {
       filterableColumns.push({
-        column: dataVizConfig.xAxis.fieldName,
-        knownType: dataVizConfig.xAxis.type,
+        column: xConfig.fieldName,
+        knownType: xConfig.type,
       });
     }
   }
@@ -237,7 +235,9 @@ export default function DataVizFilterPanel({
               >
                 <FaPlusCircle className="mr-1" />
                 <Text as="span" className="font-weight-bold">
-                  Add Filter
+                  <Tooltip body="Filters can be used to filter the data returned by the query, before it is aggregated and displayed.">
+                    Add Filter
+                  </Tooltip>
                 </Text>
               </Link>
             </Flex>

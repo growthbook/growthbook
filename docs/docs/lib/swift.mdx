@@ -348,6 +348,10 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 
 ## Remote evaluation vs. local evaluation
 
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
+
 - Local evaluation loads a full feature payload into the SDK (e.g., via built-in fetching or a bundled JSON) and evaluates rules on-device.
 - Remote evaluation delegates evaluation to GrowthBook and downloads already-evaluated feature values for the current attributes. This reduces payload size and can simplify privacy controls.
 - Choose based on privacy, payload size, and offline requirements.
@@ -648,6 +652,8 @@ let gbSecure = GrowthBookBuilder(
   remoteEval: true  // Enable remote evaluation
 ).initializer()
 ```
+
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information.
 
 ## Troubleshooting and debugging
 

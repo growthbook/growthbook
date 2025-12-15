@@ -24,17 +24,19 @@ const ManualSnapshotForm: FC<{
   lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
 }> = ({ experiment, close, success, lastAnalysis, phase }) => {
-  const { getMetricById } = useDefinitions();
+  const { getMetricById, metricGroups } = useDefinitions();
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
 
   const filteredMetrics: MetricInterface[] = [];
 
-  getAllMetricIdsFromExperiment(experiment, false).forEach((mid) => {
-    const m = getMetricById(mid);
-    if (!m) return;
-    filteredMetrics.push(m);
-  });
+  getAllMetricIdsFromExperiment(experiment, false, metricGroups).forEach(
+    (mid) => {
+      const m = getMetricById(mid);
+      if (!m) return;
+      filteredMetrics.push(m);
+    },
+  );
 
   const isRatio = (metric: MetricInterface) => {
     if (!metric.denominator) return false;

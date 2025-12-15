@@ -20,6 +20,7 @@ import {
 } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Field from "@/components/Forms/Field";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
@@ -125,7 +126,10 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
           </td>
         )}
         {!hideValueField && (
-          <td key={`${variation.id}__${i}__1`}>
+          <td
+            key={`${variation.id}__${i}__1`}
+            style={valueType === "json" ? { minWidth: 300 } : undefined}
+          >
             {setVariations ? (
               <FeatureValueField
                 id={`value_${i}`}
@@ -142,6 +146,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 valueType={valueType}
                 feature={feature}
                 renderJSONInline={false}
+                useCodeInput={true}
+                showFullscreenButton={true}
+                codeInputDefaultHeight={FIVE_LINES_HEIGHT}
               />
             ) : (
               <>{variation.value}</>

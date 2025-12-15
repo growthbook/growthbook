@@ -67,6 +67,8 @@ export default function RolloutFields({
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
+            useCodeInput={true}
+            showFullscreenButton={true}
           />
         </div>
         <ScheduleInputs

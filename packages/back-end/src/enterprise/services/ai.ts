@@ -36,7 +36,8 @@ import {
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { logger } from "back-end/src/util/logger";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
+import { OrganizationInterface } from "back-end/types/organization";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,

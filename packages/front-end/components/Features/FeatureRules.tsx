@@ -8,9 +8,9 @@ import {
 import { Environment } from "back-end/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
@@ -120,7 +120,7 @@ export default function FeatureRules({
                     <Badge
                       ml="2"
                       label={
-                        holdout?.environmentSettings[e.id].enabled
+                        holdout?.environmentSettings?.[e.id]?.enabled
                           ? (rulesByEnv[e.id].length + 1).toString()
                           : rulesByEnv[e.id].length.toString()
                       }
@@ -212,7 +212,7 @@ export default function FeatureRules({
         </Container>
         {environments.map((e) => {
           const includeHoldoutRule =
-            holdout && holdout.environmentSettings[e.id].enabled;
+            !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">

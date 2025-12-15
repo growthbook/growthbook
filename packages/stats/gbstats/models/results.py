@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
+import pandas as pd
 
 from gbstats.bayesian.tests import RiskType
 from gbstats.frequentist.tests import PValueErrorMessage
@@ -94,6 +95,13 @@ class DimensionResponse:
     dimension: str
     srm: float
     variations: List[VariationResponse]
+
+    def to_df(self) -> pd.DataFrame:
+        df = pd.DataFrame(self.variations)
+        df["variation"] = df.index
+        df["dimension"] = self.dimension
+        df["srm"] = self.srm
+        return df
 
 
 @dataclass

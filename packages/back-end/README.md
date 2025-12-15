@@ -103,8 +103,8 @@ From this, you can export types to use throughout the front-end and back-end. Th
 ```ts
 // File: back-end/types/foo.d.ts
 import { z } from "zod";
-import type { fooSchema } from "back-end/src/validators/foo";
-import { CreateProps, UpdateProps } from "./models";
+import type { fooSchema } from "shared/validators";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 
 // Full interface
 export type FooInterface = z.infer<fooSchema>;
@@ -119,7 +119,7 @@ Create the data model class based on the schema.
 
 ```ts
 // File: back-end/src/models/FooModel.ts
-import { fooSchema } from "back-end/src/validators/foo";
+import { fooSchema } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

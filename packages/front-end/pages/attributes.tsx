@@ -6,7 +6,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { BsXCircle } from "react-icons/bs";
 import { FeatureInterface } from "back-end/src/validators/features";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";

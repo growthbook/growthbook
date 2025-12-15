@@ -8,7 +8,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "back-end/types/report";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { getAllExperiments } from "./ExperimentModel";

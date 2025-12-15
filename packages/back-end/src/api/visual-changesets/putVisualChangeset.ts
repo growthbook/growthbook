@@ -1,5 +1,5 @@
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PutVisualChangesetResponse } from "back-end/types/openapi";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,

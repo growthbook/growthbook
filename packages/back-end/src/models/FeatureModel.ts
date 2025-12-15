@@ -3,6 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
+import { SafeRolloutInterface } from "shared/validators";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -19,13 +20,13 @@ import {
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
-import { EventUser } from "back-end/src/events/event-types";
+import { EventUser } from "back-end/types/events/event-types";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -38,18 +39,16 @@ import {
   simpleSchemaValidator,
 } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
-import { ResourceEvents } from "back-end/src/events/base-types";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { ResourceEvents } from "back-end/types/events/base-types";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
   updateVercelExperimentationItemFromFeature,
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
-import {
-  DiffResult,
-  getObjectDiff,
-} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { DiffResult } from "back-end/types/events/diff";
+import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateFeatureHooks } from "../enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -187,14 +186,17 @@ const toInterface = (
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
   {
-    project,
+    projects,
     includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {},
+  }: { projects?: string[]; includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (project) {
-    q.project = project;
+  if (projects && projects.length === 1) {
+    q.project = projects[0];
+  } else if (projects && projects.length > 1) {
+    q.project = { $in: projects };
   }
+
   if (!includeArchived) {
     q.archived = { $ne: true };
   }
@@ -332,10 +334,20 @@ export async function createFeature(
     data,
     getEnvironmentIdsFromOrg(org),
   );
-  const feature = await FeatureModel.create({
+
+  const featureToCreate = {
     ...data,
     linkedExperiments,
+  };
+
+  // Run any custom hooks for this feature
+  await runValidateFeatureHooks({
+    context,
+    feature: featureToCreate,
+    original: null,
   });
+
+  const feature = await FeatureModel.create(featureToCreate);
 
   // Historically, we haven't properly removed revisions when deleting a feature
   // So, clean up any conflicting revisions first before creating a new one
@@ -673,6 +685,12 @@ export async function updateFeature(
     });
   }
 
+  await runValidateFeatureHooks({
+    context,
+    feature: updatedFeature,
+    original: feature,
+  });
+
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
     {
@@ -805,6 +823,7 @@ export async function toggleFeatureEnvironment(
 
 export async function addFeatureRule(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   envs: string[],
   rule: FeatureRule,
@@ -816,7 +835,7 @@ export async function addFeatureRule(
   }
 
   const changes = {
-    rules: revision.rules || {},
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
     status: revision.status,
   };
   envs.forEach((env) => {
@@ -825,6 +844,7 @@ export async function addFeatureRule(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -839,6 +859,7 @@ export async function addFeatureRule(
 
 export async function editFeatureRule(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   environment: string,
   i: number,
@@ -846,7 +867,10 @@ export async function editFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
-  const changes = { rules: revision.rules || {}, status: revision.status };
+  const changes = {
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
+    status: revision.status,
+  };
 
   changes.rules[environment] = changes.rules[environment] || [];
   if (!changes.rules[environment][i]) {
@@ -859,6 +883,7 @@ export async function editFeatureRule(
   } as FeatureRule;
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -873,6 +898,7 @@ export async function editFeatureRule(
 
 export async function copyFeatureEnvironmentRules(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   sourceEnv: string,
   targetEnv: string,
@@ -880,12 +906,13 @@ export async function copyFeatureEnvironmentRules(
   resetReview: boolean,
 ) {
   const changes = {
-    rules: revision.rules || {},
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
     status: revision.status,
   };
   changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -959,6 +986,7 @@ export async function removeProjectFromFeatures(
 
 export async function setDefaultValue(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
@@ -966,6 +994,7 @@ export async function setDefaultValue(
 ) {
   await updateRevision(
     context,
+    feature,
     revision,
     { defaultValue },
     {
@@ -1114,7 +1143,13 @@ export async function publishRevision(
     result,
   );
 
-  await markRevisionAsPublished(context, revision, context.auditUser, comment);
+  await markRevisionAsPublished(
+    context,
+    feature,
+    revision,
+    context.auditUser,
+    comment,
+  );
 
   return updatedFeature;
 }

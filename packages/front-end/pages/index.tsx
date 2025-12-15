@@ -7,6 +7,8 @@ import { useUser } from "@/services/UserContext";
 import { useFeaturesList } from "@/services/features";
 import GetStartedAndHomePage from "@/components/GetStarted";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { AppFeatures } from "@/types/app-features";
+import { isCloud } from "@/services/env";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
@@ -24,7 +26,7 @@ export default function Home(): React.ReactElement {
 
   const { organization } = useUser();
 
-  const gb = useGrowthBook();
+  const gb = useGrowthBook<AppFeatures>();
 
   useEffect(() => {
     if (!organization) return;
@@ -40,11 +42,18 @@ export default function Home(): React.ReactElement {
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
     const hasFeatureOrExperiment = hasFeatures || hasExperiments;
+    const intentToExperiment =
+      organization?.demographicData?.ownerUsageIntents?.includes(
+        "experiments",
+      ) ||
+      organization?.demographicData?.ownerUsageIntents?.length === 0 ||
+      !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
     if (!hasFeatureOrExperiment) {
-      if (
-        gb.isOn("use-new-setup-flow-2") &&
-        !organization.isVercelIntegration
-      ) {
+      const useNewOnboarding =
+        intentToExperiment &&
+        isCloud() &&
+        gb.isOn("experimentation-focused-onboarding");
+      if (!organization.isVercelIntegration && !useNewOnboarding) {
         router.replace("/setup");
       } else {
         router.replace("/getstarted");

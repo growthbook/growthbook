@@ -12,12 +12,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
-function SnapshotStatusSummary({
+function DashboardStatusSummary({
   enableAutoUpdates,
   nextUpdate,
+  dashboardLastUpdated,
 }: {
   enableAutoUpdates: boolean;
   nextUpdate: Date | undefined;
+  dashboardLastUpdated?: Date; // Optional rather than Date | undefined as this doesn't apply to experiment dashboards
 }) {
   const {
     settings: { updateSchedule },
@@ -25,6 +27,7 @@ function SnapshotStatusSummary({
   const {
     defaultSnapshot,
     snapshotsMap,
+    metricAnalysesMap,
     refreshError,
     allQueries,
     snapshotError,
@@ -34,24 +37,30 @@ function SnapshotStatusSummary({
     [allQueries],
   );
 
-  if (!defaultSnapshot) return null;
-  // Find any snapshot actively in use by the dashboard (if one exists)
+  // Find any snapshot or metric analysis actively in use by the dashboard (if one exists)
   const snapshotEntry = snapshotsMap
     .entries()
-    .find(([snapshotId]) => snapshotId !== defaultSnapshot.id);
+    .find(([snapshotId]) => snapshotId !== defaultSnapshot?.id);
+  const metricAnalysisEntry = [...metricAnalysesMap.entries()][0];
 
   const snapshot = snapshotEntry ? snapshotEntry[1] : defaultSnapshot;
+  const metricAnalysis = metricAnalysisEntry?.[1];
 
   const textColor =
     refreshError || numFailed > 0 || snapshotError ? "red" : undefined;
+  const lastUpdateTime =
+    metricAnalysis?.runStarted ??
+    dashboardLastUpdated ??
+    snapshot?.runStarted ??
+    undefined;
   const content = refreshError
     ? "Update Failed"
     : numFailed > 0
       ? "One or more queries failed"
       : snapshotError
         ? "Error running analysis"
-        : snapshot.runStarted
-          ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
+        : lastUpdateTime
+          ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
           : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
@@ -93,21 +102,24 @@ function SnapshotStatusSummary({
 }
 
 interface Props {
+  dashboardId: string;
   enableAutoUpdates: boolean;
   nextUpdate: Date | undefined;
+  dashboardLastUpdated?: Date;
   disabled: boolean;
   isEditing: boolean;
 }
 
 export default function DashboardUpdateDisplay({
+  dashboardId,
   enableAutoUpdates,
   nextUpdate,
+  dashboardLastUpdated,
   disabled,
   isEditing,
 }: Props) {
   const { datasources } = useDefinitions();
   const {
-    defaultSnapshot: snapshot,
     projects,
     loading,
     refreshStatus,
@@ -142,7 +154,6 @@ export default function DashboardUpdateDisplay({
         <Text>Loading dashboard...</Text>
       </Flex>
     );
-  if (!snapshot) return null;
 
   return (
     <Flex
@@ -152,9 +163,10 @@ export default function DashboardUpdateDisplay({
       style={{ minWidth: 250 }}
       justify={"end"}
     >
-      <SnapshotStatusSummary
+      <DashboardStatusSummary
         enableAutoUpdates={enableAutoUpdates}
         nextUpdate={nextUpdate}
+        dashboardLastUpdated={dashboardLastUpdated}
       />
       {isEditing && (
         <DashboardViewQueriesButton
@@ -168,7 +180,12 @@ export default function DashboardUpdateDisplay({
         {canRefresh && (
           <Button
             size="xs"
-            disabled={refreshing}
+            disabled={
+              refreshing ||
+              !dashboardId ||
+              dashboardId === "new" ||
+              !allQueries.length
+            }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
             variant="ghost"

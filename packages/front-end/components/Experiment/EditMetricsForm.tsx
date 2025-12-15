@@ -11,7 +11,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -24,6 +24,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -145,7 +146,7 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
@@ -155,6 +156,13 @@ const EditMetricsForm: FC<{
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+
+  const datasource = getDatasourceById(experiment.datasource);
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
@@ -203,6 +211,8 @@ const EditMetricsForm: FC<{
       cta="Save"
     >
       <ExperimentMetricsSelector
+        noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+        excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         project={experiment.project}
@@ -224,6 +234,7 @@ const EditMetricsForm: FC<{
             : undefined
         }
         filterConversionWindowMetrics={isHoldout}
+        experimentId={experiment.id}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (
@@ -314,7 +325,10 @@ const EditMetricsForm: FC<{
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={form}
-                  disabled={!hasOverrideMetricsFeature}
+                  disabled={
+                    !hasOverrideMetricsFeature ||
+                    isExperimentIncludedInIncrementalRefresh
+                  }
                   setHasMetricOverrideRiskError={(v: boolean) =>
                     setHasMetricOverrideRiskError(v)
                   }

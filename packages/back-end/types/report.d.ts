@@ -1,9 +1,9 @@
 import { ExperimentMetricInterface, SliceLevelsData } from "shared/experiments";
+import { ExperimentDecisionFrameworkSettings } from "shared/validators";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
-import { ProjectInterface } from "back-end/src/models/ProjectModel";
-import { ExperimentDecisionFrameworkSettings } from "back-end/src/validators/experiments";
+import { ProjectInterface } from "back-end/src/validators/projects";
 import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,
@@ -76,7 +76,7 @@ export type ExperimentReportPhase = Pick<
 /** @deprecated */
 export interface ExperimentReportInterface extends ReportInterfaceBase {
   type: "experiment";
-  args: ExperimentReportArgs;
+  args: LegacyExperimentReportArgs;
   results?: ExperimentReportResults;
   error?: string;
   queries: Queries;
@@ -110,7 +110,8 @@ export type LegacyMetricRegressionAdjustmentStatus = {
   reason: string;
 };
 
-export interface ExperimentReportArgs {
+/** @deprecated */
+export interface LegacyExperimentReportArgs {
   trackingKey: string;
   datasource: string;
   /** @deprecated */
@@ -159,7 +160,7 @@ export type ReportInterface =
 /** @deprecated */
 export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   args: Omit<
-    ExperimentReportArgs,
+    LegacyExperimentReportArgs,
     | "goalMetrics"
     | "guardrailMetrics"
     | "secondaryMetrics"

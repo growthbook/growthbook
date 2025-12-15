@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
-import { GroupMap, SavedGroupInterface } from "shared/src/types";
+import { GroupMap, SavedGroupInterface } from "shared/types/groups";
+import { FeatureDefinitionWithProject } from "shared/types/sdk";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -23,7 +24,6 @@ import {
   SDKAttributeSchema,
 } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { FeatureDefinitionWithProject } from "back-end/types/api";
 import { SafeRolloutInterface } from "../types/safe-rollout";
 
 const groupMap: GroupMap = new Map();

@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   ReportInterface,
 } from "back-end/types/report";
@@ -11,8 +11,8 @@ import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { IdeaInterface } from "back-end/types/idea";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { IdeaInterface } from "shared/types/idea";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
@@ -64,7 +64,7 @@ export default function LegacyReportPage({
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -420,6 +420,7 @@ export default function LegacyReportPage({
                       metrics={getAllMetricIdsFromExperiment(
                         report.args,
                         false,
+                        metricGroups,
                       )}
                       trackingKey={report.title}
                       dimension={report.args.dimension ?? undefined}
@@ -516,7 +517,7 @@ export default function LegacyReportPage({
                   unknownVariations={report.results?.unknownVariations || []}
                   isUpdating={status === "running"}
                   setVariationIds={async (ids) => {
-                    const args: ExperimentReportArgs = {
+                    const args: LegacyExperimentReportArgs = {
                       ...report.args,
                       variations: report.args.variations.map((v, i) => {
                         return {

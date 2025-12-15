@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-} from "back-end/src/routers/custom-fields/custom-fields.validators";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -57,6 +57,45 @@ export class CustomFieldModel extends BaseClass {
         }
       }) || null
     );
+  }
+
+  public async getCustomFieldsByProject(projectId: string) {
+    const customFields = await this.getCustomFields();
+    if (!customFields) {
+      return null;
+    }
+    return customFields.fields.filter(
+      (field) =>
+        field.projects?.includes(projectId) || field.projects?.length === 0,
+    );
+  }
+
+  public async getCustomFieldsBySectionAndProject({
+    section,
+    project,
+  }: {
+    section: string;
+    project?: string;
+  }) {
+    const customFields = await this.getCustomFields();
+    const filteredCustomFields = customFields?.fields.filter(
+      (v) => v.section === section,
+    );
+    if (!filteredCustomFields || filteredCustomFields.length === 0) {
+      return filteredCustomFields;
+    }
+    return filteredCustomFields.filter((v) => {
+      if (v.projects && v.projects.length && v.projects[0] !== "") {
+        let matched = false;
+        v.projects.forEach((p) => {
+          if (p === project) {
+            matched = true;
+          }
+        });
+        return matched;
+      }
+      return true;
+    });
   }
 
   /**

@@ -208,6 +208,7 @@ export async function createOrganization({
         },
       ],
       killswitchConfirmation: true,
+      runHealthTrafficQuery: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },
@@ -278,6 +279,13 @@ export async function findAllOrganizations(
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
+}
+
+export async function _dangerouslyFindAllOrganizationsByIds(orgIds: string[]) {
+  const docs = await OrganizationModel.find({
+    id: { $in: orgIds },
+  });
+  return docs.map(toInterface);
 }
 
 export async function findOrganizationById(id: string) {

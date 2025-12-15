@@ -26,6 +26,15 @@ export const metricSelectors = [
   "custom",
 ] as const;
 
+// BlockConfig item types for sql-explorer blocks
+export const BLOCK_CONFIG_ITEM_TYPES = {
+  RESULTS_TABLE: "results_table",
+  VISUALIZATION: "visualization",
+} as const;
+
+export function isResultsTableItem(item: string): boolean {
+  return item === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+}
 export const pinSources = ["experiment", "custom", "none"] as const;
 
 export interface BlockSnapshotSettings {
@@ -38,7 +47,7 @@ export function getBlockData<T extends DashboardBlockInterface>(
   return { ...block, organization: undefined, id: undefined, uid: undefined };
 }
 
-export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
+export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
   data: DashboardBlockInterfaceOrData<T>,
 ): data is T {
   const block = data as T;
@@ -223,7 +232,27 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     savedQueryId: "",
-    dataVizConfigIndex: -1,
+    blockConfig: [],
+    ...(initialValues || {}),
+  }),
+  "metric-explorer": ({ initialValues }) => ({
+    type: "metric-explorer",
+    title: "",
+    description: "",
+    factMetricId: "",
+    analysisSettings: {
+      lookbackDays: 30,
+      startDate: new Date(Date.now() - 30 * 24 * 3600 * 1000),
+      endDate: new Date(),
+      populationId: "",
+      populationType: "factTable",
+      userIdType: "",
+      additionalNumeratorFilters: undefined,
+      additionalDenominatorFilters: undefined,
+    },
+    visualizationType: "timeseries",
+    valueType: "avg",
+    metricAnalysisId: "",
     ...(initialValues || {}),
   }),
 };

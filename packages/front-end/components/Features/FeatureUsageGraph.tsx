@@ -18,7 +18,7 @@ import {
   FeatureUsageDataPoint,
   FeatureValueType,
 } from "back-end/types/feature";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
+import { FeatureUsageLookback } from "shared/types/integrations";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";

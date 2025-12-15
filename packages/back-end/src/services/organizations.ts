@@ -21,6 +21,8 @@ import {
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import { AiModel } from "shared/ai";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { SegmentInterface } from "shared/types/segment";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -47,8 +49,8 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
-  ReqContext,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
 import { ConfigFile } from "back-end/src/init/config";
 import {
@@ -69,9 +71,7 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { DimensionInterface } from "back-end/types/dimension";
 import { DataSourceInterface } from "back-end/types/datasource";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { logger } from "back-end/src/util/logger";
-import { SegmentInterface } from "back-end/types/segment";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { LegacyExperimentPhase } from "back-end/types/experiment";
 import { addTags } from "back-end/src/models/TagModel";
@@ -107,7 +107,8 @@ export function validateLoginMethod(
 ) {
   if (
     org.restrictLoginMethod &&
-    req.loginMethod?.id !== org.restrictLoginMethod
+    req.loginMethod?.id !== org.restrictLoginMethod &&
+    !req.superAdmin
   ) {
     throw new Error(
       `Your organization requires you to login with ${
@@ -130,7 +131,8 @@ export function validateLoginMethod(
   // For that, we set `restrictAuthSubPrefix` to "google"
   if (
     org.restrictAuthSubPrefix &&
-    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix) &&
+    !req.superAdmin
   ) {
     throw new Error(
       `Your organization requires you to login with ${org.restrictAuthSubPrefix}`,

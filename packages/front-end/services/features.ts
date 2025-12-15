@@ -34,7 +34,7 @@ import {
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -71,6 +71,21 @@ export interface AttributeData {
   format?: SDKAttributeFormat;
   disableEqualityConditions?: boolean;
 }
+
+export const STRING_VERSION_FORMAT_OPERATORS_MAP = {
+  $eq: "$veq",
+  $ne: "$vne",
+  $gt: "$vgt",
+  $gte: "$vgte",
+  $lt: "$vlt",
+  $lte: "$vlte",
+};
+export const STRING_OPERATORS = Object.keys(
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
+);
+export const STRING_VERSION_OPERATORS = Object.values(
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
+);
 
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
@@ -199,7 +214,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
+    searchFields: ["id^3", "description", "defaultValue"],
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
@@ -1334,10 +1349,39 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$true";
   } else if (attribute.array) {
     return "$includes";
+  } else if (attribute.format === "version") {
+    return "$veq";
   } else if (attribute.disableEqualityConditions) {
     return "$regex";
   }
   return "$eq";
+}
+
+export function getFormatEquivalentOperator(
+  operator: string,
+  desiredFormat?: SDKAttributeFormat,
+): string | null {
+  const isVersionOperator = STRING_VERSION_OPERATORS.includes(operator);
+  if (
+    (desiredFormat === "version" && isVersionOperator) ||
+    (desiredFormat !== "version" && !isVersionOperator)
+  ) {
+    return operator;
+  }
+
+  if (desiredFormat === "version" && !isVersionOperator) {
+    return STRING_VERSION_FORMAT_OPERATORS_MAP[operator];
+  }
+
+  if (desiredFormat !== "version" && isVersionOperator) {
+    return (
+      Object.keys(STRING_VERSION_FORMAT_OPERATORS_MAP).find(
+        (key) => STRING_VERSION_FORMAT_OPERATORS_MAP[key] === operator,
+      ) || null
+    );
+  }
+
+  return null;
 }
 
 export function genDuplicatedKey({ id }: FeatureInterface) {
@@ -1509,4 +1553,41 @@ export function parseDefaultValue(
   } catch (e) {
     throw new Error(`JSON parse error for default value`);
   }
+}
+
+/**
+ * Detects if a targeting condition has version string operator mismatches
+ * i.e. if a version string attribute is using gt instead of vgt or vice-versa
+ */
+export function getAttributesWithVersionStringMismatches(
+  condition: string,
+  attributes: Map<string, AttributeData>,
+): string[] | null {
+  const conds = jsonToConds(condition, attributes);
+  if (!conds || conds.length === 0) {
+    return null;
+  }
+
+  const mismatchedAttributes = new Set<string>();
+
+  conds.forEach(({ field, operator }) => {
+    const attribute = attributes.get(field);
+    if (
+      attribute &&
+      attribute.format === "version" &&
+      STRING_OPERATORS.includes(operator)
+    ) {
+      mismatchedAttributes.add(field);
+    } else if (
+      attribute &&
+      attribute.format !== "version" &&
+      STRING_VERSION_OPERATORS.includes(operator)
+    ) {
+      mismatchedAttributes.add(field);
+    }
+  });
+
+  return mismatchedAttributes.size > 0
+    ? Array.from(mismatchedAttributes)
+    : null;
 }

@@ -1,9 +1,9 @@
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
 import {
   ProxyConnection,
   SDKConnectionInterface,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   getSurrogateKeysFromEnvironments,

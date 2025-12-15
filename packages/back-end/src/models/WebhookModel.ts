@@ -3,10 +3,10 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
 import { z } from "zod";
-import { ReqContext } from "back-end/types/organization";
+import { managedByValidator } from "shared/validators";
+import { WebhookInterface } from "shared/types/webhook";
+import { ReqContext } from "back-end/types/request";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
-import { WebhookInterface } from "back-end/types/webhook";
-import { managedByValidator } from "back-end/src/validators/managed-by";
 
 const payloadFormatValidator = z.enum([
   "standard",
@@ -14,6 +14,7 @@ const payloadFormatValidator = z.enum([
   "standard-no-payload",
   "sdkPayload",
   "edgeConfig",
+  "edgeConfigUnescaped",
   "vercelNativeIntegration",
   "none",
 ]);

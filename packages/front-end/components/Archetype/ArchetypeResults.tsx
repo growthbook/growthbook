@@ -1,5 +1,5 @@
 import React, { FC, Fragment, useState } from "react";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import Link from "next/link";
@@ -230,6 +230,7 @@ const ArchetypeResults: FC<{
                           <Code code={attrDisplay} language="json" />
                         </>
                       }
+                      flipTheme={false}
                     >
                       {archetype.name}
                       {archetype.description && (

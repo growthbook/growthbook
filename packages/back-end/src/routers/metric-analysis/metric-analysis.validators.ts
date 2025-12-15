@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryPointerValidator } from "back-end/src/validators/queries";
+import { queryPointerValidator } from "shared/validators";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([
   "metric",
@@ -21,8 +21,15 @@ export const metricAnalysisSettingsValidator = z
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
+    additionalNumeratorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
+    additionalDenominatorFilters: z.array(z.string()).optional(), // We can pass in adhoc filters for an analysis that don't live on the metric itself
   })
   .strict();
+export const metricAnalysisSettingsStringDatesValidator =
+  metricAnalysisSettingsValidator
+    .omit({ startDate: true, endDate: true })
+    .extend({ startDate: z.string(), endDate: z.string() })
+    .strict();
 
 export const createMetricAnalysisPropsValidator = z
   .object({
@@ -35,6 +42,8 @@ export const createMetricAnalysisPropsValidator = z
     populationId: z.string().nullable(),
     source: metricAnalysisSourceValidator,
     force: z.boolean().optional(),
+    additionalNumeratorFilters: z.array(z.string()).optional(),
+    additionalDenominatorFilters: z.array(z.string()).optional(),
   })
   .strict();
 

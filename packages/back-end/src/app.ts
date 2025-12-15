@@ -123,6 +123,8 @@ import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
+import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { importingRouter } from "./routers/importing/importing.router";
 
 const app = express();
 
@@ -611,6 +613,10 @@ app.post(
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
+app.get(
+  "/experiment/:id/incremental-refresh",
+  experimentsController.getExperimentIncrementalRefresh,
+);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post(
   "/experiment/:id/targeting",
@@ -931,16 +937,29 @@ app.use("/upload", uploadRouter);
 app.use("/teams", teamRouter);
 
 // Admin
-app.get("/admin/organizations", adminController.getOrganizations);
-app.put("/admin/organization", adminController.putOrganization);
-app.put("/admin/organization/disable", adminController.disableOrganization);
-app.put("/admin/organization/enable", adminController.enableOrganization);
+app.get(
+  "/admin/organizations",
+  adminController._dangerousAdminGetOrganizations,
+);
+app.put("/admin/organization", adminController._dangerousAdminPutOrganization);
+app.put(
+  "/admin/organization/disable",
+  adminController._dangerousAdminDisableOrganization,
+);
+app.put(
+  "/admin/organization/enable",
+  adminController._dangerousAdminEnableOrganization,
+);
 app.get(
   "/admin/organization/:orgId/members",
-  adminController.getOrganizationMembers,
+  adminController._dangerousAdminGetOrganizationMembers,
 );
-app.get("/admin/members", adminController.getMembers);
-app.put("/admin/member", adminController.putMember);
+app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.put("/admin/member", adminController._dangerousAdminPutMember);
+app.post(
+  "/admin/sso-connection",
+  adminController._dangerousAdminUpsertSSOConnection,
+);
 
 // License
 app.get("/license", licenseController.getLicenseData);
@@ -969,6 +988,12 @@ app.get(
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);
+
+// Custom Hooks
+app.use("/custom-hooks", customHooksRouter);
+
+// 3rd party data importing proxy
+app.use("/importing", importingRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

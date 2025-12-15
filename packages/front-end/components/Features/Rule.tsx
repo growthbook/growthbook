@@ -5,16 +5,22 @@ import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { SafeRolloutInterface } from "shared/validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
+import {
+  getRules,
+  isRuleInactive,
+  useEnvironments,
+  useAttributeMap,
+  getAttributesWithVersionStringMismatches,
+} from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -136,6 +142,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
+
+    const attributeMap = useAttributeMap(feature.project);
+    const attributesWithVersionStringOperatorMismatches =
+      getAttributesWithVersionStringMismatches(
+        rule.condition || "",
+        attributeMap,
+      );
+
     let title: string | ReactElement =
       rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
     if (rule.type !== "rollout") {
@@ -241,7 +255,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     mr="3"
                     align="center"
                   >
-                    <Heading as="h4" size="3" weight="medium" mb="0">
+                    <Heading
+                      as="h4"
+                      size="3"
+                      weight="medium"
+                      mb="0"
+                      className="w-100"
+                    >
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
                           {linkedExperiment.type === "multi-armed-bandit"
@@ -265,9 +285,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
-                          {!locked && rule.enabled !== false && (
-                            <div
-                              className="ml-auto"
+                          {!locked && rule.enabled !== false ? (
+                            <Flex
+                              flexGrow="1"
+                              justify="end"
                               style={{ marginBottom: -10 }}
                             >
                               <DecisionCTA
@@ -276,8 +297,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   setSafeRolloutStatusModalOpen(true);
                                 }}
                               />
-                            </div>
-                          )}
+                            </Flex>
+                          ) : null}
                         </Flex>
                       ) : (
                         title
@@ -388,6 +409,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 </Flex>
                 <Box>{info.callout}</Box>
+                {attributesWithVersionStringOperatorMismatches &&
+                  attributesWithVersionStringOperatorMismatches.length > 0 && (
+                    <Callout status="warning" mt="3">
+                      <Flex direction="column" gap="2">
+                        <Text>
+                          This rule uses string operators on version attributes,
+                          which can have unintended effects. Edit this rule and
+                          change{" "}
+                          <strong>
+                            {attributesWithVersionStringOperatorMismatches.join(
+                              ", ",
+                            )}
+                          </strong>{" "}
+                          to use version operators ($vgt, $vlt, etc.) instead.
+                        </Text>
+                      </Flex>
+                    </Callout>
+                  )}
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {rule.type === "safe-rollout" && safeRollout ? (
                     <>
@@ -398,17 +437,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </>
                   ) : null}
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <Flex align="center" justify="start" gap="3">
-                      <Box pb="3">
-                        <strong className="font-weight-semibold">IF</strong>
-                      </Box>
-                      <Box
-                        width="100%"
-                        flexShrink="4"
-                        flexGrow="1"
-                        overflowX="auto"
-                        pb="3"
-                      >
+                    <Flex direction="row" gap="2" mb="3">
+                      <Text weight="medium">IF</Text>
+                      <Box>
                         <ConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
@@ -493,6 +524,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         </Box>
       </Box>
     );
+
     return safeRollout ? (
       <SafeRolloutSnapshotProvider
         safeRollout={safeRollout}

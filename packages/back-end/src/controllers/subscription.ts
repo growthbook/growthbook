@@ -1,7 +1,10 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
-import { PaymentMethod } from "shared/src/types/subscriptions";
-import { StripeAddress, TaxIdType } from "shared/src/types";
+import {
+  PaymentMethod,
+  StripeAddress,
+  TaxIdType,
+} from "shared/types/subscriptions";
 import {
   LicenseServerError,
   getLicense,
@@ -30,7 +33,10 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getDailyCDNUsageForOrg } from "back-end/src/services/clickhouse";
+import {
+  getDailyUsageForOrg,
+  migrateOverageEventsForOrgId,
+} from "back-end/src/services/clickhouse";
 import {
   createSetupIntent,
   deletePaymentMethodById,
@@ -38,6 +44,7 @@ import {
   getPaymentMethodsByLicenseKey,
   getUsage as getOrgUsage,
 } from "back-end/src/enterprise/billing/index";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>,
@@ -185,6 +192,14 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       req.body.address,
       req.body.taxConfig,
     );
+
+    const managedWarehouseDatasource = await getGrowthbookDatasource(context);
+    if (managedWarehouseDatasource) {
+      // new pro users might have events in the overage_events table if they had
+      // use more than 1M events.  This moves those events over to the main table,
+      // so that they can see them.
+      await migrateOverageEventsForOrgId(org.id);
+    }
 
     res.status(200).json(result);
   },
@@ -413,7 +428,11 @@ export async function deletePaymentMethod(
 
 export async function getUsage(
   req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
-  res: Response<{ status: 200; cdnUsage: DailyUsage[]; limits: UsageLimits }>,
+  res: Response<{
+    status: 200;
+    usage: DailyUsage[];
+    limits: UsageLimits;
+  }>,
 ) {
   const context = getContextFromReq(req);
 
@@ -440,13 +459,25 @@ export async function getUsage(
   end.setUTCDate(0);
   end.setUTCHours(23, 59, 59, 999);
 
-  const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
+  const usage = await getDailyUsageForOrg(org.id, start, end);
 
   const {
-    limits: { requests: cdnRequests, bandwidth: cdnBandwidth },
+    limits: {
+      requests: cdnRequests,
+      bandwidth: cdnBandwidth,
+      managedClickhouseEvents,
+    },
   } = await getOrgUsage(org);
 
-  res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
+  res.json({
+    status: 200,
+    usage,
+    limits: {
+      cdnRequests,
+      cdnBandwidth,
+      managedClickhouseEvents,
+    },
+  });
 }
 
 export async function getCustomerData(

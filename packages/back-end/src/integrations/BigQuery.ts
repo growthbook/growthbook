@@ -1,11 +1,11 @@
 import * as bq from "@google-cloud/bigquery";
 import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
-import { bigQueryCreateTableOptions } from "shared/enterprise";
-import { FormatDialect } from "shared/src/types";
+import {
+  bigQueryCreateTableOptions,
+  bigQueryCreateTablePartitions,
+} from "shared/enterprise";
+import { FormatDialect } from "shared/types/sql";
 import { format } from "shared/sql";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ExternalIdCallback,
   InformationSchema,
@@ -13,7 +13,12 @@ import {
   RawInformationSchema,
   DataType,
   QueryResponseColumnData,
-} from "back-end/src/types/Integration";
+  MaxTimestampMetricSourceQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
+} from "shared/types/integrations";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -24,7 +29,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
-  requiresEscapingPath = true;
+  escapePathCharacter = "`";
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);
@@ -86,6 +91,10 @@ export default class BigQuery extends SqlIntegration {
     const [rows, _, queryResultsResponse] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
 
+    const rowsInserted =
+      metadata?.statistics?.query?.statementType === "INSERT"
+        ? Number(metadata?.statistics?.query?.numDmlAffectedRows)
+        : undefined;
     const statistics = {
       executionDurationMs: Number(
         metadata?.statistics?.finalExecutionDurationMs,
@@ -98,6 +107,7 @@ export default class BigQuery extends SqlIntegration {
         metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
           ? metadata.statistics.query.totalPartitionsProcessed > 0
           : undefined,
+      ...(rowsInserted !== undefined && { rowsInserted }),
     };
 
     const columns = queryResultsResponse
@@ -273,6 +283,8 @@ export default class BigQuery extends SqlIntegration {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "hll":
+        return "BYTES";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
@@ -305,5 +317,41 @@ export default class BigQuery extends SqlIntegration {
     return bqQueryResultsResponse.schema?.fields
       ?.filter((field) => field.name !== undefined)
       .map((field) => mapField(field));
+  }
+
+  getCurrentTimestamp(): string {
+    return `CURRENT_TIMESTAMP()`;
+  }
+
+  createTablePartitions(columns: string[]): string {
+    return bigQueryCreateTablePartitions(columns);
+  }
+
+  getMaxTimestampMetricSourceQuery(
+    params: MaxTimestampMetricSourceQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        FROM ${params.metricSourceTableFullName}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        FROM ${params.unitsTableFullName}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+      `,
+      this.getFormatDialect(),
+    );
   }
 }

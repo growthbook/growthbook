@@ -75,6 +75,8 @@ const DecisionCTA = ({
       variant={variant}
       size="sm"
       color={color}
+      style={{ marginTop: -4 }}
+      ml="2"
     >
       {buttonCopy}
     </Button>

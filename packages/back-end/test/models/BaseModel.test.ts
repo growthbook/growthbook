@@ -390,14 +390,14 @@ describe("BaseModel", () => {
     );
   });
 
-  it("raises an error when attempting to create an invalid document", async () => {
+  it("raises an error when attempting to create an invalid document", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
-    await expect(model.create({ id: "aabb" })).rejects.toMatchObject({
+    expect(model.create({ id: "aabb" })).rejects.toMatchObject({
       issues: [
         {
-          code: "invalid_type",
           expected: "string",
+          code: "invalid_type",
           path: ["name"],
           message: "Invalid input: expected string, received undefined",
         },

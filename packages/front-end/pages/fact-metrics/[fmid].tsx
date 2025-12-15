@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactMetricType, FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
@@ -15,9 +15,10 @@ import {
 } from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -62,6 +63,8 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -104,51 +107,57 @@ function MetricType({
   type,
   quantileType,
 }: {
-  type: "proportion" | "retention" | "mean" | "ratio" | "quantile";
+  type: FactMetricType;
   quantileType?: "" | "unit" | "event";
 }) {
-  if (type === "proportion") {
-    return (
-      <div>
-        <strong>Proportion Metric</strong> - Percent of experiment users who
-        exist in a Fact Table
-      </div>
-    );
+  switch (type) {
+    case "proportion":
+      return (
+        <div>
+          <strong>Proportion Metric</strong> - Percent of experiment users who
+          exist in a Fact Table
+        </div>
+      );
+    case "retention":
+      return (
+        <div>
+          <strong>Retention Metric</strong> - Percent of experiment users who
+          exist in a Fact Table a certain period after experiment exposure
+        </div>
+      );
+    case "mean":
+      return (
+        <div>
+          <strong>Mean Metric</strong> - The average of a numeric value among
+          all experiment users
+        </div>
+      );
+    case "ratio":
+      return (
+        <div>
+          <strong>Ratio Metric</strong> - The ratio of two numeric values among
+          experiment users
+        </div>
+      );
+    case "quantile":
+      return (
+        <div>
+          <strong>Quantile Metric</strong> - The quantile of values{" "}
+          {quantileType === "unit" ? "after aggregating per user" : ""}
+        </div>
+      );
+    case "dailyParticipation":
+      return (
+        <div>
+          <strong>Daily Participation Metric</strong> - The average of the
+          percentage of days after exposure that a user is in the Fact Table
+        </div>
+      );
+    default: {
+      const exhaustiveCheck: never = type;
+      throw new Error(`Unhandled MetricType type: ${exhaustiveCheck}`);
+    }
   }
-  if (type === "retention") {
-    return (
-      <div>
-        <strong>Retention Metric</strong> - Percent of experiment users who
-        exist in a Fact Table a certain period after experiment exposure
-      </div>
-    );
-  }
-  if (type === "mean") {
-    return (
-      <div>
-        <strong>Mean Metric</strong> - The average of a numeric value among all
-        experiment users
-      </div>
-    );
-  }
-  if (type === "ratio") {
-    return (
-      <div>
-        <strong>Ratio Metric</strong> - The ratio of two numeric values among
-        experiment users
-      </div>
-    );
-  }
-  if (type === "quantile") {
-    return (
-      <div>
-        <strong>Quantile Metric</strong> - The quantile of values{" "}
-        {quantileType === "unit" ? "after aggregating per user" : ""}
-      </div>
-    );
-  }
-
-  return null;
 }
 
 export default function FactMetricPage() {
@@ -174,7 +183,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -283,7 +292,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.numerator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.numerator.column,
+                  : factMetric.numerator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.numerator.column,
           },
         ]
       : []),
@@ -363,7 +374,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.denominator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.denominator.column,
+                  : factMetric.denominator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.denominator.column,
           },
           ...(!factMetric.denominator.column.startsWith("$$")
             ? [
@@ -504,6 +517,26 @@ export default function FactMetricPage() {
           { display: factMetric.name },
         ]}
       />
+
+      {factMetric.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id),
+      ) && (
+        <Callout status="info" contentsAs="div" mb="2">
+          <Flex align="center" justify="between">
+            <Text>
+              This Fact Metric is part of our sample dataset. You can safely
+              delete this once you are done exploring.
+            </Text>
+            <Box ml="auto">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/metrics")}
+                source="fact-metric"
+              />
+            </Box>
+          </Flex>
+        </Callout>
+      )}
+
       {factMetric.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This metric is archived.</strong> Existing references will

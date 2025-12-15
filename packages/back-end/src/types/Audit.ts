@@ -61,7 +61,10 @@ export const entityEvents = {
   savedQuery: ["create", "update", "delete"],
   dashboard: ["create", "update", "delete"],
   dashboardTemplate: ["create", "update", "delete"],
+  incrementalRefresh: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
+  sqlResultChunk: ["create", "update", "delete"],
+  customHook: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

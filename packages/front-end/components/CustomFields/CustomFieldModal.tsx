@@ -3,7 +3,7 @@ import {
   CustomField,
   CustomFieldSection,
   CustomFieldTypes,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
 import React from "react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -46,7 +46,7 @@ export default function CustomFieldModal({
           ? (existing.defaultValue ?? false)
           : "",
       section: existing.section || section,
-      projects: existing.projects || [project] || [],
+      projects: existing.projects || (project ? [project] : []),
       required: existing.required ?? false,
       index: true,
     },
