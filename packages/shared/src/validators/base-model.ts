@@ -8,3 +8,12 @@ export const baseSchema = z
     dateUpdated: z.date(),
   })
   .strict();
+
+export const apiBaseSchema = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    dateCreated: z.string(),
+    dateUpdated: z.string(),
+  })
+  .strict();

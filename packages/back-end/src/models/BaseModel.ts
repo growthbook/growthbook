@@ -242,7 +242,7 @@ export abstract class BaseModel<
   protected async handleApiGet(
     req: ApiRequest<
       unknown,
-      z.Schema<{ id: string }>,
+      z.ZodType<{ id: string }>,
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
@@ -272,7 +272,7 @@ export abstract class BaseModel<
   protected async handleApiDelete(
     req: ApiRequest<
       unknown,
-      z.Schema<{ id: string }>,
+      z.ZodType<{ id: string }>,
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
@@ -283,8 +283,8 @@ export abstract class BaseModel<
   protected async handleApiUpdate(
     req: ApiRequest<
       unknown,
-      z.Schema<{ id: string }>,
-      z.Schema<UpdateProps<z.infer<T>>>,
+      z.ZodType<{ id: string }>,
+      z.ZodType<UpdateProps<z.infer<T>>>,
       z.ZodTypeAny
     >,
   ): Promise<z.infer<T> | null> {

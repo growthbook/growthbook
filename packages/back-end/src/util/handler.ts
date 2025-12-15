@@ -1,5 +1,5 @@
 import { Request, RequestHandler } from "express";
-import { z, Schema, ZodNever, output } from "zod";
+import { z, ZodType, ZodNever, output } from "zod";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import { ApiPaginationFields } from "back-end/types/openapi";
@@ -9,9 +9,9 @@ import { IS_MULTI_ORG } from "./secrets";
 
 export type ApiRequest<
   ResponseType = never,
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
 > = ApiRequestLocals &
   Request<
     z.infer<ParamsSchema>,
@@ -26,8 +26,8 @@ export type ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {
   paramsSchema?: ParamsSchema;
 };
 
-function validate<T extends Schema>(
-  schema: T,
+function validate<T extends ZodType>(
+  ZodType: T,
   value: unknown,
 ):
   | {
@@ -38,7 +38,7 @@ function validate<T extends Schema>(
       success: false;
       errors: string[];
     } {
-  const result = schema.safeParse(value);
+  const result = ZodType.safeParse(value);
   if (!result.success) {
     return {
       success: false,
@@ -55,9 +55,9 @@ function validate<T extends Schema>(
 }
 
 export function createApiRequestHandler<
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
 >({
   paramsSchema,
   bodySchema,

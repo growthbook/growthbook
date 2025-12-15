@@ -1,18 +1,11 @@
 import { Router, RequestHandler } from "express";
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { apiBaseSchema } from "shared/validators";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ModelClass, ModelName } from "back-end/src/services/context";
 import { ApiRequestValidator, createApiRequestHandler } from "../util/handler";
 
-export const apiBaseSchema = z
-  .object({
-    id: z.string(),
-    organization: z.string(),
-    dateCreated: z.string(),
-    dateUpdated: z.string(),
-  })
-  .strict();
 export type ApiBaseSchema = typeof apiBaseSchema;
 
 type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
@@ -40,11 +33,15 @@ const defaultHandlers = {
 } as const;
 type CrudValidatorShapes<T extends ApiBaseSchema> = {
   create: ApiRequestValidator<z.ZodNever, ApiCreateZodObject<T>, z.ZodNever>;
-  delete: ApiRequestValidator<z.Schema<{ id: string }>, z.ZodNever, z.ZodNever>;
-  get: ApiRequestValidator<z.Schema<{ id: string }>, z.ZodNever, z.ZodNever>;
+  delete: ApiRequestValidator<
+    z.ZodType<{ id: string }>,
+    z.ZodNever,
+    z.ZodNever
+  >;
+  get: ApiRequestValidator<z.ZodType<{ id: string }>, z.ZodNever, z.ZodNever>;
   list: ApiRequestValidator<z.ZodNever, z.ZodNever, z.ZodNever>;
   update: ApiRequestValidator<
-    z.Schema<{ id: string }>,
+    z.ZodType<{ id: string }>,
     ApiUpdateZodObject<T>,
     z.ZodNever
   >;
