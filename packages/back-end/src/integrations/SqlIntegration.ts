@@ -2725,6 +2725,12 @@ export default abstract class SqlIntegration
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
+
+    // For incremental refresh: reference pre-computed sum_squares columns
+    const capCoalesceSumSquares = `m${numeratorAlias}.${alias}_sum_squares`;
+    const capCoalesceDenominatorSumSquares = `m${denominatorAlias}.${alias}_denominator_sum_squares`;
+    const capCoalesceCovariateSumSquares = `c${numeratorAlias}.${alias}_sum_squares`;
+    const capCoalesceDenominatorCovariateSumSquares = `c${denominatorAlias}.${alias}_denominator_sum_squares`;
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
@@ -2818,6 +2824,10 @@ export default abstract class SqlIntegration
       capCoalesceDenominator,
       capCoalesceCovariate,
       capCoalesceDenominatorCovariate,
+      capCoalesceSumSquares,
+      capCoalesceDenominatorSumSquares,
+      capCoalesceCovariateSumSquares,
+      capCoalesceDenominatorCovariateSumSquares,
       numeratorAggFns,
       denominatorAggFns,
       covariateNumeratorAggFns,
@@ -3490,9 +3500,11 @@ export default abstract class SqlIntegration
                 : ""
             }
             , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
-            , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
-              data.alias
-            }_main_sum_squares
+            , SUM(${
+              data.capCoalesceSumSquares
+                ? data.capCoalesceSumSquares
+                : `POWER(${data.capCoalesceMetric}, 2)`
+            }) AS ${data.alias}_main_sum_squares
             ${
               data.quantileMetric === "event"
                 ? `
@@ -3534,9 +3546,13 @@ export default abstract class SqlIntegration
                     ? `, MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
                     : ""
                 }
-                , SUM(${data.capCoalesceDenominator}) AS 
+                , SUM(${data.capCoalesceDenominator}) AS
                   ${data.alias}_denominator_sum
-                , SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
+                , SUM(${
+                  data.capCoalesceDenominatorSumSquares
+                    ? data.capCoalesceDenominatorSumSquares
+                    : `POWER(${data.capCoalesceDenominator}, 2)`
+                }) AS
                   ${data.alias}_denominator_sum_squares
                 ${
                   data.regressionAdjusted
@@ -7226,6 +7242,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         `${this.encodeMetricIdForColumnName(metric.id)}_value`,
         this.getDataType(numeratorMetadata.intermediateDataType),
       );
+      // Add sum_squares column for variance calculation
+      schema.set(
+        `${this.encodeMetricIdForColumnName(metric.id)}_sum_squares`,
+        this.getDataType("float"),
+      );
 
       if (isRatioMetric(metric)) {
         const denominatorMetadata = this.getAggregationMetadata({
@@ -7235,6 +7256,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         schema.set(
           `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
           this.getDataType(denominatorMetadata.intermediateDataType),
+        );
+        // Add sum_squares column for denominator variance calculation
+        schema.set(
+          `${this.encodeMetricIdForColumnName(metric.id)}_denominator_sum_squares`,
+          this.getDataType("float"),
         );
       }
     });
@@ -7459,9 +7485,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   m.denominatorAggFns.partialAggregationFunction;
                 return `
                 , ${aggfunction(`${m.alias}_value`)} AS ${this.encodeMetricIdForColumnName(m.id)}_value
+                , SUM(POWER(COALESCE(${m.alias}_value, 0), 2)) AS ${this.encodeMetricIdForColumnName(m.id)}_sum_squares
                 ${
                   !!denomAggFunction && isRatioMetric(m.metric)
-                    ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value
+                      , SUM(POWER(COALESCE(${m.alias}_denominator, 0), 2)) AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_sum_squares`
                     : ""
                 }
               `;
@@ -7477,9 +7505,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           ${metricData
             .map(
               (m) =>
-                `, ${this.encodeMetricIdForColumnName(m.id)}_value AS ${this.encodeMetricIdForColumnName(m.id)}_value${
+                `, ${this.encodeMetricIdForColumnName(m.id)}_value AS ${this.encodeMetricIdForColumnName(m.id)}_value
+                , ${this.encodeMetricIdForColumnName(m.id)}_sum_squares AS ${this.encodeMetricIdForColumnName(m.id)}_sum_squares${
                   m.ratioMetric
-                    ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value
+                      \n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_sum_squares AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_sum_squares`
                     : ""
                 }`,
             )
@@ -7625,9 +7655,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               const denomReAggFunction =
                 data.denominatorAggFns.reAggregationFunction;
               return `, ${reAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_value
+                , SUM(umj.${this.encodeMetricIdForColumnName(data.metric.id)}_sum_squares) AS ${this.encodeMetricIdForColumnName(data.metric.id)}_sum_squares
                 ${
                   data.ratioMetric && denomReAggFunction
-                    ? `, ${denomReAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
+                    ? `, ${denomReAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value
+                      , SUM(umj.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_sum_squares) AS ${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_sum_squares`
                     : ""
                 }`;
             })
@@ -7649,13 +7681,15 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
                   initialTimestampColumn: "u.first_exposure_timestamp",
                   analysisEndDate: params.settings.endDate,
-                })} AS ${data.alias}_value ${
+                })} AS ${data.alias}_value
+                , COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_sum_squares, 0) AS ${data.alias}_sum_squares ${
                   data.ratioMetric
                     ? `, ${data.aggregatedValueTransformation({
                         column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
                         initialTimestampColumn: "u.first_exposure_timestamp",
                         analysisEndDate: params.settings.endDate,
-                      })} AS ${data.alias}_denominator`
+                      })} AS ${data.alias}_denominator
+                      , COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_sum_squares, 0) AS ${data.alias}_denominator_sum_squares`
                     : ""
                 }`;
               })
