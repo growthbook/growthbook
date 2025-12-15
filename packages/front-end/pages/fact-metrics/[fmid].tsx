@@ -65,6 +65,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -95,7 +96,11 @@ function FilterBadges({
         if (!filter) return null;
         return (
           <span className="badge badge-secondary mr-2" key={filter.id}>
-            {filter.name}
+            <Tooltip
+              body={<InlineCode language="sql" code={filter.value} inTooltip />}
+            >
+              <span className="cursor-default">{filter.name}</span>
+            </Tooltip>
           </span>
         );
       })}
