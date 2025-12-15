@@ -100,7 +100,7 @@ export function getAnalysisSettingsForStatsEngine(
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
-    post_stratification_enabled: !!settings.postStratificationEnabled,
+    post_stratification_enabled: false, //!!settings.postStratificationEnabled,
   };
 
   return analysisData;
