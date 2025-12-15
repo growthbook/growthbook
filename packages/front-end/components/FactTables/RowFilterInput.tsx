@@ -108,6 +108,8 @@ export function RowFilterInput({
           }
         }
 
+        let valueInputPattern: string | undefined = undefined;
+
         if (operatorInputRequired) {
           const operatorLabelMap: Record<RowFilter["operator"], string> = {
             "=": "=",
@@ -163,6 +165,7 @@ export function RowFilterInput({
               "is_null",
               "not_null",
             );
+            valueInputPattern = "^[-]?\\d+(\\.\\d+)?$";
           } else if (datatype === "string") {
             allowedOperators.push(
               "=",
@@ -257,7 +260,17 @@ export function RowFilterInput({
                     operator: "saved_filter",
                   });
                 } else {
+                  // If operator is sql_expr or saved_filter, reset to =
+                  let newOperator = filter.operator;
+                  if (
+                    filter.operator === "sql_expr" ||
+                    filter.operator === "saved_filter"
+                  ) {
+                    newOperator = "=";
+                  }
+
                   updateRowFilter({
+                    operator: newOperator,
                     column: v,
                   });
                 }
@@ -295,6 +308,7 @@ export function RowFilterInput({
                     creatable={allowCreatingNewOptions}
                     sort={false}
                     autoFocus={autoFocus}
+                    pattern={valueInputPattern}
                     required
                   />
                 ) : multiValueInput ? (
@@ -307,6 +321,7 @@ export function RowFilterInput({
                     }}
                     delimiters={["Enter", "Tab"]}
                     autoFocus={autoFocus}
+                    pattern={valueInputPattern}
                     required
                   />
                 ) : useValueOptions ? (
@@ -321,6 +336,7 @@ export function RowFilterInput({
                     createable={allowCreatingNewOptions}
                     sort={false}
                     autoFocus={autoFocus}
+                    pattern={valueInputPattern}
                     required
                   />
                 ) : (
@@ -334,6 +350,7 @@ export function RowFilterInput({
                     textarea={filter.operator === "sql_expr"}
                     minRows={1}
                     autoFocus={autoFocus}
+                    pattern={valueInputPattern}
                     required
                   />
                 )}

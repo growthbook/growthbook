@@ -25,6 +25,7 @@ export default function StringArrayField({
   disabled,
   delimiters = DEFAULT_DELIMITERS,
   placeholder,
+  pattern,
   ...otherProps
 }: Props) {
   const [inputValue, setInputValue] = useState("");
@@ -67,6 +68,10 @@ export default function StringArrayField({
               if (!inputValue) return;
               onChange([...value, inputValue]);
               setInputValue("");
+            }}
+            isValidNewOption={(value) => {
+              if (!pattern) return !!value;
+              return new RegExp(pattern).test(value);
             }}
             placeholder={placeholder}
             value={value}

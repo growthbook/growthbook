@@ -238,25 +238,36 @@ export default function FactMetricPage() {
       label: `Fact Table`,
       value: <FactTableLink id={factMetric.numerator.factTableId} />,
     },
-    ...(factMetric.numerator.rowFilters || []).map((rf) => {
-      return {
-        label: "Row Filter",
-        value: factTable ? (
-          <pre>
-            {getRowFilterSQL({
-              rowFilter: rf,
-              factTable,
-              escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
-              evalBoolean: (col, value) => `${col} = ${value}`,
-              jsonExtract: (col, path) => `${col}.${path}`,
-              showSourceComment: true,
-            })}
-          </pre>
-        ) : (
-          `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`
-        ),
-      };
-    }),
+    ...(factMetric.numerator.rowFilters?.length
+      ? [
+          {
+            label: "Row Filter",
+            value: factTable ? (
+              <pre>
+                {factMetric.numerator.rowFilters
+                  .map((rf) =>
+                    getRowFilterSQL({
+                      rowFilter: rf,
+                      factTable,
+                      escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                      evalBoolean: (col, value) => `${col} = ${value}`,
+                      jsonExtract: (col, path) => `${col}.${path}`,
+                      showSourceComment: true,
+                    }),
+                  )
+                  .join("\nAND ")}
+              </pre>
+            ) : (
+              factMetric.numerator.rowFilters
+                .map(
+                  (rf) =>
+                    `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`,
+                )
+                .join("\nAND ")
+            ),
+          },
+        ]
+      : []),
     ...(!isBinomialMetric(factMetric)
       ? [
           {
@@ -318,24 +329,29 @@ export default function FactMetricPage() {
             label: `Fact Table`,
             value: <FactTableLink id={factMetric.denominator.factTableId} />,
           },
-
-          ...(factMetric.denominator.rowFilters || []).map((rf) => {
-            return {
-              label: "Row Filter",
-              value: (
-                <pre>
-                  {getRowFilterSQL({
-                    rowFilter: rf,
-                    factTable: denominatorFactTable,
-                    escapeStringLiteral: (s) => `'${s.replace(/'/g, "''")}'`,
-                    evalBoolean: (col, value) => `${col} = ${value}`,
-                    jsonExtract: (col, path) => `${col}.${path}`,
-                    showSourceComment: true,
-                  })}
-                </pre>
-              ),
-            };
-          }),
+          ...(factMetric.denominator.rowFilters?.length
+            ? [
+                {
+                  label: "Row Filter",
+                  value: (
+                    <pre>
+                      {factMetric.denominator.rowFilters
+                        .map((rf) =>
+                          getRowFilterSQL({
+                            rowFilter: rf,
+                            factTable: denominatorFactTable,
+                            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                            evalBoolean: (col, value) => `${col} = ${value}`,
+                            jsonExtract: (col, path) => `${col}.${path}`,
+                            showSourceComment: true,
+                          }),
+                        )
+                        .join("\nAND ")}
+                    </pre>
+                  ),
+                },
+              ]
+            : []),
           {
             label: `Value`,
             value:
@@ -725,11 +741,16 @@ export default function FactMetricPage() {
                     ? "Numerator"
                     : "Metric Details"
                 }
+                maxColumns={1}
               />
             </div>
             {factMetric.metricType === "ratio" ? (
               <div className="appbox p-3 mb-3">
-                <DataList data={denominatorData} header="Denominator" />
+                <DataList
+                  data={denominatorData}
+                  header="Denominator"
+                  maxColumns={1}
+                />
               </div>
             ) : null}
 
