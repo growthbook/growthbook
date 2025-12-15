@@ -79,13 +79,13 @@ export class SafeRolloutModel extends BaseClass {
       const feature = await getFeature(this.context, existing.featureId);
       if (!feature) return;
 
-      await refreshSDKPayloadCache(
-        this.context,
-        getAffectedSDKPayloadKeys(
+      await refreshSDKPayloadCache({
+        context: this.context,
+        payloadKeys: getAffectedSDKPayloadKeys(
           [feature],
           getEnvironmentIdsFromOrg(this.context.org),
         ),
-      );
+      });
     }
   }
 

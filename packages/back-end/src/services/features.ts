@@ -44,6 +44,7 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "shared/types/sdk";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -87,7 +88,6 @@ import {
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
 import { logger } from "back-end/src/util/logger";
-import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   ApiFeatureWithRevisions,
@@ -103,7 +103,6 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
@@ -111,6 +110,7 @@ import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
+import { triggerSdkPayloadRefresh } from "./sdkConnection";
 
 export function generateFeaturesPayload({
   features,
@@ -446,14 +446,17 @@ export function filterUsedSavedGroups(
   );
 }
 
-export async function refreshSDKPayloadCache(
-  baseContext: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[],
-  allFeatures: FeatureInterface[] | null = null,
-  experimentMap?: Map<string, ExperimentInterface>,
-  safeRolloutMap?: Map<string, SafeRolloutInterface>,
-  skipRefreshForProject?: string,
-) {
+export async function refreshSDKPayloadCache({
+  context: baseContext,
+  payloadKeys,
+  skipRefreshForProject,
+  sdkConnections,
+}: {
+  context: ReqContext | ApiReqContext;
+  payloadKeys: SDKPayloadKey[];
+  sdkConnections?: SDKConnectionInterface[];
+  skipRefreshForProject?: string;
+}) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
@@ -476,94 +479,15 @@ export async function refreshSDKPayloadCache(
   }
 
   // If no environments are affected, we don't need to update anything
-  if (!payloadKeys.length) {
+  if (!payloadKeys.length && !sdkConnections?.length) {
     logger.debug("Skipping SDK Payload refresh - no environments affected");
     return;
   }
 
-  experimentMap = experimentMap || (await getAllPayloadExperiments(context));
-  safeRolloutMap =
-    safeRolloutMap ||
-    (await context.models.safeRollout.getAllPayloadSafeRollouts());
-  const groupMap = await getSavedGroupMap(context.org);
-  allFeatures = allFeatures || (await getAllFeatures(context));
-  const allVisualExperiments = await getAllVisualExperiments(
+  await triggerSdkPayloadRefresh({
     context,
-    experimentMap,
-  );
-  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
-    context,
-    experimentMap,
-  );
-
-  // For each affected environment, generate a new SDK payload and update the cache
-  const environments = Array.from(
-    new Set(payloadKeys.map((k) => k.environment)),
-  );
-
-  const prereqStateCache: Record<
-    string,
-    Record<string, PrerequisiteStateResult>
-  > = {};
-
-  const promises: (() => Promise<void>)[] = [];
-  for (const environment of environments) {
-    const holdoutsMap =
-      await context.models.holdout.getAllPayloadHoldouts(environment);
-    const featureDefinitions = generateFeaturesPayload({
-      features: allFeatures,
-      environment: environment,
-      groupMap,
-      experimentMap,
-      prereqStateCache,
-      safeRolloutMap,
-      holdoutsMap,
-    });
-
-    const holdoutFeatureDefinitions = generateHoldoutsPayload({
-      holdoutsMap,
-    });
-
-    const experimentsDefinitions = generateAutoExperimentsPayload({
-      visualExperiments: allVisualExperiments,
-      urlRedirectExperiments: allURLRedirectExperiments,
-      groupMap,
-      features: allFeatures,
-      environment,
-      prereqStateCache,
-    });
-
-    const savedGroupsInUse = Object.keys(
-      filterUsedSavedGroups(
-        getSavedGroupsValuesFromGroupMap(groupMap),
-        featureDefinitions,
-        experimentsDefinitions,
-      ),
-    );
-
-    promises.push(async () => {
-      logger.debug(`Updating SDK Payload for ${context.org.id} ${environment}`);
-      await updateSDKPayload({
-        organization: context.org.id,
-        environment: environment,
-        featureDefinitions,
-        holdoutFeatureDefinitions,
-        experimentsDefinitions,
-        savedGroupsInUse,
-      });
-    });
-  }
-
-  // If there are no changes, we don't need to do anything
-  if (!promises.length) return;
-
-  // Vast majority of the time, there will only be 1 or 2 promises
-  // However, there could be a lot if an org has many enabled environments
-  // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
-  await promiseAllChunks(promises, 4);
-
-  triggerWebhookJobs(context, payloadKeys, environments, true).catch((e) => {
-    logger.error(e, "Error triggering webhook jobs");
+    payloadKeys,
+    sdkConnections,
   });
 }
 

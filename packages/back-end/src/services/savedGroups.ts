@@ -70,10 +70,8 @@ export async function savedGroupUpdated(
     ),
   );
 
-  await refreshSDKPayloadCache(
+  await refreshSDKPayloadCache({
     context,
-    Array.from(payloadKeys.values()),
-    allFeatures,
-    experiments,
-  );
+    payloadKeys: Array.from(payloadKeys.values()),
+  });
 }

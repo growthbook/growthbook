@@ -80,7 +80,7 @@ export const postSDKConnection = async (
     hashSecureAttributes = false;
   }
 
-  const doc = await createSDKConnection({
+  const doc = await createSDKConnection(context, {
     ...params,
     encryptPayload,
     hashSecureAttributes,

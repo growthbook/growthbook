@@ -9,6 +9,7 @@ import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
+import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
@@ -91,6 +92,7 @@ export class ReqContextClass {
     customHooks: CustomHookModel;
     incrementalRefresh: IncrementalRefreshModel;
     sqlResultChunks: SqlResultChunkModel;
+    sdkConnectionCache: SdkConnectionCacheModel;
   };
   private initModels() {
     this.models = {
@@ -118,6 +120,7 @@ export class ReqContextClass {
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
+      sdkConnectionCache: new SdkConnectionCacheModel(this),
     };
   }
 
