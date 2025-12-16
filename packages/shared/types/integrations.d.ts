@@ -257,6 +257,7 @@ export type ProcessedDimensions = {
   unitDimensions: UserDimension[];
   experimentDimensions: ExperimentDimension[];
   activationDimension: ActivationDimension | null;
+  dateDimension: DateDimension | null;
 };
 
 export interface DropTableQueryParams {

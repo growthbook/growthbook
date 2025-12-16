@@ -126,12 +126,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     selectedMetrics.filter((m) => isFactMetric(m)),
     existingSources ?? [],
   );
-  console.log("existingSources");
-  console.log(existingSources);
-  console.log("existingCovariateSources");
-  console.log(existingCovariateSources);
-  console.log("metricSourceGroups");
-  console.log(metricSourceGroups);
+
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
       (s) => s.groupId === group.groupId,
@@ -172,8 +167,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const metricParams: IncrementalRefreshStatisticsQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      // unused in exploratory analysis, use dimensionsForAnalysis instead
       // TODO(incremental-refresh): add post-stratification to exploratory analysis
+      // unused in exploratory analysis, use dimensionsForAnalysis instead
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: dimensionObjs,
       factTableMap: params.factTableMap,
