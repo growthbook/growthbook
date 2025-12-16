@@ -5,7 +5,6 @@ import {
   FactFilterInterface,
 } from "back-end/types/fact-table";
 import { IndexedPValue } from "back-end/types/stats";
-import { ExperimentDimensionMetadata } from "back-end/types/datasource";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
@@ -17,8 +16,6 @@ import {
   adjustedCI,
   setAdjustedPValuesOnResults,
   chanceToWinFlatPrior,
-  getPredefinedDimensionSlicesByExperiment,
-  countDimensionLevels,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -1190,38 +1187,5 @@ describe("chanceToWinFlatPrior", () => {
         ),
       ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
-  });
-});
-
-describe("getPredefinedDimensionSlicesByExperiment", () => {
-  it("returns correct number of slices", () => {
-    const dimensionMetadata: ExperimentDimensionMetadata[] = [
-      { dimension: "dim1", specifiedSlices: ["a", "b", "c"] },
-      { dimension: "dim2", specifiedSlices: ["d", "e", "f"] },
-    ];
-    // with 2 variations, we should return all dimensions (2 * 4 * 4 = 32 < 1000)
-    expect(
-      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 2),
-    ).toEqual(dimensionMetadata);
-    // with 100 variations (just as an example) (100 * 4 * 4 = 1600 > 1000), so we only get the
-    // first dimension
-    expect(
-      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 100),
-    ).toEqual([dimensionMetadata[0]]);
-    // with 1000 variations (just as an example) (1000 * 4 * 4 = 16000 > 1000), so we get no dimensions
-    expect(
-      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 1000),
-    ).toEqual([]);
-  });
-
-  it("computes dimension levels correctly", () => {
-    const specifiedSlices = [
-      { specifiedSlices: ["a", "b", "c"] },
-      { specifiedSlices: ["d", "e", "f"] },
-    ];
-
-    expect(countDimensionLevels(specifiedSlices, 2)).toEqual(32);
-    expect(countDimensionLevels(specifiedSlices, 100)).toEqual(1600);
-    expect(countDimensionLevels(specifiedSlices, 1000)).toEqual(16000);
   });
 });
