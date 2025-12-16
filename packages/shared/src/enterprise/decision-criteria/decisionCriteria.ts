@@ -167,7 +167,8 @@ export function getVariationDecisions({
 }
 
 // Early stopping decision criteria requires "super stat sig" status
-// and does not use the fallback action since it can render no result
+// and does not use the fallback action, instead preferring to render
+// no result
 export function getEarlyStoppingVariationDecisions({
   resultsStatus,
   decisionCriteria,
@@ -213,7 +214,8 @@ export function getEarlyStoppingVariationDecisions({
     }
     // If no decision was reached, return null, ignoring the fallback
     // action since we only want to prematurely stop if the experiment has
-    // met one of the early criteria
+    // met one of the explicitly stated criteria with a clear level of
+    // evidence
     if (!decisionReached) {
       results.push({
         variation: {
@@ -345,12 +347,15 @@ export function getDecisionFrameworkStatus({
       };
     }
 
-    // Early stopping should only say ship one if super stat sig AND no other variations
-    // are ambiguous (so only early stop if you have met shipping criteria with stat sig
-    // status and all other variations are rollback)
+    // Early stopping should only say ship if one variation is a clear winner
+    // and all other variations are clearly not winners
+    // So only early stop if you have met shipping criteria with stat sig
+    // status and all other variations are rollback
 
     // For two-armed variations, this means if the one variation is ready to ship
-    // then we recommend shipping
+    // early, then we recommend shipping, so this only slows down early shipping
+    // if you have many arms, where it requires more logic to determine if you have
+    // a clear winner
     const shipVariations = superStatSigVariationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship",
     );
