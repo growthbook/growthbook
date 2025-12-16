@@ -1,3 +1,0 @@
-allOf:
-  - $ref: "./CreateExperimentTrafficBlock.yaml"
-  - $ref: "./BlockWithIds.yaml"

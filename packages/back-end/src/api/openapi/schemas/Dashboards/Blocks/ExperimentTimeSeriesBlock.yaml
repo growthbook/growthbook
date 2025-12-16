@@ -1,3 +1,0 @@
-allOf:
-  - $ref: "./CreateExperimentTimeSeriesBlock.yaml"
-  - $ref: "./BlockWithIds.yaml"

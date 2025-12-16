@@ -12,7 +12,7 @@ export const baseSchema = z
 export const apiBaseSchema = z
   .object({
     id: z.string(),
-    dateCreated: z.string(),
-    dateUpdated: z.string(),
+    dateCreated: z.iso.datetime(),
+    dateUpdated: z.iso.datetime(),
   })
   .strict();

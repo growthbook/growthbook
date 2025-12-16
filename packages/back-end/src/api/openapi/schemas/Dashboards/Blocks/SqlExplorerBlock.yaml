@@ -1,3 +1,0 @@
-allOf:
-  - $ref: "./CreateSqlExplorerBlock.yaml"
-  - $ref: "./BlockWithIds.yaml"

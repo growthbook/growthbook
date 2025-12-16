@@ -82,9 +82,3 @@ CodeRef:
   $ref: "./CodeRef.yaml"
 CustomField:
   $ref: "./CustomField.yaml"
-Dashboard:
-  $ref: "./Dashboard.yaml"
-DashboardBlock:
-  $ref: "./Dashboards/DashboardBlock.yaml"
-CreateDashboardBlock:
-  $ref: "./Dashboards/CreateDashboardBlock.yaml"

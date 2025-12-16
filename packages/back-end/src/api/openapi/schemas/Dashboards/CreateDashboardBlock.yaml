@@ -1,9 +1,0 @@
-anyOf:
-  - $ref: "./Blocks/CreateMarkdownBlock.yaml"
-  - $ref: "./Blocks/CreateExperimentMetadataBlock.yaml"
-  - $ref: "./Blocks/CreateExperimentMetricBlock.yaml"
-  - $ref: "./Blocks/CreateExperimentDimensionBlock.yaml"
-  - $ref: "./Blocks/CreateExperimentTimeSeriesBlock.yaml"
-  - $ref: "./Blocks/CreateExperimentTrafficBlock.yaml"
-  - $ref: "./Blocks/CreateSqlExplorerBlock.yaml"
-  - $ref: "./Blocks/CreateMetricExplorerBlock.yaml"

@@ -6,6 +6,11 @@ import { isString } from "shared/util";
 import { blockHasFieldOfType, dashboardBlockHasIds } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
+  apiCreateDashboardBody,
+  apiDashboardInterface,
+  ApiDashboardInterface,
+  apiGetDashboardsForExperimentValidator,
+  apiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
 } from "back-end/src/enterprise/validators/dashboard";
@@ -18,20 +23,10 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import {
-  ApiCreateDashboardBlock,
-  ApiDashboard,
-  ApiDashboardBlock,
-  GetDashboardsForExperimentResponse,
-} from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
-  getDashboardsForExperimentValidator,
-  createDashboardValidator,
-  updateDashboardValidator,
-  apiDashboardValidator,
-} from "back-end/src/validators/openapi";
-import {
+  ApiCreateDashboardBlockInterface,
+  ApiDashboardBlockInterface,
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
   LegacyDashboardBlockInterface,
@@ -48,8 +43,8 @@ type LegacyDashboardDocument = Omit<
 };
 
 const apiFindByExperiment = createApiRequestHandler(
-  getDashboardsForExperimentValidator,
-)(async (req): Promise<GetDashboardsForExperimentResponse> => {
+  apiGetDashboardsForExperimentValidator,
+)(async (req): Promise<{ dashboards: ApiDashboardInterface[] }> => {
   const dashboards = await req.context.models.dashboards.findByExperiment(
     req.params.experimentId,
   );
@@ -82,10 +77,10 @@ const BaseClass = MakeModelClass({
     modelKey: "dashboards",
     modelSingular: "dashboard",
     modelPlural: "dashboards",
-    apiInterface: apiDashboardValidator,
+    apiInterface: apiDashboardInterface,
     schemas: {
-      createBody: createDashboardValidator.bodySchema,
-      updateBody: updateDashboardValidator.bodySchema,
+      createBody: apiCreateDashboardBody,
+      updateBody: apiUpdateDashboardBody,
     },
     includeDefaultCrud: true,
     customHandlers: [
@@ -378,7 +373,7 @@ export class DashboardModel extends BaseClass {
     });
   }
 
-  public toApiInterface(dashboard: DashboardInterface): ApiDashboard {
+  public toApiInterface(dashboard: DashboardInterface): ApiDashboardInterface {
     return {
       ...removeMongooseFields(dashboard),
       blocks: dashboard.blocks.map(toBlockApiInterface),
@@ -399,7 +394,7 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       blocks,
-    } = createDashboardValidator.bodySchema.parse(rawBody);
+    } = apiCreateDashboardBody.parse(rawBody);
     const createdBlocks = await Promise.all(
       blocks.map((blockData) =>
         generateDashboardBlockIds(
@@ -425,7 +420,7 @@ export class DashboardModel extends BaseClass {
   }
   protected async processApiUpdateBody(rawBody: unknown) {
     const { blocks: blockUpdates, ...otherUpdates } =
-      updateDashboardValidator.bodySchema.parse(rawBody);
+      apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
     if (blockUpdates) {
       const migratedBlocks = blockUpdates
@@ -554,7 +549,7 @@ export function migrateBlock(
 
 function toBlockApiInterface(
   block: DashboardBlockInterface,
-): ApiDashboardBlock {
+): ApiDashboardBlockInterface {
   switch (block.type) {
     case "metric-explorer":
       return {
@@ -573,7 +568,7 @@ function toBlockApiInterface(
 }
 
 export function fromBlockApiInterface(
-  apiBlock: ApiDashboardBlock | ApiCreateDashboardBlock,
+  apiBlock: ApiDashboardBlockInterface | ApiCreateDashboardBlockInterface,
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (apiBlock.type) {
     case "metric-explorer":
