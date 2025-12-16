@@ -24,7 +24,7 @@
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --exec 'node --enable-source-maps --no-node-snapshot' --watch dist --watch '../shared/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "GB_STATS_ENGINE_MIN_POOL_SIZE=0 CRON_ENABLED=false ./src/scripts/migrate-encryption-key.sh",
-    "generate-api-models": "node src/scripts/generate-doc-models-for-openapi-schemas.mjs",
+    "generate-api-models": "ts-node src/scripts/generate-doc-models-for-openapi-schemas.ts",
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {

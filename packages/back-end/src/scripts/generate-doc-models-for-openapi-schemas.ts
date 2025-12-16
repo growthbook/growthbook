@@ -1,14 +1,49 @@
 import path from "path";
 import fs from "fs";
-import * as url from "url";
 import { load, dump } from "js-yaml";
 
-const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+type ApiTag = {
+  name: string;
+  "x-displayName": string;
+  description: string;
+};
+
+type ApiShape = {
+  tags: ApiTag[];
+  "x-tagGroups"?: Array<{
+    name: string;
+    tags: string[];
+  }>;
+};
+
+function isValidTag(tag: unknown): tag is ApiTag {
+  if (!tag || typeof tag !== "object") return false;
+  if (!("name" in tag) || typeof tag.name !== "string") return false;
+  if (!("x-displayName" in tag) || typeof tag["x-displayName"] !== "string")
+    return false;
+  if (!("description" in tag) || typeof tag.description !== "string")
+    return false;
+  return true;
+}
+
+function isValidApi(
+  loadedApiDoc: string | number | object | null | undefined,
+): loadedApiDoc is ApiShape {
+  if (!loadedApiDoc || typeof loadedApiDoc !== "object") return false;
+  if (!("tags" in loadedApiDoc) || !Array.isArray(loadedApiDoc.tags)) {
+    return false;
+  }
+  if (loadedApiDoc.tags.some((tag) => !isValidTag(tag))) return false;
+  return true;
+}
 
 async function run() {
   const specPath = path.join(__dirname, "../api/openapi/openapi.yaml");
-  const api = load(fs.readFileSync(specPath));
+  const api = load(fs.readFileSync(specPath, "utf-8"));
 
+  if (!isValidApi(api)) {
+    throw new Error("Failed to validate openapi.yaml");
+  }
   // Group all existing tags under "Endpoints"
   // This is to avoid confusion in the docs when we programmatically add a section for all the models
   api["x-tagGroups"] = api["x-tagGroups"] || [];
@@ -41,13 +76,13 @@ async function run() {
   const output = dump(api);
   fs.writeFileSync(
     path.join(__dirname, "../api/openapi/openapi.tmp.yaml"),
-    output
+    output,
   );
 }
 
 run()
   .then(() =>
-    console.log("Generated tag groups and models for OpenAPI base file")
+    console.log("Generated tag groups and models for OpenAPI base file"),
   )
   .catch((e) => {
     console.error(e);
