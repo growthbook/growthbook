@@ -18,14 +18,9 @@ async function run() {
   });
 
   // Before generating types, programmatically add all models to the spec
-  const schemaDir = path.join(__dirname, "../api/openapi/schemas");
   const models = fs
-    .readdirSync(schemaDir)
-    .filter(
-      (fileName) =>
-        !fileName.includes("index") &&
-        !fs.lstatSync(path.join(schemaDir, fileName)).isDirectory(),
-    )
+    .readdirSync(path.join(__dirname, "../api/openapi/schemas"))
+    .filter((fileName) => !fileName.includes("index"))
     .map((fileName) => fileName.replace(".yaml", ""));
 
   // Add all model schemas to the tags
@@ -46,13 +41,13 @@ async function run() {
   const output = dump(api);
   fs.writeFileSync(
     path.join(__dirname, "../api/openapi/openapi.tmp.yaml"),
-    output,
+    output
   );
 }
 
 run()
   .then(() =>
-    console.log("Generated tag groups and models for OpenAPI base file"),
+    console.log("Generated tag groups and models for OpenAPI base file")
   )
   .catch((e) => {
     console.error(e);

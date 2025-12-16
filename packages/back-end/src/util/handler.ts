@@ -27,7 +27,7 @@ export type ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {
 };
 
 function validate<T extends ZodType>(
-  ZodType: T,
+  schema: T,
   value: unknown,
 ):
   | {
@@ -38,7 +38,7 @@ function validate<T extends ZodType>(
       success: false;
       errors: string[];
     } {
-  const result = ZodType.safeParse(value);
+  const result = schema.safeParse(value);
   if (!result.success) {
     return {
       success: false,
