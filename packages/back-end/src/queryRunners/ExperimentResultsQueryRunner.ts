@@ -268,12 +268,15 @@ export const startExperimentResultQueries = async (
   const runTrafficQuery =
     snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
 
-  const { eligibleDimensionsWithSlices: dimensionsForTraffic } =
-    getExposureQueryEligibleDimensions({
-      exposureQuery,
-      incrementalRefreshModel: null,
-      nVariations: snapshotSettings.variations.length,
-    });
+  const { eligibleDimensionsWithSlices: dimensionsForTraffic } = exposureQuery
+    ? getExposureQueryEligibleDimensions({
+        exposureQuery,
+        incrementalRefreshModel: null,
+        nVariations: snapshotSettings.variations.length,
+      })
+    : {
+        eligibleDimensionsWithSlices: [],
+      };
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
