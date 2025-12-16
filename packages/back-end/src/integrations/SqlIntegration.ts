@@ -7553,7 +7553,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     });
 
     const unitDimensionCols = unitDimensions.map((d) => ({
-      // aggregate units here
+      // override value with the a MAX statement that will get one
+      // value per unit
       value: this.getDimensionValuePerUnit(d),
       alias: this.getDimensionCol(d).alias,
     }));
