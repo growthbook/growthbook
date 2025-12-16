@@ -48,6 +48,11 @@ export function Popover({
   contentClassName,
   ...props
 }: PopoverProps) {
+  const appliedContentStyle = {
+    padding: "15px 20px",
+    ...contentStyle,
+  };
+
   // In case using our own button component, ensure preventDefault is false
   const clonedTrigger = React.isValidElement(trigger)
     ? React.cloneElement(trigger, { preventDefault: false } as Record<
@@ -66,10 +71,7 @@ export function Popover({
           {clonedTrigger}
         </RadixPopover.Anchor>
       ) : (
-        <RadixPopover.Trigger
-          asChild={triggerAsChild}
-          className={styles.UnstyledTrigger}
-        >
+        <RadixPopover.Trigger asChild={triggerAsChild}>
           {clonedTrigger}
         </RadixPopover.Trigger>
       )}
@@ -79,7 +81,7 @@ export function Popover({
             side={side}
             align={align}
             className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
-            style={contentStyle}
+            style={appliedContentStyle}
             onEscapeKeyDown={
               disableDismiss ? (e) => e.preventDefault() : undefined
             }

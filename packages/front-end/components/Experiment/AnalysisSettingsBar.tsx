@@ -33,7 +33,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackSnapshot } from "@/services/track";
 import VariationChooser from "@/components/Experiment/VariationChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
-import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisForm from "./AnalysisForm";
 import ResultMoreMenu from "./ResultMoreMenu";
@@ -85,10 +84,8 @@ export default function AnalysisSettingsBar({
     snapshot,
     analysis,
     dimension,
-    precomputedDimensions,
     mutateSnapshot: mutate,
     phase,
-    setDimension: setSnapshotDimension,
     setSnapshotType,
   } = useSnapshot();
   const { getDatasourceById, metricGroups } = useDefinitions();
@@ -173,35 +170,6 @@ export default function AnalysisSettingsBar({
               </div>
             </>
           ) : null}
-          <div className="col-auto form-inline pr-5">
-            <DimensionChooser
-              value={analysisBarSettings.dimension}
-              setValue={(d: string, resetOtherSettings?: boolean) =>
-                setAnalysisBarSettings({
-                  ...analysisBarSettings,
-                  dimension: d,
-                  ...(resetOtherSettings
-                    ? {
-                        baselineRow: 0,
-                        differenceType: "relative",
-                        variationFilter: [],
-                      }
-                    : {}),
-                })
-              }
-              precomputedDimensions={precomputedDimensions}
-              activationMetric={!!experiment.activationMetric}
-              datasourceId={experiment.datasource}
-              exposureQueryId={experiment.exposureQueryId}
-              userIdType={experiment.userIdType}
-              labelClassName="mr-2"
-              analysis={analysis}
-              snapshot={snapshot}
-              mutate={mutate}
-              setAnalysisSettings={setAnalysisSettings}
-              setSnapshotDimension={setSnapshotDimension}
-            />
-          </div>
           {!manualSnapshot && setAnalysisBarSettings ? (
             <div className="col-auto form-inline pr-5">
               <DifferenceTypeChooser

@@ -49,7 +49,7 @@ export interface UseExperimentTableRowsParams {
   metricTagFilter?: string[];
   metricGroupsFilter?: string[];
   sliceTagsFilter?: string[];
-  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -229,17 +229,12 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered metrics
     const sortedFilteredMetrics =
-      sortBy === "metric-tags"
-        ? sortMetricsByTagOrder(
+      sortBy === "custom" && customMetricOrder
+        ? sortMetricsByCustomOrder(
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
-            metricTagFilter,
+            customMetricOrder,
           )
-        : sortBy === "custom" && customMetricOrder
-          ? sortMetricsByCustomOrder(
-              metricDefs.filter((m) => filteredMetrics.includes(m.id)),
-              customMetricOrder,
-            )
-          : filteredMetrics;
+        : filteredMetrics;
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -257,17 +252,12 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered secondary metrics
     const sortedFilteredSecondary =
-      sortBy === "metric-tags"
-        ? sortMetricsByTagOrder(
+      sortBy === "custom" && customMetricOrder
+        ? sortMetricsByCustomOrder(
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
-            metricTagFilter,
+            customMetricOrder,
           )
-        : sortBy === "custom" && customMetricOrder
-          ? sortMetricsByCustomOrder(
-              secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
-              customMetricOrder,
-            )
-          : filteredSecondary;
+        : filteredSecondary;
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -285,17 +275,12 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered guardrail metrics
     const sortedFilteredGuardrails =
-      sortBy === "metric-tags"
-        ? sortMetricsByTagOrder(
+      sortBy === "custom" && customMetricOrder
+        ? sortMetricsByCustomOrder(
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
-            metricTagFilter,
+            customMetricOrder,
           )
-        : sortBy === "custom" && customMetricOrder
-          ? sortMetricsByCustomOrder(
-              guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
-              customMetricOrder,
-            )
-          : filteredGuardrails;
+        : filteredGuardrails;
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -670,42 +655,3 @@ export function filterMetricsByTags(
     .map((m) => m.id);
 }
 
-// Helper function to sort metrics by tag order (used when sortBy === "metric-tags")
-export function sortMetricsByTagOrder(
-  metrics: ExperimentMetricInterface[],
-  tagOrder?: string[],
-): string[] {
-  // If no tag order specified, return all metrics in original order
-  if (!tagOrder || tagOrder.length === 0) {
-    return metrics.map((m) => m.id);
-  }
-
-  const sortedMetrics: string[] = [];
-  const metricDefs: Record<string, ExperimentMetricInterface> = {};
-
-  // Get all metrics and their tags
-  metrics.forEach((metric) => {
-    if (!metric) return;
-    metricDefs[metric.id] = metric;
-  });
-
-  // Sort metrics by tag order
-  tagOrder.forEach((tag) => {
-    for (const metricId in metricDefs) {
-      const metric = metricDefs[metricId];
-      if (metric.tags?.includes(tag)) {
-        if (!sortedMetrics.includes(metricId)) {
-          sortedMetrics.push(metricId);
-        }
-        delete metricDefs[metricId];
-      }
-    }
-  });
-
-  // Add any remaining metrics to the end
-  for (const metricId in metricDefs) {
-    sortedMetrics.push(metricId);
-  }
-
-  return sortedMetrics;
-}

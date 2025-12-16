@@ -8,7 +8,7 @@ import {
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import Link from "next/link";
+import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
@@ -34,6 +34,7 @@ import { AnalysisBarSettings } from "@/components/Experiment/AnalysisSettingsBar
 import Metadata from "@/ui/Metadata";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
+import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -59,8 +60,8 @@ export interface Props {
   setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
-  sortBy: "metric-tags" | "significance" | "change" | null;
-  setSortBy: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortBy: "significance" | "change" | null;
+  setSortBy: (s: "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
   setSortDirection: (d: "asc" | "desc" | null) => void;
 }
@@ -105,6 +106,7 @@ export default function ResultsTab({
 
   const [allowManualDatasource, setAllowManualDatasource] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
+  const [analysisModal, setAnalysisModal] = useState(false);
 
   const router = useRouter();
 
@@ -213,7 +215,7 @@ export default function ResultsTab({
   };
 
   return (
-    <div className="mt-3">
+    <div className="mt-2">
       {isBandit && hasResults ? (
         <Callout status="info" mb="5">
           Bandits are better than experiments at directing traffic to the best
@@ -224,7 +226,18 @@ export default function ResultsTab({
 
       <Box>
         {hasData && (
-          <Flex direction="row" gap="3" mb="4" mt="2">
+          <Flex direction="row" gap="3" mx="1" mb="4">
+            {!(experiment.type === "multi-armed-bandit" &&
+              experiment.status === "running") &&
+            permissionsUtil.canUpdateExperiment(experiment, {}) ? (
+              <Link
+                type="button"
+                onClick={() => setAnalysisModal(true)}
+                mr="2"
+              >
+                Edit Settings
+              </Link>
+            ) : null}
             <Metadata
               label="Engine"
               value={
@@ -270,6 +283,19 @@ export default function ResultsTab({
             source={"results-tab"}
           />
         )}
+        {analysisModal && (
+          <AnalysisForm
+            cancel={() => setAnalysisModal(false)}
+            envs={envs}
+            experiment={experiment}
+            mutate={mutate}
+            phase={experiment.phases.length - 1}
+            editDates={true}
+            editVariationIds={false}
+            editMetrics={true}
+            source={"results-tab"}
+          />
+        )}
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
@@ -293,7 +319,31 @@ export default function ResultsTab({
                 differenceType: d,
               })
             }
+            dimension={analysisBarSettings.dimension}
+            setDimension={(d: string, resetOtherSettings?: boolean) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                dimension: d,
+                ...(resetOtherSettings
+                  ? {
+                      baselineRow: 0,
+                      differenceType: "relative",
+                      variationFilter: [],
+                    }
+                  : {}),
+              })
+            }
             reportArgs={reportArgs}
+            metricTagFilter={metricTagFilter}
+            setMetricTagFilter={setMetricTagFilter}
+            metricGroupsFilter={metricGroupsFilter}
+            setMetricGroupsFilter={setMetricGroupsFilter}
+            availableMetricGroups={availableMetricGroups}
+            availableSliceTags={availableSliceTags}
+            sliceTagsFilter={sliceTagsFilter}
+            setSliceTagsFilter={setSliceTagsFilter}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
@@ -333,9 +383,9 @@ export default function ResultsTab({
                         metrics and stats engine to automatically analyze your
                         experiment results.
                       </p>
-                      <Link href="/datasources" className="btn btn-primary">
+                      <NextLink href="/datasources" className="btn btn-primary">
                         Connect to your Data
-                      </Link>
+                      </NextLink>
                     </>
                   )}
                   {metrics.length > 0 && (

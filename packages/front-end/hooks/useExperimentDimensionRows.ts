@@ -36,7 +36,7 @@ export interface UseExperimentDimensionRowsParams {
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
   metricGroupsFilter?: string[];
-  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {

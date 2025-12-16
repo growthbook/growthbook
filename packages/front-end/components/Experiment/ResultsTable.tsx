@@ -51,7 +51,6 @@ import ResultsTableTooltip, {
 import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -100,15 +99,6 @@ export type ResultsTableProps = {
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
   sequentialTestingEnabled?: boolean;
-  metricTagFilter?: string[];
-  setMetricTagFilter?: (tags: string[]) => void;
-  metricGroupsFilter?: string[];
-  setMetricGroupsFilter?: (groups: string[]) => void;
-  availableMetricGroups?: Array<{ id: string; name: string }>;
-  availableSliceTags?: string[];
-  sliceTagsFilter?: string[];
-  setSliceTagsFilter?: (tags: string[]) => void;
-  metricTags?: string[];
   isTabActive: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
@@ -118,9 +108,9 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
-  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  sortBy?: "significance" | "change" | "custom" | null;
   setSortBy?: (
-    s: "metric-tags" | "significance" | "change" | "custom" | null,
+    s: "significance" | "change" | "custom" | null,
   ) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
@@ -172,15 +162,6 @@ export default function ResultsTable({
   pValueCorrection,
   differenceType,
   sequentialTestingEnabled = false,
-  metricTagFilter,
-  setMetricTagFilter,
-  metricGroupsFilter,
-  setMetricGroupsFilter,
-  availableMetricGroups,
-  availableSliceTags = [],
-  sliceTagsFilter,
-  setSliceTagsFilter,
-  metricTags = [],
   isTabActive,
   noStickyHeader,
   noTooltip,
@@ -300,8 +281,6 @@ export default function ResultsTable({
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
-
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -562,25 +541,7 @@ export default function ResultsTable({
                     }}
                   >
                     <div className="row px-0">
-                      {setMetricTagFilter ? (
-                        <ResultsMetricFilter
-                          metricTags={metricTags}
-                          metricTagFilter={metricTagFilter}
-                          setMetricTagFilter={setMetricTagFilter}
-                          availableMetricGroups={availableMetricGroups}
-                          metricGroupsFilter={metricGroupsFilter}
-                          setMetricGroupsFilter={setMetricGroupsFilter}
-                          availableSliceTags={availableSliceTags}
-                          sliceTagsFilter={sliceTagsFilter}
-                          setSliceTagsFilter={setSliceTagsFilter}
-                          sortBy={sortBy}
-                          setSortBy={setSortBy}
-                          showMetricFilter={showMetricFilter}
-                          setShowMetricFilter={setShowMetricFilter}
-                        />
-                      ) : (
-                        <span className="pl-1" />
-                      )}
+                      <span className="pl-1" />
                       <div
                         className="col-auto px-1"
                         style={{

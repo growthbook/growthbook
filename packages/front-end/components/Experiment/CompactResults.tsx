@@ -31,7 +31,6 @@ import { HiBadgeCheck } from "react-icons/hi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-// No longer need ResultsMetricFilters - we use simple string[] for metricTagFilter
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -67,13 +66,8 @@ const CompactResults: FC<{
   sequentialTestingEnabled?: boolean;
   differenceType: DifferenceType;
   metricTagFilter?: string[];
-  setMetricTagFilter?: (tags: string[]) => void;
   metricGroupsFilter?: string[];
-  setMetricGroupsFilter?: (groups: string[]) => void;
-  availableMetricGroups?: Array<{ id: string; name: string }>;
-  availableSliceTags?: string[];
   sliceTagsFilter?: string[];
-  setSliceTagsFilter?: (tags: string[]) => void;
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
   mainTableOnly?: boolean;
@@ -95,8 +89,8 @@ const CompactResults: FC<{
       levels: string[];
     }>;
   }>;
-  sortBy?: "metric-tags" | "significance" | "change" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortBy?: "significance" | "change" | null;
+  setSortBy?: (s: "significance" | "change" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   analysisBarSettings?: {
@@ -128,13 +122,8 @@ const CompactResults: FC<{
   sequentialTestingEnabled,
   differenceType,
   metricTagFilter,
-  setMetricTagFilter,
   metricGroupsFilter,
-  setMetricGroupsFilter,
-  availableMetricGroups,
-  availableSliceTags = [],
   sliceTagsFilter,
-  setSliceTagsFilter,
   isTabActive,
   setTab,
   mainTableOnly,
@@ -186,7 +175,7 @@ const CompactResults: FC<{
     }));
   };
 
-  const { rows, allMetricTags, getChildRowCounts } = useExperimentTableRows({
+  const { rows, getChildRowCounts } = useExperimentTableRows({
     results,
     goalMetrics,
     secondaryMetrics,
@@ -353,35 +342,6 @@ const CompactResults: FC<{
             getChildRowCounts,
             sliceTagsFilter,
           })}
-          metricTagFilter={
-            experimentType !== "multi-armed-bandit"
-              ? metricTagFilter
-              : undefined
-          }
-          setMetricTagFilter={
-            experimentType !== "multi-armed-bandit"
-              ? setMetricTagFilter
-              : undefined
-          }
-          metricGroupsFilter={
-            experimentType !== "multi-armed-bandit"
-              ? metricGroupsFilter
-              : undefined
-          }
-          setMetricGroupsFilter={
-            experimentType !== "multi-armed-bandit"
-              ? setMetricGroupsFilter
-              : undefined
-          }
-          availableMetricGroups={
-            experimentType !== "multi-armed-bandit"
-              ? availableMetricGroups
-              : undefined
-          }
-          availableSliceTags={availableSliceTags}
-          sliceTagsFilter={sliceTagsFilter}
-          setSliceTagsFilter={setSliceTagsFilter}
-          metricTags={allMetricTags}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
           noTooltip={noTooltip}
@@ -435,12 +395,6 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
             })}
-            metricTagFilter={metricTagFilter}
-            setMetricTagFilter={setMetricTagFilter}
-            metricGroupsFilter={metricGroupsFilter}
-            setMetricGroupsFilter={setMetricGroupsFilter}
-            availableMetricGroups={availableMetricGroups}
-            metricTags={allMetricTags}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
@@ -494,12 +448,6 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
             })}
-            metricTagFilter={metricTagFilter}
-            setMetricTagFilter={setMetricTagFilter}
-            metricGroupsFilter={metricGroupsFilter}
-            setMetricGroupsFilter={setMetricGroupsFilter}
-            availableMetricGroups={availableMetricGroups}
-            metricTags={allMetricTags}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}

@@ -16,7 +16,6 @@ import {
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { startCase } from "lodash";
-import { PiPencilSimpleFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { trackSnapshot } from "@/services/track";
@@ -32,13 +31,15 @@ import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
+import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import { getAllMetricTags } from "@/hooks/useExperimentTableRows";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -50,7 +51,21 @@ export interface Props {
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
   setDifferenceType: (differenceType: DifferenceType) => void;
+  dimension?: string;
+  setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
   reportArgs?: ExperimentSnapshotReportArgs;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableSliceTags?: string[];
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
+  sortBy?: "significance" | "change" | null;
+  setSortBy?: (
+    s: "significance" | "change" | null,
+  ) => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -65,7 +80,19 @@ export default function AnalysisSettingsSummary({
   setVariationFilter,
   setBaselineRow,
   setDifferenceType,
+  dimension,
+  setDimension,
   reportArgs,
+  metricTagFilter,
+  setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups = [],
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
+  sortBy,
+  setSortBy,
 }: Props) {
   const {
     getDatasourceById,
@@ -97,10 +124,12 @@ export default function AnalysisSettingsSummary({
     snapshot,
     latest,
     analysis,
-    dimension,
+    dimension: snapshotDimension,
+    precomputedDimensions,
     mutateSnapshot,
     setAnalysisSettings,
     setSnapshotType,
+    setDimension: setSnapshotDimension,
     phase,
   } = useSnapshot();
 
@@ -149,8 +178,6 @@ export default function AnalysisSettingsSummary({
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
-
-  const [analysisModal, setAnalysisModal] = useState(false);
 
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
@@ -267,40 +294,76 @@ export default function AnalysisSettingsSummary({
 
   const numMetrics = goals.length + secondary.length + guardrails.length;
 
+  // Compute all metric tags for filtering
+  const allMetricTags = useMemo(() => {
+    const expandedGoals = expandMetricGroups(
+      experiment.goalMetrics ?? [],
+      metricGroups,
+    );
+    const expandedSecondaries = expandMetricGroups(
+      experiment.secondaryMetrics ?? [],
+      metricGroups,
+    );
+    const expandedGuardrails = expandMetricGroups(
+      experiment.guardrailMetrics ?? [],
+      metricGroups,
+    );
+    return getAllMetricTags(
+      expandedGoals,
+      expandedSecondaries,
+      expandedGuardrails,
+      undefined,
+      getExperimentMetricById,
+    );
+  }, [
+    experiment.goalMetrics,
+    experiment.secondaryMetrics,
+    experiment.guardrailMetrics,
+    metricGroups,
+    getExperimentMetricById,
+  ]);
+
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
+
   return (
     <div className="px-3 py-2">
-      {analysisModal && (
-        <AnalysisForm
-          cancel={() => setAnalysisModal(false)}
-          envs={envs}
-          experiment={experiment}
-          mutate={mutate}
-          phase={experiment.phases.length - 1}
-          editDates={true}
-          editVariationIds={false}
-          editMetrics={true}
-          source={"analysis-settings-summary"}
-        />
-      )}
       <div className="row align-items-center justify-content-end">
+        {setDimension && (
+          <div className="col-auto form-inline pr-5">
+            <DimensionChooser
+              value={dimension ?? ""}
+              setValue={setDimension}
+              precomputedDimensions={precomputedDimensions}
+              activationMetric={!!experiment.activationMetric}
+              datasourceId={experiment.datasource}
+              exposureQueryId={experiment.exposureQueryId}
+              userIdType={userIdType as "user" | "anonymous" | undefined}
+              labelClassName="mr-2"
+              analysis={analysis}
+              snapshot={snapshot}
+              mutate={mutateSnapshot}
+              setAnalysisSettings={setAnalysisSettings}
+              setSnapshotDimension={setSnapshotDimension}
+            />
+          </div>
+        )}
         <div className="col-auto">
           <div className="row align-items-center text-muted">
-            <div className="col-auto">
-              {!(isBandit && experiment.status === "running") &&
-              canEditAnalysisSettings ? (
-                <div className="cursor-pointer">
-                  <Link
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAnalysisModal(true);
-                    }}
-                  >
-                    <span className="text-dark">Analysis Settings</span>
-                    <PiPencilSimpleFill className="ml-2" />
-                  </Link>
-                </div>
-              ) : (
-                <span>Analysis Settings</span>
+            <div className="col-auto d-flex align-items-center" style={{ gap: 8 }}>
+              {setMetricTagFilter && (
+                <ResultsMetricFilter
+                  metricTags={allMetricTags}
+                  metricTagFilter={metricTagFilter}
+                  setMetricTagFilter={setMetricTagFilter}
+                  availableMetricGroups={availableMetricGroups}
+                  metricGroupsFilter={metricGroupsFilter}
+                  setMetricGroupsFilter={setMetricGroupsFilter}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
               )}
             </div>
           </div>

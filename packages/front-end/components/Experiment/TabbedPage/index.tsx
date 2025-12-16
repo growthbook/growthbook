@@ -164,7 +164,7 @@ export default function TabbedPage({
     [],
   );
   const [sortBy, setSortBy] = useLocalStorage<
-    "metric-tags" | "significance" | "change" | null
+    "significance" | "change" | null
   >(`experiment-page__${experiment.id}__sort_by`, null);
   const [sortDirection, setSortDirection] = useLocalStorage<
     "asc" | "desc" | null

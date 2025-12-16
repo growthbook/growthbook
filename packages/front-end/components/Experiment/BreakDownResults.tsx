@@ -24,8 +24,6 @@ import ResultsTable, {
 } from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
-// No longer importing ResultsMetricFilters - we use simple string[] for filtering
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -86,9 +84,9 @@ const BreakDownResults: FC<{
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  sortBy?: "significance" | "change" | "custom" | null;
   setSortBy?: (
-    s: "metric-tags" | "significance" | "change" | "custom" | null,
+    s: "significance" | "change" | "custom" | null,
   ) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
@@ -144,8 +142,6 @@ const BreakDownResults: FC<{
   customMetricOrder,
   analysisBarSettings,
 }) => {
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
-
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
   const _settings = useOrgSettings();
@@ -223,29 +219,9 @@ const BreakDownResults: FC<{
         return (
           <>
             <h4
-              className={clsx(
-                "mt-2 mb-1 d-flex position-relative",
-                !setMetricTagFilter ? "ml-2" : "",
-              )}
+              className="mt-2 mb-1 d-flex position-relative ml-2"
               style={{ gap: 4 }}
             >
-              {setMetricTagFilter ? (
-                <ResultsMetricFilter
-                  metricTags={allMetricTags}
-                  metricTagFilter={metricTagFilter}
-                  setMetricTagFilter={setMetricTagFilter}
-                  availableMetricGroups={availableMetricGroups}
-                  availableSliceTags={availableSliceTags}
-                  sliceTagsFilter={sliceTagsFilter}
-                  setSliceTagsFilter={setSliceTagsFilter}
-                  metricGroupsFilter={metricGroupsFilter}
-                  setMetricGroupsFilter={setMetricGroupsFilter}
-                  sortBy={sortBy}
-                  setSortBy={setSortBy}
-                  showMetricFilter={showMetricFilter}
-                  setShowMetricFilter={setShowMetricFilter}
-                />
-              ) : null}
               {table.rows[0]?.resultGroup === "goal"
                 ? "Goal Metric"
                 : table.rows[0]?.resultGroup === "secondary"

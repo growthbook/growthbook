@@ -53,18 +53,13 @@ const Results: FC<{
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   metricTagFilter?: string[];
-  setMetricTagFilter?: (tags: string[]) => void;
   metricGroupsFilter?: string[];
-  setMetricGroupsFilter?: (groups: string[]) => void;
-  availableMetricGroups?: Array<{ id: string; name: string }>;
-  availableSliceTags?: string[];
   sliceTagsFilter?: string[];
-  setSliceTagsFilter?: (tags: string[]) => void;
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
-  sortBy?: "metric-tags" | "significance" | "change" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortBy?: "significance" | "change" | null;
+  setSortBy?: (s: "significance" | "change" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
@@ -85,13 +80,8 @@ const Results: FC<{
   analysisBarSettings,
   setAnalysisBarSettings,
   metricTagFilter,
-  setMetricTagFilter,
   metricGroupsFilter,
-  setMetricGroupsFilter,
-  availableMetricGroups,
-  availableSliceTags = [],
   sliceTagsFilter,
-  setSliceTagsFilter,
   isTabActive = true,
   setTab,
   holdout,
@@ -422,13 +412,8 @@ const Results: FC<{
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
           metricTagFilter={metricTagFilter}
-          setMetricTagFilter={setMetricTagFilter}
           metricGroupsFilter={metricGroupsFilter}
-          setMetricGroupsFilter={setMetricGroupsFilter}
-          availableMetricGroups={availableMetricGroups}
-          availableSliceTags={availableSliceTags}
           sliceTagsFilter={sliceTagsFilter}
-          setSliceTagsFilter={setSliceTagsFilter}
           experimentType={experiment.type}
           sortBy={sortBy}
           setSortBy={setSortBy}
