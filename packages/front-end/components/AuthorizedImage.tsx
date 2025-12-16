@@ -9,7 +9,8 @@ interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
   imageCache?: Record<string, { url: string; expiresAt: string }>;
   onErrorMsg?: (msg: string) => JSX.Element | null;
   isPublic?: boolean;
-  experimentUid?: string;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
 }
 
 /**
@@ -23,7 +24,8 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   onErrorMsg,
   src = "",
   isPublic = false,
-  experimentUid,
+  shareUid,
+  shareType = "experiment",
   ...props
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -49,9 +51,9 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
           ? `/upload/public-signed-url/${path}`
           : `/upload/signed-url/${path}`;
 
-        // Add experimentUid as query parameter for public endpoints
-        if (isPublic && experimentUid) {
-          endpoint += `?experimentUid=${encodeURIComponent(experimentUid)}`;
+        // Add shareUid and shareType as query parameters for public endpoints
+        if (isPublic && shareUid) {
+          endpoint += `?shareUid=${encodeURIComponent(shareUid)}&shareType=${encodeURIComponent(shareType)}`;
         }
 
         let response: SignedImageUrlResponse;
@@ -124,7 +126,7 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
         setImageSrc(src);
       }
     });
-  }, [src, imageCache, apiCall, isPublic, experimentUid]);
+  }, [src, imageCache, apiCall, isPublic, shareUid, shareType]);
 
   if (errorMsg) {
     if (onErrorMsg) {
