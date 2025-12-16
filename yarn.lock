@@ -4802,10 +4802,10 @@
   dependencies:
     webpack-bundle-analyzer "4.10.1"
 
-"@next/env@14.2.33":
-  version "14.2.33"
-  resolved "https://registry.yarnpkg.com/@next/env/-/env-14.2.33.tgz#ac87a781fd485b740f3f9bd94efc02cb9826f694"
-  integrity sha512-CgVHNZ1fRIlxkLhIX22flAZI/HmpDaZ8vwyJ/B0SDPTBuLZ1PJ+DWMjCHhqnExfmSQzA/PbZi8OAc7PAq2w9IA==
+"@next/env@14.2.35":
+  version "14.2.35"
+  resolved "https://registry.yarnpkg.com/@next/env/-/env-14.2.35.tgz#e979016d0ca8500a47d41ffd02625fe29b8df35a"
+  integrity sha512-DuhvCtj4t9Gwrx80dmz2F4t/zKQ4ktN8WrMwOuVzkJfBilwAwGr6v16M5eI8yCuZ63H9TTuEU09Iu2HqkzFPVQ==
 
 "@next/eslint-plugin-next@14.1.0":
   version "14.1.0"
@@ -19331,12 +19331,12 @@ new-find-package-json@^2.0.0:
   dependencies:
     debug "^4.3.4"
 
-next@14.2.33:
-  version "14.2.33"
-  resolved "https://registry.yarnpkg.com/next/-/next-14.2.33.tgz#284bc3de43d9319b7b41d4b69ec9a0ff0905a9e3"
-  integrity sha512-GiKHLsD00t4ACm1p00VgrI0rUFAC9cRDGReKyERlM57aeEZkOQGcZTpIbsGn0b562FTPJWmYfKwplfO9EaT6ng==
+next@14.2.35:
+  version "14.2.35"
+  resolved "https://registry.yarnpkg.com/next/-/next-14.2.35.tgz#7c68873a15fe5a19401f2f993fea535be3366ee9"
+  integrity sha512-KhYd2Hjt/O1/1aZVX3dCwGXM1QmOV4eNM2UTacK5gipDdPN/oHHK/4oVGy7X8GMfPMsUTUEmGlsy0EY1YGAkig==
   dependencies:
-    "@next/env" "14.2.33"
+    "@next/env" "14.2.35"
     "@swc/helpers" "0.5.5"
     busboy "1.6.0"
     caniuse-lite "^1.0.30001579"

@@ -385,9 +385,9 @@ export function getDefaultExperimentAnalysisSettings(
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
-  const hasPostStratificationFeature = organization
-    ? orgHasPremiumFeature(organization, "post-stratification")
-    : false;
+  // const hasPostStratificationFeature = organization
+  //   ? orgHasPremiumFeature(organization, "post-stratification")
+  //   : false;
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
@@ -399,9 +399,9 @@ export function getDefaultExperimentAnalysisSettings(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
-    postStratificationEnabled:
-      hasPostStratificationFeature &&
-      !(organization.settings?.postStratificationDisabled ?? false),
+    postStratificationEnabled: false,
+    // hasPostStratificationFeature &&
+    // !(organization.settings?.postStratificationDisabled ?? false),
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -1458,7 +1458,7 @@ async function getSnapshotAnalyses(
 
   // get queryMap for all snapshots
   const queryMap = await getQueryMap(
-    context.org.id,
+    context,
     params.map((p) => p.snapshot.queries).flat(),
   );
 
@@ -1574,6 +1574,7 @@ export async function createSnapshotAnalyses(
 }
 
 export async function createSnapshotAnalysis(
+  context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
 ): Promise<void> {
   const { snapshot, analysisSettings, organization, experiment, metricMap } =
@@ -1604,10 +1605,7 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap: QueryMap = await getQueryMap(
-    organization.id,
-    snapshot.queries,
-  );
+  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({

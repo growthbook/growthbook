@@ -180,7 +180,12 @@ export default function DashboardUpdateDisplay({
         {canRefresh && (
           <Button
             size="xs"
-            disabled={refreshing || !dashboardId || dashboardId === "new"}
+            disabled={
+              refreshing ||
+              !dashboardId ||
+              dashboardId === "new" ||
+              !allQueries.length
+            }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
             variant="ghost"
