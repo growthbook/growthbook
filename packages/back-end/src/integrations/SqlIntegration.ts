@@ -1705,7 +1705,7 @@ export default abstract class SqlIntegration
         initial.${baseIdType}`;
   }
 
-  private getDimensionColumn(
+  private getDimensionValuePerUnit(
     dimension: UserDimension | ExperimentDimension | null,
     experimentDimensionPrefix?: string,
   ) {
@@ -2152,13 +2152,13 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_unit_${d.dimension.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_unit_${d.dimension.id}`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
@@ -2471,7 +2471,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+            , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -6831,7 +6831,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${experimentDimensions
               .map(
                 (d) => `
-              , ${this.getDimensionColumn(d, "dim_exp_")} AS dim_exp_${d.id}`,
+              , ${this.getDimensionValuePerUnit(d, "dim_exp_")} AS dim_exp_${d.id}`,
               )
               .join("\n")}
           FROM __jointExposures e
@@ -7557,9 +7557,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       this.getDimensionCol(d),
     );
 
-    const precomputedDimensionCols = params.dimensionsForPrecomputation.map(
-      (d) => this.getDimensionCol(d),
-    );
+    const precomputedDimensionCols: DimensionColumnData[] =
+      params.dimensionsForPrecomputation.map((d) => {
+        const col = this.getDimensionCol(d);
+        // override value with case when statement for precomputed dimensions
+        const value = this.getDimensionInStatement(
+          col.alias,
+          d.specifiedSlices,
+        );
+        return {
+          value,
+          alias: col.alias,
+        };
+      });
 
     const allDimensionCols = [
       ...unitDimensionCols,
@@ -7586,15 +7596,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             )})`,
         )
         .join("\n")}
-      ${
+      , __experimentUnits AS (${
         unitDimensions.length > 0
-          ? `
-        , __experimentUnits AS (
-          SELECT
+          ? `SELECT
             e.${baseIdType} AS ${baseIdType}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
-            ${unitDimensions.map((d) => `, ${this.getDimensionColumn(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
+            ${unitDimensions.map((d) => `, ${this.getDimensionValuePerUnit(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
             ${experimentDimensionCols
               .map((d) => {
                 return `, MIN(${d.value}) AS ${d.alias}`;
@@ -7617,10 +7625,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .join("\n")}
           GROUP BY
             e.${baseIdType}
-        )
       `
-          : `, __experimentUnits AS (
-        SELECT
+          : `SELECT
           e.${baseIdType} AS ${baseIdType}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
@@ -7634,9 +7640,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 return `, ${d.value} AS ${d.alias}`;
               })
               .join("")}
-        FROM ${params.unitsSourceTableFullName} e
-      )`
-      }
+        FROM ${params.unitsSourceTableFullName} e`
+      })
       , __metricDataAggregated AS (
         SELECT
           ${baseIdType}
