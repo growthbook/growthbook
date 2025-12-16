@@ -6,7 +6,6 @@ import {
 import React, { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { FaExclamationCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import { getValidDate } from "shared/dates";
 import {
@@ -25,15 +24,10 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Switch from "@/ui/Switch";
-import { GBCuped } from "@/components/Icons";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackSnapshot } from "@/services/track";
 import VariationChooser from "@/components/Experiment/VariationChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisForm from "./AnalysisForm";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
@@ -56,10 +50,6 @@ export default function AnalysisSettingsBar({
   setAnalysisBarSettings,
   setAnalysisSettings,
   alwaysShowPhaseSelector = false,
-  regressionAdjustmentAvailable,
-  regressionAdjustmentEnabled,
-  regressionAdjustmentHasValidMetrics,
-  onRegressionAdjustmentChange,
   showMoreMenu = true,
   envs,
 }: {
@@ -72,10 +62,6 @@ export default function AnalysisSettingsBar({
   setAnalysisSettings: (s: ExperimentSnapshotAnalysisSettings | null) => void;
   envs: string[];
   alwaysShowPhaseSelector?: boolean;
-  regressionAdjustmentAvailable?: boolean;
-  regressionAdjustmentEnabled?: boolean;
-  regressionAdjustmentHasValidMetrics?: boolean;
-  onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   showMoreMenu?: boolean;
   holdout?: HoldoutInterface;
 }) {
@@ -92,15 +78,6 @@ export default function AnalysisSettingsBar({
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
-
-  const { hasCommercialFeature } = useUser();
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment",
-  );
-
-  const permissionsUtil = usePermissionsUtil();
-  const canEditAnalysisSettings =
-    experiment && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -200,73 +177,6 @@ export default function AnalysisSettingsBar({
               </div>
             )}
           <div style={{ flex: 1 }} />
-          {!isBandit && !isHoldout ? (
-            <div className="col-auto">
-              {regressionAdjustmentAvailable && (
-                <PremiumTooltip
-                  commercialFeature="regression-adjustment"
-                  className="form-inline"
-                >
-                  <label
-                    htmlFor={"toggle-experiment-regression-adjustment"}
-                    className={`d-flex btn btn-outline-${
-                      !hasRegressionAdjustmentFeature
-                        ? "teal-disabled"
-                        : regressionAdjustmentEnabled
-                          ? "teal"
-                          : "teal-off"
-                    } my-0 pl-2 pr-1 py-1 form-inline`}
-                  >
-                    <GBCuped />
-                    <span className="mx-1 font-weight-bold">CUPED</span>
-                    <Switch
-                      color="teal"
-                      id="toggle-experiment-regression-adjustment"
-                      value={!!regressionAdjustmentEnabled}
-                      onChange={(value) => {
-                        if (
-                          onRegressionAdjustmentChange &&
-                          hasRegressionAdjustmentFeature
-                        ) {
-                          onRegressionAdjustmentChange(value).catch((e) => {
-                            console.error(e);
-                          });
-                        }
-                      }}
-                      disabled={
-                        !hasRegressionAdjustmentFeature ||
-                        !canEditAnalysisSettings
-                      }
-                    />
-                    {!regressionAdjustmentHasValidMetrics && (
-                      <Tooltip
-                        popperClassName="text-left"
-                        body={
-                          <>
-                            <p>
-                              This experiment does not have any metrics suitable
-                              for CUPED regression adjustment.
-                            </p>
-                            <p className="mb-0">
-                              Please check your metric definitions, as well as
-                              any experiment-level metric overrides.
-                            </p>
-                          </>
-                        }
-                      >
-                        <div
-                          className="text-warning-orange position-absolute p-1"
-                          style={{ top: -11, right: 2 }}
-                        >
-                          <FaExclamationCircle />
-                        </div>
-                      </Tooltip>
-                    )}
-                  </label>
-                </PremiumTooltip>
-              )}
-            </div>
-          ) : null}
           {isBandit && snapshot ? (
             <div className="col-auto text-right mb-0">
               <div className="uppercase-title text-muted">Analysis type</div>

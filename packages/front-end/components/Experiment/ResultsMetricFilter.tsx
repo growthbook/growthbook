@@ -1,8 +1,6 @@
-import { MdFilterAlt } from "react-icons/md";
 import React from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
-import { PiX, PiPlus } from "react-icons/pi";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { PiPlus } from "react-icons/pi";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
@@ -45,7 +43,7 @@ export default function ResultsMetricFilter({
     (sliceTagsFilter?.length || 0);
 
   return (
-    <Flex align="center" gap="2" className="position-relative">
+    <Flex align="center" gap="3" className="position-relative">
       <Popover
         side="top"
         align="start"
@@ -53,30 +51,33 @@ export default function ResultsMetricFilter({
         onOpenChange={setShowMetricFilter}
         triggerAsChild={true}
         trigger={
-          <Button
-            color="violet"
-            variant="ghost"
-            size="sm"
-            icon={<PiPlus />}
-          >
+          <Button color="violet" variant="ghost" size="sm" icon={<PiPlus />}>
             <span>Filters</span>
             {activeFilterCount > 0 && (
-              <Badge color="indigo" variant="solid" radius="full" label={String(activeFilterCount)} ml="1" />
+              <Badge
+                color="indigo"
+                variant="solid"
+                radius="full"
+                label={String(activeFilterCount)}
+                ml="1"
+              />
             )}
           </Button>
         }
         content={
-          <Flex
-            direction="column"
-            justify="between"
-            style={{ width: 550 }}
-          >
+          <Flex direction="column" justify="between" style={{ width: 550 }}>
             <Box>
               <Flex align="center" justify="between" mb="2">
                 <Heading size="2" weight="medium">
                   Filters
                   {activeFilterCount > 0 && (
-                    <Badge color="indigo" variant="solid" radius="full" label={String(activeFilterCount)} ml="1" />
+                    <Badge
+                      color="indigo"
+                      variant="solid"
+                      radius="full"
+                      label={String(activeFilterCount)}
+                      ml="1"
+                    />
                   )}
                 </Heading>
                 {filteringApplied ? (
@@ -95,8 +96,19 @@ export default function ResultsMetricFilter({
                 ) : null}
               </Flex>
               {availableSliceTags.length > 0 && (
-                <Flex gap="2" p="3" mb="2" align="center" className="bg-highlight rounded">
-                  <Heading size="2" weight="medium" mb="0" style={{ width: 150 }}>
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Heading
+                    size="2"
+                    weight="medium"
+                    mb="0"
+                    style={{ width: 150 }}
+                  >
                     Slices
                   </Heading>
                   <MultiSelectField
@@ -117,8 +129,19 @@ export default function ResultsMetricFilter({
                 </Flex>
               )}
               {availableMetricGroups.length > 0 && (
-                <Flex gap="2" p="3" mb="2" align="center" className="bg-highlight rounded">
-                  <Heading size="2" weight="medium" mb="0" style={{ width: 150 }}>
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Heading
+                    size="2"
+                    weight="medium"
+                    mb="0"
+                    style={{ width: 150 }}
+                  >
                     Metric groups
                   </Heading>
                   <MultiSelectField
@@ -138,14 +161,20 @@ export default function ResultsMetricFilter({
                   />
                 </Flex>
               )}
-              <Flex gap="2" p="3" mb="2" align="center" className="bg-highlight rounded">
+              <Flex
+                gap="2"
+                p="3"
+                mb="2"
+                align="center"
+                className="bg-highlight rounded"
+              >
                 <Heading size="2" weight="medium" mb="0" style={{ width: 150 }}>
                   Tags
                 </Heading>
                 <MultiSelectField
-                    customClassName="multiselect-unfixed"
-                    containerClassName="w-100"
-                    placeholder="Type to search..."
+                  customClassName="multiselect-unfixed"
+                  containerClassName="w-100"
+                  placeholder="Type to search..."
                   value={metricTagFilter || []}
                   options={metricTags.map((tag) => ({
                     label: tag,

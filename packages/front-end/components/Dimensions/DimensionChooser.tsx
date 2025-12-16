@@ -4,7 +4,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/src/util";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
@@ -218,92 +218,89 @@ export default function DimensionChooser({
   }
 
   return (
-    <div>
-      {newUi && <div className="uppercase-title text-muted">Dimension</div>}
-      <Flex direction="row" gap="1" align="center">
-        <SelectField
-          label={newUi ? undefined : "Dimension"}
-          labelClassName={labelClassName}
-          containerClassName={newUi ? "select-dropdown-underline" : ""}
-          options={dimensionOptions}
-          formatGroupLabel={({ label }) => (
-            <div className="pt-2 pb-1 border-bottom">{label}</div>
-          )}
-          initialOption="None"
-          value={value}
-          onChange={(v) => {
-            if (v === value) return;
-            setPostLoading(true);
-            setValue?.(v);
-            if (precomputedDimensions?.includes(v)) {
-              const defaultAnalysis = standardSnapshot
-                ? getSnapshotAnalysis(standardSnapshot)
-                : null;
+    <Flex direction="row" gap="2" align="center">
+      {newUi ? <Text weight="medium">Unit Dimension:</Text> : null}
+      <SelectField
+        label={newUi ? undefined : "Unit Dimension"}
+        labelClassName={labelClassName}
+        containerClassName={newUi ? "select-dropdown-no-underline" : ""}
+        options={dimensionOptions}
+        formatGroupLabel={({ label }) => (
+          <div className="pt-2 pb-1 border-bottom">{label}</div>
+        )}
+        initialOption="None"
+        value={value}
+        onChange={(v) => {
+          if (v === value) return;
+          setPostLoading(true);
+          setValue?.(v);
+          if (precomputedDimensions?.includes(v)) {
+            const defaultAnalysis = standardSnapshot
+              ? getSnapshotAnalysis(standardSnapshot)
+              : null;
 
-              if (!defaultAnalysis || !standardSnapshot) {
-                // reset if fails
-                setValue?.(value);
-                return;
-              }
-
-              const newSettings: ExperimentSnapshotAnalysisSettings = {
-                ...defaultAnalysis.settings,
-                // get other analysis settings from current analysis
-                differenceType:
-                  analysis?.settings?.differenceType ?? "relative",
-                baselineVariationIndex:
-                  analysis?.settings?.baselineVariationIndex ?? 0,
-                dimensions: [v],
-              };
-              // Returns success if analysis is updated or already exists
-              triggerAnalysisUpdate(
-                newSettings,
-                defaultAnalysis,
-                standardSnapshot,
-                apiCall,
-                setPostLoading,
-              )
-                .then((status) => {
-                  if (status === "success") {
-                    // On success, set the dimension in the dropdown to
-                    // the requested value
-                    setValue?.(v);
-
-                    // also reset the snapshot dimension to the default
-                    // and set the analysis settings to get the right analysis
-                    // so that the snapshot provider can get the right analysis
-                    setSnapshotDimension?.("");
-                    setAnalysisSettings?.(newSettings);
-                    track("Experiment Analysis: switch precomputed-dimension", {
-                      dimension: v,
-                    });
-                    mutate?.();
-                  }
-                })
-                .catch(() => {
-                  // if the analysis fails, reset dropdown to the current value
-                  // and do nothing
-                  setValue?.(value);
-                });
-            } else {
-              // if the dimension is not precomputed, set the dropdown to the
-              // desired value and reset other selectors
-              setValue?.(v, true);
-              // and set the snapshot for the snapshot provider and get the
-              // default analysis from that snapshot
-              setSnapshotDimension?.(v);
-              setAnalysisSettings?.(null);
+            if (!defaultAnalysis || !standardSnapshot) {
+              // reset if fails
+              setValue?.(value);
+              return;
             }
-            setPostLoading(false);
-          }}
-          sort={false}
-          helpText={
-            showHelp ? "Break down results for each metric by a dimension" : ""
+
+            const newSettings: ExperimentSnapshotAnalysisSettings = {
+              ...defaultAnalysis.settings,
+              // get other analysis settings from current analysis
+              differenceType: analysis?.settings?.differenceType ?? "relative",
+              baselineVariationIndex:
+                analysis?.settings?.baselineVariationIndex ?? 0,
+              dimensions: [v],
+            };
+            // Returns success if analysis is updated or already exists
+            triggerAnalysisUpdate(
+              newSettings,
+              defaultAnalysis,
+              standardSnapshot,
+              apiCall,
+              setPostLoading,
+            )
+              .then((status) => {
+                if (status === "success") {
+                  // On success, set the dimension in the dropdown to
+                  // the requested value
+                  setValue?.(v);
+
+                  // also reset the snapshot dimension to the default
+                  // and set the analysis settings to get the right analysis
+                  // so that the snapshot provider can get the right analysis
+                  setSnapshotDimension?.("");
+                  setAnalysisSettings?.(newSettings);
+                  track("Experiment Analysis: switch precomputed-dimension", {
+                    dimension: v,
+                  });
+                  mutate?.();
+                }
+              })
+              .catch(() => {
+                // if the analysis fails, reset dropdown to the current value
+                // and do nothing
+                setValue?.(value);
+              });
+          } else {
+            // if the dimension is not precomputed, set the dropdown to the
+            // desired value and reset other selectors
+            setValue?.(v, true);
+            // and set the snapshot for the snapshot provider and get the
+            // default analysis from that snapshot
+            setSnapshotDimension?.(v);
+            setAnalysisSettings?.(null);
           }
-          disabled={disabled}
-        />
-        {postLoading && <LoadingSpinner className="ml-1" />}
-      </Flex>
-    </div>
+          setPostLoading(false);
+        }}
+        sort={false}
+        helpText={
+          showHelp ? "Break down results for each metric by a dimension" : ""
+        }
+        disabled={disabled}
+      />
+      {postLoading && <LoadingSpinner className="ml-1" />}
+    </Flex>
   );
 }

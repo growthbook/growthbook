@@ -1,26 +1,19 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "back-end/types/report";
-import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import {
-  getAllMetricIdsFromExperiment,
-  getAllMetricSettingsForSnapshot,
-} from "shared/experiments";
-import { isDefined } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Results from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
@@ -32,9 +25,9 @@ import Button from "@/ui/Button";
 import track from "@/services/track";
 import { AnalysisBarSettings } from "@/components/Experiment/AnalysisSettingsBar";
 import Metadata from "@/ui/Metadata";
+import Link from "@/ui/Link";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
-import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -94,10 +87,8 @@ export default function ResultsTab({
   const {
     getDatasourceById,
     getExperimentMetricById,
-    getMetricById,
     getProjectById,
     metrics,
-    metricGroups,
     datasources,
     getSegmentById,
   } = useDefinitions();
@@ -113,7 +104,7 @@ export default function ResultsTab({
   const { snapshot, analysis } = useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, organization } = useUser();
+  const { organization } = useUser();
   const project = getProjectById(experiment.project || "");
 
   const { settings: scopedSettings } = getScopedSettings({
@@ -122,72 +113,13 @@ export default function ResultsTab({
     experiment: experiment,
   });
 
-  const datasource = getDatasourceById(experiment.datasource);
-
   const statsEngine = scopedSettings.statsEngine.value;
-
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment",
-  );
 
   const segment = getSegmentById(experiment.segment || "");
 
   const activationMetric = getExperimentMetricById(
     experiment.activationMetric || "",
   );
-
-  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-  const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m),
-  );
-  const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics
-      .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[],
-  );
-  const denominatorMetrics = denominatorMetricIds
-    .map((m) => getMetricById(m as string))
-    .filter(isDefined);
-  const orgSettings = useOrgSettings();
-
-  const {
-    regressionAdjustmentAvailable,
-    regressionAdjustmentEnabled,
-    regressionAdjustmentHasValidMetrics,
-  } = useMemo(() => {
-    return getAllMetricSettingsForSnapshot({
-      allExperimentMetrics,
-      denominatorMetrics,
-      orgSettings,
-      experimentRegressionAdjustmentEnabled:
-        experiment.regressionAdjustmentEnabled,
-      experimentMetricOverrides: experiment.metricOverrides,
-      datasourceType: datasource?.type,
-      hasRegressionAdjustmentFeature,
-    });
-  }, [
-    allExperimentMetrics,
-    denominatorMetrics,
-    orgSettings,
-    experiment.regressionAdjustmentEnabled,
-    experiment.metricOverrides,
-    datasource?.type,
-    hasRegressionAdjustmentFeature,
-  ]);
-
-  const onRegressionAdjustmentChange = async (enabled: boolean) => {
-    await apiCall(`/experiment/${experiment.id}/`, {
-      method: "POST",
-      body: JSON.stringify({
-        regressionAdjustmentEnabled: !!enabled,
-      }),
-    });
-    mutate();
-  };
 
   const hasData =
     (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
@@ -220,21 +152,17 @@ export default function ResultsTab({
         <Callout status="info" mb="5">
           Bandits are better than experiments at directing traffic to the best
           variation but they can produce biased results.
-          {/*todo: docs*/}
         </Callout>
       ) : null}
 
       <Box>
         {hasData && (
           <Flex direction="row" gap="3" mx="1" mb="4">
-            {!(experiment.type === "multi-armed-bandit" &&
-              experiment.status === "running") &&
-            permissionsUtil.canUpdateExperiment(experiment, {}) ? (
-              <Link
-                type="button"
-                onClick={() => setAnalysisModal(true)}
-                mr="2"
-              >
+            {!(
+              experiment.type === "multi-armed-bandit" &&
+              experiment.status === "running"
+            ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
+              <Link type="button" onClick={() => setAnalysisModal(true)} mr="2">
                 Edit Settings
               </Link>
             ) : null}
@@ -252,12 +180,14 @@ export default function ResultsTab({
                 analysis?.settings?.regressionAdjusted ? "Enabled" : "Disabled"
               }
             />
-            <Metadata
-              label="Sequential"
-              value={
-                analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
-              }
-            />
+            {analysis?.settings?.statsEngine === "frequentist" ? (
+              <Metadata
+                label="Sequential"
+                value={
+                  analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
+                }
+              />
+            ) : null}
             {segment ? <Metadata label="Segment" value={segment.name} /> : null}
             {activationMetric ? (
               <Metadata
@@ -413,23 +343,12 @@ export default function ResultsTab({
                   alwaysShowPhaseSelector={true}
                   reportDetailsLink={false}
                   statsEngine={statsEngine}
-                  regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  regressionAdjustmentHasValidMetrics={
-                    regressionAdjustmentHasValidMetrics
-                  }
-                  onRegressionAdjustmentChange={onRegressionAdjustmentChange}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}
                   isTabActive={isTabActive}
                   metricTagFilter={metricTagFilter}
-                  setMetricTagFilter={setMetricTagFilter}
                   metricGroupsFilter={metricGroupsFilter}
-                  setMetricGroupsFilter={setMetricGroupsFilter}
-                  availableMetricGroups={availableMetricGroups}
-                  availableSliceTags={availableSliceTags}
                   sliceTagsFilter={sliceTagsFilter}
-                  setSliceTagsFilter={setSliceTagsFilter}
                   setTab={setTab}
                   sortBy={sortBy}
                   setSortBy={setSortBy}

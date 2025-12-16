@@ -46,10 +46,6 @@ const Results: FC<{
   alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
   statsEngine: StatsEngine;
-  regressionAdjustmentAvailable?: boolean;
-  regressionAdjustmentEnabled?: boolean;
-  regressionAdjustmentHasValidMetrics?: boolean;
-  onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   metricTagFilter?: string[];
@@ -73,10 +69,6 @@ const Results: FC<{
   alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
   statsEngine,
-  regressionAdjustmentAvailable = false,
-  regressionAdjustmentEnabled = false,
-  regressionAdjustmentHasValidMetrics = false,
-  onRegressionAdjustmentChange,
   analysisBarSettings,
   setAnalysisBarSettings,
   metricTagFilter,
@@ -254,12 +246,6 @@ const Results: FC<{
           variations={variations}
           editPhases={editPhases}
           alwaysShowPhaseSelector={alwaysShowPhaseSelector}
-          regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-          regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-          regressionAdjustmentHasValidMetrics={
-            regressionAdjustmentHasValidMetrics
-          }
-          onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           showMoreMenu={false}
           holdout={holdout}
         />
@@ -458,13 +444,8 @@ const Results: FC<{
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
             metricTagFilter={metricTagFilter}
-            setMetricTagFilter={setMetricTagFilter}
             metricGroupsFilter={metricGroupsFilter}
-            setMetricGroupsFilter={setMetricGroupsFilter}
-            availableMetricGroups={availableMetricGroups}
-            availableSliceTags={availableSliceTags}
             sliceTagsFilter={sliceTagsFilter}
-            setSliceTagsFilter={setSliceTagsFilter}
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
