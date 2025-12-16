@@ -360,9 +360,12 @@ export function getDecisionFrameworkStatus({
       (d) => d.decisionCriteriaAction === "ship",
     );
     const onlyOneShip = shipVariations.length === 1;
-    const restRollback = (superStatSigVariationDecisions.filter(
+    const numberOfRollbackVariations = superStatSigVariationDecisions.filter(
       (d) => d.decisionCriteriaAction === "rollback",
-    ).length = superStatSigVariationDecisions.length - 1);
+    ).length;
+
+    const restRollback =
+      numberOfRollbackVariations === superStatSigVariationDecisions.length - 1;
 
     if (onlyOneShip && restRollback) {
       return {

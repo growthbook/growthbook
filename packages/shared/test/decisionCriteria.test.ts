@@ -7,6 +7,7 @@ import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
   getVariationDecisions,
+  getEarlyStoppingVariationDecisions,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
 
@@ -655,7 +656,6 @@ describe("getVariationDecisions", () => {
       decisionCriteria,
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
     });
 
     expect(results).toEqual([
@@ -722,7 +722,6 @@ describe("getVariationDecisions", () => {
       decisionCriteria,
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
     });
 
     expect(results).toEqual([
@@ -791,7 +790,6 @@ describe("getVariationDecisions", () => {
       decisionCriteria,
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
     });
 
     // Both variations match the first rule (any metric winning)
@@ -852,7 +850,6 @@ describe("getVariationDecisions", () => {
       decisionCriteria,
       goalMetrics: [],
       guardrailMetrics: ["guardrail1", "guardrail2"],
-      requireSuperStatSig: false,
     });
 
     expect(results).toEqual([
@@ -885,7 +882,7 @@ describe("getVariationDecisions", () => {
       defaultAction: "review" as const,
     };
 
-    const results = getVariationDecisions({
+    const results = getEarlyStoppingVariationDecisions({
       resultsStatus: {
         ...baseResultsStatus,
         variations: [
@@ -909,12 +906,12 @@ describe("getVariationDecisions", () => {
       decisionCriteria,
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      requireSuperStatSig: true,
     });
 
     expect(results).toEqual([
+      // Should not go to fallback, should instead return null
       {
-        decisionCriteriaAction: "review",
+        decisionCriteriaAction: null,
         variation: { variationId: "1", decidingRule: null },
       },
       {
@@ -922,5 +919,190 @@ describe("getVariationDecisions", () => {
         variation: { variationId: "2", decidingRule: shipRule },
       },
     ]);
+  });
+});
+
+describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
+  const base2ArmedResultsStatus: ExperimentAnalysisSummaryResultsStatus = {
+    variations: [
+      {
+        variationId: "1",
+        goalMetrics: {},
+        guardrailMetrics: {},
+      },
+    ],
+    settings: { sequentialTesting: false },
+  };
+
+  const base3ArmedResultsStatus: ExperimentAnalysisSummaryResultsStatus = {
+    variations: [
+      {
+        variationId: "1",
+        goalMetrics: {},
+        guardrailMetrics: {},
+      },
+      {
+        variationId: "2",
+        goalMetrics: {},
+        guardrailMetrics: {},
+      },
+    ],
+    settings: { sequentialTesting: false },
+  };
+  const shipRule: DecisionCriteriaRule = {
+    conditions: [
+      {
+        metrics: "goals" as const,
+        match: "all" as const,
+        direction: "statsigWinner" as const,
+      },
+    ],
+    action: "ship" as const,
+  };
+  const rollbackRule: DecisionCriteriaRule = {
+    conditions: [
+      {
+        metrics: "goals" as const,
+        match: "all" as const,
+        direction: "statsigLoser" as const,
+      },
+    ],
+    action: "rollback" as const,
+  };
+  const decisionCriteria = {
+    id: "test-criteria-6",
+    name: "Test Criteria 6",
+    rules: [shipRule, rollbackRule],
+    defaultAction: "review" as const,
+  };
+
+  it("succeeds in 2 variation case with clear winner", () => {
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus: {
+        ...base2ArmedResultsStatus,
+        variations: [
+          {
+            variationId: "1",
+            goalMetrics: {
+              metric1: { status: "won", superStatSigStatus: "won" },
+            },
+            guardrailMetrics: {},
+          },
+        ],
+        // not decision ready
+        settings: { sequentialTesting: false },
+      },
+      decisionCriteria,
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      // not decision ready
+      daysNeeded: 100,
+    });
+
+    expect(decision).toEqual({
+      status: "ship-now",
+      variations: [{ variationId: "1", decidingRule: shipRule }],
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "A test variation is ready to ship.",
+    });
+  });
+
+  it("in 3 variation case it does not ship if one is clear winner while other is ambiguous", () => {
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus: {
+        ...base3ArmedResultsStatus,
+        variations: [
+          {
+            variationId: "1",
+            goalMetrics: {
+              metric1: { status: "won", superStatSigStatus: "won" },
+            },
+            guardrailMetrics: {},
+          },
+          {
+            variationId: "2",
+            goalMetrics: {
+              metric1: { status: "neutral", superStatSigStatus: "neutral" },
+            },
+            guardrailMetrics: {},
+          },
+        ],
+        // not decision ready
+        settings: { sequentialTesting: false },
+      },
+      decisionCriteria,
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      // not decision ready
+      daysNeeded: 100,
+    });
+
+    expect(decision).toEqual(undefined);
+  });
+
+  it("in 3 variation case it ships if one is clear winner while other is rollback", () => {
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus: {
+        ...base3ArmedResultsStatus,
+        variations: [
+          {
+            variationId: "1",
+            goalMetrics: {
+              metric1: { status: "won", superStatSigStatus: "won" },
+            },
+            guardrailMetrics: {},
+          },
+          {
+            variationId: "2",
+            goalMetrics: {
+              metric1: { status: "lost", superStatSigStatus: "lost" },
+            },
+            guardrailMetrics: {},
+          },
+        ],
+        // not decision ready
+        settings: { sequentialTesting: false },
+      },
+      decisionCriteria,
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      // not decision ready
+      daysNeeded: 100,
+    });
+
+    expect(decision).toEqual({
+      status: "ship-now",
+      variations: [{ variationId: "1", decidingRule: shipRule }],
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "A test variation is ready to ship.",
+    });
+  });
+
+  it("in 3 variation case it falls back to no result rather than fallback action in stat sig case if results are not clear", () => {
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus: {
+        ...base2ArmedResultsStatus,
+        variations: [
+          {
+            variationId: "1",
+            goalMetrics: {
+              metric1: { status: "won", superStatSigStatus: "neutral" },
+            },
+            guardrailMetrics: {},
+          },
+        ],
+        // not decision ready
+        settings: { sequentialTesting: false },
+      },
+      decisionCriteria,
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      // not decision ready
+      daysNeeded: 100,
+    });
+
+    expect(decision).toEqual(undefined);
   });
 });
