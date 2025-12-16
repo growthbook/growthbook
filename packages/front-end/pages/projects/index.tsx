@@ -143,7 +143,7 @@ const ProjectsPage: FC = () => {
                       {canDelete ? (
                         <DeleteButton
                           className="dropdown-item text-danger"
-                          displayName="project"
+                          displayName={p.name}
                           text="Delete"
                           useIcon={false}
                           onClick={async () => {
@@ -160,7 +160,8 @@ const ProjectsPage: FC = () => {
                               <Checkbox
                                 value={deleteProjectResources}
                                 setValue={(v) => setDeleteProjectResources(v)}
-                                label="Also delete all of this project's resources (features, experiments, etc.)"
+                                label="Also delete all of this project's resources"
+                                description="Features, experiments, etc."
                               />
 
                               {!deleteProjectResources && (
