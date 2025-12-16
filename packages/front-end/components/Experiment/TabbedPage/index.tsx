@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import {
   isMetricGroupId,
@@ -20,7 +20,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { FeatureInterface } from "back-end/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -48,6 +48,7 @@ import Button from "@/ui/Button";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -199,12 +200,23 @@ export default function TabbedPage({
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab, dashboardsEnabled]);
 
+  const { dashboards } = useExperimentDashboards(experiment.id);
+
   // If experiment now has a default dashboard, show the dashboard view
   useEffect(() => {
-    if (experiment.defaultDashboardId) {
-      setShowDashboardView(true);
+    if (!experiment.defaultDashboardId) {
+      setShowDashboardView(false);
+      return;
     }
-  }, [experiment.defaultDashboardId]);
+    const defaultDashboard = dashboards?.find(
+      ({ id }) => id === experiment.defaultDashboardId,
+    );
+    if (!defaultDashboard || defaultDashboard.shareLevel !== "published") {
+      setShowDashboardView(false);
+      return;
+    }
+    setShowDashboardView(true);
+  }, [experiment.defaultDashboardId, dashboards]);
 
   const { phase, setPhase } = useSnapshot();
   const { metricGroups, getExperimentMetricById, getFactTableById } =

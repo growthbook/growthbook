@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { Response } from "express";
 import { OrganizationInterface } from "back-end/types/organization";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -37,6 +38,16 @@ export async function getHistoryByUser(req: AuthRequest<null>, res: Response) {
     status: 200,
     events,
   });
+}
+
+// Pylon doesn't do any identity verification, so this hashes a user's email with a secret
+// to prevent bad actors trying to impersonate our users or get access to their data.
+function createPylonHmacHash(email: string) {
+  const secretBytes = Buffer.from(
+    process.env.PYLON_VERIFICATION_SECRET || "",
+    "hex",
+  );
+  return createHmac("sha256", secretBytes).update(email).digest("hex");
 }
 
 export async function getUser(req: AuthRequest, res: Response) {
@@ -98,6 +109,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userId: userId,
     userName: req.name,
     email: req.email,
+    pylonHmacHash: createPylonHmacHash(req.email),
     superAdmin: !!req.superAdmin,
     organizations: validOrgs.map((org) => {
       return {

@@ -8,10 +8,8 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { PopulationDataInterface } from "back-end/types/population-data";
-import {
-  PopulationDataQueryRunner,
-  PopulationDataQuerySettings,
-} from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import { PopulationDataQueryRunner } from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import type { PopulationDataQuerySettings } from "back-end/types/query";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";

@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";

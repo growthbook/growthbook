@@ -10,6 +10,8 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
+import { AgreementType } from "shared/validators";
+import { entityTypes } from "shared/constants";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -123,8 +125,11 @@ import {
   findAllAuditsByEntityTypeParent,
   findAuditByEntity,
   findAuditByEntityParent,
+  countAuditByEntity,
+  countAuditByEntityParent,
+  countAllAuditsByEntityType,
+  countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { EntityType } from "back-end/src/types/Audit";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { TeamInterface } from "back-end/types/team";
@@ -145,7 +150,6 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
-import { AgreementType } from "back-end/src/validators/agreements";
 import {
   getInstallation,
   setInstallationName,
@@ -256,82 +260,167 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 }
 
 export async function getAllHistory(
-  req: AuthRequest<null, { type: string }>,
+  req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
+  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
   }
 
+  // Get total count for display
+  const [entityCount, parentCount] = await Promise.all([
+    countAllAuditsByEntityType(org.id, type),
+    countAllAuditsByEntityTypeParent(org.id, type),
+  ]);
+  const total = entityCount + parentCount;
+
+  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
+  const fetchLimit = limit;
+
   const events = await Promise.all([
-    findAllAuditsByEntityType(org.id, type),
-    findAllAuditsByEntityTypeParent(org.id, type),
+    findAllAuditsByEntityType(
+      org.id,
+      type,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
+    findAllAuditsByEntityTypeParent(
+      org.id,
+      type,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
   ]);
 
+  // Merge and sort by dateCreated descending
   const merged = [...events[0], ...events[1]];
-
   merged.sort((a, b) => {
     if (b.dateCreated > a.dateCreated) return 1;
     else if (b.dateCreated < a.dateCreated) return -1;
     return 0;
   });
 
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  // Take only the requested limit
+  const paginatedEvents = merged.slice(0, limit);
+
+  if (paginatedEvents.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history",
     });
   }
 
+  // The next cursor is the dateCreated of the last event
+  const nextCursor =
+    paginatedEvents.length > 0
+      ? paginatedEvents[paginatedEvents.length - 1].dateCreated
+      : null;
+
   res.status(200).json({
     status: 200,
-    events: merged,
+    events: paginatedEvents,
+    total,
+    nextCursor,
   });
 }
 
 export async function getHistory(
-  req: AuthRequest<null, { type: string; id: string }>,
+  req: AuthRequest<
+    null,
+    { type: string; id: string },
+    { cursor?: string; limit?: string }
+  >,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
+  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
   }
 
+  // Get total count for display
+  const [entityCount, parentCount] = await Promise.all([
+    countAuditByEntity(org.id, type, id),
+    countAuditByEntityParent(org.id, type, id),
+  ]);
+  const total = entityCount + parentCount;
+
+  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
+
+  const fetchLimit = limit;
+
   const events = await Promise.all([
-    findAuditByEntity(org.id, type, id),
-    findAuditByEntityParent(org.id, type, id),
+    findAuditByEntity(
+      org.id,
+      type,
+      id,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
+    findAuditByEntityParent(
+      org.id,
+      type,
+      id,
+      {
+        limit: fetchLimit,
+        sort: { dateCreated: -1 },
+      },
+      cursorFilter,
+    ),
   ]);
 
+  // Merge and sort by dateCreated descending
   const merged = [...events[0], ...events[1]];
-
   merged.sort((a, b) => {
     if (b.dateCreated > a.dateCreated) return 1;
     else if (b.dateCreated < a.dateCreated) return -1;
     return 0;
   });
 
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  // Take only the requested limit
+  const paginatedEvents = merged.slice(0, limit);
+
+  if (paginatedEvents.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history for this",
     });
   }
 
+  // The next cursor is the dateCreated of the last event
+  const nextCursor =
+    paginatedEvents.length > 0
+      ? paginatedEvents[paginatedEvents.length - 1].dateCreated
+      : null;
+
   res.status(200).json({
     status: 200,
-    events: merged,
+    events: paginatedEvents,
+    total,
+    nextCursor,
   });
 }
 

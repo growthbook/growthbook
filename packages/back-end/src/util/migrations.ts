@@ -7,15 +7,15 @@ import {
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { omit } from "lodash";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
+import { WebhookInterface } from "shared/types/webhook";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
 } from "back-end/types/report";
-import { WebhookInterface } from "back-end/types/webhook";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
 import {
@@ -206,6 +206,11 @@ export function upgradeDatasourceObject(
       { userIdType: "user_id", description: "Logged-in user id" },
       { userIdType: "anonymous_id", description: "Anonymous visitor id" },
     ];
+  }
+
+  // Sanity check as somehow this ended up with null value in the array
+  if (settings.userIdTypes) {
+    settings.userIdTypes = settings.userIdTypes?.filter((it) => !!it);
   }
 
   // Upgrade old docs to the new exposure queries format
@@ -668,7 +673,7 @@ export function migrateExperimentReport(
     ...otherArgs
   } = args || {};
 
-  const newArgs: ExperimentReportArgs = {
+  const newArgs: LegacyExperimentReportArgs = {
     secondaryMetrics: [],
     ...otherArgs,
     attributionModel:

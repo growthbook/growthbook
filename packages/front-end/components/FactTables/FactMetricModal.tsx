@@ -174,6 +174,7 @@ function getColumnOptions({
   datasource,
   includeCount = true,
   includeCountDistinct = false,
+  includeDistinctDates = false,
   includeNumericColumns = true,
   includeStringColumns = false,
   includeJSONFields = false,
@@ -186,6 +187,7 @@ function getColumnOptions({
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
+  includeDistinctDates?: boolean;
   includeNumericColumns?: boolean;
   includeStringColumns?: boolean;
   includeBooleanColumns?: boolean;
@@ -212,6 +214,12 @@ function getColumnOptions({
     specialColumnOptions.push({
       label: "Count of Rows",
       value: "$$count",
+    });
+  }
+  if (includeDistinctDates) {
+    specialColumnOptions.push({
+      label: "Distinct Dates",
+      value: "$$distinctDates",
     });
   }
 
@@ -396,6 +404,7 @@ function ColumnRefSelector({
   setValue,
   setDatasource,
   includeCountDistinct,
+  includeDistinctDates,
   aggregationType = "unit",
   includeColumn,
   datasource,
@@ -408,6 +417,7 @@ function ColumnRefSelector({
   setDatasource: (datasource: string) => void;
   value: ColumnRef;
   includeCountDistinct?: boolean;
+  includeDistinctDates?: boolean;
   includeColumn?: boolean;
   aggregationType?: "unit" | "event";
   datasource: DataSourceInterfaceWithParams;
@@ -425,6 +435,7 @@ function ColumnRefSelector({
     factTable,
     datasource,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
+    includeDistinctDates: includeDistinctDates && aggregationType === "unit",
     includeCount: aggregationType === "unit",
     includeNumericColumns: true,
     includeStringColumns:
@@ -1023,26 +1034,32 @@ function getPreviewSQL({
     "`" + (denominatorFactTable?.name || "Fact Table") + "`";
 
   const numeratorCol =
-    numerator.column === "$$count"
-      ? "COUNT(*)"
-      : numerator.column === "$$distinctUsers"
-        ? "1"
-        : numerator.aggregation === "count distinct"
-          ? `COUNT(DISTINCT ${numerator.column})`
-          : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
-              numerator.column
-            })`;
+    type === "dailyParticipation" || numerator.column === "$$distinctDates"
+      ? `COUNT(DISTINCT DATE(timestamp))`
+      : numerator.column === "$$count"
+        ? "COUNT(*)"
+        : numerator.column === "$$distinctUsers"
+          ? "1"
+          : numerator.aggregation === "count distinct"
+            ? `COUNT(DISTINCT ${numerator.column})`
+            : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
+                numerator.column
+              })`;
+  const numeratorAdjustment =
+    type === "dailyParticipation" ? "\n\t/ CEIL(days_since_exposure)" : "";
 
   const denominatorCol =
     denominator?.column === "$$count"
       ? "COUNT(*)"
       : denominator?.column === "$$distinctUsers"
         ? "1"
-        : numerator.aggregation === "count distinct"
-          ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
-          : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
-              denominator?.column
-            })`;
+        : denominator?.column === "$$distinctDates"
+          ? `COUNT(DISTINCT DATE(timestamp))`
+          : denominator?.aggregation === "count distinct"
+            ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
+            : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
+                denominator?.column
+              })`;
 
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
@@ -1064,7 +1081,10 @@ function getPreviewSQL({
     columnRef: {
       // Column is often set incorrectly for proportion metrics and changed later during submit
       ...numerator,
-      column: type === "proportion" ? "$$distinctUsers" : numerator.column,
+      column:
+        type === "proportion" || type === "dailyParticipation"
+          ? "$$distinctUsers"
+          : numerator.column,
     },
     column:
       numerator.aggregateFilterColumn === "$$count"
@@ -1145,11 +1165,12 @@ GROUP BY user${HAVING}
         experimentSQL,
       };
     case "mean":
+    case "dailyParticipation":
       return {
         sql: `
 SELECT${identifierComment}
   ${identifier} AS user,
-  ${numeratorCol} AS value
+  ${numeratorCol}${numeratorAdjustment} AS value
 FROM
   ${numeratorName}${WHERE}
 GROUP BY user
@@ -1712,8 +1733,20 @@ export default function FactMetricModal({
         }
 
         // reset displayAsPercentage for non-ratio metrics
-        if (values.metricType !== "ratio" && values.displayAsPercentage) {
+        if (
+          values.metricType !== "ratio" &&
+          values.metricType !== "dailyParticipation" &&
+          values.displayAsPercentage
+        ) {
           values.displayAsPercentage = undefined;
+        }
+
+        // If unset, set displayAsPercentage to true for daily participation metrics
+        if (
+          values.metricType === "dailyParticipation" &&
+          values.displayAsPercentage === undefined
+        ) {
+          values.displayAsPercentage = true;
         }
 
         // reset numerator for proportion/retention metrics
@@ -1723,6 +1756,12 @@ export default function FactMetricModal({
           values.numerator.column !== "$$distinctUsers"
         ) {
           values.numerator.column = "$$distinctUsers";
+          values.numerator.aggregation = undefined;
+        }
+
+        // reset numerator for daily participation metrics
+        if (values.metricType === "dailyParticipation") {
+          values.numerator.column = "$$distinctDates";
           values.numerator.aggregation = undefined;
         }
 
@@ -1750,7 +1789,8 @@ export default function FactMetricModal({
         if (
           values.metricType === "quantile" ||
           values.metricType === "proportion" ||
-          values.metricType === "retention"
+          values.metricType === "retention" ||
+          values.metricType === "dailyParticipation"
         ) {
           values.cappingSettings = {
             type: "",
@@ -1796,16 +1836,20 @@ export default function FactMetricModal({
               ? "count"
               : values.numerator.column === "$$distinctUsers"
                 ? "distinct_users"
-                : values.numerator.aggregation || "sum",
+                : values.numerator.column === "$$distinctDates"
+                  ? "distinct_dates"
+                  : values.numerator.aggregation || "sum",
           numerator_filters: values.numerator.filters.length,
           denominator_agg:
             values.denominator?.column === "$$count"
               ? "count"
               : values.denominator?.column === "$$distinctUsers"
                 ? "distinct_users"
-                : values.denominator?.column
-                  ? values.denominator?.aggregation || "sum"
-                  : "none",
+                : values.denominator?.column === "$$distinctDates"
+                  ? "distinct_dates"
+                  : values.denominator?.column
+                    ? values.denominator?.aggregation || "sum"
+                    : "none",
           denominator_filters: values.denominator?.filters?.length || 0,
           ratio_same_fact_table:
             values.metricType === "ratio" &&
@@ -1948,6 +1992,12 @@ export default function FactMetricModal({
                             numeric columns in your fact tables.
                           </div>
                           <div className="mb-2">
+                            <strong>Daily Participation</strong> metrics
+                            calculate the average percentage of days since
+                            exposure that a unit matches a specific condition,
+                            and then averages that across users.
+                          </div>
+                          <div className="mb-2">
                             <strong>Quantile</strong> metrics calculate the
                             value at a specific percentile of a numeric column
                             in a fact table.
@@ -2054,6 +2104,10 @@ export default function FactMetricModal({
                     label: "Mean",
                   },
                   {
+                    value: "dailyParticipation",
+                    label: "Daily Participation",
+                  },
+                  {
                     value: "ratio",
                     label: "Ratio",
                   },
@@ -2134,6 +2188,7 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     setDatasource={setDatasource}
+                    includeDistinctDates={true}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     allowChangingDatasource={!datasource}
@@ -2144,6 +2199,26 @@ export default function FactMetricModal({
                     for all users in the experiment. Any user without a matching
                     row will have a value of 0 and will still contribute to this
                     average.
+                  </HelperText>
+                </div>
+              ) : type === "dailyParticipation" ? (
+                <div>
+                  <ColumnRefSelector
+                    value={numerator}
+                    setValue={(numerator) =>
+                      form.setValue("numerator", numerator)
+                    }
+                    setDatasource={setDatasource}
+                    datasource={selectedDataSource}
+                    disableFactTableSelector={!!initialFactTable}
+                    supportsAggregatedFilter={false}
+                    allowChangingDatasource={!datasource}
+                    key={selectedDataSource.id}
+                  />
+                  <HelperText status="info">
+                    The final metric value will be the average days a unit
+                    matches the above condition divided by the number of days
+                    that unit was in the experiment.
                   </HelperText>
                 </div>
               ) : type === "quantile" ? (
@@ -2187,6 +2262,7 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     aggregationType={quantileSettings.type}
+                    includeDistinctDates={true}
                     setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
@@ -2259,6 +2335,7 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      includeDistinctDates={true}
                       setDatasource={setDatasource}
                       datasource={selectedDataSource}
                       disableFactTableSelector={!!initialFactTable}
@@ -2284,6 +2361,7 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      includeDistinctDates={true}
                       setDatasource={setDatasource}
                       allowChangingDatasource={false}
                       datasource={selectedDataSource}
@@ -2433,7 +2511,8 @@ export default function FactMetricModal({
                         ) : null}
                         {type !== "quantile" &&
                         type !== "proportion" &&
-                        type !== "retention" ? (
+                        type !== "retention" &&
+                        type !== "dailyParticipation" ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}
@@ -2664,19 +2743,16 @@ export default function FactMetricModal({
                           loseRiskRegisterField={form.register("loseRisk")}
                           riskError={riskError}
                         />
-                        {type === "ratio" ? (
+                        {type === "ratio" || type === "dailyParticipation" ? (
                           <Box mb="1">
                             <Checkbox
-                              label="Format ratio as a percentage"
+                              label="Format variation value as a percentage"
                               value={form.watch("displayAsPercentage") ?? false}
                               setValue={(v) =>
                                 form.setValue("displayAsPercentage", v === true)
                               }
+                              description="Will render variation values as a percentage rather than a proportion (e.g. 34% instead of 0.34)."
                             />
-                            <Box className="text-muted small">
-                              Will render variation means as a percentage rather
-                              than a proportion (e.g. 34% instead of 0.34).
-                            </Box>
                           </Box>
                         ) : null}
                       </TabsContent>

@@ -11,7 +11,6 @@
     "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
-    "test-jest": "jest --forceExit --verbose --detectOpenHandles",
     "test": "vitest run",
     "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
   },
@@ -69,7 +68,7 @@
     "lodash": "^4.17.21",
     "md5": "^2.3.0",
     "minisearch": "^7.2.0",
-    "next": "14.2.26",
+    "next": "14.2.35",
     "p-queue": "^8.0.1",
     "query-string": "^7.1.3",
     "react": "^18.2.0",
@@ -101,14 +100,14 @@
     "swr": "^2.2.5",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
-    "zod": "^3.22.4"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.3.4",
-    "@swc/jest": "^0.2.23",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^15.0.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@types/crypto-js": "^4.2.2",
     "@types/diff": "^5.0.1",
     "@types/lodash": "^4.14.155",
@@ -124,10 +123,9 @@
     "@types/react-transition-group": "^4.4.6",
     "eslint-plugin-react-hooks": "^4.6.0",
     "identity-obj-proxy": "^3.0.0",
-    "jest": "^27.1.1",
-    "sass": "^1.55.0",
+    "sass": "^1.71.0",
     "typescript": "5.7.3",
-    "vitest": "^2.1.5"
+    "vitest": "^3.2.4"
   },
   "optionalDependencies": {
     "@babel/core": "^7.26.10"

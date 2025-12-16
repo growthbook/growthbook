@@ -7,11 +7,17 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
+import { baseSchema } from "shared/validators";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
+import {
+  AuditInterfaceTemplate,
+  EntityType,
+  EventTypes,
+  EventType,
+} from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { EntityType, EventTypes, EventType } from "back-end/src/types/Audit";
-import { AuditInterfaceTemplate } from "back-end/types/audit";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -25,42 +31,15 @@ import {
 
 export type Context = ApiReqContext | ReqContext;
 
-export const baseSchema = z
-  .object({
-    id: z.string(),
-    organization: z.string(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
-  })
-  .strict();
-
 export type BaseSchema = typeof baseSchema;
 
-export type CreateProps<T extends object> = Omit<
-  T,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
-> & { id?: string };
 export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
   Omit<z.infer<T>, "organization">
 >;
 
-export type CreateRawShape<T extends z.ZodRawShape> = {
-  [k in keyof Omit<
-    T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: T[k];
-} & {
-  id: z.ZodOptional<z.ZodString>;
-};
-
-export type CreateZodObject<T> =
-  T extends z.ZodObject<
-    infer RawShape,
-    infer UnknownKeysParam,
-    infer ZodTypeAny
-  >
-    ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
-    : never;
+export type CreateZodObject<T extends BaseSchema> = z.ZodType<
+  CreateProps<z.infer<T>>
+>;
 
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
@@ -72,29 +51,14 @@ export const createSchema = <T extends BaseSchema>(schema: T) =>
     .extend({ id: z.string().optional() })
     .strict() as unknown as CreateZodObject<T>;
 
-export type UpdateProps<T extends object> = Partial<
-  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
+export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
+  UpdateProps<z.infer<T>>
 >;
-
-export type UpdateRawShape<T extends z.ZodRawShape> = {
-  [k in keyof Omit<
-    T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: z.ZodOptional<T[k]>;
-};
-
-export type UpdateZodObject<T> =
-  T extends z.ZodObject<
-    infer RawShape,
-    infer UnknownKeysParam,
-    infer ZodTypeAny
-  >
-    ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
-    : never;
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
   schema
     .omit({
+      id: true,
       organization: true,
       dateCreated: true,
       dateUpdated: true,

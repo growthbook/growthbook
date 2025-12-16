@@ -29,7 +29,7 @@ export {
   NamespaceValue,
   SavedGroupTargeting,
   FeaturePrerequisite,
-} from "back-end/src/validators/shared";
+} from "shared/validators";
 
 export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
 export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;
@@ -85,3 +85,5 @@ export interface FeatureUsageData {
   byValue: FeatureUsageDataPoint[];
   byRuleId: FeatureUsageDataPoint[];
 }
+
+export type AttributeMap = Map<string, string>;

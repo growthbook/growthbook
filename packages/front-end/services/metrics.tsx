@@ -236,7 +236,8 @@ export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions,
 ) {
-  const digits = getNumberFormatDigits(value);
+  const digits = getNumberFormatDigits(value, true);
+
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
@@ -303,7 +304,8 @@ export function getColumnRefFormatter(
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (
     columnRef.column === "$$count" ||
-    columnRef.column === "$$distinctUsers"
+    columnRef.column === "$$distinctUsers" ||
+    columnRef.column === "$$distinctDates"
   ) {
     return formatNumber;
   }
@@ -334,6 +336,8 @@ export function getExperimentMetricFormatter(
 
   // Fact metric
   switch (metric.metricType) {
+    case "dailyParticipation":
+      return metric.displayAsPercentage ? formatPercent : formatNumber;
     case "proportion":
     case "retention":
       if (proportionFormat === "number") {

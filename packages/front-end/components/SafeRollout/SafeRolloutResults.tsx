@@ -7,7 +7,7 @@ import {
   SAFE_ROLLOUT_VARIATIONS,
 } from "shared/constants";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "shared/validators";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { PiWarningFill } from "react-icons/pi";
 import {

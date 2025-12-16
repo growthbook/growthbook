@@ -1,7 +1,7 @@
 import {
   ExperimentDimension,
   DimensionSlicesQueryResponseRows,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   DimensionSlicesInterface,
   DimensionSlicesResult,
@@ -57,7 +57,6 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runDimensionSlicesQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "dimensionSlices",
       }),
     ];

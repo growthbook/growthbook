@@ -4,7 +4,7 @@ import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
-import { NotificationEventName } from "back-end/src/events/base-types";
+import { NotificationEventName } from "back-end/types/events/base-types";
 
 // region GET /integrations/slack
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";

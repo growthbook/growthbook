@@ -1,3 +1,5 @@
+import { cloneDeep } from "lodash";
+import { SegmentInterface } from "shared/types/segment";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   MetricAnalysisSettings,
@@ -6,8 +8,39 @@ import {
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";
-import { SegmentInterface } from "back-end/types/segment";
+import { MetricAnalysisParams } from "back-end/src/types/Integration";
 import { getIntegrationFromDatasourceId } from "./datasource";
+
+// When creating an analysis for metrics via a Dashboard, we sometimes apply adhoc filters to the analysis, that aren't a part of the metric itself (e.g. adding additional row filters)
+// This function takes the metric and applies these adhoc settings before running the analysis
+export function getMetricWithFiltersApplied(
+  params: MetricAnalysisParams,
+): FactMetricInterface {
+  const { metric, settings } = params;
+
+  // If no adhoc filters are provided, we can return the original metric
+  if (
+    !settings.additionalNumeratorFilters &&
+    !settings.additionalDenominatorFilters
+  ) {
+    return metric;
+  }
+
+  const metricWithFilters = cloneDeep(metric);
+  if (settings.additionalNumeratorFilters) {
+    metricWithFilters.numerator.filters = [
+      ...(metricWithFilters.numerator.filters || []),
+      ...settings.additionalNumeratorFilters,
+    ];
+  }
+  if (settings.additionalDenominatorFilters && metricWithFilters.denominator) {
+    metricWithFilters.denominator.filters = [
+      ...(metricWithFilters.denominator.filters || []),
+      ...settings.additionalDenominatorFilters,
+    ];
+  }
+  return metricWithFilters;
+}
 
 export async function createMetricAnalysis(
   context: Context,

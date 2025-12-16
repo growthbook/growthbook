@@ -1,9 +1,24 @@
 import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Environment } from "back-end/types/organization";
-import { SavedGroupInterface } from "shared/src/types";
-import { TagInterface } from "back-end/types/tag";
-import { cloneDeep } from "lodash";
+import { SavedGroupInterface } from "shared/types/groups";
+import { TagInterface } from "shared/types/tag";
+import { ProjectInterface } from "back-end/types/project";
+import { cloneDeep, omit } from "lodash";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+  CreateFactMetricProps,
+  CreateFactTableProps,
+  FactFilterInterface,
+} from "back-end/types/fact-table";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { ApiCallType } from "@/services/auth";
+import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
+import {
+  getNewFiltersForMetricSource,
+  transformStatsigMetricToMetric,
+} from "@/services/importing/statsig/transformers/metricTransformer";
 import {
   StatsigFeatureGate,
   StatsigDynamicConfig,
@@ -16,24 +31,51 @@ import {
   StatsigExperimentsResponse,
   StatsigSavedGroupsResponse,
   ImportData,
+  StatsigMetric,
+  StatsigMetricSource,
+  ImportStatus,
+  EnvironmentImport,
 } from "./types";
 import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
 import { transformStatsigFeatureGateToGB } from "./transformers/featureTransformer";
 import { transformStatsigExperimentToGB } from "./transformers/experimentTransformer";
 import { transformStatsigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
+import {
+  DUMMY_STATSIG_METRIC_SOURCES,
+  DUMMY_STATSIG_METRICS,
+  transformPayloadForDiffDisplay,
+} from "./util";
 
 // Options interfaces for function parameters
 export interface BuildImportedDataOptions {
   apiKey: string;
   intervalCap: number;
   features: FeatureInterface[];
-  existingEnvironments: Set<string>;
-  existingSavedGroups: Set<string>;
-  existingTags: Set<string>;
-  existingExperiments: Set<string>;
+  existingEnvironments: Map<string, Environment>;
+  existingSavedGroups: Map<string, SavedGroupInterface>;
+  existingTags: Map<string, TagInterface>;
+  existingExperiments: Map<string, ExperimentInterfaceStringDates>;
+  existingMetrics: Map<string, FactMetricInterface>;
+  existingFactTables: Map<string, FactTableInterface>;
   callback: (data: ImportData) => void;
   skipAttributeMapping?: boolean;
   useBackendProxy?: boolean;
+  project?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
+  projects?: ProjectInterface[];
+  existingAttributeSchema?: Array<{
+    property: string;
+    datatype:
+      | "string"
+      | "number"
+      | "boolean"
+      | "enum"
+      | "secureString"
+      | "string[]"
+      | "number[]"
+      | "secureString[]";
+    archived?: boolean;
+  }>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall?: ApiCallType<any>;
 }
@@ -58,7 +100,7 @@ export interface RunImportOptions {
   callback: (data: ImportData) => void;
   featuresMap: Map<string, FeatureInterface>;
   project?: string;
-  datasource?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   exposureQueryId?: string;
   categoryEnabled?: {
     environments: boolean;
@@ -68,12 +110,15 @@ export interface RunImportOptions {
     dynamicConfigs: boolean;
     experiments: boolean;
     metrics: boolean;
+    metricSources: boolean;
   };
   itemEnabled?: {
     [category: string]: { [key: string]: boolean };
   };
   skipAttributeMapping?: boolean;
   existingSavedGroups?: SavedGroupInterface[];
+  existingExperiments?: ExperimentInterfaceStringDates[];
+  existingFactTables?: FactTableInterface[];
 }
 
 /**
@@ -87,6 +132,19 @@ async function getFromStatsig<ResType>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall?: ApiCallType<any>,
 ): Promise<ResType> {
+  // Hard-coded metrics for testing
+  if (location.search.includes("dummyMetrics")) {
+    if (endpoint.startsWith("metrics/metric_source/list")) {
+      return {
+        data: DUMMY_STATSIG_METRIC_SOURCES,
+      } as ResType;
+    } else if (endpoint.startsWith("metrics/list")) {
+      return {
+        data: DUMMY_STATSIG_METRICS,
+      } as ResType;
+    }
+  }
+
   if (useBackendProxy && apiCall) {
     // Use backend proxy
     const response = await apiCall("/importing/statsig", {
@@ -236,6 +294,24 @@ export const getStatsigMetrics = async (
 };
 
 /**
+ * Fetch metric sources
+ */
+export const getStatsigMetricSources = async (
+  apiKey: string,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
+): Promise<unknown> => {
+  return getFromStatsig(
+    "metrics/metric_source/list",
+    apiKey,
+    "GET",
+    useBackendProxy,
+    apiCall,
+  );
+};
+
+/**
  * Fetch environments (based on Console API endpoints)
  */
 export const getStatsigEnvironments = async (
@@ -359,6 +435,7 @@ export const getAllStatsigEntities = async (
     segmentsData,
     tagsData,
     metricsData,
+    metricSourcesData,
   ] = await Promise.all([
     fetchAllPages(
       "environments",
@@ -385,6 +462,13 @@ export const getAllStatsigEntities = async (
       useBackendProxy,
       apiCall,
     ),
+    fetchAllPages(
+      "metrics/metric_source/list",
+      apiKey,
+      intervalCap,
+      useBackendProxy,
+      apiCall,
+    ),
   ]);
 
   // Process segments to fetch ID lists for id_list type segments
@@ -404,6 +488,7 @@ export const getAllStatsigEntities = async (
     segments: { data: processedSegmentsData },
     tags: { data: tagsData },
     metrics: { data: metricsData },
+    metricSources: { data: metricSourcesData },
   };
 };
 
@@ -478,10 +563,24 @@ export async function buildImportedData(
     existingSavedGroups,
     existingTags,
     existingExperiments,
+    existingMetrics,
+    existingFactTables,
     callback,
     useBackendProxy = false,
     apiCall,
+    project,
+    datasource,
+    projects = [],
+    skipAttributeMapping = false,
+    existingAttributeSchema = [],
   } = options;
+
+  // Create mapping from Statsig project name to GrowthBook project ID
+  // Statsig uses project names (which they call "id") while GrowthBook uses internal IDs
+  const projectNameToIdMap = new Map<string, string>();
+  projects.forEach((p) => {
+    projectNameToIdMap.set(p.name, p.id);
+  });
   const data: ImportData = {
     status: "fetching",
     environments: [],
@@ -491,6 +590,7 @@ export async function buildImportedData(
     segments: [],
     tags: [],
     metrics: [],
+    metricSources: [],
   };
 
   let featuresMap: Map<string, FeatureInterface> = new Map();
@@ -524,26 +624,27 @@ export async function buildImportedData(
         entities.environments.data.forEach((environment) => {
           const env = environment as StatsigEnvironment;
           const envKey = env.name || env.id;
+          const existingEnv = existingEnvironments.get(envKey);
           data.environments?.push({
             key: envKey,
-            status: existingEnvironments.has(envKey) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - will use PUT if exists, POST if new
+            exists: !!existingEnv,
             environment: env,
-            error: existingEnvironments.has(envKey)
-              ? "Environment already exists"
-              : undefined,
+            existingEnvironment: existingEnv,
           });
         });
 
         // Process segments
         entities.segments.data.forEach((segment) => {
           const seg = segment as StatsigSavedGroup;
+          // Match by groupName (which is set to Statsig segment id in transformer)
+          const existingSavedGroup = existingSavedGroups.get(seg.id);
           data.segments?.push({
             key: seg.id,
-            status: existingSavedGroups.has(seg.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - will use PUT if exists, POST if new
+            exists: !!existingSavedGroup,
             segment: seg,
-            error: existingSavedGroups.has(seg.id)
-              ? "Saved group already exists"
-              : undefined,
+            existingSavedGroup: existingSavedGroup,
           });
         });
 
@@ -551,13 +652,13 @@ export async function buildImportedData(
         featuresMap = new Map(features.map((f) => [f.id, f]));
         entities.featureGates.data.forEach((gate) => {
           const fg = gate as StatsigFeatureGate;
+          const existingFeature = featuresMap.get(fg.id);
           data.featureGates?.push({
             key: fg.id, // Use ID instead of name for uniqueness
-            status: featuresMap.has(fg.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - sync endpoint handles both
+            exists: !!existingFeature,
             featureGate: fg,
-            error: featuresMap.has(fg.id)
-              ? "Feature already exists"
-              : undefined,
+            existing: existingFeature, // Store existing feature for reference
           });
         });
 
@@ -570,45 +671,64 @@ export async function buildImportedData(
 
           data.dynamicConfigs?.push({
             key: featureKey, // Use ID instead of name for uniqueness
-            status: featuresMap.has(dc.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - sync endpoint handles both
+            exists: !!existingFeature,
             dynamicConfig: dc,
-            error: featuresMap.has(dc.id)
-              ? "Feature already exists"
-              : undefined,
+            existing: existingFeature, // Store existing feature for reference
           });
         });
 
         // Process experiments
         entities.experiments.data.forEach((experiment) => {
           const exp = experiment as StatsigExperiment;
+          // Match by trackingKey (which is set to Statsig experiment id in transformer)
+          const existingExperiment = existingExperiments.get(exp.id);
           data.experiments?.push({
             key: exp.name,
-            status: existingExperiments.has(exp.id) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - will use PUT if exists, POST if new
+            exists: !!existingExperiment,
             experiment: exp,
-            error: existingExperiments.has(exp.id)
-              ? "Experiment already exists"
-              : undefined,
+            existingExperiment: existingExperiment,
           });
         });
 
         // Process tags
         entities.tags.data.forEach((tag) => {
           const t = tag as StatsigTag;
+          // Match by tag id (which is set to Statsig tag name)
+          const existingTag = existingTags.get(t.name);
           data.tags?.push({
             key: t.name, // Use name as key since that's what becomes the GB tag ID
-            status: existingTags.has(t.name) ? "skipped" : "pending",
+            status: "pending", // Allow upserting - POST endpoint handles both
+            exists: !!existingTag,
             tag: t,
-            error: existingTags.has(t.name) ? "Tag already exists" : undefined,
+            existingTag: existingTag,
           });
         });
 
         // Process metrics
         entities.metrics.data.forEach((metric) => {
-          const m = metric as { name?: string; id?: string };
+          const m = metric as StatsigMetric;
+          const existingMetric = existingMetrics.get(m.name);
           data.metrics?.push({
-            key: m.name || m.id || "unknown",
+            key: m.id,
             status: "pending",
-            metric: metric,
+            exists: !!existingMetric,
+            metric: m,
+            existingMetric: existingMetric,
+          });
+        });
+
+        // Process metric sources
+        entities.metricSources.data.forEach((metricSource) => {
+          const ms = metricSource as StatsigMetricSource;
+          const existingFactTable = existingFactTables.get(ms.name);
+          data.metricSources?.push({
+            key: ms.name,
+            status: "pending",
+            exists: !!existingFactTable,
+            metricSource: ms,
+            existingMetricSource: existingFactTable,
           });
         });
 
@@ -619,6 +739,690 @@ export async function buildImportedData(
     });
 
     await queue.onIdle();
+
+    // Phase 2: Transform entities and detect changes
+    if (apiCall && existingAttributeSchema) {
+      try {
+        // Build savedGroupIdMap from existing saved groups
+        const savedGroupIdMap = new Map<string, string>();
+        existingSavedGroups.forEach((sg) => {
+          savedGroupIdMap.set(sg.groupName, sg.id);
+        });
+
+        // Get available environments
+        const availableEnvironments = Array.from(existingEnvironments.keys());
+
+        // Build combined features map for prerequisite lookups
+        // This includes existing GrowthBook features and Statsig features being imported
+        const combinedFeaturesMap = new Map<string, FeatureInterface>(
+          features.map((f) => [f.id, f]),
+        );
+        // Add Statsig feature gates (boolean) and dynamic configs (json) to the map
+        // We create minimal feature objects with just the id and valueType for prerequisite lookups
+        data.featureGates?.forEach((gateImport) => {
+          if (gateImport.featureGate) {
+            const fg = gateImport.featureGate as StatsigFeatureGate;
+            if (!combinedFeaturesMap.has(fg.id)) {
+              combinedFeaturesMap.set(fg.id, {
+                id: fg.id,
+                valueType: "boolean",
+              } as FeatureInterface);
+            }
+          }
+        });
+        data.dynamicConfigs?.forEach((configImport) => {
+          if (configImport.dynamicConfig) {
+            const dc = configImport.dynamicConfig as StatsigDynamicConfig;
+            if (!combinedFeaturesMap.has(dc.id)) {
+              combinedFeaturesMap.set(dc.id, {
+                id: dc.id,
+                valueType: "json",
+              } as FeatureInterface);
+            }
+          }
+        });
+
+        // Transform and compare environments
+        if (data.environments) {
+          for (const envImport of data.environments) {
+            if (envImport.environment) {
+              try {
+                // Transform new data
+                const transformed = {
+                  id: envImport.environment.name || envImport.environment.id,
+                  description:
+                    envImport.environment.name || envImport.environment.id,
+                };
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (envImport.existingEnvironment) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    envImport.existingEnvironment as Record<string, unknown>,
+                    "environment",
+                  );
+                  envImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "environment",
+                    projectNameToIdMap,
+                  );
+                  envImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  envImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed,
+                    "environment",
+                    projectNameToIdMap,
+                  );
+                  envImport.hasChanges = false;
+                  envImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform environment ${envImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare segments
+        if (data.segments) {
+          for (const segmentImport of data.segments) {
+            if (segmentImport.segment) {
+              try {
+                const transformed = await transformStatsigSegmentToSavedGroup(
+                  segmentImport.segment,
+                  existingAttributeSchema,
+                  apiCall,
+                  project,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                );
+                segmentImport.transformedSavedGroup = transformed;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (segmentImport.existingSavedGroup) {
+                  // Prepare existing data (scrubbed and sorted)
+                  // Note: existing data should already have GrowthBook project IDs,
+                  // but we pass projectNameToIdMap for consistency in case it has names
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    segmentImport.existingSavedGroup as unknown as Record<
+                      string,
+                      unknown
+                    >,
+                    "segment",
+                    projectNameToIdMap,
+                  );
+                  segmentImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  // Transformed data has Statsig project names that need mapping to GrowthBook IDs
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "segment",
+                    projectNameToIdMap,
+                  );
+                  segmentImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  segmentImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "segment",
+                    projectNameToIdMap,
+                  );
+                  segmentImport.hasChanges = false;
+                  segmentImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform segment ${segmentImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare feature gates
+        if (data.featureGates) {
+          for (const gateImport of data.featureGates) {
+            if (gateImport.featureGate) {
+              try {
+                const transformed = await transformStatsigFeatureGateToGB(
+                  gateImport.featureGate,
+                  availableEnvironments,
+                  existingAttributeSchema,
+                  apiCall,
+                  "featureGate",
+                  project,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                  combinedFeaturesMap,
+                );
+                gateImport.feature = transformed;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (gateImport.existing) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    gateImport.existing as Record<string, unknown>,
+                    "feature",
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  // Filter existing environmentSettings to only include environments that exist in transformed
+                  if (
+                    "environmentSettings" in existingForDiff &&
+                    "environmentSettings" in transformedForDiff &&
+                    typeof existingForDiff.environmentSettings === "object" &&
+                    typeof transformedForDiff.environmentSettings ===
+                      "object" &&
+                    existingForDiff.environmentSettings !== null &&
+                    transformedForDiff.environmentSettings !== null
+                  ) {
+                    const existingEnvSettings =
+                      existingForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvSettings =
+                      transformedForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvKeys = new Set(
+                      Object.keys(transformedEnvSettings),
+                    );
+                    const filteredExistingEnvSettings: Record<string, unknown> =
+                      {};
+                    for (const key of Object.keys(existingEnvSettings)) {
+                      if (transformedEnvKeys.has(key)) {
+                        filteredExistingEnvSettings[key] =
+                          existingEnvSettings[key];
+                      }
+                    }
+                    existingForDiff.environmentSettings =
+                      filteredExistingEnvSettings;
+                  }
+                  gateImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+                  gateImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  gateImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  gateImport.hasChanges = false;
+                  gateImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform feature gate ${gateImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare dynamic configs
+        if (data.dynamicConfigs) {
+          for (const configImport of data.dynamicConfigs) {
+            if (configImport.dynamicConfig) {
+              try {
+                const transformed = await transformStatsigFeatureGateToGB(
+                  configImport.dynamicConfig,
+                  availableEnvironments,
+                  existingAttributeSchema,
+                  apiCall,
+                  "dynamicConfig",
+                  project,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                  combinedFeaturesMap,
+                );
+                configImport.feature = transformed;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (configImport.existing) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    configImport.existing as Record<string, unknown>,
+                    "feature",
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  // Filter existing environmentSettings to only include environments that exist in transformed
+                  if (
+                    "environmentSettings" in existingForDiff &&
+                    "environmentSettings" in transformedForDiff &&
+                    typeof existingForDiff.environmentSettings === "object" &&
+                    typeof transformedForDiff.environmentSettings ===
+                      "object" &&
+                    existingForDiff.environmentSettings !== null &&
+                    transformedForDiff.environmentSettings !== null
+                  ) {
+                    const existingEnvSettings =
+                      existingForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvSettings =
+                      transformedForDiff.environmentSettings as Record<
+                        string,
+                        unknown
+                      >;
+                    const transformedEnvKeys = new Set(
+                      Object.keys(transformedEnvSettings),
+                    );
+                    const filteredExistingEnvSettings: Record<string, unknown> =
+                      {};
+                    for (const key of Object.keys(existingEnvSettings)) {
+                      if (transformedEnvKeys.has(key)) {
+                        filteredExistingEnvSettings[key] =
+                          existingEnvSettings[key];
+                      }
+                    }
+                    existingForDiff.environmentSettings =
+                      filteredExistingEnvSettings;
+                  }
+                  configImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+                  configImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  configImport.hasChanges =
+                    JSON.stringify(existingForDiff) !==
+                    JSON.stringify(transformedForDiff);
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformed as Record<string, unknown>,
+                    "feature",
+                    projectNameToIdMap,
+                  );
+                  configImport.hasChanges = false;
+                  configImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform dynamic config ${configImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare experiments
+        if (data.experiments) {
+          for (const expImport of data.experiments) {
+            if (expImport.experiment) {
+              try {
+                const transformedExp = transformStatsigExperimentToGB(
+                  expImport.experiment,
+                  availableEnvironments,
+                  skipAttributeMapping,
+                  savedGroupIdMap,
+                );
+                // Set project from the top-level input form's project field
+                transformedExp.project = project || "";
+                expImport.transformedExperiment = transformedExp;
+
+                // Pre-transform and prepare both existing and new for diff display
+                if (expImport.existingExperiment) {
+                  // Prepare existing data (scrubbed and sorted)
+                  const existingForDiff = transformPayloadForDiffDisplay(
+                    expImport.existingExperiment as Record<string, unknown>,
+                    "experiment",
+                  );
+                  expImport.existingData = JSON.stringify(
+                    existingForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Prepare transformed data (scrubbed and sorted)
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformedExp as Record<string, unknown>,
+                    "experiment",
+                    projectNameToIdMap,
+                  );
+                  expImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+
+                  // Compare for hasChanges
+                  // Use JSON.stringify for comparison to handle floating point precision and object reference differences
+                  const existingJsonStr = JSON.stringify(existingForDiff);
+                  const transformedJsonStr = JSON.stringify(transformedForDiff);
+                  expImport.hasChanges = existingJsonStr !== transformedJsonStr;
+                } else {
+                  // New item - only prepare transformed data
+                  const transformedForDiff = transformPayloadForDiffDisplay(
+                    transformedExp as Record<string, unknown>,
+                    "experiment",
+                    projectNameToIdMap,
+                  );
+                  expImport.hasChanges = false;
+                  expImport.transformedData = JSON.stringify(
+                    transformedForDiff,
+                    null,
+                    2,
+                  );
+                }
+              } catch (e) {
+                console.warn(
+                  `Failed to transform experiment ${expImport.key}:`,
+                  e,
+                );
+              }
+            }
+          }
+        }
+
+        // Transform and compare tags
+        if (data.tags) {
+          for (const tagImport of data.tags) {
+            if (tagImport.tag) {
+              const transformed: TagInterface = {
+                id: tagImport.tag.name,
+                description: tagImport.tag.description || "",
+                color: tagImport.tag.isCore ? "purple" : "blue",
+              };
+              tagImport.transformedTag = transformed;
+
+              // Pre-transform and prepare both existing and new for diff display
+              if (tagImport.existingTag) {
+                // Prepare existing data (scrubbed and sorted)
+                const existingForDiff = transformPayloadForDiffDisplay(
+                  tagImport.existingTag as unknown as Record<string, unknown>,
+                  "tag",
+                );
+                tagImport.existingData = JSON.stringify(
+                  existingForDiff,
+                  null,
+                  2,
+                );
+
+                // Prepare transformed data (scrubbed and sorted)
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "tag",
+                  projectNameToIdMap,
+                );
+                tagImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+
+                // Compare for hasChanges
+                tagImport.hasChanges =
+                  JSON.stringify(existingForDiff) !==
+                  JSON.stringify(transformedForDiff);
+              } else {
+                // New item - only prepare transformed data
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "tag",
+                  projectNameToIdMap,
+                );
+                tagImport.hasChanges = false;
+                tagImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+              }
+            }
+          }
+        }
+
+        if (data.metrics) {
+          // Build a mapping from existing fact table names to their ids
+          const metricSourceIdMap = new Map<string, string>();
+          existingFactTables.forEach((ft) => {
+            metricSourceIdMap.set(ft.name, ft.id);
+          });
+
+          // Build a mapping from saved filter value to id, keyed by fact table id
+          const savedFilterIdMap = new Map<string, string>();
+          existingFactTables.forEach((ft) => {
+            ft.filters?.forEach((sf) => {
+              savedFilterIdMap.set(`${ft.id}::${sf.value}`, sf.id);
+            });
+          });
+
+          for (const metricImport of data.metrics) {
+            if (!metricImport.metric) continue;
+            try {
+              const transformed = await transformStatsigMetricToMetric(
+                metricImport.metric,
+                metricSourceIdMap,
+                savedFilterIdMap,
+                project || "",
+                datasource?.id || "",
+              );
+              metricImport.transformedMetric =
+                transformed as CreateFactMetricProps;
+
+              if (metricImport.existingMetric) {
+                const existingForDiff = transformPayloadForDiffDisplay(
+                  metricImport.existingMetric as unknown as Record<
+                    string,
+                    unknown
+                  >,
+                  "metric",
+                );
+                metricImport.existingData = JSON.stringify(
+                  existingForDiff,
+                  null,
+                  2,
+                );
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "metric",
+                  projectNameToIdMap,
+                );
+                metricImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+                metricImport.hasChanges =
+                  JSON.stringify(existingForDiff) !==
+                  JSON.stringify(transformedForDiff);
+              } else {
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "metric",
+                  projectNameToIdMap,
+                );
+                metricImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+                metricImport.hasChanges = false;
+              }
+            } catch (e) {
+              console.warn(
+                `Failed to transform metric ${metricImport.key}:`,
+                e,
+              );
+            }
+          }
+        }
+
+        if (data.metricSources) {
+          const statsigMetrics = (data.metrics || [])
+            .map((m) => m?.metric)
+            .filter(Boolean) as StatsigMetric[];
+
+          for (const msImport of data.metricSources) {
+            if (!msImport.metricSource) continue;
+            try {
+              const transformed =
+                (await transformStatsigMetricSourceToFactTable(
+                  msImport.metricSource,
+                  project || "",
+                  datasource,
+                )) as FactTableInterface;
+
+              // First add, fitlers from existing metric source (if exists)
+              transformed.filters = transformed.filters || [];
+              const existingFilters = new Set<string>();
+              msImport.existingMetricSource?.filters?.map((f) => {
+                transformed.filters.push(f);
+                existingFilters.add(f.value);
+              });
+
+              // Then, add any filters we are going to insert
+              getNewFiltersForMetricSource(
+                statsigMetrics,
+                msImport.metricSource.name,
+                existingFilters,
+              ).forEach((f) => {
+                transformed.filters.push(f as FactFilterInterface);
+              });
+
+              msImport.transformedMetricSource =
+                transformed as CreateFactTableProps;
+              if (msImport.existingMetricSource) {
+                const existingForDiff = transformPayloadForDiffDisplay(
+                  msImport.existingMetricSource as unknown as Record<
+                    string,
+                    unknown
+                  >,
+                  "metricSource",
+                );
+                msImport.existingData = JSON.stringify(
+                  existingForDiff,
+                  null,
+                  2,
+                );
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "metricSource",
+                  projectNameToIdMap,
+                );
+                msImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+                msImport.hasChanges =
+                  JSON.stringify(existingForDiff) !==
+                  JSON.stringify(transformedForDiff);
+              } else {
+                const transformedForDiff = transformPayloadForDiffDisplay(
+                  { ...transformed } as Record<string, unknown>,
+                  "metricSource",
+                  projectNameToIdMap,
+                );
+                msImport.transformedData = JSON.stringify(
+                  transformedForDiff,
+                  null,
+                  2,
+                );
+                msImport.hasChanges = false;
+              }
+            } catch (e) {
+              console.warn(
+                `Failed to transform metric source ${msImport.key}:`,
+                e,
+              );
+            }
+          }
+        }
+
+        update();
+      } catch (e) {
+        console.warn("Error transforming entities for preview:", e);
+      }
+    }
+
     timer && clearTimeout(timer);
     data.status = "ready";
     callback(data);
@@ -650,6 +1454,8 @@ export async function runImport(options: RunImportOptions) {
     itemEnabled,
     skipAttributeMapping,
     existingSavedGroups,
+    existingExperiments,
+    existingFactTables,
   } = options;
   // We will mutate this shared object and sync it back to the component periodically
   const data = cloneDeep(originalData);
@@ -670,10 +1476,39 @@ export async function runImport(options: RunImportOptions) {
   // Map to track StatSig segment names to GrowthBook saved group IDs
   const savedGroupIdMap = new Map<string, string>();
 
-  // Build mapping from existing saved group names to IDs
+  // Build mapping from existing saved group names to IDs and objects
+  const existingSavedGroupsMap = new Map<string, SavedGroupInterface>();
   if (existingSavedGroups) {
     existingSavedGroups.forEach((sg: SavedGroupInterface) => {
       savedGroupIdMap.set(sg.groupName, sg.id);
+      existingSavedGroupsMap.set(sg.groupName, sg);
+    });
+  }
+
+  // Build mapping from existing experiments by trackingKey
+  const existingExperimentsMap = new Map<
+    string,
+    ExperimentInterfaceStringDates
+  >();
+  if (existingExperiments) {
+    existingExperiments.forEach((exp: ExperimentInterfaceStringDates) => {
+      if (exp.trackingKey) {
+        existingExperimentsMap.set(exp.trackingKey, exp);
+      }
+    });
+  }
+
+  const metricSourceIdMap = new Map<string, string>();
+  const savedFilterIdMap = new Map<string, string>();
+
+  // Build mapping from existing fact table names to IDs (and filters to ids)
+  if (existingFactTables) {
+    existingFactTables.forEach((ft: FactTableInterface) => {
+      metricSourceIdMap.set(ft.name, ft.id);
+
+      ft.filters?.forEach((sf) => {
+        savedFilterIdMap.set(`${ft.id}::${sf.value}`, sf.id);
+      });
     });
   }
 
@@ -701,6 +1536,14 @@ export async function runImport(options: RunImportOptions) {
     return true; // Default to importing if no checkbox state
   };
 
+  // Helper function to check if an item can be processed (pending or re-runnable)
+  const canProcessItem = (status: ImportStatus): boolean => {
+    // Allow processing if pending, or if it's a completed/failed status that can be re-run
+    return (
+      status === "pending" || status === "completed" || status === "failed"
+    );
+  };
+
   // Helper function to get item key (same logic as in component)
   const getItemKey = (
     category: string,
@@ -722,7 +1565,9 @@ export async function runImport(options: RunImportOptions) {
       case "experiments":
         return `exp-${item.experiment?.name || item.experiment?.id || index}`;
       case "metrics":
-        return `metric-${item.metric?.name || item.metric?.id || index}`;
+        return `metric-${item.metric?.id || index}`;
+      case "metricSources":
+        return `metricSource-${item.metricSource?.name || index}`;
       default:
         return `${category}-${index}`;
     }
@@ -734,9 +1579,10 @@ export async function runImport(options: RunImportOptions) {
   // Import Environments in a single API call
   queue.add(async () => {
     const envsToAdd: Environment[] = [];
+    const envsToProcess: EnvironmentImport[] = [];
     data.environments?.forEach((e, index) => {
       if (
-        e.status === "pending" &&
+        canProcessItem(e.status) &&
         e.environment &&
         shouldImportItem("environments", index, e)
       ) {
@@ -744,6 +1590,9 @@ export async function runImport(options: RunImportOptions) {
           id: e.environment.name,
           description: e.environment.name,
         });
+        envsToProcess.push(e);
+        // Reset status to pending when re-running
+        e.status = "pending";
       }
     });
 
@@ -755,17 +1604,15 @@ export async function runImport(options: RunImportOptions) {
             environments: envsToAdd,
           }),
         });
-        data.environments?.forEach((env) => {
-          if (env.status === "pending") {
-            env.status = "completed";
-          }
+        envsToProcess.forEach((env) => {
+          env.status = "completed";
+          env.exists = false; // Environments are always created
         });
       } catch (e) {
-        data.environments?.forEach((env) => {
-          if (env.status === "pending") {
-            env.status = "failed";
-            env.error = e.message;
-          }
+        envsToProcess.forEach((env) => {
+          env.status = "failed";
+          env.exists = false;
+          env.error = e.message;
         });
       }
     }
@@ -776,10 +1623,12 @@ export async function runImport(options: RunImportOptions) {
   // Import Saved Groups (Segments)
   data.segments?.forEach((segment, index) => {
     if (
-      segment.status === "pending" &&
+      canProcessItem(segment.status) &&
       shouldImportItem("segments", index, segment)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        segment.status = "pending";
         try {
           const seg = segment.segment as StatsigSavedGroup;
 
@@ -793,21 +1642,52 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
           );
 
-          const res: { savedGroup: SavedGroupInterface } = await apiCall(
-            "/saved-groups",
-            {
+          // Check if saved group already exists (by groupName)
+          const existingSavedGroup = existingSavedGroupsMap.get(
+            savedGroupData.groupName,
+          );
+          const isUpdate = !!existingSavedGroup;
+
+          let res: { savedGroup: SavedGroupInterface };
+          if (isUpdate) {
+            // Use PUT to update existing saved group
+            const putRes = await apiCall(
+              `/saved-groups/${existingSavedGroup.id}`,
+              {
+                method: "PUT",
+                body: JSON.stringify(savedGroupData),
+              },
+            );
+            // PUT returns { status: 200 } or { savedGroup: ... }, handle both
+            if (putRes.savedGroup) {
+              res = putRes as { savedGroup: SavedGroupInterface };
+            } else {
+              // If PUT doesn't return the saved group, fetch it or use existing
+              // For now, use the existing one (API may not return the updated object)
+              res = { savedGroup: existingSavedGroup };
+            }
+          } else {
+            // Use POST to create new saved group
+            res = await apiCall("/saved-groups", {
               method: "POST",
               body: JSON.stringify(savedGroupData),
-            },
-          );
+            });
+          }
 
           segment.status = "completed";
+          segment.exists = isUpdate;
           segment.segment = res.savedGroup as unknown as StatsigSavedGroup;
+          segment.existingSavedGroup = existingSavedGroup;
 
           // Map Statsig segment name to GrowthBook saved group ID
           savedGroupIdMap.set(seg.id, res.savedGroup.id);
         } catch (e) {
+          const existingSavedGroup = existingSavedGroupsMap.get(
+            (segment.segment as StatsigSavedGroup)?.id || "",
+          );
+          const isUpdate = !!existingSavedGroup;
           segment.status = "failed";
+          segment.exists = isUpdate;
           segment.error = e.message;
         }
         update();
@@ -816,13 +1696,44 @@ export async function runImport(options: RunImportOptions) {
   });
   await queue.onIdle();
 
+  // Build combined features map for prerequisite lookups
+  // This includes existing GrowthBook features and Statsig features being imported
+  const combinedFeaturesMap = new Map<string, FeatureInterface>(
+    Array.from(featuresMap.entries()),
+  );
+  // Add Statsig feature gates (boolean) and dynamic configs (json) to the map
+  data.featureGates?.forEach((gateImport) => {
+    if (gateImport.featureGate) {
+      const fg = gateImport.featureGate as StatsigFeatureGate;
+      if (!combinedFeaturesMap.has(fg.id)) {
+        combinedFeaturesMap.set(fg.id, {
+          id: fg.id,
+          valueType: "boolean",
+        } as FeatureInterface);
+      }
+    }
+  });
+  data.dynamicConfigs?.forEach((configImport) => {
+    if (configImport.dynamicConfig) {
+      const dc = configImport.dynamicConfig as StatsigDynamicConfig;
+      if (!combinedFeaturesMap.has(dc.id)) {
+        combinedFeaturesMap.set(dc.id, {
+          id: dc.id,
+          valueType: "json",
+        } as FeatureInterface);
+      }
+    }
+  });
+
   // Import Feature Gates
   data.featureGates?.forEach((featureGate, index) => {
     if (
-      featureGate.status === "pending" &&
+      canProcessItem(featureGate.status) &&
       shouldImportItem("featureGates", index, featureGate)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        featureGate.status = "pending";
         try {
           const fg = featureGate.featureGate as StatsigFeatureGate;
           if (!fg) {
@@ -835,6 +1746,7 @@ export async function runImport(options: RunImportOptions) {
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
+
           const transformedFeature = await transformStatsigFeatureGateToGB(
             fg,
             availableEnvironments,
@@ -844,8 +1756,10 @@ export async function runImport(options: RunImportOptions) {
             project,
             skipAttributeMapping,
             savedGroupIdMap,
+            combinedFeaturesMap,
           );
 
+          const featureIsUpdate = !!featureGate.existing;
           const res: { feature: FeatureInterface } = await apiCall(
             `/feature/${featureGate.key}/sync`,
             {
@@ -855,9 +1769,12 @@ export async function runImport(options: RunImportOptions) {
           );
 
           featureGate.status = "completed";
+          featureGate.exists = featureIsUpdate;
           featureGate.existing = res.feature;
         } catch (e) {
+          const featureIsUpdate = !!featureGate.existing;
           featureGate.status = "failed";
+          featureGate.exists = featureIsUpdate;
           featureGate.error = e.message;
         }
         update();
@@ -869,10 +1786,12 @@ export async function runImport(options: RunImportOptions) {
   // Import Dynamic Configs
   data.dynamicConfigs?.forEach((dynamicConfig, index) => {
     if (
-      dynamicConfig.status === "pending" &&
+      canProcessItem(dynamicConfig.status) &&
       shouldImportItem("dynamicConfigs", index, dynamicConfig)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        dynamicConfig.status = "pending";
         try {
           const dc = dynamicConfig.dynamicConfig as StatsigDynamicConfig;
           if (!dc) {
@@ -885,6 +1804,7 @@ export async function runImport(options: RunImportOptions) {
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
+
           const transformedFeature = await transformStatsigFeatureGateToGB(
             dc,
             availableEnvironments,
@@ -894,8 +1814,10 @@ export async function runImport(options: RunImportOptions) {
             project,
             skipAttributeMapping,
             savedGroupIdMap,
+            combinedFeaturesMap,
           );
 
+          const isUpdate = !!dynamicConfig.existing;
           const res: { feature: FeatureInterface } = await apiCall(
             `/feature/${dynamicConfig.key}/sync`,
             {
@@ -905,9 +1827,12 @@ export async function runImport(options: RunImportOptions) {
           );
 
           dynamicConfig.status = "completed";
+          dynamicConfig.exists = isUpdate;
           dynamicConfig.existing = res.feature;
         } catch (e) {
+          const isUpdate = !!dynamicConfig.existing;
           dynamicConfig.status = "failed";
+          dynamicConfig.exists = isUpdate;
           dynamicConfig.error = e.message;
         }
         update();
@@ -919,11 +1844,13 @@ export async function runImport(options: RunImportOptions) {
   // Import Experiments
   data.experiments?.forEach((experiment, index) => {
     if (
-      experiment.status === "pending" &&
+      canProcessItem(experiment.status) &&
       shouldImportItem("experiments", index, experiment)
     ) {
       queue.add(async () => {
-        let featureId: string | null = null;
+        // Reset status to pending when re-running
+        experiment.status = "pending";
+        const featureId: string | null = null;
         try {
           const exp = experiment.experiment as StatsigExperiment;
           if (!exp) {
@@ -946,25 +1873,49 @@ export async function runImport(options: RunImportOptions) {
 
           // Set project and datasource (will be provided by the importer)
           transformedExperiment.project = project || "";
-          transformedExperiment.datasource = datasource || "";
+          transformedExperiment.datasource = datasource?.id || "";
           transformedExperiment.exposureQueryId = exposureQueryId || "";
 
-          // Create the experiment first
-          const experimentRes = await apiCall(`/experiments`, {
-            method: "POST",
-            body: JSON.stringify(transformedExperiment),
-          });
+          // Check if experiment already exists (by trackingKey)
+          const existingExperiment = transformedExperiment.trackingKey
+            ? existingExperimentsMap.get(transformedExperiment.trackingKey)
+            : undefined;
+          const isUpdate = !!existingExperiment;
+
+          // Create or update the experiment
+          let experimentRes: { experiment: ExperimentInterfaceStringDates };
+          if (isUpdate && existingExperiment) {
+            // Use POST to update existing experiment (POST /experiment/:id)
+            experimentRes = await apiCall(
+              `/experiment/${existingExperiment.id}`,
+              {
+                method: "POST",
+                body: JSON.stringify(transformedExperiment),
+              },
+            );
+          } else {
+            // Use POST to create new experiment
+            experimentRes = await apiCall(`/experiments`, {
+              method: "POST",
+              body: JSON.stringify(transformedExperiment),
+            });
+          }
 
           // Check if experiment creation was successful
           if (
             !experimentRes ||
             (typeof experimentRes === "object" &&
               "status" in experimentRes &&
+              typeof experimentRes.status === "number" &&
               experimentRes.status >= 400)
           ) {
-            throw new Error(
-              `Experiment creation failed: ${experimentRes?.message || "Unknown error"}`,
-            );
+            const errorMessage =
+              typeof experimentRes === "object" &&
+              "message" in experimentRes &&
+              typeof experimentRes.message === "string"
+                ? experimentRes.message
+                : "Unknown error";
+            throw new Error(`Experiment creation failed: ${errorMessage}`);
           }
 
           // Create the companion feature
@@ -983,11 +1934,46 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
           );
 
-          // Check for duplicate feature ID and add prefix if needed
-          const existingFeature = featuresMap.get(transformedFeature.id);
-          featureId = existingFeature
-            ? `exp_${transformedFeature.id}`
-            : transformedFeature.id;
+          // For updates, check if there's an existing companion feature linked to the experiment
+          let featureId = transformedFeature.id;
+          let existingCompanionFeature: FeatureInterface | undefined;
+
+          if (
+            existingExperiment?.linkedFeatures &&
+            existingExperiment.linkedFeatures.length > 0
+          ) {
+            // Find the companion feature by checking if it references this experiment
+            // The companion feature should have experiment-ref rules pointing to this experiment
+            const linkedFeatureIds = existingExperiment.linkedFeatures;
+            for (const linkedFeatureId of linkedFeatureIds) {
+              const linkedFeature = featuresMap.get(linkedFeatureId);
+              if (linkedFeature) {
+                // Check if this feature has experiment-ref rules for this experiment
+                const hasExperimentRef = Object.values(
+                  linkedFeature.environmentSettings || {},
+                ).some((envSettings) =>
+                  envSettings.rules?.some(
+                    (rule) =>
+                      rule.type === "experiment-ref" &&
+                      rule.experimentId === existingExperiment.id,
+                  ),
+                );
+                if (hasExperimentRef) {
+                  existingCompanionFeature = linkedFeature;
+                  featureId = linkedFeature.id;
+                  break;
+                }
+              }
+            }
+          }
+
+          // If no existing companion feature found, check for ID conflicts
+          if (!existingCompanionFeature) {
+            const existingFeature = featuresMap.get(transformedFeature.id);
+            featureId = existingFeature
+              ? `exp_${transformedFeature.id}`
+              : transformedFeature.id;
+          }
 
           const featureRes: { feature: FeatureInterface } = await apiCall(
             `/feature/${featureId}/sync`,
@@ -997,14 +1983,19 @@ export async function runImport(options: RunImportOptions) {
             },
           );
 
+          const experimentIsUpdate = !!existingExperiment;
           experiment.status = "completed";
+          experiment.exists = experimentIsUpdate;
           experiment.gbExperiment = experimentRes.experiment;
           experiment.gbFeature = featureRes.feature;
-          experiment.existingExperiment = experimentRes.experiment;
-          experiment.existingFeature = featureRes.feature;
+          experiment.existingExperiment = existingExperiment;
+          experiment.existingFeature =
+            existingCompanionFeature || featureRes.feature;
         } catch (e) {
           console.warn("import experiment error", e);
+          const experimentIsUpdate = !!experiment.existingExperiment;
           experiment.status = "failed";
+          experiment.exists = experimentIsUpdate;
           experiment.error = e.message;
 
           // Clean up the feature if it was created but experiment failed
@@ -1030,32 +2021,38 @@ export async function runImport(options: RunImportOptions) {
   // Import Tags
   data.tags?.forEach((tagImport, index) => {
     if (
-      tagImport.status === "pending" &&
+      canProcessItem(tagImport.status) &&
       shouldImportItem("tags", index, tagImport)
     ) {
       queue.add(async () => {
+        // Reset status to pending when re-running
+        tagImport.status = "pending";
         try {
           const tag = tagImport.tag as StatsigTag;
           if (!tag) {
             throw new Error("No tag data available");
           }
 
-          // Create new tag
+          // Create or update tag (POST endpoint handles upserts automatically)
           const tagPayload = {
             id: tag.name,
             description: tag.description || "",
             color: tag.isCore ? "purple" : "blue",
           };
 
+          const isUpdate = !!tagImport.existingTag;
           const tagRes: TagInterface = await apiCall("/tag", {
             method: "POST",
             body: JSON.stringify(tagPayload),
           });
 
           tagImport.status = "completed";
+          tagImport.exists = isUpdate;
           tagImport.gbTag = tagRes;
         } catch (e) {
+          const isUpdate = !!tagImport.existingTag;
           tagImport.status = "failed";
+          tagImport.exists = isUpdate;
           tagImport.error = e.message;
         }
         update();
@@ -1064,15 +2061,151 @@ export async function runImport(options: RunImportOptions) {
   });
   await queue.onIdle();
 
-  data.metrics?.forEach((metric, index) => {
+  data.metricSources?.forEach((metricSourceImport, index) => {
     if (
-      metric.status === "pending" &&
-      shouldImportItem("metrics", index, metric)
+      canProcessItem(metricSourceImport.status) &&
+      shouldImportItem("metricSources", index, metricSourceImport)
     ) {
-      metric.status = "failed";
-      metric.error = "Not implemented yet";
+      queue.add(async () => {
+        // Reset status to pending when re-running
+        metricSourceImport.status = "pending";
+        try {
+          const metricSource = metricSourceImport.metricSource;
+          if (!metricSource) {
+            throw new Error("No metric source data available");
+          }
+
+          const factTablePayload =
+            await transformStatsigMetricSourceToFactTable(
+              metricSource,
+              project || "",
+              datasource,
+            );
+
+          const existingMetricSource = metricSourceImport.existingMetricSource;
+          const isUpdate = !!existingMetricSource;
+
+          // Create new fact table
+          let id: string;
+          if (existingMetricSource) {
+            id = existingMetricSource.id;
+
+            if (
+              existingMetricSource.datasource !== factTablePayload.datasource
+            ) {
+              throw new Error(
+                `Cannot change datasource of existing metric source "${existingMetricSource.name}". Please create a new metric source instead.`,
+              );
+            }
+
+            const updatePayload = omit(factTablePayload, "datasource");
+
+            // Update existing fact table
+            await apiCall(`/fact-tables/${existingMetricSource.id}`, {
+              method: "PUT",
+              body: JSON.stringify(updatePayload),
+            });
+          } else {
+            const res = await apiCall("/fact-tables", {
+              method: "POST",
+              body: JSON.stringify(factTablePayload),
+            });
+            id = res.factTable.id;
+          }
+          metricSourceIdMap.set(metricSource.name, id);
+
+          // Add any saved filters
+          const metrics = (data.metrics || [])
+            .filter((metricImport, i) => {
+              return (
+                canProcessItem(metricImport.status) &&
+                shouldImportItem("metrics", i, metricImport)
+              );
+            })
+            .map((mi) => mi.metric)
+            .filter(Boolean) as StatsigMetric[];
+          const filtersToAdd = getNewFiltersForMetricSource(
+            metrics,
+            metricSource.name,
+          );
+          for (const filter of filtersToAdd) {
+            if (!filter) continue;
+            const key = `${id}::${filter.value}`;
+            // If filter already exists, skip
+            if (savedFilterIdMap.has(key)) continue;
+            const savedFilterRes = await apiCall(`/fact-tables/${id}/filter`, {
+              method: "POST",
+              body: JSON.stringify(filter),
+            });
+            savedFilterIdMap.set(key, savedFilterRes.filterId);
+          }
+
+          metricSourceImport.status = "completed";
+          metricSourceImport.exists = isUpdate;
+        } catch (e) {
+          const isUpdate = !!metricSourceImport.existingMetricSource;
+          metricSourceImport.status = "failed";
+          metricSourceImport.exists = isUpdate;
+          metricSourceImport.error = e.message;
+        }
+        update();
+      });
     }
   });
+  await queue.onIdle();
+
+  data.metrics?.forEach((metricImport, index) => {
+    if (
+      canProcessItem(metricImport.status) &&
+      shouldImportItem("metrics", index, metricImport)
+    ) {
+      queue.add(async () => {
+        // Reset status to pending when re-running
+        metricImport.status = "pending";
+        try {
+          const metric = metricImport.metric;
+          if (!metric) {
+            throw new Error("No metric data available");
+          }
+
+          const metricPayload = await transformStatsigMetricToMetric(
+            metric,
+            metricSourceIdMap,
+            savedFilterIdMap,
+            project || "",
+            datasource?.id || "",
+          );
+
+          const existingMetric = metricImport.existingMetric;
+          const isUpdate = !!existingMetric;
+
+          if (existingMetric) {
+            // Update existing metric
+            await apiCall(`/fact-metrics/${existingMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify(metricPayload),
+            });
+          } else {
+            // Create new metric
+            await apiCall("/fact-metrics", {
+              method: "POST",
+              body: JSON.stringify(metricPayload),
+            });
+          }
+
+          metricImport.status = "completed";
+          metricImport.exists = isUpdate;
+        } catch (e) {
+          const isUpdate = !!metricImport.existingMetric;
+          metricImport.status = "failed";
+          metricImport.exists = isUpdate;
+          metricImport.error = e.message;
+        }
+        update();
+      });
+    }
+  });
+  await queue.onIdle();
 
   data.status = "completed";
   timer && clearTimeout(timer);

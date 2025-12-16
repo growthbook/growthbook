@@ -21,13 +21,15 @@ const ScreenshotCarousel: FC<{
   maxChildHeight?: number;
   onClick?: (i: number) => void;
   isPublic?: boolean;
-  experimentUid?: string;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
 }> = ({
   variation,
   maxChildHeight,
   onClick,
   isPublic = false,
-  experimentUid,
+  shareUid,
+  shareType = "experiment",
 }) => {
   const [allowClick, setAllowClick] = useState(true);
   const hasErrorRef = useRef(false);
@@ -88,7 +90,8 @@ const ScreenshotCarousel: FC<{
           }}
           onErrorMsg={handleError}
           isPublic={isPublic}
-          experimentUid={experimentUid}
+          shareUid={shareUid}
+          shareType={shareType}
         />
       ))}
     </Carousel>
@@ -104,7 +107,8 @@ interface Props {
   mutate?: () => void;
   noMargin?: boolean;
   isPublic?: boolean;
-  experimentUid?: string;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
 }
 
 function NoImageBox({
@@ -147,7 +151,8 @@ export function VariationBox({
   percent,
   minWidth,
   isPublic = false,
-  experimentUid,
+  shareUid,
+  shareType = "experiment",
 }: {
   i: number;
   v: Variation;
@@ -162,7 +167,8 @@ export function VariationBox({
   percent?: number;
   minWidth?: string | number;
   isPublic?: boolean;
-  experimentUid?: string;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
 }) {
   const { blockFileUploads } = useOrgSettings();
 
@@ -210,7 +216,8 @@ export function VariationBox({
                     openCarousel(v.id, j);
                   }}
                   isPublic={isPublic}
-                  experimentUid={experimentUid}
+                  shareUid={shareUid}
+                  shareType={shareType}
                 />
               ) : (
                 <>
@@ -280,7 +287,8 @@ const VariationsTable: FC<Props> = ({
   noMargin = false,
   mutate,
   isPublic = false,
-  experimentUid,
+  shareUid,
+  shareType = "experiment",
 }) => {
   const { apiCall } = useAuth();
   const { variations } = experiment;
@@ -333,7 +341,8 @@ const VariationsTable: FC<Props> = ({
               mutate={mutate}
               percent={percentages?.[i]}
               isPublic={isPublic}
-              experimentUid={experimentUid}
+              shareUid={shareUid}
+              shareType={shareType}
             />
           ),
         )}

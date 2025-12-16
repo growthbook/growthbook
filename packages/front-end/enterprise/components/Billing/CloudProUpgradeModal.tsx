@@ -7,7 +7,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { TaxIdType, StripeAddress } from "shared/src/types";
+import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { useAuth } from "@/services/auth";

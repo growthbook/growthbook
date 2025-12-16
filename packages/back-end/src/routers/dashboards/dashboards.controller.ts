@@ -7,6 +7,7 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
+import { SavedQuery } from "shared/validators";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -22,7 +23,6 @@ import {
   findSnapshotsByIds,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
@@ -104,6 +104,7 @@ export async function createDashboard(
     title,
     blocks,
     projects,
+    userId,
   } = req.body;
 
   if (experimentId) {
@@ -125,7 +126,7 @@ export async function createDashboard(
     uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
     isDefault: false,
     isDeleted: false,
-    userId: context.userId,
+    userId: userId || context.userId,
     editLevel,
     shareLevel,
     enableAutoUpdates,
@@ -224,7 +225,8 @@ export async function refreshDashboardData(
     let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
-      if (!blockHasFieldOfType(block, "snapshotId", isString)) return block;
+      if (!blockHasFieldOfType(block, "snapshotId", isString))
+        return { ...block };
       if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
       mainSnapshotUsed = true;
       return { ...block, snapshotId: mainSnapshot.id };
