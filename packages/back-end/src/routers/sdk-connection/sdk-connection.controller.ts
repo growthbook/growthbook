@@ -12,7 +12,6 @@ import {
   WebhookSummary,
 } from "shared/types/webhook";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   countSdkWebhooksByOrg,
   createSdkWebhook,
@@ -29,6 +28,7 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -87,8 +87,13 @@ export const postSDKConnection = async (
     remoteEvalEnabled,
     organization: org.id,
   });
-  const isUsingProxy = !!(doc.proxy.enabled && doc.proxy.host);
-  triggerSingleSDKWebhookJobs(context, doc, {}, doc.proxy, isUsingProxy);
+
+  await refreshSDKPayloadCache({
+    context,
+    payloadKeys: [],
+    sdkConnections: [doc],
+  });
+
   res.status(200).json({
     status: 200,
     connection: doc,

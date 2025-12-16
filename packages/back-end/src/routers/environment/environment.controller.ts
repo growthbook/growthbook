@@ -3,7 +3,6 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -20,6 +19,7 @@ import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { Environment } from "back-end/types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import {
   createEnvValidator,
   deleteEnvValidator,
@@ -208,18 +208,11 @@ export const putEnvironment = async (
           (c) => c.environment === id,
         );
 
-        for (const connection of affectedConnections) {
-          const isUsingProxy = !!(
-            connection.proxy.enabled && connection.proxy.host
-          );
-          await triggerSingleSDKWebhookJobs(
-            context,
-            connection,
-            {},
-            connection.proxy,
-            isUsingProxy,
-          );
-        }
+        await refreshSDKPayloadCache({
+          context,
+          payloadKeys: [],
+          sdkConnections: affectedConnections,
+        });
       }
     }
 

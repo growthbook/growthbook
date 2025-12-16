@@ -15,7 +15,6 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import {
-  findAllSdkWebhooksByConnection,
   findAllSdkWebhooksByConnectionIds,
   findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
@@ -116,15 +115,6 @@ async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
   });
   job.schedule(new Date());
   await job.save();
-}
-export async function queueWebhooksForSdkConnection(
-  context: ReqContext,
-  connection: SDKConnectionInterface,
-) {
-  const webhooks = await findAllSdkWebhooksByConnection(context, connection.id);
-  for (const webhook of webhooks) {
-    if (webhook) await queueSingleSdkWebhookJob(webhook);
-  }
 }
 export async function queueWebhooksByConnections(
   context: ReqContext | ApiReqContext,
