@@ -12,6 +12,7 @@ import {
   ENVIRONMENT,
   IS_CLOUD,
   CLICKHOUSE_DEV_PREFIX,
+  CLICKHOUSE_OVERAGE_TABLE,
 } from "back-end/src/util/secrets";
 import {
   GrowthbookClickhouseDataSource,
@@ -516,6 +517,18 @@ export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
   }
 }
 
+export async function migrateOverageEventsForOrgId(orgId: string) {
+  const client = createAdminClickhouseClient();
+  await runCommand(
+    client,
+    `INSERT INTO ${CLICKHOUSE_MAIN_TABLE} SELECT * FROM ${CLICKHOUSE_OVERAGE_TABLE} WHERE organization = '${orgId}'`,
+  );
+  await runCommand(
+    client,
+    `ALTER TABLE ${CLICKHOUSE_OVERAGE_TABLE} DELETE WHERE organization = '${orgId}'`,
+  );
+}
+
 // In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
 export async function logCloudAIUsage({
   organization,
@@ -565,7 +578,7 @@ export async function logCloudAIUsage({
   }
 }
 
-export async function getDailyCDNUsageForOrg(
+export async function getDailyUsageForOrg(
   orgId: string,
   start: Date,
   end: Date,
@@ -587,13 +600,48 @@ export async function getDailyCDNUsageForOrg(
 
   const sql = `
 select
-  toStartOfDay(hour) as date,
+  date,
   sum(requests) as requests,
-  sum(bandwidth) as bandwidth
-from usage.cdn_hourly
-where
-  organization = '${sanitizedOrgId}'
-  AND date BETWEEN '${startString}' AND '${endString}'
+  sum(bandwidth) as bandwidth,
+  sum(managedClickhouseEvents) as managedClickhouseEvents
+from (
+  select
+    toStartOfDay(hour) as date,
+    sum(requests) as requests,
+    sum(bandwidth) as bandwidth,
+    0 as managedClickhouseEvents
+  from usage.cdn_hourly
+  where
+    organization = '${sanitizedOrgId}'
+    AND date BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_MAIN_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_OVERAGE_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+)
 group by date
 order by date ASC
 WITH FILL
@@ -613,13 +661,15 @@ WITH FILL
     // That is very unlikely, and even if it happens it will still be approximately correct
     requests: string;
     bandwidth: string;
+    managedClickhouseEvents: string;
   }[] = await res.json();
 
-  // Convert strings to numbers for requests/bandwidth
+  // Convert strings to numbers for all metrics
   return data.map((d) => ({
     date: d.date,
     requests: parseInt(d.requests) || 0,
     bandwidth: parseInt(d.bandwidth) || 0,
+    managedClickhouseEvents: parseInt(d.managedClickhouseEvents) || 0,
   }));
 }
 

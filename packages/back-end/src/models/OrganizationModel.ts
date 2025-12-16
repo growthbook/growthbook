@@ -281,6 +281,13 @@ export async function findAllOrganizations(
   return { organizations: docs.map(toInterface), total };
 }
 
+export async function _dangerouslyFindAllOrganizationsByIds(orgIds: string[]) {
+  const docs = await OrganizationModel.find({
+    id: { $in: orgIds },
+  });
+  return docs.map(toInterface);
+}
+
 export async function findOrganizationById(id: string) {
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;

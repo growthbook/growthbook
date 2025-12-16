@@ -57,17 +57,19 @@ import { filterOptions } from "../DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
+export interface SqlExplorerModalInitial {
+  sql?: string;
+  name?: string;
+  datasourceId?: string;
+  results?: QueryExecutionResult;
+  dateLastRan?: Date | string;
+  dataVizConfig?: DataVizConfig[];
+}
+
 export interface Props {
   dashboardId?: string;
   close: () => void;
-  initial?: {
-    sql?: string;
-    name?: string;
-    datasourceId?: string;
-    results?: QueryExecutionResult;
-    dateLastRan?: Date | string;
-    dataVizConfig?: DataVizConfig[];
-  };
+  initial?: SqlExplorerModalInitial;
   id?: string;
   mutate: () => void;
   disableSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations

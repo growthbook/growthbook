@@ -85,6 +85,7 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  hasChunkedResults?: boolean;
 }
 export type PopulationDataQuerySettings = Pick<
   PopulationDataInterface,

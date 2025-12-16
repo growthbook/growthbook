@@ -735,22 +735,35 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
-export async function getExperimentsUsingMetric(
-  context: ReqContext | ApiReqContext,
-  metricId: string,
-  limit?: number,
-): Promise<ExperimentInterface[]> {
+export async function getExperimentsUsingMetric({
+  context,
+  metricId,
+  excludeMetricGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricId: string;
+  excludeMetricGroupIds?: boolean;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  const metricGroups = excludeMetricGroupIds
+    ? undefined
+    : await context.models.metricGroups.findByMetric(metricId);
+
+  const metricGroupIds = metricGroups?.map((g) => g.id);
+  const allIds = metricGroupIds ? [metricId, ...metricGroupIds] : [metricId];
+
   const experiments = await findExperiments(
     context,
     {
       organization: context.org.id,
       $or: [
-        { metrics: metricId },
-        { goalMetrics: metricId },
-        { guardrails: metricId },
-        { guardrailMetrics: metricId },
-        { secondaryMetrics: metricId },
-        { activationMetric: metricId },
+        { metrics: { $in: allIds } },
+        { goalMetrics: { $in: allIds } },
+        { guardrails: { $in: allIds } },
+        { guardrailMetrics: { $in: allIds } },
+        { secondaryMetrics: { $in: allIds } },
+        { activationMetric: { $in: allIds } },
       ],
       archived: {
         $ne: true,
