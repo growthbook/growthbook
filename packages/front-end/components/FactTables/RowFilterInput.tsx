@@ -1,6 +1,11 @@
 import { Flex } from "@radix-ui/themes";
-import { FactTableInterface, RowFilter } from "back-end/types/fact-table";
+import {
+  ColumnInterface,
+  FactTableInterface,
+  RowFilter,
+} from "back-end/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
+import { useState } from "react";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField, {
@@ -9,6 +14,45 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
+
+const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
+const numberRegex = new RegExp(NUMBER_PATTERN);
+
+function getAllowedOperators(
+  datatype: ColumnInterface["datatype"],
+): RowFilter["operator"][] {
+  if (datatype === "boolean") {
+    return ["is_true", "is_false", "is_null", "not_null"];
+  } else if (datatype === "number") {
+    return [
+      "=",
+      "!=",
+      "<",
+      "<=",
+      ">",
+      ">=",
+      "in",
+      "not_in",
+      "is_null",
+      "not_null",
+    ];
+  } else if (datatype === "string") {
+    return [
+      "=",
+      "!=",
+      "in",
+      "not_in",
+      "starts_with",
+      "ends_with",
+      "contains",
+      "not_contains",
+      "is_null",
+      "not_null",
+    ];
+  } else {
+    return ["=", "!=", "in", "not_in", "is_null", "not_null"];
+  }
+}
 
 export function RowFilterInput({
   value,
@@ -19,6 +63,8 @@ export function RowFilterInput({
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
 }) {
+  const [rowDeleted, setRowDeleted] = useState(false);
+
   return (
     <Flex direction="column" gap="2">
       <strong>Row Filter</strong>
@@ -108,7 +154,7 @@ export function RowFilterInput({
           }
         }
 
-        let valueInputPattern: string | undefined = undefined;
+        let inputType: "text" | "number" = "text";
 
         if (operatorInputRequired) {
           const operatorLabelMap: Record<RowFilter["operator"], string> = {
@@ -132,12 +178,16 @@ export function RowFilterInput({
             ends_with: "ends with",
           };
 
-          const allowedOperators: RowFilter["operator"][] = [];
-
           const { datatype, topValues } = getColumnInfo(
             factTable,
             filter.column,
           );
+
+          const allowedOperators = getAllowedOperators(datatype);
+
+          if (datatype === "number") {
+            inputType = "number";
+          }
 
           if (topValues) {
             topValues.forEach((v) => {
@@ -148,46 +198,6 @@ export function RowFilterInput({
                 });
               }
             });
-          }
-
-          if (datatype === "boolean") {
-            allowedOperators.push("is_true", "is_false", "is_null", "not_null");
-          } else if (datatype === "number") {
-            allowedOperators.push(
-              "=",
-              "!=",
-              "<",
-              "<=",
-              ">",
-              ">=",
-              "in",
-              "not_in",
-              "is_null",
-              "not_null",
-            );
-            valueInputPattern = "^[-]?\\d+(\\.\\d+)?$";
-          } else if (datatype === "string") {
-            allowedOperators.push(
-              "=",
-              "!=",
-              "in",
-              "not_in",
-              "starts_with",
-              "ends_with",
-              "contains",
-              "not_contains",
-              "is_null",
-              "not_null",
-            );
-          } else {
-            allowedOperators.push(
-              "=",
-              "!=",
-              "in",
-              "not_in",
-              "is_null",
-              "not_null",
-            );
           }
 
           if (!allowedOperators.includes(filter.operator)) {
@@ -240,7 +250,12 @@ export function RowFilterInput({
         const autoFocus = i === value.length - 1;
 
         return (
-          <Flex direction="row" gap="2" key={i} align="center">
+          <Flex
+            direction="row"
+            gap="2"
+            key={`${rowDeleted}-${i}`}
+            align="center"
+          >
             {i > 0 && <div>AND</div>}
             <SelectField
               value={
@@ -254,24 +269,35 @@ export function RowFilterInput({
                 if (v === "$$sql_expr") {
                   updateRowFilter({
                     operator: "sql_expr",
+                    values: [],
                   });
                 } else if (v === "$$saved_filter") {
                   updateRowFilter({
                     operator: "saved_filter",
+                    values: [],
                   });
                 } else {
-                  // If operator is sql_expr or saved_filter, reset to =
+                  const { datatype } = getColumnInfo(factTable, v);
+
                   let newOperator = filter.operator;
-                  if (
-                    filter.operator === "sql_expr" ||
-                    filter.operator === "saved_filter"
-                  ) {
-                    newOperator = "=";
+                  let newValues = filter.values || [];
+
+                  // If current operator is not valid for new datatype, reset it
+                  const allowedOperators = getAllowedOperators(datatype);
+                  if (!allowedOperators.includes(newOperator)) {
+                    newOperator = allowedOperators[0];
+                    newValues = [];
+                  }
+
+                  if (datatype === "number") {
+                    // If changing to number, remove any non-number values
+                    newValues = newValues.filter((v) => numberRegex.test(v));
                   }
 
                   updateRowFilter({
                     operator: newOperator,
                     column: v,
+                    values: newValues,
                   });
                 }
               }}
@@ -285,8 +311,19 @@ export function RowFilterInput({
               <SelectField
                 value={filter.operator}
                 onChange={(v: RowFilter["operator"]) => {
+                  let newValues = filter.values || [];
+
+                  // If changing from a single-value to multi-value operator, remove empty strings
+                  if (
+                    ["in", "not_in"].includes(v) &&
+                    !["in", "not_in"].includes(filter.operator)
+                  ) {
+                    newValues = newValues.filter((val) => val !== "");
+                  }
+
                   updateRowFilter({
                     operator: v,
+                    values: newValues,
                   });
                 }}
                 options={operatorOptions}
@@ -308,7 +345,9 @@ export function RowFilterInput({
                     creatable={allowCreatingNewOptions}
                     sort={false}
                     autoFocus={autoFocus}
-                    pattern={valueInputPattern}
+                    pattern={
+                      inputType === "number" ? NUMBER_PATTERN : undefined
+                    }
                     required
                   />
                 ) : multiValueInput ? (
@@ -321,7 +360,9 @@ export function RowFilterInput({
                     }}
                     delimiters={["Enter", "Tab"]}
                     autoFocus={autoFocus}
-                    pattern={valueInputPattern}
+                    pattern={
+                      inputType === "number" ? NUMBER_PATTERN : undefined
+                    }
                     required
                   />
                 ) : useValueOptions ? (
@@ -336,7 +377,9 @@ export function RowFilterInput({
                     createable={allowCreatingNewOptions}
                     sort={false}
                     autoFocus={autoFocus}
-                    pattern={valueInputPattern}
+                    pattern={
+                      inputType === "number" ? NUMBER_PATTERN : undefined
+                    }
                     required
                   />
                 ) : (
@@ -350,7 +393,8 @@ export function RowFilterInput({
                     textarea={filter.operator === "sql_expr"}
                     minRows={1}
                     autoFocus={autoFocus}
-                    pattern={valueInputPattern}
+                    type={inputType}
+                    step={inputType === "number" ? "any" : undefined}
                     required
                   />
                 )}
@@ -363,6 +407,8 @@ export function RowFilterInput({
                 const newFilters = [...value];
                 newFilters.splice(i, 1);
                 setValue(newFilters);
+                // We use index for key, so force a re-render to avoid issues
+                setRowDeleted(!rowDeleted);
               }}
             >
               <PiX />

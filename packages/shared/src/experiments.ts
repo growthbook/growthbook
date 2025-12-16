@@ -288,7 +288,7 @@ export function getRowFilterSQL({
     ...new Set(
       rowFilter.values.map((v) => {
         // Number, don't wrap in quotes
-        if (columnType === "number" && v.match(/^[-]?\d+(\.\d+)?$/)) {
+        if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
           return v;
         }
 
