@@ -2,7 +2,11 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
-import { FactMetricType } from "back-end/types/fact-table";
+import {
+  FactMetricType,
+  FactTableInterface,
+  RowFilter,
+} from "back-end/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
@@ -66,6 +70,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -135,6 +140,37 @@ function MetricType({
       throw new Error(`Unhandled MetricType type: ${exhaustiveCheck}`);
     }
   }
+}
+
+function RowFilterCodeDisplay({
+  rowFilters,
+  factTable,
+}: {
+  rowFilters: RowFilter[];
+  factTable?: FactTableInterface | null;
+}) {
+  if (!rowFilters.length) return null;
+
+  const text = `WHERE ${
+    factTable
+      ? rowFilters
+          .map((rf) =>
+            getRowFilterSQL({
+              rowFilter: rf,
+              factTable,
+              escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              evalBoolean: (col, value) => `${col} = ${value}`,
+              jsonExtract: (col, path) => `${col}.${path}`,
+              showSourceComment: true,
+            }),
+          )
+          .join("\nAND ")
+      : rowFilters
+          .map((rf) => `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`)
+          .join("\nAND ")
+  }`;
+
+  return <Code language="sql" code={text} expandable filename={"SQL"} />;
 }
 
 export default function FactMetricPage() {
@@ -242,28 +278,11 @@ export default function FactMetricPage() {
       ? [
           {
             label: "Row Filter",
-            value: factTable ? (
-              <pre>
-                {factMetric.numerator.rowFilters
-                  .map((rf) =>
-                    getRowFilterSQL({
-                      rowFilter: rf,
-                      factTable,
-                      escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-                      evalBoolean: (col, value) => `${col} = ${value}`,
-                      jsonExtract: (col, path) => `${col}.${path}`,
-                      showSourceComment: true,
-                    }),
-                  )
-                  .join("\nAND ")}
-              </pre>
-            ) : (
-              factMetric.numerator.rowFilters
-                .map(
-                  (rf) =>
-                    `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`,
-                )
-                .join("\nAND ")
+            value: (
+              <RowFilterCodeDisplay
+                rowFilters={factMetric.numerator.rowFilters}
+                factTable={factTable}
+              />
             ),
           },
         ]
@@ -334,20 +353,10 @@ export default function FactMetricPage() {
                 {
                   label: "Row Filter",
                   value: (
-                    <pre>
-                      {factMetric.denominator.rowFilters
-                        .map((rf) =>
-                          getRowFilterSQL({
-                            rowFilter: rf,
-                            factTable: denominatorFactTable,
-                            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-                            evalBoolean: (col, value) => `${col} = ${value}`,
-                            jsonExtract: (col, path) => `${col}.${path}`,
-                            showSourceComment: true,
-                          }),
-                        )
-                        .join("\nAND ")}
-                    </pre>
+                    <RowFilterCodeDisplay
+                      rowFilters={factMetric.denominator.rowFilters}
+                      factTable={denominatorFactTable}
+                    />
                   ),
                 },
               ]
