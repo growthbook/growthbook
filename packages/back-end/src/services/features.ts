@@ -22,6 +22,7 @@ import {
   recursiveWalk,
 } from "shared/util";
 import {
+  getConnectionSDKCapabilities,
   scrubExperiments,
   scrubFeatures,
   scrubHoldouts,
@@ -88,6 +89,7 @@ import {
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
 import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   ApiFeatureWithRevisions,
@@ -103,14 +105,15 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { findSDKConnectionsByOrganization } from "../models/SdkConnectionModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
-import { triggerSdkPayloadRefresh } from "./sdkConnection";
 
 export function generateFeaturesPayload({
   features,
@@ -450,7 +453,7 @@ export async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
   skipRefreshForProject,
-  sdkConnections,
+  sdkConnections: sdkConnectionsToUpdate = [],
 }: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
@@ -479,16 +482,191 @@ export async function refreshSDKPayloadCache({
   }
 
   // If no environments are affected, we don't need to update anything
-  if (!payloadKeys.length && !sdkConnections?.length) {
+  if (!payloadKeys.length && !sdkConnectionsToUpdate?.length) {
     logger.debug("Skipping SDK Payload refresh - no environments affected");
     return;
   }
 
-  await triggerSdkPayloadRefresh({
+  const experimentMap = await getAllPayloadExperiments(context);
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const savedGroups = await getAllSavedGroups(context.org.id);
+  const groupMap = await getSavedGroupMap(context.org, savedGroups);
+  const allFeatures = await getAllFeatures(context);
+  const allVisualExperiments = await getAllVisualExperiments(
     context,
-    payloadKeys,
-    sdkConnections,
+    experimentMap,
+  );
+  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
+    context,
+    experimentMap,
+  );
+
+  // For each affected environment, generate a new SDK payload and update the cache
+  const payloadKeyEnvironments = new Set(payloadKeys.map((k) => k.environment));
+  const allEnvironmentsToUpdate = Array.from(
+    new Set([
+      ...payloadKeyEnvironments,
+      ...(sdkConnectionsToUpdate || []).map((c) => c.environment),
+    ]),
+  );
+
+  const prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {};
+
+  const featureDefinitionsByEnv: Record<
+    string,
+    Record<string, FeatureDefinitionWithProject>
+  > = {};
+  const expDefinitionsByEnv: Record<string, AutoExperimentWithProject[]> = {};
+  const holdoutFeatureDefinitionsByEnv: Record<
+    string,
+    Record<string, FeatureDefinitionWithProjects>
+  > = {};
+
+  const promises: (() => Promise<void>)[] = [];
+  for (const environment of allEnvironmentsToUpdate) {
+    // For all environments, generate payloads
+    const holdoutsMap =
+      await context.models.holdout.getAllPayloadHoldouts(environment);
+    const featureDefinitions = generateFeaturesPayload({
+      features: allFeatures,
+      environment: environment,
+      groupMap,
+      experimentMap,
+      prereqStateCache,
+      safeRolloutMap,
+      holdoutsMap,
+    });
+    featureDefinitionsByEnv[environment] = featureDefinitions;
+
+    const holdoutFeatureDefinitions = generateHoldoutsPayload({
+      holdoutsMap,
+    });
+    holdoutFeatureDefinitionsByEnv[environment] = holdoutFeatureDefinitions;
+
+    const experimentsDefinitions = generateAutoExperimentsPayload({
+      visualExperiments: allVisualExperiments,
+      urlRedirectExperiments: allURLRedirectExperiments,
+      groupMap,
+      features: allFeatures,
+      environment,
+      prereqStateCache,
+    });
+    expDefinitionsByEnv[environment] = experimentsDefinitions;
+
+    const savedGroupsInUse = Object.keys(
+      filterUsedSavedGroups(
+        getSavedGroupsValuesFromGroupMap(groupMap),
+        featureDefinitions,
+        experimentsDefinitions,
+      ),
+    );
+
+    // If we need to generate a new env-level payload cache
+    // TODO: remove this once we are fully transitioned to new per-connection cache
+    if (payloadKeyEnvironments.has(environment)) {
+      promises.push(async () => {
+        logger.debug(
+          `Updating SDK Payload for ${context.org.id} ${environment}`,
+        );
+        await updateSDKPayload({
+          organization: context.org.id,
+          environment: environment,
+          featureDefinitions,
+          holdoutFeatureDefinitions,
+          experimentsDefinitions,
+          savedGroupsInUse,
+        });
+      });
+    }
+  }
+
+  // Get all potential SDK connections to update
+  const sdkConnections = payloadKeys.length
+    ? await findSDKConnectionsByOrganization(context)
+    : sdkConnectionsToUpdate || [];
+
+  const connectionsUpdated: SDKConnectionInterface[] = [];
+
+  // Update SDK connection cache
+  sdkConnections.forEach((connection) => {
+    // If we don't need to update this connection's cache, skip it
+    if (
+      !sdkConnectionsToUpdate.some((c) => c.key === connection.key) &&
+      !payloadKeys.some(
+        ({ environment, project }) =>
+          connection.environment === environment &&
+          (connection.projects.length === 0 ||
+            connection.projects.includes(project)),
+      )
+    ) {
+      return;
+    }
+
+    const env = connection.environment;
+    const featureDefinitions = featureDefinitionsByEnv[env];
+    const experimentsDefinitions = expDefinitionsByEnv[env];
+    const holdoutFeatureDefinitions = holdoutFeatureDefinitionsByEnv[env];
+
+    let attributes: SDKAttributeSchema | undefined = undefined;
+    let secureAttributeSalt: string | undefined = undefined;
+    if (connection.hashSecureAttributes) {
+      // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
+      // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
+      // which would expose private data publicly.
+      secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+      attributes = context.org.settings?.attributeSchema;
+    }
+
+    if (!featureDefinitions) {
+      return;
+    }
+
+    connectionsUpdated.push(connection);
+
+    promises.push(async () => {
+      const contents = await getFeatureDefinitionsResponse({
+        features: featureDefinitions,
+        experiments: experimentsDefinitions || [],
+        holdouts: holdoutFeatureDefinitions,
+        dateUpdated: new Date(),
+        encryptionKey: connection.encryptionKey,
+        includeVisualExperiments: connection.includeVisualExperiments,
+        includeDraftExperiments: connection.includeDraftExperiments,
+        includeExperimentNames: connection.includeExperimentNames,
+        includeRedirectExperiments: connection.includeRedirectExperiments,
+        includeRuleIds: connection.includeRuleIds,
+        attributes,
+        secureAttributeSalt,
+        projects: connection.projects || [],
+        capabilities: getConnectionSDKCapabilities(connection),
+        savedGroups,
+        savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+        organization: context.org,
+      });
+
+      await context.models.sdkConnectionCache.upsert(
+        connection.key,
+        JSON.stringify(contents),
+      );
+    });
   });
+
+  // If there are no changes, we don't need to do anything
+  if (!promises.length) return;
+
+  // There may be many SDK connection caches to update
+  // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
+  await promiseAllChunks(promises, 4);
+
+  triggerWebhookJobs(context, payloadKeys, connectionsUpdated, true).catch(
+    (e) => {
+      logger.error(e, "Error triggering webhook jobs");
+    },
+  );
 }
 
 export type FeatureDefinitionsResponseArgs = {

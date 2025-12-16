@@ -14,8 +14,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
 import {
   fireGlobalSdkWebhooks,
-  fireGlobalSdkWebhooksByPayloadKeys,
-  queueWebhooksBySdkPayloadKeys,
+  queueWebhooksByConnections,
   queueWebhooksForSdkConnection,
 } from "./sdkWebhooks";
 import { queueLegacySdkWebhooks } from "./webhooks";
@@ -23,27 +22,43 @@ import { queueLegacySdkWebhooks } from "./webhooks";
 export const triggerWebhookJobs = async (
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
-  environments: string[],
+  connections: SDKConnectionInterface[],
   isProxyEnabled: boolean,
   isFeature = true,
 ) => {
-  queueWebhooksBySdkPayloadKeys(context, payloadKeys).catch((e) => {
+  queueWebhooksByConnections(context, connections).catch((e) => {
     logger.error(e, "Error queueing webhooks");
   });
-  fireGlobalSdkWebhooksByPayloadKeys(context, payloadKeys).catch((e) => {
+
+  fireGlobalSdkWebhooks(context, connections).catch((e) => {
     logger.error(e, "Error firing global webhooks");
   });
+
   if (isProxyEnabled) {
-    queueProxyUpdate(context, payloadKeys).catch((e) => {
+    queueProxyUpdate(context, connections).catch((e) => {
       logger.error(e, "Error queueing proxy update");
     });
   }
+
   queueLegacySdkWebhooks(context, payloadKeys, isFeature).catch((e) => {
     logger.error(e, "Error queueing legacy webhooks");
   });
+
+  // Purge by environment
+  const environments = Array.from(
+    new Set(payloadKeys.map((k) => k.environment)),
+  );
   const surrogateKeys = getSurrogateKeysFromEnvironments(context.org.id, [
     ...environments,
   ]);
+
+  // If any connections are in a different environment, purge them individually
+  connections.forEach((conn) => {
+    if (!environments.includes(conn.environment)) {
+      surrogateKeys.push(conn.key);
+    }
+  });
+
   await purgeCDNCache(context.org.id, surrogateKeys);
 };
 
