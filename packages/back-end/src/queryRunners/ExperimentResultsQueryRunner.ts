@@ -44,6 +44,7 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -266,16 +267,13 @@ export const startExperimentResultQueries = async (
   // Settings for health query
   const runTrafficQuery =
     snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
-  let dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] = [];
-  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
-    dimensionsForTraffic = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
-        type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
-  }
+
+  const { eligibleDimensionsWithSlices: dimensionsForTraffic } =
+    getExposureQueryEligibleDimensions({
+      exposureQuery,
+      incrementalRefreshModel: null,
+      nVariations: snapshotSettings.variations.length,
+    });
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
