@@ -323,9 +323,14 @@ export function getDecisionFrameworkStatus({
     }
   } else {
     // only return ship or rollback for super stat sig metrics
+    const earlyStoppingCriteria =
+      decisionCriteria.name === "Do No Harm"
+        ? PRESET_DECISION_CRITERIA
+        : decisionCriteria;
+
     const superStatSigVariationDecisions = getEarlyStoppingVariationDecisions({
       resultsStatus,
-      decisionCriteria,
+      decisionCriteria: earlyStoppingCriteria,
       goalMetrics,
       guardrailMetrics,
     });
