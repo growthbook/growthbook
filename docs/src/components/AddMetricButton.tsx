@@ -2,20 +2,47 @@ import React from "react";
 import ExternalLink from "./ExternalLink";
 import { useGrowthBookHost } from "./HostSelector";
 
+export const rowFilterOperators = [
+  "=",
+  "!=",
+  "<",
+  "<=",
+  ">",
+  ">=",
+  "in",
+  "not_in",
+  "contains",
+  "not_contains",
+  "starts_with",
+  "ends_with",
+  "is_null",
+  "not_null",
+  "is_true",
+  "is_false",
+  "sql_expr",
+  "saved_filter",
+] as const;
+
+export interface RowFilter {
+  operator: (typeof rowFilterOperators)[number];
+  column?: string;
+  values?: string[];
+}
+
 export interface MetricData {
   name: string;
   description?: string;
   metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
   numerator: {
     column?: string;
-    inlineFilters?: Record<string, string[]>;
+    rowFilters?: RowFilter[];
     aggregation?: "sum" | "max" | "count distinct";
     aggregateFilter?: string;
     aggregateFilterColumn?: string;
   };
   denominator?: {
     column?: string;
-    inlineFilters?: Record<string, string[]>;
+    rowFilters?: RowFilter[];
   };
   inverse?: boolean;
   quantileSettings?: {

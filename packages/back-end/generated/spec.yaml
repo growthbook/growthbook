@@ -4906,16 +4906,55 @@ paths:
                         - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
                     inlineFilters:
                       type: object
-                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       additionalProperties:
                         type: array
                         items:
                           type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
                     aggregateFilterColumn:
                       type: string
                       description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -4943,16 +4982,55 @@ paths:
                         - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
                     inlineFilters:
                       type: object
-                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       additionalProperties:
                         type: array
                         items:
                           type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -5207,16 +5285,55 @@ paths:
                         - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
                     inlineFilters:
                       type: object
-                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       additionalProperties:
                         type: array
                         items:
                           type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
                     aggregateFilterColumn:
                       type: string
                       description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -5244,16 +5361,55 @@ paths:
                         - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
                     inlineFilters:
                       type: object
-                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       additionalProperties:
                         type: array
                         items:
                           type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -8000,7 +8156,6 @@ components:
           required:
             - factTableId
             - column
-            - filters
           properties:
             factTableId:
               type: string
@@ -8014,16 +8169,55 @@ components:
                 - count distinct
             filters:
               type: array
-              description: Array of Fact Table Filter Ids
+              description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+              deprecated: true
               items:
                 type: string
             inlineFilters:
               type: object
-              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+              deprecated: true
               additionalProperties:
                 type: array
                 items:
                   type: string
+            rowFilters:
+              type: array
+              description: Filters to apply to the rows of the fact table before aggregation.
+              items:
+                type: object
+                required:
+                  - operator
+                properties:
+                  operator:
+                    type: string
+                    enum:
+                      - '='
+                      - '!='
+                      - '>'
+                      - <
+                      - '>='
+                      - <=
+                      - in
+                      - not_in
+                      - is_null
+                      - not_null
+                      - is_true
+                      - is_false
+                      - contains
+                      - not_contains
+                      - starts_with
+                      - ends_with
+                      - sql_expr
+                      - saved_filter
+                  values:
+                    type: array
+                    description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                    items:
+                      type: string
+                  column:
+                    type: string
+                    description: Required for all operators except sql_expr and saved_filter.
             aggregateFilterColumn:
               type: string
               description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -8035,7 +8229,6 @@ components:
           required:
             - factTableId
             - column
-            - filters
           properties:
             factTableId:
               type: string
@@ -8043,16 +8236,55 @@ components:
               type: string
             filters:
               type: array
-              description: Array of Fact Table Filter Ids
+              description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+              deprecated: true
               items:
                 type: string
             inlineFilters:
               type: object
-              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+              deprecated: true
               additionalProperties:
                 type: array
                 items:
                   type: string
+            rowFilters:
+              type: array
+              description: Filters to apply to the rows of the fact table before aggregation.
+              items:
+                type: object
+                required:
+                  - operator
+                properties:
+                  operator:
+                    type: string
+                    enum:
+                      - '='
+                      - '!='
+                      - '>'
+                      - <
+                      - '>='
+                      - <=
+                      - in
+                      - not_in
+                      - is_null
+                      - not_null
+                      - is_true
+                      - is_false
+                      - contains
+                      - not_contains
+                      - starts_with
+                      - ends_with
+                      - sql_expr
+                      - saved_filter
+                  values:
+                    type: array
+                    description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                    items:
+                      type: string
+                  column:
+                    type: string
+                    description: Required for all operators except sql_expr and saved_filter.
         inverse:
           type: boolean
           description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
