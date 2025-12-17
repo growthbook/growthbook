@@ -22,6 +22,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
 import EmptyState from "@/components/EmptyState";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
+import Field from "../Forms/Field";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
@@ -149,7 +150,7 @@ export default function FeatureDiagnostics({
     [results, columns],
   );
 
-  const { items, pagination, SortableTH } = useSearch({
+  const { items, pagination, SortableTH, searchInputProps } = useSearch({
     items: evalItems,
     defaultSortField: "timestamp",
     defaultSortDir: -1,
@@ -249,7 +250,12 @@ export default function FeatureDiagnostics({
 
       {datasource && datasourceHasFeatureUsageQuery && (
         <Frame mt="4">
-          <Flex direction="row" justify="end" mb="4">
+          <Flex direction="row" justify="between" mb="4">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
             <Tooltip
               content="Setup a feature usage query in your data source to view feature evaluations."
               enabled={!datasourceHasFeatureUsageQuery && !loading}
