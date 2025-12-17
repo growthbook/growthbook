@@ -78,6 +78,16 @@ Status indicators:
 Guardrails are analyzed for failure using one-sided sequential testing, allowing you to roll back as soon as statistical significance is reached without fear of false positives. Your safe rollout is automatically monitored for implementation errors with sample ratio mismatch and multiple exposures checks.
 :::
 
+### 5. Take Action
+
+At the end of the monitoring period (or sooner if issues arise), you can:
+
+- Release the feature to 100% of users (if not already there).
+- Revert the feature to the control value.
+- Continue to monitor.
+
+If **Auto Rollback** is enabled and a regression is detected, GrowthBook will automatically disable the rollout rule to protect your users.
+
 ## Understanding the Time series graph
 
 The safe rollout monitoring interface includes a time series graph that shows how your guardrail metrics are performing over time. This graph displays two key values:
@@ -89,16 +99,6 @@ The Metric Boundary is the statistical boundary for whether a safe rollout is fa
 ### Threshold
 
 This is the threshold for when a metric is considered to be failing. It is always set to zero so that as soon as there is statistical certainty that a metric is being harmed at all (even for very small values), we consider a safe rollout as failing.
-
-### 5. Take Action
-
-At the end of the monitoring period (or sooner if issues arise), you can:
-
-- Release the feature to 100% of users (if not already there).
-- Revert the feature to the control value.
-- Continue to monitor.
-
-If **Auto Rollback** is enabled and a regression is detected, GrowthBook will automatically disable the rollout rule to protect your users.
 
 ## FAQs
 
