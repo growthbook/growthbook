@@ -90,6 +90,20 @@ function validateUserFilter({
   }
 }
 
+// Ensure that that
+function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
+  switch (metricType) {
+    case "mean":
+    case "dailyParticipation":
+    case "quantile":
+    case "retention":
+    case "proportion":
+      return false;
+    case "ratio":
+      return true;
+  }
+}
+
 export class FactMetricModel extends BaseClass {
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
@@ -148,6 +162,11 @@ export class FactMetricModel extends BaseClass {
 
     if (newDoc.numerator) {
       newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
+    }
+
+    // Clean up orphaned denominators that should not exist
+    if (!denominatorRequiredByMetricType(newDoc.metricType)) {
+      newDoc.denominator = null;
     }
 
     if (newDoc.denominator) {
