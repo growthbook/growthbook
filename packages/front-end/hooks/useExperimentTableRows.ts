@@ -539,7 +539,8 @@ export function generateRowsForMetric({
       const label = slice.sliceLevels
         .map((dl, _index) => {
           if (dl.levels.length === 0) {
-            return `${dl.column}: null`;
+            const emptyValue = dl.datatype === "string" ? "other" : "null";
+            return `${dl.column}: ${emptyValue}`;
           }
           const value = dl.levels[0];
           if (dl.datatype === "boolean") {

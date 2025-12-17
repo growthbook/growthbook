@@ -352,6 +352,7 @@ export default function AnalysisSettingsSummary({
               setSliceTagsFilter={setSliceTagsFilter}
               showMetricFilter={showMetricFilter}
               setShowMetricFilter={setShowMetricFilter}
+              dimension={dimension}
             />
           )}
         </Flex>

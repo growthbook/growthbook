@@ -612,6 +612,7 @@ export function getRenderLabelColumn({
                 {row.sliceLevels.map((dl, index) => {
                   const content = (() => {
                     if (dl.levels.length === 0) {
+                      const emptyValue = dl.datatype === "string" ? "other" : "null";
                       return (
                         <>
                           {dl.column}:{" "}
@@ -621,7 +622,7 @@ export function getRenderLabelColumn({
                               fontWeight: 600,
                             }}
                           >
-                            null
+                            {emptyValue}
                           </span>
                         </>
                       );

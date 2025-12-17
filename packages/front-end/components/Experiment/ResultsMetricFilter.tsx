@@ -6,6 +6,8 @@ import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import HelperText from "@/ui/HelperText";
 
 export default function ResultsMetricFilter({
   metricTags = [],
@@ -19,6 +21,7 @@ export default function ResultsMetricFilter({
   setSliceTagsFilter,
   showMetricFilter,
   setShowMetricFilter,
+  dimension,
 }: {
   metricTags?: string[];
   metricTagFilter?: string[];
@@ -31,6 +34,7 @@ export default function ResultsMetricFilter({
   setSliceTagsFilter?: (tags: string[]) => void;
   showMetricFilter: boolean;
   setShowMetricFilter: (show: boolean) => void;
+  dimension?: string;
 }) {
   const filteringApplied =
     metricTagFilter?.length > 0 ||
@@ -103,14 +107,17 @@ export default function ResultsMetricFilter({
                   align="center"
                   className="bg-highlight rounded"
                 >
-                  <Heading
-                    size="2"
-                    weight="medium"
-                    mb="0"
-                    style={{ width: 150 }}
-                  >
-                    Slices
-                  </Heading>
+                  <Box style={{ width: 150 }}>
+                    <Heading size="2" weight="medium" mb="0">
+                      {dimension && (sliceTagsFilter?.length || 0) > 0 ? (
+                        <Tooltip body="Slice filters are ignored when a unit dimension is set">
+                          <HelperText status="warning">Slices</HelperText>
+                        </Tooltip>
+                      ) : (
+                        "Slices"
+                      )}
+                    </Heading>
+                  </Box>
                   <MultiSelectField
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
