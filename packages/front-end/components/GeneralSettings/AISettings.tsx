@@ -7,7 +7,7 @@ import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud, hasOpenAIKey } from "@/services/env";
+import { isCloud, hasOpenAIKey, hasAnthropicKey } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -190,29 +190,6 @@ export default function AISettings({
               {form.watch("aiEnabled") && !isCloud() && (
                 <>
                   <Box mb="6" width="100%">
-                    <Text as="label" size="3" className="font-weight-semibold">
-                      Open AI Key
-                    </Text>
-                    {hasOpenAIKey() ? (
-                      <Box>
-                        Your openAI API key is correctly set in your environment
-                        variable <code>OPENAI_API_KEY</code>.
-                      </Box>
-                    ) : (
-                      <Box>
-                        <Callout status="warning">
-                          You must set your OpenAI API key to use AI features.
-                          Please define it in your environment variables as{" "}
-                          <code>OPENAI_API_KEY</code>. See more in our{" "}
-                          <a href="https://docs.growthbook.io/self-host/env">
-                            self-hosting docs
-                          </a>
-                          .
-                        </Callout>
-                      </Box>
-                    )}
-                  </Box>
-                  <Box mb="6" width="100%">
                     <Text
                       as="label"
                       htmlFor="defaultAIModel"
@@ -229,6 +206,79 @@ export default function AISettings({
                       options={AI_MODEL_LABELS}
                     />
                   </Box>
+                  {(() => {
+                    const selectedModel =
+                      form.watch("defaultAIModel") || "gpt-4o-mini";
+                    const isAnthropicModel =
+                      selectedModel.startsWith("claude-");
+                    const isOpenAIModel = selectedModel.startsWith("gpt-");
+
+                    return (
+                      <>
+                        {isAnthropicModel && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              Anthropic API Key
+                            </Text>
+                            {hasAnthropicKey() ? (
+                              <Box>
+                                Your Anthropic API key is correctly set in your
+                                environment variable{" "}
+                                <code>ANTHROPIC_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your Anthropic API key to use
+                                  Claude models. Please define it in your
+                                  environment variables as{" "}
+                                  <code>ANTHROPIC_API_KEY</code>. See more in
+                                  our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        <Box mb="6" width="100%">
+                          <Text
+                            as="label"
+                            size="3"
+                            className="font-weight-semibold"
+                          >
+                            OpenAI API Key
+                          </Text>
+                          {hasOpenAIKey() ? (
+                            <Box>
+                              Your OpenAI API key is correctly set in your
+                              environment variable <code>OPENAI_API_KEY</code>.
+                            </Box>
+                          ) : (
+                            <Box>
+                              <Callout status="warning">
+                                {isOpenAIModel
+                                  ? "You must set your OpenAI API key to use GPT models."
+                                  : "OpenAI API key is required for embeddings."}{" "}
+                                Please define it in your environment variables
+                                as <code>OPENAI_API_KEY</code>. See more in our{" "}
+                                <a href="https://docs.growthbook.io/self-host/env">
+                                  self-hosting docs
+                                </a>
+                                .
+                              </Callout>
+                            </Box>
+                          )}
+                        </Box>
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </Flex>
