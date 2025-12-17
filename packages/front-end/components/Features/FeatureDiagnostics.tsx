@@ -142,7 +142,9 @@ export default function FeatureDiagnostics({
       return {
         timestamp: format(getValidDate(row.timestamp), "PPpp"),
         ...displayValues,
-      };
+      } as {
+        timestamp: string;
+      } & Record<string, string>;
     },
     [results, columns],
   );
@@ -296,17 +298,9 @@ export default function FeatureDiagnostics({
                 <TableBody>
                   {items.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell>
-                        {format(getValidDate(row.timestamp), "PPpp")}
-                      </TableCell>
+                      <TableCell>{row.timestamp}</TableCell>
                       {columns.map((key) => (
-                        <TableCell key={key}>
-                          {typeof row[key] === "string" ||
-                          typeof row[key] === "number" ||
-                          typeof row[key] === "boolean"
-                            ? String(row[key])
-                            : ""}
-                        </TableCell>
+                        <TableCell key={key}>{row[key]}</TableCell>
                       ))}
                     </TableRow>
                   ))}
