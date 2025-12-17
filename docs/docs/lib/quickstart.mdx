@@ -1,0 +1,464 @@
+---
+title: SDK Quickstart
+description: Get GrowthBook feature flags and experiments running in your application with just a few lines of code.
+sidebar_label: Quickstart
+slug: /lib/quickstart
+hide_table_of_contents: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { CodeLogos } from '@site/src/components/Icons';
+import ButtonCard from '@site/src/components/ButtonCard';
+import { Stepper, StepperStep } from '@site/src/components/Stepper';
+
+# SDK Quickstart
+
+Get GrowthBook running in your application in minutes.
+
+:::info New to GrowthBook SDKs?
+The [SDK Overview](/lib) covers how SDKs work and helps you choose the right one for your use case.
+:::
+
+<Tabs>
+  <TabItem value="react" label="React" default>
+
+<Stepper>
+  <StepperStep>
+
+**Get your SDK Client Key**
+
+Go to [**SDK Configuration**](https://app.growthbook.io/sdks), create a new SDK Connection, and copy the **Client Key** (starts with `sdk-`).
+
+  </StepperStep>
+  <StepperStep>
+
+**Install the SDK**
+
+```bash npm2yarn
+npm install @growthbook/growthbook-react @growthbook/growthbook
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Wrap your app with `GrowthBookProvider`**
+
+```tsx
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { thirdPartyTrackingPlugin, autoAttributesPlugin } from "@growthbook/growthbook/plugins";
+
+// Create a GrowthBook instance
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123", // Your SDK client key
+  enableDevMode: true,
+  plugins: [
+    thirdPartyTrackingPlugin(), // Optional, sends "Experiment Viewed" events via GrowthBook Managed Warehouse, Google Analytics, Google Tag Manager, and Segment.
+    autoAttributesPlugin(), // Optional, sets common attributes (browser, session_id, etc.)
+  ],
+});
+
+// Load feature definitions from the GrowthBook API
+gb.init();
+
+export default function App() {
+  return (
+    <GrowthBookProvider growthbook={gb}>
+      <MyApp />
+    </GrowthBookProvider>
+  );
+}
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Use feature flags**
+
+```tsx
+import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+
+function MyApp() {
+  const showNewFeature = useFeatureIsOn("new-feature");
+  const buttonColor = useFeatureValue("button-color", "blue");
+
+  return (
+    <div>
+      {showNewFeature && <NewFeature />}
+      <button style={{ backgroundColor: buttonColor }}>Click me</button>
+    </div>
+  );
+}
+```
+
+  </StepperStep>
+  
+</Stepper>
+
+**Next steps:** - See the [example Next.js app](https://github.com/growthbook/examples/tree/main/next-js) - See the [React SDK docs](/lib/react)
+
+  </TabItem>
+
+  <TabItem value="javascript" label="JavaScript">
+
+<Stepper>
+  <StepperStep>
+
+**Get your SDK Client Key**
+
+Go to [**SDK Configuration**](https://app.growthbook.io/sdks), create a new SDK Connection, and copy the **Client Key** (starts with `sdk-`).
+
+  </StepperStep>
+  <StepperStep>
+
+**Install the SDK**
+
+```bash npm2yarn
+npm install @growthbook/growthbook
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Initialize GrowthBook**
+
+```javascript
+import { GrowthBook } from "@growthbook/growthbook";
+import { thirdPartyTrackingPlugin, autoAttributesPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [
+    thirdPartyTrackingPlugin(), // Optional, sends "Experiment Viewed" events via GrowthBook Managed Warehouse, Google Analytics, Google Tag Manager, and Segment.
+    autoAttributesPlugin(), // Optional, sets common attributes (browser, session_id, etc.)
+  ],
+});
+
+await gb.init();
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Use feature flags**
+
+```javascript
+if (gb.isOn("new-feature")) {
+  showNewFeature();
+}
+
+const color = gb.getFeatureValue("button-color", "blue");
+```
+
+  </StepperStep>
+</Stepper>
+
+**Next steps:** - See the [JavaScript SDK docs](/lib/js) for TypeScript, plugins, and more. - See an [example Typescript app](https://github.com/growthbook/examples/tree/main/vanilla-typescript)
+
+  </TabItem>
+
+  <TabItem value="node" label="Node.js">
+
+<Stepper>
+  <StepperStep>
+
+**Get your SDK Client Key**
+
+Go to [**SDK Configuration**](https://app.growthbook.io/sdks), create a new SDK Connection, and copy the **Client Key** (starts with `sdk-`).
+
+  </StepperStep>
+  <StepperStep>
+
+**Install the SDK**
+
+```bash npm2yarn
+npm install @growthbook/growthbook
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Initialize GrowthBook**
+
+```javascript
+import { GrowthBookClient } from "@growthbook/growthbook";
+
+const gbClient = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result, userContext) => {
+    const userId = userContext.attributes.id;
+    // Required for A/B testing
+    // TODO: Replace with your own tracking implementation
+    console.log("Viewed Experiment", userId, {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
+  }
+});
+await gbClient.init({timeout: 3000});
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Use feature flags**
+
+```javascript
+// User context with attributes that feature flags can use for targeting
+const userContext = {
+  attributes: {
+    id: "123",
+    country: "US",
+    // ... other attributes ...
+  }
+}
+
+// Boolean on/off flags
+if (gbClient.isOn("my-feature", userContext)) {
+  console.log("My feature is on!");
+}
+
+// String, Number, or JSON flags
+const value = gbClient.getFeatureValue("my-string-feature", "fallback", userContext);
+console.log(value);
+```
+
+  </StepperStep>
+</Stepper>
+
+**Next steps:** - See the full [Node.js SDK docs](/lib/node) - Use the SDK in [Express middleware](/lib/node#express-middleware)
+
+  </TabItem>
+
+  <TabItem value="python" label="Python">
+
+<Stepper>
+  <StepperStep>
+
+**Get your SDK Client Key**
+
+Go to [**SDK Configuration**](https://app.growthbook.io/sdks), create a new SDK Connection, and copy the **Client Key** (starts with `sdk-`).
+
+  </StepperStep>
+  <StepperStep>
+
+**Install the SDK**
+
+```bash pip
+pip install growthbook
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Initialize GrowthBook**
+
+```python
+from growthbook import GrowthBookClient, Options, UserContext
+
+def on_experiment_viewed(experiment, result):
+    # TODO: track in your analytics system
+    print(f"Experiment: {experiment.key}, Variation: {result.key}")
+
+# Create and initialize client
+client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        on_experiment_viewed=on_experiment_viewed,
+    )
+)
+await client.initialize()
+
+# Create user context for targeting
+user = UserContext(
+    attributes={
+        "id": "user-123",
+        "country": "US",
+    }
+)
+```
+
+  </StepperStep>
+  <StepperStep>
+
+**Use feature flags**
+
+```python
+if await client.is_on("new-feature", user):
+    show_new_feature()
+
+color = await client.get_feature_value("button-color", "blue", user)
+```
+
+  </StepperStep>
+</Stepper>
+
+**Next steps:** - See the full [Python SDK docs](/lib/python) - See the [how to integrate with FastAPI](/lib/python#async-web-framework-integration-fastapi) example.
+
+  </TabItem>
+
+  <TabItem value="more" label="22+ More SDKs">
+
+## All SDKs
+
+**Front-end**
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/script-tag"
+    title="HTML Script Tag"
+    description="Drop-in script for any website"
+    icon={<CodeLogos name="js" />}
+  />
+  <ButtonCard
+    to="/lib/js"
+    title="JavaScript"
+    description="Vanilla JS and TypeScript"
+    icon={<CodeLogos name="js" />}
+  />
+  <ButtonCard
+    to="/lib/react"
+    title="React"
+    description="Hooks and providers with SSR"
+    icon={<CodeLogos name="react" />}
+  />
+  <ButtonCard
+    to="/lib/vue"
+    title="Vue"
+    description="Vue 3 composables"
+    icon={<CodeLogos name="vue" />}
+  />
+</div>
+
+**Mobile**
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/kotlin"
+    title="Kotlin (Android)"
+    description="Native Android"
+    icon={<CodeLogos name="kotlin" />}
+  />
+  <ButtonCard
+    to="/lib/swift"
+    title="Swift (iOS)"
+    description="Native iOS"
+    icon={<CodeLogos name="swift" />}
+  />
+  <ButtonCard
+    to="/lib/flutter"
+    title="Flutter"
+    description="Cross-platform mobile"
+    icon={<CodeLogos name="flutter" />}
+  />
+  <ButtonCard
+    to="/lib/react-native"
+    title="React Native"
+    description="Cross-platform React"
+    icon={<CodeLogos name="react" />}
+  />
+</div>
+
+**Back-end**
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/node"
+    title="Node.js"
+    description="Express, Fastify, etc."
+    icon={<CodeLogos name="node" />}
+  />
+  <ButtonCard
+    to="/lib/python"
+    title="Python"
+    description="Flask, Django, FastAPI"
+    icon={<CodeLogos name="python" />}
+  />
+  <ButtonCard
+    to="/lib/ruby"
+    title="Ruby"
+    description="Rails and Ruby apps"
+    icon={<CodeLogos name="ruby" />}
+  />
+  <ButtonCard
+    to="/lib/php"
+    title="PHP"
+    description="Laravel, Symfony, etc."
+    icon={<CodeLogos name="php" />}
+  />
+  <ButtonCard
+    to="/lib/java"
+    title="Java"
+    description="Spring Boot and Java"
+    icon={<CodeLogos name="java" />}
+  />
+  <ButtonCard
+    to="/lib/go"
+    title="Go"
+    description="High-performance Go"
+    icon={<CodeLogos name="go" />}
+  />
+  <ButtonCard
+    to="/lib/csharp"
+    title="C#"
+    description=".NET Core and ASP.NET"
+    icon={<CodeLogos name="csharp" />}
+  />
+  <ButtonCard
+    to="/lib/elixir"
+    title="Elixir"
+    description="Phoenix and Elixir"
+    icon={<CodeLogos name="elixir" />}
+  />
+  <ButtonCard
+    to="/lib/rust"
+    title="Rust"
+    description="High-performance Rust"
+    icon={<CodeLogos name="rust" />}
+  />
+</div>
+
+**Edge**
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/edge/cloudflare"
+    title="Cloudflare Workers"
+    description="Edge computing on Cloudflare"
+    icon={<CodeLogos name="edgeCloudflare" />}
+  />
+  <ButtonCard
+    to="/lib/edge/fastly"
+    title="Fastly Compute"
+    description="WebAssembly-powered edge"
+    icon={<CodeLogos name="edgeFastly" />}
+  />
+  <ButtonCard
+    to="/lib/edge/lambda"
+    title="Lambda@Edge"
+    description="AWS CloudFront edge"
+    icon={<CodeLogos name="edgeLambda" />}
+  />
+</div>
+
+  </TabItem>
+</Tabs>
+
+---
+
+## Verify your setup
+
+After setting up your SDK, verify it's working by following these steps:
+
+1. Create a feature flag called `test-flag` in your [GrowthBook](https://app.growthbook.io/features)
+2. Set its value to `true` and enable it for your environment
+3. Check that `isOn("test-flag")` returns `true` in your app
+4. Toggle the flag off and verify the change is reflected
+
+:::tip
+Use the [GrowthBook DevTools](/tools/chrome-extension) browser extension to inspect and test feature flags in development.
+:::
