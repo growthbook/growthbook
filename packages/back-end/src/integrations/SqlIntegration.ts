@@ -2615,10 +2615,11 @@ export default abstract class SqlIntegration
 
     return format(
       `-- Feature Evaluation Diagnostics Query
-      SELECT * FROM (
+      WITH _featureEvalQuery AS (
         ${featureEvalQuery}
-        WHERE feature_key = '${featureKey}'
       )
+      SELECT * FROM _featureEvalQuery
+      WHERE feature_key = '${featureKey}'
       ORDER BY timestamp DESC
       LIMIT ${SQL_ROW_LIMIT}
       `,
