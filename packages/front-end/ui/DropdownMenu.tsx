@@ -113,6 +113,7 @@ type DropdownItemProps = {
     cta: string;
     submitColor?: string;
   };
+  style?: React.CSSProperties;
 } & MarginProps;
 
 export function DropdownMenuItem({
@@ -122,6 +123,7 @@ export function DropdownMenuItem({
   color,
   onClick,
   confirmation,
+  style,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -183,7 +185,7 @@ export function DropdownMenuItem({
         shortcut={shortcut}
         {...props}
       >
-        <Flex as="div" justify="between" align="center">
+        <Flex as="div" justify="between" align="center" style={style}>
           <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
             {children}
           </Box>
@@ -205,15 +207,24 @@ export function DropdownMenuItem({
 
 type DropdownMenuLabelProps = React.ComponentProps<
   typeof RadixDropdownMenu.Label
->;
+> & {
+  textStyle?: React.CSSProperties;
+  textSize?: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+  textColor?: React.ComponentProps<typeof Text>["color"];
+};
 
 export function DropdownMenuLabel({
   children,
+  textStyle,
+  textSize,
+  textColor = "gray",
   ...props
 }: DropdownMenuLabelProps): JSX.Element {
   return (
     <RadixDropdownMenu.Label {...props}>
-      <Text color="gray">{children}</Text>
+      <Text color={textColor} size={textSize} style={textStyle}>
+        {children}
+      </Text>
     </RadixDropdownMenu.Label>
   );
 }

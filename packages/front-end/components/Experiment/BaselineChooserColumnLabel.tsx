@@ -1,0 +1,254 @@
+import { Variation, VariationWithIndex } from "back-end/types/experiment";
+import { ExperimentReportVariation } from "back-end/types/report";
+import { useCallback, useEffect, useState } from "react";
+import { FaCheck } from "react-icons/fa";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
+import { Flex, Text } from "@radix-ui/themes";
+import { PiCaretDownFill } from "react-icons/pi";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+} from "@/ui/DropdownMenu";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import { analysisUpdate } from "./DifferenceTypeChooser";
+
+export interface BaselineChooserColumnLabelProps {
+  variations: Variation[] | ExperimentReportVariation[];
+  baselineRow: number;
+  setBaselineRow?: (baselineRow: number) => void;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings?: (
+    settings: ExperimentSnapshotAnalysisSettings | null,
+  ) => void;
+  mutate?: () => void;
+  dropdownEnabled?: boolean;
+  isHoldout?: boolean;
+}
+
+export default function BaselineChooserColumnLabel({
+  variations,
+  baselineRow,
+  setBaselineRow,
+  snapshot,
+  analysis,
+  setAnalysisSettings,
+  mutate,
+  dropdownEnabled,
+  isHoldout = false,
+}: BaselineChooserColumnLabelProps) {
+  const { apiCall } = useAuth();
+
+  const [postLoading, setPostLoading] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [desiredBaselineRow, setDesiredBaselineRow] = useState(baselineRow);
+
+  const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
+    ...v,
+    index: i,
+  }));
+  const baselineVariation =
+    indexedVariations.find((v) => v.index === desiredBaselineRow) ??
+    indexedVariations[0];
+
+  const triggerAnalysisUpdate = useCallback(analysisUpdate, [
+    analysis,
+    snapshot,
+    apiCall,
+  ]);
+
+  useEffect(() => {
+    setDesiredBaselineRow(baselineRow);
+  }, [baselineRow]);
+
+  const handleBaselineChange = useCallback(
+    (variationIndex: number) => {
+      if (!setBaselineRow) return;
+
+      setDesiredBaselineRow(variationIndex);
+      if (!snapshot) {
+        setBaselineRow(variationIndex);
+        return;
+      }
+      if (!analysis || !setAnalysisSettings || !mutate) return;
+
+      const newSettings: ExperimentSnapshotAnalysisSettings = {
+        ...analysis.settings,
+        baselineVariationIndex: variationIndex,
+      };
+      triggerAnalysisUpdate(
+        newSettings,
+        analysis,
+        snapshot,
+        apiCall,
+        setPostLoading,
+      ).then((status) => {
+        if (status === "success") {
+          setBaselineRow(variationIndex);
+          setAnalysisSettings(newSettings);
+          track("Experiment Analysis: switch baseline", {
+            baseline: variationIndex,
+          });
+          mutate();
+        } else if (status === "fail") {
+          setDesiredBaselineRow(baselineRow);
+          mutate();
+        }
+        setPostLoading(false);
+      });
+    },
+    [
+      snapshot,
+      analysis,
+      triggerAnalysisUpdate,
+      apiCall,
+      setPostLoading,
+      setBaselineRow,
+      setAnalysisSettings,
+      mutate,
+      baselineRow,
+    ],
+  );
+
+  const renderMenuItems = () => {
+    return indexedVariations.map((variation) => {
+      const isSelected = baselineVariation.index === variation.index;
+      return (
+        <DropdownMenuItem
+          key={variation.id}
+          className="multiline-item"
+          onClick={async () => {
+            handleBaselineChange(variation.index);
+            setDropdownOpen(false);
+          }}
+        >
+          <Flex align="center" gap="2" style={{ width: "100%" }}>
+            <Flex
+              align="center"
+              justify="center"
+              style={{ width: 20, flexShrink: 0 }}
+            >
+              {isSelected && <FaCheck />}
+            </Flex>
+            <Flex
+              align="center"
+              className={`variation variation${variation.index} with-variation-label`}
+              style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
+            >
+              <span
+                className="label"
+                style={{
+                  width: 20,
+                  height: 20,
+                  flex: "none",
+                  marginTop: "-1px",
+                }}
+              >
+                {variation.index}
+              </span>
+              <Text
+                style={{
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                  lineHeight: "1.4",
+                }}
+              >
+                {variation.name}
+              </Text>
+            </Flex>
+          </Flex>
+        </DropdownMenuItem>
+      );
+    });
+  };
+
+  const trigger = (
+    <Tooltip
+      usePortal={true}
+      innerClassName={"text-left"}
+      tipPosition="top"
+      body={
+        <div style={{ lineHeight: 1.5 }}>
+          {isHoldout
+            ? "The holdout variation that all variations are compared against."
+            : "The baseline that all variations are compared against."}
+          <div
+            className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
+            style={{ marginBottom: 2 }}
+          >
+            <span
+              className="label mr-1"
+              style={{
+                width: 16,
+                height: 16,
+                marginTop: 2,
+              }}
+            >
+              {baselineRow}
+            </span>
+            <span className="font-weight-bold">{baselineVariation.name}</span>
+          </div>
+        </div>
+      }
+    >
+      <Flex align="center" gap="1">
+        <Flex
+          align="center"
+          className={`variation variation${baselineVariation.index} with-variation-label`}
+        >
+          {!isHoldout && (
+            <span
+              className="label"
+              style={{
+                width: 16,
+                height: 16,
+                flex: "none",
+                marginRight: "4px",
+              }}
+            >
+              {baselineVariation.index}
+            </span>
+          )}
+          <OverflowText
+            maxWidth={70}
+            style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
+          >
+            {isHoldout ? "Holdout" : baselineVariation.name}
+          </OverflowText>
+          {dropdownEnabled && (
+            <Flex align="center" gap="1">
+              <PiCaretDownFill style={{ fontSize: "12px" }} />
+              {postLoading && (
+                <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+              )}
+            </Flex>
+          )}
+        </Flex>
+      </Flex>
+    </Tooltip>
+  );
+
+  if (!dropdownEnabled || !setBaselineRow) {
+    return trigger;
+  }
+
+  return (
+    <DropdownMenu
+      trigger={<div>{trigger}</div>}
+      open={dropdownOpen}
+      onOpenChange={setDropdownOpen}
+      menuPlacement="start"
+    >
+      <DropdownMenuGroup>{renderMenuItems()}</DropdownMenuGroup>
+    </DropdownMenu>
+  );
+}

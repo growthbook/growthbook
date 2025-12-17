@@ -251,6 +251,12 @@
   &[data-disabled] {
     cursor: not-allowed !important;
   }
+  &.multiline-item {
+    height: auto !important;
+    min-height: var(--base-menu-item-height) !important;
+    padding-top: var(--space-1) !important;
+    padding-bottom: var(--space-1) !important;
+  }
 }
 
 // Radio

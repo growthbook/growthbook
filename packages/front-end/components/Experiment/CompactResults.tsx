@@ -11,6 +11,11 @@ import {
   MetricOverride,
 } from "back-end/types/experiment";
 import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
+import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
@@ -96,6 +101,14 @@ const CompactResults: FC<{
   analysisBarSettings?: {
     variationFilter: number[];
   };
+  manualSnapshot?: boolean;
+  setBaselineRow?: (baselineRow: number) => void;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings?: (
+    settings: ExperimentSnapshotAnalysisSettings | null,
+  ) => void;
+  mutate?: () => void;
 }> = ({
   experimentId,
   editMetrics,
@@ -141,6 +154,12 @@ const CompactResults: FC<{
   sortDirection,
   setSortDirection,
   analysisBarSettings,
+  manualSnapshot,
+  setBaselineRow,
+  snapshot,
+  analysis,
+  setAnalysisSettings,
+  mutate,
 }) => {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -354,6 +373,12 @@ const CompactResults: FC<{
           setSortBy={setSortBy}
           sortDirection={sortDirection}
           setSortDirection={setSortDirection}
+          setBaselineRow={setBaselineRow}
+          snapshot={snapshot}
+          analysis={analysis}
+          setAnalysisSettings={setAnalysisSettings}
+          mutate={mutate}
+          manualSnapshot={manualSnapshot}
         />
       ) : null}
 
@@ -406,6 +431,12 @@ const CompactResults: FC<{
             setSortBy={setSortBy}
             sortDirection={sortDirection}
             setSortDirection={setSortDirection}
+            setBaselineRow={setBaselineRow}
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={mutate}
+            manualSnapshot={manualSnapshot}
           />
         </div>
       ) : null}
@@ -459,6 +490,12 @@ const CompactResults: FC<{
             setSortBy={setSortBy}
             sortDirection={sortDirection}
             setSortDirection={setSortDirection}
+            setBaselineRow={setBaselineRow}
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={mutate}
+            manualSnapshot={manualSnapshot}
           />
         </div>
       ) : (
@@ -612,7 +649,8 @@ export function getRenderLabelColumn({
                 {row.sliceLevels.map((dl, index) => {
                   const content = (() => {
                     if (dl.levels.length === 0) {
-                      const emptyValue = dl.datatype === "string" ? "other" : "null";
+                      const emptyValue =
+                        dl.datatype === "string" ? "other" : "null";
                       return (
                         <>
                           {dl.column}:{" "}

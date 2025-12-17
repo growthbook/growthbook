@@ -18,6 +18,11 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
+import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
@@ -61,6 +66,7 @@ import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 import styles from "./ResultsTable.module.scss";
+import BaselineChooserColumnLabel from "./BaselineChooserColumnLabel";
 
 export type ResultsTableProps = {
   id: string;
@@ -109,11 +115,17 @@ export type ResultsTableProps = {
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   sortBy?: "significance" | "change" | "custom" | null;
-  setSortBy?: (
-    s: "significance" | "change" | "custom" | null,
-  ) => void;
+  setSortBy?: (s: "significance" | "change" | "custom" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
+  setBaselineRow?: (baselineRow: number) => void;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings?: (
+    settings: ExperimentSnapshotAnalysisSettings | null,
+  ) => void;
+  mutate?: () => void;
+  manualSnapshot?: boolean;
 };
 
 const ROW_HEIGHT = 46;
@@ -174,6 +186,12 @@ export default function ResultsTable({
   setSortBy,
   sortDirection,
   setSortDirection,
+  setBaselineRow,
+  snapshot,
+  analysis,
+  setAnalysisSettings,
+  mutate,
+  manualSnapshot,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -576,37 +594,21 @@ export default function ResultsTable({
                         style={{ width: 120 * tableCellScale }}
                         className={clsx("axis-col label", { noStickyHeader })}
                       >
-                        <Tooltip
-                          usePortal={true}
-                          innerClassName={"text-left"}
-                          body={
-                            <div style={{ lineHeight: 1.5 }}>
-                              {isHoldout
-                                ? "The holdout variation that all variations are compared against."
-                                : "The baseline that all variations are compared against."}
-                              <div
-                                className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
-                                style={{ marginBottom: 2 }}
-                              >
-                                <span
-                                  className="label mr-1"
-                                  style={{
-                                    width: 16,
-                                    height: 16,
-                                    marginTop: 2,
-                                  }}
-                                >
-                                  {baselineRow}
-                                </span>
-                                <span className="font-weight-bold">
-                                  {variations[baselineRow].name}
-                                </span>
-                              </div>
-                            </div>
+                        <BaselineChooserColumnLabel
+                          variations={variations}
+                          baselineRow={baselineRow}
+                          setBaselineRow={setBaselineRow}
+                          snapshot={snapshot}
+                          analysis={analysis}
+                          setAnalysisSettings={setAnalysisSettings}
+                          mutate={mutate}
+                          dropdownEnabled={
+                            !isHoldout &&
+                            !manualSnapshot &&
+                            snapshot?.dimension !== "pre:date"
                           }
-                        >
-                          {isHoldout ? "Holdout" : "Baseline"} <RxInfoCircled />
-                        </Tooltip>
+                          isHoldout={isHoldout}
+                        />
                       </th>
                     )}
                     {columnsToDisplay.includes("Variation Averages") && (

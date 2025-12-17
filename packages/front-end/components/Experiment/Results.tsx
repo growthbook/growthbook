@@ -220,7 +220,10 @@ const Results: FC<{
     d.startsWith("precomputed:"),
   );
 
-  const datasource = getDatasourceById(experiment.datasource);
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+  const manualSnapshot = !datasource;
 
   const hasMetrics =
     experiment.goalMetrics.length > 0 ||
@@ -371,6 +374,14 @@ const Results: FC<{
           variations={variations}
           variationFilter={analysisBarSettings.variationFilter}
           baselineRow={analysisBarSettings.baselineRow}
+          setBaselineRow={(b: number) =>
+            setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
+          }
+          snapshot={snapshot}
+          analysis={analysis}
+          setAnalysisSettings={setAnalysisSettings}
+          mutate={mutate}
+          manualSnapshot={manualSnapshot}
           goalMetrics={experiment.goalMetrics}
           secondaryMetrics={experiment.secondaryMetrics}
           guardrailMetrics={experiment.guardrailMetrics}
@@ -418,6 +429,14 @@ const Results: FC<{
             variations={variations}
             variationFilter={analysisBarSettings.variationFilter}
             baselineRow={analysisBarSettings.baselineRow}
+            setBaselineRow={(b: number) =>
+              setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
+            }
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={mutate}
+            manualSnapshot={manualSnapshot}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}

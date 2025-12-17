@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -10,6 +10,11 @@ import {
   MetricOverride,
 } from "back-end/types/experiment";
 import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
+import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
@@ -17,7 +22,6 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -85,15 +89,21 @@ const BreakDownResults: FC<{
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
   sortBy?: "significance" | "change" | "custom" | null;
-  setSortBy?: (
-    s: "significance" | "change" | "custom" | null,
-  ) => void;
+  setSortBy?: (s: "significance" | "change" | "custom" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   customMetricOrder?: string[];
   analysisBarSettings?: {
     variationFilter: number[];
   };
+  manualSnapshot?: boolean;
+  setBaselineRow?: (baselineRow: number) => void;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings?: (
+    settings: ExperimentSnapshotAnalysisSettings | null,
+  ) => void;
+  mutate?: () => void;
 }> = ({
   experimentId,
   dimensionId,
@@ -123,13 +133,13 @@ const BreakDownResults: FC<{
   showErrorsOnQuantileMetrics,
   differenceType,
   metricTagFilter,
-  setMetricTagFilter,
+  setMetricTagFilter: _setMetricTagFilter,
   metricGroupsFilter,
-  setMetricGroupsFilter,
-  availableMetricGroups,
-  availableSliceTags = [],
-  sliceTagsFilter,
-  setSliceTagsFilter,
+  setMetricGroupsFilter: _setMetricGroupsFilter,
+  availableMetricGroups: _availableMetricGroups,
+  availableSliceTags: _availableSliceTags = [],
+  sliceTagsFilter: _sliceTagsFilter,
+  setSliceTagsFilter: _setSliceTagsFilter,
   experimentType,
   ssrPolyfills,
   hideDetails,
@@ -141,6 +151,12 @@ const BreakDownResults: FC<{
   setSortDirection,
   customMetricOrder,
   analysisBarSettings,
+  manualSnapshot,
+  setBaselineRow,
+  snapshot,
+  analysis,
+  setAnalysisSettings,
+  mutate,
 }) => {
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
@@ -153,7 +169,7 @@ const BreakDownResults: FC<{
     dimensionId?.split(":")?.[1] ||
     "Dimension";
 
-  const { tables, allMetricTags } = useExperimentDimensionRows({
+  const { tables, allMetricTags: _allMetricTags } = useExperimentDimensionRows({
     results,
     goalMetrics,
     secondaryMetrics,
@@ -302,6 +318,12 @@ const BreakDownResults: FC<{
               setSortBy={setSortBy}
               sortDirection={sortDirection}
               setSortDirection={setSortDirection}
+              setBaselineRow={setBaselineRow}
+              snapshot={snapshot}
+              analysis={analysis}
+              setAnalysisSettings={setAnalysisSettings}
+              mutate={mutate}
+              manualSnapshot={manualSnapshot}
             />
             <div className="mb-5" />
           </>
