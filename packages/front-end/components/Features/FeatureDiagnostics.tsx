@@ -27,7 +27,6 @@ type FeatureEvaluationDiagnosticsQueryResults = {
   statistics?: QueryStatistics;
   error?: string;
   sql?: string;
-  truncated?: boolean;
 };
 
 // Helper function to format a value for display
@@ -45,7 +44,7 @@ const formatDisplayValue = (value: unknown): string => {
   }
 };
 
-export function getFeatureDatasourceDefaults(
+function getDatasourceInitialFormValue(
   datasources: DataSourceInterfaceWithParams[],
   settings: OrganizationSettings,
   project?: string,
@@ -104,7 +103,7 @@ export default function FeatureDiagnostics({
 
   const form = useForm({
     defaultValues: {
-      ...getFeatureDatasourceDefaults(datasources, settings, feature.project),
+      ...getDatasourceInitialFormValue(datasources, settings, feature.project),
     },
   });
 
@@ -179,6 +178,9 @@ export default function FeatureDiagnostics({
         setResults(rowsWithId);
       } else {
         setResults([]);
+      }
+      if (results.error) {
+        setError(results.error);
       }
     } catch (e) {
       setError(e.message);
