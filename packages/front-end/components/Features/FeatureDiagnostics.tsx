@@ -213,15 +213,6 @@ export default function FeatureDiagnostics({
         you&apos;ve added.
       </p>
 
-      {datasource && !datasourceHasFeatureUsageQuery && (
-        <Callout status="info" mb="4">
-          Feature Evaluation Diagnostics require setting up a feature usage
-          query in your data source.
-          <Link href={`/datasources/${datasource.id}`} ml="2">
-            Setup a Feature Usage Query
-          </Link>
-        </Callout>
-      )}
       <Box width="400px">
         <SelectField
           label="Select a Data Source"
@@ -243,74 +234,86 @@ export default function FeatureDiagnostics({
         />
       </Box>
 
-      <Frame mt="4">
-        <Flex direction="row" justify="end" mb="4">
-          <Tooltip
-            content="Setup a feature usage query in your data source to view feature evaluations."
-            enabled={!datasourceHasFeatureUsageQuery && !loading}
-          >
-            <Button
-              onClick={onRunFeatureUsageQuery}
-              disabled={loading || !datasourceHasFeatureUsageQuery}
+      {datasource && !datasourceHasFeatureUsageQuery && (
+        <Callout status="info" mb="4">
+          Feature Evaluation Diagnostics require setting up a feature usage
+          query in your data source.
+          <Link href={`/datasources/${datasource.id}`} ml="2">
+            Setup a Feature Usage Query
+          </Link>
+        </Callout>
+      )}
+
+      {datasource && datasourceHasFeatureUsageQuery && (
+        <Frame mt="4">
+          <Flex direction="row" justify="end" mb="4">
+            <Tooltip
+              content="Setup a feature usage query in your data source to view feature evaluations."
+              enabled={!datasourceHasFeatureUsageQuery && !loading}
             >
-              {loading
-                ? "Running..."
-                : !results
-                  ? "View recent feature evaluations"
-                  : "Refresh feature evaluations"}
-            </Button>
-          </Tooltip>
-        </Flex>
-        {error && (
-          <Callout status="error">
-            <strong>Error:</strong> {error}
-          </Callout>
-        )}
-        {results && results.length === 0 && (
-          <Callout status="info">No feature evaluations found.</Callout>
-        )}
-        {/* If there's feature usage data, show a table with the data */}
-        {items.length > 0 && (
-          <>
-            <table className="table experiment-table gbtable">
-              <thead>
-                <tr>
-                  <SortableTH field="timestamp">Timestamp</SortableTH>
-                  {columns.map((key) => (
-                    <SortableTH key={key} field={key}>
-                      {key
-                        .split("_")
-                        .map(
-                          (word) =>
-                            word.charAt(0).toUpperCase() +
-                            word.slice(1).toLowerCase(),
-                        )
-                        .join(" ")}
-                    </SortableTH>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <tr key={row.id}>
-                    <td>{format(getValidDate(row.timestamp), "PPpp")}</td>
+              <Button
+                onClick={onRunFeatureUsageQuery}
+                disabled={loading || !datasourceHasFeatureUsageQuery}
+              >
+                {loading
+                  ? "Running..."
+                  : !results
+                    ? "View recent feature evaluations"
+                    : "Refresh feature evaluations"}
+              </Button>
+            </Tooltip>
+          </Flex>
+          {error && (
+            <Callout status="error">
+              <strong>Error:</strong> {error}
+            </Callout>
+          )}
+          {results && results.length === 0 && (
+            <Callout status="info">No feature evaluations found.</Callout>
+          )}
+          {/* If there's feature usage data, show a table with the data */}
+          {items.length > 0 && (
+            <>
+              <table className="table experiment-table gbtable">
+                <thead>
+                  <tr>
+                    <SortableTH field="timestamp">Timestamp</SortableTH>
                     {columns.map((key) => (
-                      <td key={key}>
-                        {typeof row[key] === "string" ||
-                        typeof row[key] === "number" ||
-                        typeof row[key] === "boolean"
-                          ? String(row[key])
-                          : ""}
-                      </td>
+                      <SortableTH key={key} field={key}>
+                        {key
+                          .split("_")
+                          .map(
+                            (word) =>
+                              word.charAt(0).toUpperCase() +
+                              word.slice(1).toLowerCase(),
+                          )
+                          .join(" ")}
+                      </SortableTH>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {pagination}
-          </>
-        )}
-      </Frame>
+                </thead>
+                <tbody>
+                  {items.map((row) => (
+                    <tr key={row.id}>
+                      <td>{format(getValidDate(row.timestamp), "PPpp")}</td>
+                      {columns.map((key) => (
+                        <td key={key}>
+                          {typeof row[key] === "string" ||
+                          typeof row[key] === "number" ||
+                          typeof row[key] === "boolean"
+                            ? String(row[key])
+                            : ""}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {pagination}
+            </>
+          )}
+        </Frame>
+      )}
     </Box>
   );
 }
