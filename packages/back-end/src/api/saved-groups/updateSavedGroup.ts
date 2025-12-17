@@ -110,7 +110,7 @@ export const updateSavedGroup = createApiRequestHandler(
     fieldsToUpdate.condition ||
     fieldsToUpdate.projects
   ) {
-    savedGroupUpdated(req.context, savedGroup.id).catch((e) => {
+    savedGroupUpdated(req.context, savedGroup).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on saved group update");
     });
   }
