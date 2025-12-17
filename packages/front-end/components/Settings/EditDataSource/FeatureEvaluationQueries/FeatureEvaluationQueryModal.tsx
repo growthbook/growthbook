@@ -17,7 +17,7 @@ type FeatureEvaluationQueryProps = {
   featureUsageQuery?: FeatureUsageQuery;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
-  onSave: (featureUsageQuery: FeatureUsageQuery) => void;
+  onSave: (featureUsageQuery: FeatureUsageQuery) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -50,7 +50,6 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
           },
   });
 
-  // User-entered values
   const userEnteredQuery = form.watch("query");
 
   const handleSubmit = form.handleSubmit(async (value) => {
