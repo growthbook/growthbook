@@ -86,7 +86,6 @@ function validateUserFilter({
   }
 }
 
-// Ensure that that
 function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
   switch (metricType) {
     case "mean":
