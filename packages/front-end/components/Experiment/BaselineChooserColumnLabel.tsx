@@ -1,7 +1,6 @@
 import { Variation, VariationWithIndex } from "back-end/types/experiment";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useCallback, useEffect, useState } from "react";
-import { FaCheck } from "react-icons/fa";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -16,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuGroup,
+  DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -121,7 +121,6 @@ export default function BaselineChooserColumnLabel({
 
   const renderMenuItems = () => {
     return indexedVariations.map((variation) => {
-      const isSelected = baselineVariation.index === variation.index;
       return (
         <DropdownMenuItem
           key={variation.id}
@@ -131,40 +130,31 @@ export default function BaselineChooserColumnLabel({
             setDropdownOpen(false);
           }}
         >
-          <Flex align="center" gap="2" style={{ width: "100%" }}>
-            <Flex
-              align="center"
-              justify="center"
-              style={{ width: 20, flexShrink: 0 }}
+          <Flex
+            align="center"
+            className={`variation variation${variation.index} with-variation-label`}
+            style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
+          >
+            <span
+              className="label"
+              style={{
+                width: 20,
+                height: 20,
+                flex: "none",
+                marginTop: "-1px",
+              }}
             >
-              {isSelected && <FaCheck />}
-            </Flex>
-            <Flex
-              align="center"
-              className={`variation variation${variation.index} with-variation-label`}
-              style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
+              {variation.index}
+            </span>
+            <Text
+              style={{
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                lineHeight: "1.4",
+              }}
             >
-              <span
-                className="label"
-                style={{
-                  width: 20,
-                  height: 20,
-                  flex: "none",
-                  marginTop: "-1px",
-                }}
-              >
-                {variation.index}
-              </span>
-              <Text
-                style={{
-                  whiteSpace: "normal",
-                  wordBreak: "break-word",
-                  lineHeight: "1.4",
-                }}
-              >
-                {variation.name}
-              </Text>
-            </Flex>
+              {variation.name}
+            </Text>
           </Flex>
         </DropdownMenuItem>
       );
@@ -176,6 +166,7 @@ export default function BaselineChooserColumnLabel({
       usePortal={true}
       innerClassName={"text-left"}
       tipPosition="top"
+      shouldDisplay={!dropdownOpen}
       body={
         <div style={{ lineHeight: 1.5 }}>
           {isHoldout
@@ -213,13 +204,14 @@ export default function BaselineChooserColumnLabel({
                 height: 16,
                 flex: "none",
                 marginRight: "4px",
+                marginLeft: "-4px",
               }}
             >
               {baselineVariation.index}
             </span>
           )}
           <OverflowText
-            maxWidth={70}
+            maxWidth={75}
             style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
           >
             {isHoldout ? "Holdout" : baselineVariation.name}
@@ -248,7 +240,15 @@ export default function BaselineChooserColumnLabel({
       onOpenChange={setDropdownOpen}
       menuPlacement="start"
     >
-      <DropdownMenuGroup>{renderMenuItems()}</DropdownMenuGroup>
+      <DropdownMenuGroup>
+        <DropdownMenuLabel
+          textSize="1"
+          textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
+        >
+          Baseline
+        </DropdownMenuLabel>
+        {renderMenuItems()}
+      </DropdownMenuGroup>
     </DropdownMenu>
   );
 }
