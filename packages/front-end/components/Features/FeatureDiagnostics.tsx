@@ -115,7 +115,7 @@ export default function FeatureDiagnostics({
     datasource.settings.queries?.featureUsage &&
     datasource.settings.queries.featureUsage.length > 0;
 
-  // Extract all unique keys from results (excluding 'id' which is added internally)
+  // Extract all unique keys from results
   const columns = useMemo(() => {
     if (results === null || results.length === 0) return [];
     const keysSet = new Set<string>();
@@ -152,7 +152,7 @@ export default function FeatureDiagnostics({
     defaultSortDir: -1,
     localStorageKey: "feature-diagnostics",
     searchFields: ["timestamp", ...columns],
-    pageSize: 100,
+    pageSize: 50,
   });
 
   const onRunFeatureUsageQuery = async () => {
@@ -171,9 +171,9 @@ export default function FeatureDiagnostics({
       );
       if (results.rows) {
         // add an id to each row based on the timestamp
-        const rowsWithId = results.rows.map((row) => ({
+        const rowsWithId = results.rows.map((row, index) => ({
           ...row,
-          id: row.timestamp ?? "",
+          id: index.toString(),
         }));
         setResults(rowsWithId);
       } else {
