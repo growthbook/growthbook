@@ -51,8 +51,6 @@ When you create a Fact Table, we query the first few rows and inspect the return
 
 This process isn't perfect. For example, if the first few rows happen to have `null` as the value of a column, we can't tell if it's supposed to be a number, string, etc.. When this happens, we will show you a warning and you can manually specify the type.
 
-Any column can be used to create filters, but only numeric columns can be used as a metric value.
-
 #### Number Formats
 
 For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency`, `time:seconds`, `memory:bytes`, and `memory:kilobytes`.
