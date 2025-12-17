@@ -21,6 +21,7 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
 import EmptyState from "@/components/EmptyState";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
@@ -274,9 +275,9 @@ export default function FeatureDiagnostics({
           {/* If there's feature usage data, show a table with the data */}
           {items.length > 0 && (
             <>
-              <table className="table experiment-table gbtable">
-                <thead>
-                  <tr>
+              <Table>
+                <TableHeader>
+                  <TableRow>
                     <SortableTH field="timestamp">Timestamp</SortableTH>
                     {columns.map((key) => (
                       <SortableTH key={key} field={key}>
@@ -290,25 +291,27 @@ export default function FeatureDiagnostics({
                           .join(" ")}
                       </SortableTH>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {items.map((row) => (
-                    <tr key={row.id}>
-                      <td>{format(getValidDate(row.timestamp), "PPpp")}</td>
+                    <TableRow key={row.id}>
+                      <TableCell>
+                        {format(getValidDate(row.timestamp), "PPpp")}
+                      </TableCell>
                       {columns.map((key) => (
-                        <td key={key}>
+                        <TableCell key={key}>
                           {typeof row[key] === "string" ||
                           typeof row[key] === "number" ||
                           typeof row[key] === "boolean"
                             ? String(row[key])
                             : ""}
-                        </td>
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
               {pagination}
             </>
           )}
