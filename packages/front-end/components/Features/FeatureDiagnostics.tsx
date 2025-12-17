@@ -34,9 +34,9 @@ type FeatureEvaluationDiagnosticsQueryResults = {
 // Helper function to format a value for display
 const formatDisplayValue = (value: unknown): string => {
   if (value === null) {
-    return "";
+    return "null";
   } else if (value === undefined) {
-    return "";
+    return "undefined";
   } else if (typeof value === "boolean") {
     return String(value);
   } else if (typeof value === "object") {
