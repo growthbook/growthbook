@@ -69,13 +69,13 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
 }
 
 const AI_MODEL_LABELS = [
-  { value: "gpt-4o-mini", label: "GPT-4o-mini" },
-  { value: "gpt-4o", label: "GPT-4o" },
-  { value: "gpt-4", label: "GPT-4" },
-  { value: "gpt-4-turbo", label: "GPT-4-turbo" },
-  { value: "gpt-4-vision-preview", label: "GPT-4-vision-preview" },
-  { value: "gpt-3.5-turbo", label: "GPT-3.5-turbo" },
-  { value: "gpt-3.5-turbo-16k", label: "GPT-3.5-turbo-16k" },
+  { value: "gpt-4o-mini", label: "GTP 4o mini" },
+  { value: "gpt-4o", label: "GTP 4o" },
+  { value: "gpt-4", label: "GTP 4" },
+  { value: "gpt-4-turbo", label: "GTP 4 turbo" },
+  { value: "gpt-4-vision-preview", label: "GTP 4 vision preview" },
+  { value: "gpt-3.5-turbo", label: "GTP 3.5 turbo" },
+  { value: "gpt-3.5-turbo-16k", label: "GTP 3.5 turbo 16k" },
   { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
   { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
   { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },
@@ -84,6 +84,12 @@ const AI_MODEL_LABELS = [
   { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
   { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
   { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+];
+
+const EMBEDDING_MODEL_LABELS = [
+  { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
+  { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
+  { value: "text-embedding-ada-002", label: "OpenAI text embedding ada 002" },
 ];
 
 export default function AISettings({
@@ -208,6 +214,25 @@ export default function AISettings({
                       value={form.watch("defaultAIModel")}
                       onChange={(v) => form.setValue("defaultAIModel", v)}
                       options={AI_MODEL_LABELS}
+                    />
+                  </Box>
+                  <Box mb="6" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="embeddingModel"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      Embedding Model
+                    </Text>
+                    <SelectField
+                      id="embeddingModel"
+                      helpText="Choose the OpenAI embedding model to use. Default is text-embedding-ada-002."
+                      value={
+                        form.watch("embeddingModel") || "text-embedding-ada-002"
+                      }
+                      onChange={(v) => form.setValue("embeddingModel", v)}
+                      options={EMBEDDING_MODEL_LABELS}
                     />
                   </Box>
                   {(() => {

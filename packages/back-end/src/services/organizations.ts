@@ -20,7 +20,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { AiModel } from "shared/ai";
+import { AiModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -188,6 +188,7 @@ export function getAISettingsForOrg(
   openAIAPIKey: string;
   anthropicAPIKey: string;
   defaultAIModel: AiModel;
+  embeddingModel: EmbeddingModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
@@ -213,6 +214,8 @@ export function getAISettingsForOrg(
       context.org.settings?.defaultAIModel ||
       context.org.settings?.openAIDefaultModel ||
       "gpt-4o-mini",
+    embeddingModel:
+      context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
 }
 

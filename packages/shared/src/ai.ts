@@ -4,7 +4,7 @@ export type AIProvider = "openai" | "anthropic";
 export interface AIProviderConfig {
   provider: AIProvider;
   textModel: string;
-  embeddingModel?: string;
+  embeddingModel?: EmbeddingModel;
   maxTokens: number;
   supportsJSON: boolean;
   supportsEmbeddings: boolean;
@@ -24,6 +24,11 @@ export type AiModel =
   | "claude-3-7-sonnet-20250219"
   | "claude-3-5-haiku-20241022"
   | "claude-3-haiku-20240307";
+
+export type EmbeddingModel =
+  | "text-embedding-3-small"
+  | "text-embedding-3-large"
+  | "text-embedding-ada-002";
 
 // Available models for each provider
 export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AiModel[]> = {

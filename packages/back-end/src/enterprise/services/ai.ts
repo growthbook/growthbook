@@ -443,32 +443,33 @@ export async function generateEmbeddings(
   context: ReqContext | ApiReqContext,
   { input }: { input: string[] },
 ): Promise<number[][]> {
-  const { provider: aiProvider, config } = getAIProvider(context);
+  const { aiEnabled, openAIAPIKey, embeddingModel } = getAISettingsForOrg(
+    context,
+    true,
+  );
 
-  if (aiProvider == null) {
-    throw new Error("AI provider not enabled or key not set");
+  if (!aiEnabled) {
+    throw new Error("AI features are not enabled");
   }
 
-  if (!config.supportsEmbeddings) {
-    throw new Error(`Embeddings not supported by ${config.provider}`);
-  }
-
-  if (config.provider !== "openai") {
-    throw new Error("Embeddings currently only supported for OpenAI");
+  if (!openAIAPIKey) {
+    throw new Error("OpenAI API key not set");
   }
 
   try {
-    // Use OpenAI's text-embedding-ada-002 model for embeddings
-    const embeddingModel = (
-      aiProvider as ReturnType<typeof createOpenAI>
-    ).embedding(config.embeddingModel!);
+    // Always use OpenAI for embeddings
+    const aiProvider = createOpenAI({
+      apiKey: openAIAPIKey,
+    });
+
+    const model = aiProvider.embedding(embeddingModel);
 
     // Generate embeddings for each input string
     const embeddings: number[][] = [];
 
     for (const text of input) {
       const result = await embed({
-        model: embeddingModel,
+        model: model,
         value: text,
       });
 

@@ -17,7 +17,7 @@ import {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AiModel } from "shared/ai";
+import { AiModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { AgreementType } from "shared/validators";
 import { environment } from "back-end/src/routers/environment/environment.validators";
@@ -220,6 +220,7 @@ export interface OrganizationSettings {
   aiEnabled?: boolean;
   aiProvider?: "openai" | "anthropic";
   defaultAIModel?: AiModel;
+  embeddingModel?: EmbeddingModel;
   /** @deprecated */
   openAIDefaultModel?: AiModel;
   implementationTypes?: ImplementationType[];
