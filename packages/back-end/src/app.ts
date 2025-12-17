@@ -512,7 +512,7 @@ app.post(
 );
 app.post(
   "/query/feature-eval-diagnostic",
-  datasourcesController.getFeatureEvalDiagnostics,
+  datasourcesController.postFeatureEvalDiagnostics,
 );
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);

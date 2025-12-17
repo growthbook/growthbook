@@ -942,7 +942,7 @@ export async function runUserExperimentExposuresQuery(
   });
 }
 
-export async function getFeatureEvalDiagnostics(
+export async function postFeatureEvalDiagnostics(
   req: AuthRequest<{
     feature: string;
     datasourceId: string;
