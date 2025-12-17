@@ -18,7 +18,10 @@ import Vertica from "back-end/src/integrations/Vertica";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  SourceIntegrationInterface,
+  SQLExecutionError,
+} from "back-end/src/types/Integration";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -244,7 +247,6 @@ export async function runFeatureEvalDiagnosticsQuery(
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
-  error?: string;
   sql?: string;
 }> {
   if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
@@ -258,7 +260,9 @@ export async function runFeatureEvalDiagnosticsQuery(
     !integration.getFeatureEvalDiagnosticsQuery ||
     !integration.runFeatureEvalDiagnosticsQuery
   ) {
-    throw new Error("Unable to run feature usage query.");
+    throw new Error(
+      "Datasource does not support feature evaluation diagnostics queries.",
+    );
   }
 
   const sql = integration.getFeatureEvalDiagnosticsQuery({
@@ -274,10 +278,7 @@ export async function runFeatureEvalDiagnosticsQuery(
       sql,
     };
   } catch (e) {
-    return {
-      error: e.message,
-      sql,
-    };
+    throw new SQLExecutionError(e.message, sql);
   }
 }
 

@@ -80,6 +80,15 @@ export class DataSourceNotSupportedError extends Error {
   }
 }
 
+export class SQLExecutionError extends Error {
+  query: string;
+  constructor(message: string, query: string) {
+    super(message);
+    this.name = "SQLExecutionError";
+    this.query = query;
+  }
+}
+
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;

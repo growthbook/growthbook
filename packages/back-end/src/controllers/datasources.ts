@@ -63,7 +63,10 @@ import {
   getDimensionSlicesById,
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  SourceIntegrationInterface,
+  SQLExecutionError,
+} from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   _dangerousRecreateClickhouseTables,
@@ -957,19 +960,26 @@ export async function getFeatureEvalDiagnostics(
     return;
   }
 
-  const { rows, statistics, error, sql } = await runFeatureEvalDiagnosticsQuery(
-    context,
-    datasource,
-    feature,
-  );
+  try {
+    const { rows, statistics, sql } = await runFeatureEvalDiagnosticsQuery(
+      context,
+      datasource,
+      feature,
+    );
 
-  res.status(200).json({
-    status: 200,
-    rows,
-    statistics,
-    error,
-    sql,
-  });
+    res.status(200).json({
+      status: 200,
+      rows,
+      statistics,
+      sql,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      error: e.message,
+      sql: e instanceof SQLExecutionError ? e.query : undefined,
+    });
+  }
 }
 
 export async function getDataSourceMetrics(
