@@ -35,14 +35,12 @@ export interface Props {
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   newPhase?: (() => void) | null;
-  editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
   envs: string[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
-  safeToEdit: boolean;
   metricTagFilter: string[];
   setMetricTagFilter: (tags: string[]) => void;
   metricGroupsFilter: string[];
@@ -65,10 +63,8 @@ export default function ResultsTab({
   mutate,
   editMetrics,
   editResult,
-  editPhases,
   setTab,
   isTabActive,
-  safeToEdit,
   analysisBarSettings,
   setAnalysisBarSettings,
   metricTagFilter,
@@ -147,7 +143,7 @@ export default function ResultsTab({
   };
 
   return (
-    <div className="mt-2">
+    <div>
       {isBandit && hasResults ? (
         <Callout status="info" mb="5">
           Bandits are better than experiments at directing traffic to the best
@@ -156,47 +152,55 @@ export default function ResultsTab({
       ) : null}
 
       <Box>
-        {hasData && (
-          <Flex direction="row" gap="3" mx="1" mb="4">
-            {!(
-              experiment.type === "multi-armed-bandit" &&
-              experiment.status === "running"
-            ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
-              <Link type="button" onClick={() => setAnalysisModal(true)} mr="2">
-                Edit Settings
-              </Link>
-            ) : null}
-            <Metadata
-              label="Engine"
-              value={
-                analysis?.settings?.statsEngine === "frequentist"
-                  ? "Frequentist"
-                  : "Bayesian"
-              }
-            />
-            <Metadata
-              label="CUPED"
-              value={
-                analysis?.settings?.regressionAdjusted ? "Enabled" : "Disabled"
-              }
-            />
-            {analysis?.settings?.statsEngine === "frequentist" ? (
+        <Flex direction="row" gap="3" mx="1" mb="4">
+          {!(
+            experiment.type === "multi-armed-bandit" &&
+            experiment.status === "running"
+          ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
+            <Link type="button" onClick={() => setAnalysisModal(true)} mr="2">
+              Edit Settings
+            </Link>
+          ) : null}
+          {hasData && (
+            <>
               <Metadata
-                label="Sequential"
+                label="Engine"
                 value={
-                  analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
+                  analysis?.settings?.statsEngine === "frequentist"
+                    ? "Frequentist"
+                    : "Bayesian"
                 }
               />
-            ) : null}
-            {segment ? <Metadata label="Segment" value={segment.name} /> : null}
-            {activationMetric ? (
               <Metadata
-                label="Activation Metric"
-                value={activationMetric.name}
+                label="CUPED"
+                value={
+                  analysis?.settings?.regressionAdjusted
+                    ? "Enabled"
+                    : "Disabled"
+                }
               />
-            ) : null}
-          </Flex>
-        )}
+              {analysis?.settings?.statsEngine === "frequentist" ? (
+                <Metadata
+                  label="Sequential"
+                  value={
+                    analysis?.settings?.sequentialTesting
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                />
+              ) : null}
+              {segment ? (
+                <Metadata label="Segment" value={segment.name} />
+              ) : null}
+              {activationMetric ? (
+                <Metadata
+                  label="Activation Metric"
+                  value={activationMetric.name}
+                />
+              ) : null}
+            </>
+          )}
+        </Flex>
       </Box>
 
       <div className="appbox">
@@ -339,8 +343,6 @@ export default function ResultsTab({
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
-                  editPhases={(safeToEdit && editPhases) || undefined}
-                  alwaysShowPhaseSelector={true}
                   reportDetailsLink={false}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}

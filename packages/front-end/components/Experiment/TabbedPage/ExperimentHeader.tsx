@@ -7,14 +7,14 @@ import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import React, { ReactNode, useEffect, useRef, useState } from "react";
-import { date, daysBetween } from "shared/dates";
+import { date } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Text, Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
@@ -66,6 +66,7 @@ import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import EditHoldoutInfoModal from "./EditHoldoutInfoModal";
 import { ExperimentTab } from ".";
+import PhaseSelector from "@/components/Experiment/PhaseSelector";
 
 export interface Props {
   tab: ExperimentTab;
@@ -209,19 +210,7 @@ export default function ExperimentHeader({
   }, [scrollY]);
 
   const phases = experiment.phases || [];
-  const lastPhaseIndex = phases.length - 1;
-  const lastPhase = phases[lastPhaseIndex] as
-    | undefined
-    | ExperimentPhaseStringDates;
-  const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted, "UTC")
-    : null;
-  const endDate =
-    phases.length > 0
-      ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded, "UTC")
-        : "now"
-      : date(new Date());
+  const hasMultiplePhases = phases.length > 1;
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
@@ -1063,6 +1052,7 @@ export default function ExperimentHeader({
                 style={{ width: "100%" }}
               >
                 <TabsList size="3">
+                  <Flex align="center" className="flex-1">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="results">Results</TabsTrigger>
                   {isBandit ? (
@@ -1094,19 +1084,23 @@ export default function ExperimentHeader({
                       ) : null}
                     </TabsTrigger>
                   )}
+                  {hasMultiplePhases ? (
+                    <>
+                      <div className="flex-1" />
+                      <Text size="2" weight="medium">
+                        <PhaseSelector
+                          phase={phase}
+                          phases={experiment.phases}
+                          isBandit={experiment.type === "multi-armed-bandit"}
+                          isHoldout={experiment.type === "holdout"}
+                        />
+                      </Text>
+                    </>
+                  ): null}
+                  </Flex>
                 </TabsList>
               </Tabs>
 
-              <div className="col-auto experiment-date-range mr-2">
-                {startDate && (
-                  <span>
-                    {startDate} — {endDate}{" "}
-                    <span className="text-muted">
-                      ({daysBetween(startDate, endDate)} days)
-                    </span>
-                  </span>
-                )}
-              </div>
             </div>
           </div>
         </div>

@@ -30,7 +30,6 @@ import VariationChooser from "@/components/Experiment/VariationChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import AnalysisForm from "./AnalysisForm";
 import ResultMoreMenu from "./ResultMoreMenu";
-import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 import DifferenceTypeChooser from "./DifferenceTypeChooser";
 
@@ -44,24 +43,20 @@ export type AnalysisBarSettings = {
 export default function AnalysisSettingsBar({
   mutateExperiment,
   editMetrics,
-  editPhases,
   variations,
   analysisBarSettings,
   setAnalysisBarSettings,
   setAnalysisSettings,
-  alwaysShowPhaseSelector = false,
   showMoreMenu = true,
   envs,
 }: {
   mutateExperiment: () => void;
   editMetrics?: () => void;
-  editPhases?: () => void;
   variations: ExperimentReportVariation[];
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   setAnalysisSettings: (s: ExperimentSnapshotAnalysisSettings | null) => void;
   envs: string[];
-  alwaysShowPhaseSelector?: boolean;
   showMoreMenu?: boolean;
   holdout?: HoldoutInterface;
 }) {
@@ -165,17 +160,6 @@ export default function AnalysisSettingsBar({
               />
             </div>
           ) : null}
-          {experiment.phases &&
-            (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
-              <div className="col-auto form-inline">
-                <PhaseSelector
-                  isHoldout={isHoldout}
-                  mutateExperiment={mutateExperiment}
-                  editPhases={!isBandit ? editPhases : undefined}
-                  isBandit={isBandit}
-                />
-              </div>
-            )}
           <div style={{ flex: 1 }} />
           {isBandit && snapshot ? (
             <div className="col-auto text-right mb-0">

@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Flex, Text } from "@radix-ui/themes";
-import { date } from "shared/dates";
+import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
@@ -58,6 +58,99 @@ export default function ProjectTagBar({
   const createdDate = date(experiment.dateCreated);
 
   const ownerName = getUserDisplay(experiment.owner, false) || "";
+
+  const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
+
+  const renderRuntime = () => {
+    const phases = experiment.phases || [];
+    const numPhases = phases.length;
+    const isHoldout = experiment.type === "holdout";
+
+    // If no phases: If experiment start date ? `experiment start date - now` : "not started"
+    if (numPhases === 0) {
+      return "not started";
+    }
+
+    // If 1 phase: phase start date - {phase end date || now}
+    if (numPhases === 1) {
+      const phase = phases[0];
+      const startDate =
+        phase?.lookbackStartDate && isHoldout
+          ? date(phase.lookbackStartDate, "UTC")
+          : date(phase?.dateStarted ?? "", "UTC");
+      const endDate = phase?.dateEnded
+        ? date(phase.dateEnded, "UTC")
+        : "now";
+
+      if (!startDate) {
+        return "not started";
+      }
+
+      return `${startDate} - ${endDate}`;
+    }
+
+    // If multiple phases, phase[0] start date - {phase[last] end date || now}
+    const firstPhase = phases[0];
+    const lastPhase = phases[phases.length - 1];
+    const startDate =
+      firstPhase?.lookbackStartDate && isHoldout
+        ? date(firstPhase.lookbackStartDate, "UTC")
+        : date(firstPhase?.dateStarted ?? "", "UTC");
+    const endDate = lastPhase?.dateEnded
+      ? date(lastPhase.dateEnded, "UTC")
+      : "now";
+
+    if (!startDate) {
+      return "not started";
+    }
+
+    return `${startDate} - ${endDate}`;
+  };
+
+  const renderTotalRuntimeTooltip = (): JSX.Element | string => {
+    const phases = experiment.phases || [];
+    const numPhases = phases.length;
+    const isHoldout = experiment.type === "holdout";
+
+    if (numPhases === 0) {
+      return "";
+    }
+
+    const firstPhase = phases[0];
+    const lastPhase = phases[phases.length - 1];
+    
+    // Get the actual start date (not formatted)
+    const startDateStr =
+      firstPhase?.lookbackStartDate && isHoldout
+        ? firstPhase.lookbackStartDate
+        : firstPhase?.dateStarted;
+    
+    if (!startDateStr) {
+      return "";
+    }
+
+    // Get the end date (or use now)
+    const endDateStr = lastPhase?.dateEnded || new Date().toISOString();
+    
+    const days = daysBetween(startDateStr, endDateStr);
+    
+    // Format the date range
+    const startDateFormatted =
+      firstPhase?.lookbackStartDate && isHoldout
+        ? date(firstPhase.lookbackStartDate, "UTC")
+        : date(firstPhase?.dateStarted ?? "", "UTC");
+    const endDateFormatted = lastPhase?.dateEnded
+      ? date(lastPhase.dateEnded, "UTC")
+      : "now";
+
+    return (
+      <>
+        <strong>Total runtime</strong>
+        <br />
+        {startDateFormatted} - {endDateFormatted} ({days} {days === 1 ? "day" : "days"})
+      </>
+    );
+  };
 
   const renderOwner = () => {
     return (
@@ -206,10 +299,18 @@ export default function ProjectTagBar({
         {experiment.type !== "holdout" && (
           <Metadata label="Experiment Key" value={trackingKey || "None"} />
         )}
-        <Metadata label="Created" value={createdDate} />
         <Metadata label="Owner" value={renderOwner()} />
+        <Metadata label="Created" value={createdDate} />
+        <Tooltip
+          body={renderTotalRuntimeTooltip()}
+        >
+          <Metadata
+            label={hasMultiplePhases ? "Latest Phase" : "Runtime"}
+            value={renderRuntime()}
+          />
+        </Tooltip>
       </Flex>
-      <div className="row">
+      <div className="row mt-2">
         <div className="col-auto">
           <Metadata label="Tags" value={renderTagsValue()} />
         </div>

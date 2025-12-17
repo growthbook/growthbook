@@ -3,7 +3,7 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { includeExperimentInPayload, isDefined } from "shared/util";
+import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
 import {
   isMetricGroupId,
   expandMetricGroups,
@@ -23,6 +23,7 @@ import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { FeatureInterface } from "back-end/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Text } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -37,7 +38,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import DiscussionThread from "@/components/DiscussionThread";
 import { useAuth } from "@/services/auth";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -49,6 +49,8 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -84,8 +86,8 @@ export interface Props {
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;
-  editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
+  editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
@@ -105,9 +107,9 @@ export default function TabbedPage({
   visualChangesets,
   envs,
   urlRedirects,
-  editPhases,
   editTargeting,
   newPhase,
+  editPhases,
   editMetrics,
   editResult,
   checklistItemsRemaining,
@@ -163,9 +165,10 @@ export default function TabbedPage({
     `experiment-page__${experiment.id}__slice_tags_filter`,
     [],
   );
-  const [sortBy, setSortBy] = useLocalStorage<
-    "significance" | "change" | null
-  >(`experiment-page__${experiment.id}__sort_by`, null);
+  const [sortBy, setSortBy] = useLocalStorage<"significance" | "change" | null>(
+    `experiment-page__${experiment.id}__sort_by`,
+    null,
+  );
   const [sortDirection, setSortDirection] = useLocalStorage<
     "asc" | "desc" | null
   >(`experiment-page__${experiment.id}__sort_direction`, null);
@@ -437,11 +440,6 @@ export default function TabbedPage({
     setHealthNotificationCount(0);
   }, []);
 
-  const hasLiveLinkedChanges = includeExperimentInPayload(
-    experiment,
-    linkedFeatures.map((f) => f.feature),
-  );
-
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
 
@@ -471,10 +469,12 @@ export default function TabbedPage({
     return getBrowserDevice(ua);
   }, []);
 
-  const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
-
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
+
+  const safeToEdit =
+    experiment.status !== "running" ||
+    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
 
   const showMetricGroupPromo = (): boolean => {
     if (metricGroups.length) return false;
@@ -579,7 +579,6 @@ export default function TabbedPage({
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
-        safeToEdit={safeToEdit}
         setAuditModal={setAuditModal}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
@@ -596,6 +595,7 @@ export default function TabbedPage({
         linkedFeatures={linkedFeatures}
         stop={stop}
         showDashboardView={showDashboardView}
+        safeToEdit={safeToEdit}
       />
 
       <div
@@ -637,30 +637,21 @@ export default function TabbedPage({
         {viewingOldPhase &&
           ((!isBandit && tab === "results") ||
             (isBandit && tab === "explore")) && (
-            <div className="alert alert-warning mt-3">
-              <div>
+            <Callout status="info">
+              <Text>
                 {isHoldout
                   ? "You are viewing the results of the entire holdout period."
-                  : "You are viewing the results of a previous experiment phase."}{" "}
-                <a
-                  role="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPhase(experiment.phases.length - 1);
-                  }}
-                >
-                  {isHoldout
-                    ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
-                    : "Switch to the latest phase"}
-                </a>
-              </div>
-              {!isHoldout && (
-                <div className="mt-1">
-                  <strong>Phase settings:</strong>{" "}
-                  {phaseSummary(experiment?.phases?.[phase])}
-                </div>
-              )}
-            </div>
+                  : "You are viewing the results of a previous experiment phase."}
+              </Text>
+              <Link
+                ml="2"
+                onClick={() => setPhase(experiment.phases.length - 1)}
+              >
+                {isHoldout
+                  ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
+                  : "Switch to the latest phase"}
+              </Link>
+            </Callout>
           )}
 
         {showDashboardView && (
@@ -767,7 +758,6 @@ export default function TabbedPage({
           experiment={experiment}
           mutate={mutate}
           editMetrics={editMetrics}
-          editPhases={editPhases}
           editResult={editResult}
           newPhase={newPhase}
           connections={connections}
@@ -776,7 +766,6 @@ export default function TabbedPage({
           visualChangesets={visualChangesets}
           editTargeting={editTargeting}
           isTabActive={tab === "results"}
-          safeToEdit={safeToEdit}
           metricTagFilter={metricTagFilter}
           metricGroupsFilter={metricGroupsFilter}
           setMetricGroupsFilter={setMetricGroupsFilter}

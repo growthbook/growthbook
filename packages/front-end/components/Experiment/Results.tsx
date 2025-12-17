@@ -42,8 +42,6 @@ const Results: FC<{
   draftMode?: boolean;
   editMetrics?: () => void;
   editResult?: () => void;
-  editPhases?: () => void;
-  alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
@@ -64,9 +62,7 @@ const Results: FC<{
   mutateExperiment,
   draftMode = false,
   editMetrics,
-  editPhases,
   editResult,
-  alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
   statsEngine,
   analysisBarSettings,
@@ -244,8 +240,6 @@ const Results: FC<{
           setAnalysisSettings={setAnalysisSettings}
           editMetrics={editMetrics}
           variations={variations}
-          editPhases={editPhases}
-          alwaysShowPhaseSelector={alwaysShowPhaseSelector}
           showMoreMenu={false}
           holdout={holdout}
         />
