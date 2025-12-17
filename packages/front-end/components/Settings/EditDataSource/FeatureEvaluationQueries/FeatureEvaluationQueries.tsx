@@ -57,8 +57,6 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource.settings?.queries?.featureUsage],
   );
 
-  console.log("featureUsageQueries", featureUsageQueries);
-
   const handleAdd = useCallback(() => {
     setUiMode("add");
     setEditingIndex(featureUsageQueries.length);
