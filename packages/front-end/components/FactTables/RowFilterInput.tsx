@@ -200,6 +200,14 @@ export function RowFilterInput({
             });
           }
 
+          // For boolean columns, remap =true/false to is_true/is_false
+          if (datatype === "boolean") {
+            if (filter.operator === "=") {
+              filter.operator =
+                filter.values?.[0] === "true" ? "is_true" : "is_false";
+            }
+          }
+
           if (!allowedOperators.includes(filter.operator)) {
             allowedOperators.push(filter.operator);
           }

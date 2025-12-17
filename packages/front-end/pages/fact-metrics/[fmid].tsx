@@ -159,7 +159,8 @@ function RowFilterCodeDisplay({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-              evalBoolean: (col, value) => `${col} = ${value}`,
+              evalBoolean: (col, value) =>
+                `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
               showSourceComment: true,
             }),
