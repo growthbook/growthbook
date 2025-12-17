@@ -251,11 +251,13 @@ export default function FeatureDiagnostics({
       {datasource && datasourceHasFeatureUsageQuery && (
         <Frame mt="4">
           <Flex direction="row" justify="between" mb="4">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
+            <Box flexBasis="40%" flexShrink="1" flexGrow="0">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </Box>
             <Tooltip
               content="Setup a feature usage query in your data source to view feature evaluations."
               enabled={!datasourceHasFeatureUsageQuery && !loading}
