@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
-import { AIPromptDefaults, AIPromptInterface } from "shared/ai";
+import {
+  AIPromptDefaults,
+  AIPromptInterface,
+  AI_PROVIDER_MODEL_MAP,
+} from "shared/ai";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
@@ -65,13 +69,13 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
 }
 
 const AI_MODEL_LABELS = [
-  { value: "gpt-4o-mini", label: "gpt-4o-mini" },
-  { value: "gpt-4o", label: "gpt-4o" },
-  { value: "gpt-4", label: "gpt-4" },
-  { value: "gpt-4-turbo", label: "gpt-4-turbo" },
-  { value: "gpt-4-vision-preview", label: "gpt-4-vision-preview" },
-  { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo" },
-  { value: "gpt-3.5-turbo-16k", label: "gpt-3.5-turbo-16k" },
+  { value: "gpt-4o-mini", label: "GPT-4o-mini" },
+  { value: "gpt-4o", label: "GPT-4o" },
+  { value: "gpt-4", label: "GPT-4" },
+  { value: "gpt-4-turbo", label: "GPT-4-turbo" },
+  { value: "gpt-4-vision-preview", label: "GPT-4-vision-preview" },
+  { value: "gpt-3.5-turbo", label: "GPT-3.5-turbo" },
+  { value: "gpt-3.5-turbo-16k", label: "GPT-3.5-turbo-16k" },
   { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
   { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
   { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },
@@ -210,8 +214,9 @@ export default function AISettings({
                     const selectedModel =
                       form.watch("defaultAIModel") || "gpt-4o-mini";
                     const isAnthropicModel =
-                      selectedModel.startsWith("claude-");
-                    const isOpenAIModel = selectedModel.startsWith("gpt-");
+                      AI_PROVIDER_MODEL_MAP.anthropic.includes(selectedModel);
+                    const isOpenAIModel =
+                      AI_PROVIDER_MODEL_MAP.openai.includes(selectedModel);
 
                     return (
                       <>
