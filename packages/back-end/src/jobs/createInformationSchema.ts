@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { InformationSchemaError } from "shared/types/integrations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
@@ -7,7 +8,6 @@ import {
 import { initializeDatasourceInformationSchema } from "back-end/src/services/informationSchema";
 import {
   DataSourceNotSupportedError,
-  InformationSchemaError,
   MissingDatasourceParamsError,
 } from "back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";

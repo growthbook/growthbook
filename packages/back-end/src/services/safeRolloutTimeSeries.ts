@@ -1,13 +1,18 @@
 import md5 from "md5";
 import { isFactMetricId, expandMetricGroups } from "shared/experiments";
 import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
-import { ReqContext } from "back-end/types/organization";
+import {
+  CreateMetricTimeSeriesSingleDataPoint,
+  MetricTimeSeriesValue,
+  MetricTimeSeriesVariation,
+  SafeRolloutInterface,
+} from "shared/validators";
+import { ReqContext } from "back-end/types/request";
 import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
@@ -15,12 +20,8 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotMetricInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
-import {
-  CreateMetricTimeSeriesSingleDataPoint,
-  MetricTimeSeriesValue,
-  MetricTimeSeriesVariation,
-} from "back-end/src/validators/metric-time-series";
 import { logger } from "back-end/src/util/logger";
+import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 
 export async function updateSafeRolloutTimeSeries({
   context,
@@ -185,10 +186,6 @@ function getSafeRolloutMetricSettingsHash(
       ? factTableMap?.get(denominatorFactTableId)
       : undefined;
 
-    const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
-      factMetric.numerator.filters.includes(it.id),
-    );
-
     return hashObject({
       ...metricSettings,
       metricType: factMetric.metricType,
@@ -199,15 +196,12 @@ function getSafeRolloutMetricSettingsHash(
       numeratorFactTable: {
         sql: numeratorFactTable?.sql,
         eventName: numeratorFactTable?.eventName,
-        filters: numeratorFilters?.map((it) => ({
-          id: it.id,
-          name: it.name,
-          value: it.value,
-        })),
+        filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
       },
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,
         eventName: denominatorFactTable?.eventName,
+        // TODO: include denominator filters?
       },
     });
   }

@@ -10,7 +10,7 @@ import {
 } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { createDataSource } from "back-end/src/models/DataSourceModel";
 import {
@@ -101,7 +101,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "value",
-      filters: [],
     },
     windowSettings: EMPTY_WINDOW_SETTINGS,
   },
@@ -112,7 +111,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "$$distinctUsers",
-      filters: [],
     },
     windowSettings: EMPTY_WINDOW_SETTINGS,
   },
@@ -123,7 +121,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "$$distinctUsers",
-      filters: [],
     },
     windowSettings: RETENTION_WINDOW_SETTINGS,
   },
@@ -144,12 +141,10 @@ const DEMO_RATIO_METRIC: Pick<
   numerator: {
     factTableId: "",
     column: "value",
-    filters: [],
   },
   denominator: {
     factTableId: "",
     column: "$$count",
-    filters: [],
   },
   windowSettings: EMPTY_WINDOW_SETTINGS,
 };

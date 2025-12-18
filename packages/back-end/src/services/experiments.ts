@@ -35,7 +35,6 @@ import {
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
-  getPredefinedDimensionSlicesByExperiment,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
@@ -46,8 +45,8 @@ import {
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SegmentInterface } from "shared/types/segment";
 import {
   ExperimentAnalysisSummaryVariationStatus,
   BanditResult,
@@ -55,7 +54,12 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
-} from "back-end/src/validators/experiments";
+  SafeRolloutInterface,
+  IncrementalRefreshInterface,
+} from "shared/validators";
+import { Dimension } from "shared/types/integrations";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { MetricPriorSettings } from "back-end/types/fact-table";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -85,14 +89,12 @@ import {
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { Dimension } from "back-end/src/types/Integration";
 import {
   Condition,
   MetricInterface,
   MetricStats,
   Operator,
 } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   Changeset,
   ExperimentInterface,
@@ -111,8 +113,8 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  ReqContext,
 } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { DataSourceInterface, ExposureQuery } from "back-end/types/datasource";
 import {
@@ -131,7 +133,6 @@ import {
   putMetricValidator,
   updateExperimentValidator,
 } from "back-end/src/validators/openapi";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -139,7 +140,11 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { StatsEngine } from "back-end/types/stats";
+import {
+  StatsEngine,
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "back-end/types/stats";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
@@ -147,13 +152,13 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentQueryMetadata } from "back-end/types/query";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
@@ -164,8 +169,6 @@ import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
   getMetricSettingsForStatsEngine,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
   runSnapshotAnalyses,
   runSnapshotAnalysis,
   writeSnapshotAnalyses,
@@ -382,6 +385,9 @@ export function getDefaultExperimentAnalysisSettings(
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
+  // const hasPostStratificationFeature = organization
+  //   ? orgHasPremiumFeature(organization, "post-stratification")
+  //   : false;
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
@@ -393,6 +399,9 @@ export function getDefaultExperimentAnalysisSettings(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
+    postStratificationEnabled: false,
+    // hasPostStratificationFeature &&
+    // !(organization.settings?.postStratificationDisabled ?? false),
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -473,6 +482,7 @@ export function getSnapshotSettings({
   metricMap,
   factTableMap,
   metricGroups,
+  incrementalRefreshModel,
   reweight,
   datasource,
 }: {
@@ -487,6 +497,8 @@ export function getSnapshotSettings({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
+  // Should be null if full refresh
+  incrementalRefreshModel: IncrementalRefreshInterface | null;
   reweight?: boolean;
   datasource?: DataSourceInterface;
 }): ExperimentSnapshotSettings {
@@ -510,6 +522,7 @@ export function getSnapshotSettings({
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
 
+  // if standard snapshot with no dimension set, we should pre-compute dimensions
   const precomputeDimensions =
     snapshotType === "standard" &&
     experiment.type !== "multi-armed-bandit" &&
@@ -521,16 +534,15 @@ export function getSnapshotSettings({
 
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
   if (precomputeDimensions) {
-    // if standard snapshot with no dimension set, we should pre-compute dimensions
-    const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      (exposureQuery.dimensionMetadata ?? []).filter((d) =>
-        exposureQuery.dimensions.includes(d.dimension),
-      ),
-      experiment.variations.length,
-    );
+    const { eligibleDimensionsWithSlicesUnderMaxCells } =
+      getExposureQueryEligibleDimensions({
+        exposureQuery,
+        incrementalRefreshModel,
+        nVariations: experiment.variations.length,
+      });
     dimensions =
-      predefinedDimensions.map((d) => ({
-        id: "precomputed:" + d.dimension,
+      eligibleDimensionsWithSlicesUnderMaxCells.map((d) => ({
+        id: "precomputed:" + d.id,
         slices: d.specifiedSlices,
       })) ?? [];
   }
@@ -717,6 +729,9 @@ export function getSnapshotSettings({
   };
 }
 
+/**
+ * @deprecated Manual (e.g. manually inputting data) snapshots are no longer supported
+ */
 export async function createManualSnapshot({
   experiment,
   phaseIndex,
@@ -746,8 +761,9 @@ export async function createManualSnapshot({
     regressionAdjustmentEnabled: false,
     settingsForSnapshotMetrics: [],
     metricMap,
-    factTableMap: new Map(), // todo
-    metricGroups: [], // todo?
+    factTableMap: new Map(),
+    metricGroups: [],
+    incrementalRefreshModel: null,
   });
 
   const { srm, variations } = await getManualSnapshotData(
@@ -1190,6 +1206,14 @@ export async function createSnapshot({
     throw new Error("Could not load data source");
   }
 
+  // TODO(incremental-refresh): use other signal other than useCache
+  // to determine full refresh
+  const fullRefresh = !useCache;
+
+  const incrementalRefreshModel = fullRefresh
+    ? null
+    : await context.models.incrementalRefresh.getByExperimentId(experiment.id);
+
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -1205,6 +1229,7 @@ export async function createSnapshot({
     metricGroups,
     reweight,
     datasource,
+    incrementalRefreshModel,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1269,9 +1294,6 @@ export async function createSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({ data });
   const integration = getSourceIntegrationObject(context, datasource, true);
-  const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(experiment.id);
-  const fullRefresh = !useCache || !incrementalRefreshModel;
 
   const isIncrementalRefreshEnabledForExperiment =
     datasource.settings.pipelineSettings?.mode === "incremental" &&
@@ -1358,15 +1380,7 @@ export async function createSnapshot({
       queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
       queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
     ) {
-      const incrementalRefreshData =
-        await context.models.incrementalRefresh.getByExperimentId(
-          experiment.id,
-        );
-      const hasIncrementalRefreshData = !!incrementalRefreshData;
-
-      const fullRefresh =
-        (!useCache || !hasIncrementalRefreshData) &&
-        snapshot.type === "standard";
+      const fullRefresh = !useCache && snapshot.type === "standard";
 
       await queryRunner.startAnalysis({
         ...analysisProps,
@@ -1441,7 +1455,7 @@ async function getSnapshotAnalyses(
 
   // get queryMap for all snapshots
   const queryMap = await getQueryMap(
-    context.org.id,
+    context,
     params.map((p) => p.snapshot.queries).flat(),
   );
 
@@ -1557,6 +1571,7 @@ export async function createSnapshotAnalyses(
 }
 
 export async function createSnapshotAnalysis(
+  context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
 ): Promise<void> {
   const { snapshot, analysisSettings, organization, experiment, metricMap } =
@@ -1587,10 +1602,7 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap: QueryMap = await getQueryMap(
-    organization.id,
-    snapshot.queries,
-  );
+  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -2776,7 +2788,7 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.minBucketVersion !== undefined
       ? { minBucketVersion: payload.minBucketVersion }
       : {}),
-    autoSnapshots: true,
+    autoSnapshots: payload.autoRefresh ?? true,
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
@@ -2901,6 +2913,7 @@ export function updateExperimentApiPayloadToInterface(
     pinnedMetricSlices,
     customMetricSlices,
     customFields,
+    autoRefresh,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -3000,6 +3013,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
+    ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

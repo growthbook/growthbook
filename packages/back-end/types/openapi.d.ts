@@ -3520,18 +3520,33 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
       numerator: {
         factTableId: string;
         column: string;
         /** @enum {string} */
         aggregation?: "sum" | "max" | "count distinct";
-        /** @description Array of Fact Table Filter Ids */
-        filters: (string)[];
-        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        /**
+         * @deprecated 
+         * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+         */
+        filters?: (string)[];
+        /**
+         * @deprecated 
+         * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+         */
         inlineFilters?: {
           [key: string]: (string)[] | undefined;
         };
+        /** @description Filters to apply to the rows of the fact table before aggregation. */
+        rowFilters?: ({
+            /** @enum {string} */
+            operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+            /** @description Not required for is_null, not_null, is_true, is_false operators. */
+            values?: (string)[];
+            /** @description Required for all operators except sql_expr and saved_filter. */
+            column?: string;
+          })[];
         /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
         aggregateFilterColumn?: string;
         /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -3540,12 +3555,27 @@ export interface components {
       denominator?: {
         factTableId: string;
         column: string;
-        /** @description Array of Fact Table Filter Ids */
-        filters: (string)[];
-        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        /**
+         * @deprecated 
+         * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+         */
+        filters?: (string)[];
+        /**
+         * @deprecated 
+         * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+         */
         inlineFilters?: {
           [key: string]: (string)[] | undefined;
         };
+        /** @description Filters to apply to the rows of the fact table before aggregation. */
+        rowFilters?: ({
+            /** @enum {string} */
+            operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+            /** @description Not required for is_null, not_null, is_true, is_false operators. */
+            values?: (string)[];
+            /** @description Required for all operators except sql_expr and saved_filter. */
+            column?: string;
+          })[];
       };
       /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
       inverse: boolean;
@@ -12641,18 +12671,33 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
                 numerator: {
                   factTableId: string;
                   column: string;
                   /** @enum {string} */
                   aggregation?: "sum" | "max" | "count distinct";
-                  /** @description Array of Fact Table Filter Ids */
-                  filters: (string)[];
-                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  /**
+                   * @deprecated 
+                   * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                   */
+                  filters?: (string)[];
+                  /**
+                   * @deprecated 
+                   * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                   */
                   inlineFilters?: {
                     [key: string]: (string)[] | undefined;
                   };
+                  /** @description Filters to apply to the rows of the fact table before aggregation. */
+                  rowFilters?: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                      values?: (string)[];
+                      /** @description Required for all operators except sql_expr and saved_filter. */
+                      column?: string;
+                    })[];
                   /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                   aggregateFilterColumn?: string;
                   /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12661,12 +12706,27 @@ export interface operations {
                 denominator?: {
                   factTableId: string;
                   column: string;
-                  /** @description Array of Fact Table Filter Ids */
-                  filters: (string)[];
-                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  /**
+                   * @deprecated 
+                   * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                   */
+                  filters?: (string)[];
+                  /**
+                   * @deprecated 
+                   * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                   */
                   inlineFilters?: {
                     [key: string]: (string)[] | undefined;
                   };
+                  /** @description Filters to apply to the rows of the fact table before aggregation. */
+                  rowFilters?: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                      values?: (string)[];
+                      /** @description Required for all operators except sql_expr and saved_filter. */
+                      column?: string;
+                    })[];
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse: boolean;
@@ -12756,22 +12816,37 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
           numerator: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
+            /** @description Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
              * @enum {string}
              */
             aggregation?: "sum" | "max" | "count distinct";
-            /** @description Array of Fact Table Filter Ids */
+            /**
+             * @deprecated 
+             * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+             */
             filters?: (string)[];
-            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            /**
+             * @deprecated 
+             * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+             */
             inlineFilters?: {
               [key: string]: (string)[] | undefined;
             };
+            /** @description Filters to apply to the rows of the fact table before aggregation. */
+            rowFilters?: ({
+                /** @enum {string} */
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                values?: (string)[];
+                /** @description Required for all operators except sql_expr and saved_filter. */
+                column?: string;
+              })[];
             /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
             aggregateFilterColumn?: string;
             /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12787,12 +12862,27 @@ export interface operations {
              * @enum {string}
              */
             aggregation?: "sum" | "max" | "count distinct";
-            /** @description Array of Fact Table Filter Ids */
+            /**
+             * @deprecated 
+             * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+             */
             filters?: (string)[];
-            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            /**
+             * @deprecated 
+             * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+             */
             inlineFilters?: {
               [key: string]: (string)[] | undefined;
             };
+            /** @description Filters to apply to the rows of the fact table before aggregation. */
+            rowFilters?: ({
+                /** @enum {string} */
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                values?: (string)[];
+                /** @description Required for all operators except sql_expr and saved_filter. */
+                column?: string;
+              })[];
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -12864,7 +12954,7 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
-          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
           displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
@@ -12896,18 +12986,33 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
               numerator: {
                 factTableId: string;
                 column: string;
                 /** @enum {string} */
                 aggregation?: "sum" | "max" | "count distinct";
-                /** @description Array of Fact Table Filter Ids */
-                filters: (string)[];
-                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                /**
+                 * @deprecated 
+                 * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                 */
+                filters?: (string)[];
+                /**
+                 * @deprecated 
+                 * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                 */
                 inlineFilters?: {
                   [key: string]: (string)[] | undefined;
                 };
+                /** @description Filters to apply to the rows of the fact table before aggregation. */
+                rowFilters?: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                    values?: (string)[];
+                    /** @description Required for all operators except sql_expr and saved_filter. */
+                    column?: string;
+                  })[];
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12916,12 +13021,27 @@ export interface operations {
               denominator?: {
                 factTableId: string;
                 column: string;
-                /** @description Array of Fact Table Filter Ids */
-                filters: (string)[];
-                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                /**
+                 * @deprecated 
+                 * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                 */
+                filters?: (string)[];
+                /**
+                 * @deprecated 
+                 * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                 */
                 inlineFilters?: {
                   [key: string]: (string)[] | undefined;
                 };
+                /** @description Filters to apply to the rows of the fact table before aggregation. */
+                rowFilters?: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                    values?: (string)[];
+                    /** @description Required for all operators except sql_expr and saved_filter. */
+                    column?: string;
+                  })[];
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -13014,18 +13134,33 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
               numerator: {
                 factTableId: string;
                 column: string;
                 /** @enum {string} */
                 aggregation?: "sum" | "max" | "count distinct";
-                /** @description Array of Fact Table Filter Ids */
-                filters: (string)[];
-                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                /**
+                 * @deprecated 
+                 * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                 */
+                filters?: (string)[];
+                /**
+                 * @deprecated 
+                 * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                 */
                 inlineFilters?: {
                   [key: string]: (string)[] | undefined;
                 };
+                /** @description Filters to apply to the rows of the fact table before aggregation. */
+                rowFilters?: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                    values?: (string)[];
+                    /** @description Required for all operators except sql_expr and saved_filter. */
+                    column?: string;
+                  })[];
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -13034,12 +13169,27 @@ export interface operations {
               denominator?: {
                 factTableId: string;
                 column: string;
-                /** @description Array of Fact Table Filter Ids */
-                filters: (string)[];
-                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                /**
+                 * @deprecated 
+                 * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                 */
+                filters?: (string)[];
+                /**
+                 * @deprecated 
+                 * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                 */
                 inlineFilters?: {
                   [key: string]: (string)[] | undefined;
                 };
+                /** @description Filters to apply to the rows of the fact table before aggregation. */
+                rowFilters?: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                    values?: (string)[];
+                    /** @description Required for all operators except sql_expr and saved_filter. */
+                    column?: string;
+                  })[];
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -13128,22 +13278,37 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
           numerator?: {
             factTableId: string;
-            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
+            /** @description Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
             column?: string;
             /**
              * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
              * @enum {string}
              */
             aggregation?: "sum" | "max" | "count distinct";
-            /** @description Array of Fact Table Filter Ids */
+            /**
+             * @deprecated 
+             * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+             */
             filters?: (string)[];
-            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            /**
+             * @deprecated 
+             * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+             */
             inlineFilters?: {
               [key: string]: (string)[] | undefined;
             };
+            /** @description Filters to apply to the rows of the fact table before aggregation. */
+            rowFilters?: ({
+                /** @enum {string} */
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                values?: (string)[];
+                /** @description Required for all operators except sql_expr and saved_filter. */
+                column?: string;
+              })[];
             /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
             aggregateFilterColumn?: string;
             /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -13159,12 +13324,27 @@ export interface operations {
              * @enum {string}
              */
             aggregation?: "sum" | "max" | "count distinct";
-            /** @description Array of Fact Table Filter Ids */
+            /**
+             * @deprecated 
+             * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+             */
             filters?: (string)[];
-            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            /**
+             * @deprecated 
+             * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+             */
             inlineFilters?: {
               [key: string]: (string)[] | undefined;
             };
+            /** @description Filters to apply to the rows of the fact table before aggregation. */
+            rowFilters?: ({
+                /** @enum {string} */
+                operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                values?: (string)[];
+                /** @description Required for all operators except sql_expr and saved_filter. */
+                column?: string;
+              })[];
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -13225,7 +13405,7 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
-          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
           displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
@@ -13257,18 +13437,33 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
               numerator: {
                 factTableId: string;
                 column: string;
                 /** @enum {string} */
                 aggregation?: "sum" | "max" | "count distinct";
-                /** @description Array of Fact Table Filter Ids */
-                filters: (string)[];
-                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                /**
+                 * @deprecated 
+                 * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                 */
+                filters?: (string)[];
+                /**
+                 * @deprecated 
+                 * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                 */
                 inlineFilters?: {
                   [key: string]: (string)[] | undefined;
                 };
+                /** @description Filters to apply to the rows of the fact table before aggregation. */
+                rowFilters?: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                    values?: (string)[];
+                    /** @description Required for all operators except sql_expr and saved_filter. */
+                    column?: string;
+                  })[];
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -13277,12 +13472,27 @@ export interface operations {
               denominator?: {
                 factTableId: string;
                 column: string;
-                /** @description Array of Fact Table Filter Ids */
-                filters: (string)[];
-                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                /**
+                 * @deprecated 
+                 * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                 */
+                filters?: (string)[];
+                /**
+                 * @deprecated 
+                 * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                 */
                 inlineFilters?: {
                   [key: string]: (string)[] | undefined;
                 };
+                /** @description Filters to apply to the rows of the fact table before aggregation. */
+                rowFilters?: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                    /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                    values?: (string)[];
+                    /** @description Required for all operators except sql_expr and saved_filter. */
+                    column?: string;
+                  })[];
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -13477,22 +13687,37 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "dailyParticipation";
                 numerator: {
                   factTableId: string;
-                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
+                  /** @description Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit') */
                   column?: string;
                   /**
                    * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
                    * @enum {string}
                    */
                   aggregation?: "sum" | "max" | "count distinct";
-                  /** @description Array of Fact Table Filter Ids */
+                  /**
+                   * @deprecated 
+                   * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                   */
                   filters?: (string)[];
-                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  /**
+                   * @deprecated 
+                   * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                   */
                   inlineFilters?: {
                     [key: string]: (string)[] | undefined;
                   };
+                  /** @description Filters to apply to the rows of the fact table before aggregation. */
+                  rowFilters?: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                      values?: (string)[];
+                      /** @description Required for all operators except sql_expr and saved_filter. */
+                      column?: string;
+                    })[];
                   /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                   aggregateFilterColumn?: string;
                   /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -13508,12 +13733,27 @@ export interface operations {
                    * @enum {string}
                    */
                   aggregation?: "sum" | "max" | "count distinct";
-                  /** @description Array of Fact Table Filter Ids */
+                  /**
+                   * @deprecated 
+                   * @description Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+                   */
                   filters?: (string)[];
-                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  /**
+                   * @deprecated 
+                   * @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+                   */
                   inlineFilters?: {
                     [key: string]: (string)[] | undefined;
                   };
+                  /** @description Filters to apply to the rows of the fact table before aggregation. */
+                  rowFilters?: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not_in" | "is_null" | "not_null" | "is_true" | "is_false" | "contains" | "not_contains" | "starts_with" | "ends_with" | "sql_expr" | "saved_filter";
+                      /** @description Not required for is_null, not_null, is_true, is_false operators. */
+                      values?: (string)[];
+                      /** @description Required for all operators except sql_expr and saved_filter. */
+                      column?: string;
+                    })[];
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse?: boolean;
@@ -13585,7 +13825,7 @@ export interface operations {
                 riskThresholdSuccess?: number;
                 /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
                 riskThresholdDanger?: number;
-                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
                 displayAsPercentage?: boolean;
                 /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
                 minPercentChange?: number;

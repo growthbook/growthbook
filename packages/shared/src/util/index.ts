@@ -13,7 +13,6 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
 import {
@@ -21,8 +20,9 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { SavedGroupInterface } from "../types";
+import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { VisualChange } from "shared/types/visual-changeset";
+import { SavedGroupInterface } from "shared/types/groups";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";

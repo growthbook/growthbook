@@ -1,9 +1,14 @@
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  userHasPermission,
+  roleToPermissionMap,
+} from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
+import { AuditInterfaceInput } from "shared/types/audit";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
@@ -13,10 +18,9 @@ import {
   Permission,
   UserPermissions,
 } from "back-end/types/organization";
-import { EventUser } from "back-end/src/events/event-types";
+import { EventUser } from "back-end/types/events/event-types";
 import {
   getUserPermissions,
-  roleToPermissionMap,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { TeamInterface } from "back-end/types/team";
@@ -24,7 +28,6 @@ import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ProjectInterface } from "back-end/types/project";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
-import { AuditInterfaceInput } from "back-end/types/audit";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
@@ -50,6 +53,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -86,6 +90,7 @@ export class ReqContextClass {
     dashboards: DashboardModel;
     customHooks: CustomHookModel;
     incrementalRefresh: IncrementalRefreshModel;
+    sqlResultChunks: SqlResultChunkModel;
   };
   private initModels() {
     this.models = {
@@ -112,6 +117,7 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      sqlResultChunks: new SqlResultChunkModel(this),
     };
   }
 

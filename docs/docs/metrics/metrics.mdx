@@ -51,8 +51,6 @@ When you create a Fact Table, we query the first few rows and inspect the return
 
 This process isn't perfect. For example, if the first few rows happen to have `null` as the value of a column, we can't tell if it's supposed to be a number, string, etc.. When this happens, we will show you a warning and you can manually specify the type.
 
-Any column can be used to create filters, but only numeric columns can be used as a metric value.
-
 #### Number Formats
 
 For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency`, `time:seconds`, `memory:bytes`, and `memory:kilobytes`.
@@ -135,13 +133,37 @@ When picking `Quantile` you have several default options or can select `Custom`.
 
 The real power of Fact Tables comes with filtering. This allows you to easily create metric variants.
 
-There are 3 kinds of filtering available
+There are 2 kinds of filtering available
 
-- Inline Filters
 - Row Filters
 - User Filters
 
-### Inline Filters
+### Row Filters
+
+Row Filters determine which rows of the Fact Table are included in the metric calculation. You can define multiple Row Filters and they will be ANDed together.
+
+Row Filters support a wide variety of operators:
+
+- `=`
+- `!=`
+- `>`
+- `<`
+- `>=`
+- `<=`
+- `in`
+- `not_in`
+- `is_null`
+- `not_null`
+- `is_true`
+- `is_false`
+- `contains`
+- `not_contains`
+- `starts_with`
+- `ends_with`
+- `sql_expr` (raw SQL for advanced use cases)
+- `saved_filter` (a saved SQL expression that can be reused across metrics)
+
+#### Auto Prompting for Row Filters
 
 It's common to have an important "type" column that you use to build out metrics. For example, if your Fact Table is a raw event stream, there will be a column like `event_type` to differentiate between a page view, button click, purchase, etc.. You will almost always want to filter metrics using this column.
 
@@ -155,23 +177,9 @@ When you check this box, GrowthBook will run a quick query looking for the top 1
 
 Another example use of this checkbox is for a `Page Path` column in a `Page Views` Fact Table. This will streamline creation of metrics such as "Visited /checkout", "Visited /pricing", and more.
 
-If you select multiple values for an inline filter, they will be ORed together.
-
-### Row Filters
-
-Row Filters are reusable SQL snippets defined within a Fact Table. Once defined, they can be applied to any metric type.
-
-Here's an example Row Filter SQL:
-
-```sql
-device_type = 'mobile'
-```
-
-If a metric uses this Filter, GrowthBook will add it to the WHERE clause automatically. If there are multiple Filters, they will be ANDed together.
-
 ### User Filters
 
-User Filters are different from both Inline and Row Filters in that they are applied AFTER aggregating by user.
+User Filters are applied AFTER aggregating by user. Instead of filtering individual rows, you are filtering the total value per user.
 
 You can either filter on the `Count of Rows` or the `SUM` of a numeric column. This can be easier to understand with examples:
 

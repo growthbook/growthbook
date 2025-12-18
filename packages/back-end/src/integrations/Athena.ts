@@ -1,13 +1,10 @@
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   cancelAthenaQuery,
   runAthenaQuery,
 } from "back-end/src/services/athena";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-} from "back-end/src/types/Integration";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
 import SqlIntegration from "./SqlIntegration";
 

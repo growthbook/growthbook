@@ -505,6 +505,11 @@ const sidebars = {
       },
       items: [
         {
+          type: "doc",
+          id: "lib/quickstart",
+          label: "Quickstart",
+        },
+        {
           type: "category",
           label: "Back-end",
           collapsed: true,
@@ -530,6 +535,12 @@ const sidebars = {
               label: "C#",
             },
             { type: "doc", id: "lib/go", label: "Go" },
+            {
+              type: "doc",
+              id: "lib/rust",
+              label: "Rust",
+              className: "pill-new",
+            },
             {
               type: "doc",
               id: "lib/elixir",

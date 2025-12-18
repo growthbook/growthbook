@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import {

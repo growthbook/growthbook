@@ -5,7 +5,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   PresentationInterface,
   PresentationSlide,
-} from "back-end/types/presentation";
+} from "shared/types/presentation";
 import {
   resetServerContext,
   DragDropContext,

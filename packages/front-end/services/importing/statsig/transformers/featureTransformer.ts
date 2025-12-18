@@ -1,37 +1,80 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { SDKAttribute } from "back-end/types/organization";
 import { StatsigFeatureGate, StatsigDynamicConfig } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
+import { ensureAttributeExists } from "./attributeCreator";
 
 /**
  * Transform Statsig feature gate or dynamic config to GrowthBook feature
  */
-export function transformStatsigFeatureGateToGB(
+export async function transformStatsigFeatureGateToGB(
   featureGate: StatsigFeatureGate | StatsigDynamicConfig,
   availableEnvironments: string[],
-  _existingAttributeSchema: Array<{
-    property: string;
-    datatype:
-      | "string"
-      | "number"
-      | "boolean"
-      | "enum"
-      | "secureString"
-      | "string[]"
-      | "number[]"
-      | "secureString[]";
-    archived?: boolean;
-  }>,
-  _apiCall: (path: string, options?: unknown) => Promise<unknown>,
+  existingAttributeSchema: SDKAttribute[],
+  apiCall: (path: string, options?: unknown) => Promise<unknown>,
   type: "featureGate" | "dynamicConfig" = "featureGate",
   project?: string,
   skipAttributeMapping: boolean = false,
   savedGroupIdMap?: Map<string, string>,
-): Omit<
-  FeatureInterface,
-  "organization" | "dateCreated" | "dateUpdated" | "version"
+  featuresMap?: Map<string, FeatureInterface>,
+): Promise<
+  Omit<
+    FeatureInterface,
+    "organization" | "dateCreated" | "dateUpdated" | "version"
+  >
 > {
   const { id, description, isEnabled, rules, tags, owner } = featureGate;
+
+  // Extract attribute names and operators from all rules' conditions and ensure they exist
+  if (rules && apiCall && existingAttributeSchema) {
+    const allConditions = rules.flatMap((rule) => rule.conditions || []);
+
+    // Group conditions by attribute name to collect operators
+    const attributeOperatorMap = new Map<
+      string,
+      { attributeName: string; operators: string[] }
+    >();
+
+    allConditions.forEach((cond) => {
+      // Determine the attribute name:
+      // - For custom_field type, use the field value
+      // - For unit_id type with customID, use the customID (custom unit ID)
+      // - Otherwise, use the type as the attribute name
+      let statsigAttributeName: string;
+      if (cond.type === "custom_field") {
+        statsigAttributeName = cond.field || "custom_field";
+      } else if (cond.type === "unit_id" && cond.customID) {
+        statsigAttributeName = cond.customID;
+      } else {
+        statsigAttributeName = cond.type;
+      }
+
+      const attributeName = mapStatsigAttributeToGB(
+        statsigAttributeName,
+        skipAttributeMapping,
+      );
+      if (!attributeOperatorMap.has(attributeName)) {
+        attributeOperatorMap.set(attributeName, {
+          attributeName,
+          operators: [],
+        });
+      }
+      if (cond.operator) {
+        attributeOperatorMap.get(attributeName)!.operators.push(cond.operator);
+      }
+    });
+
+    // Ensure all attributes exist with their operators
+    for (const { attributeName, operators } of attributeOperatorMap.values()) {
+      await ensureAttributeExists(
+        attributeName,
+        existingAttributeSchema,
+        apiCall,
+        operators,
+      );
+    }
+  }
 
   // Set value type and default value based on explicit type
   const isDynamicConfig = type === "dynamicConfig";
@@ -61,6 +104,7 @@ export function transformStatsigFeatureGateToGB(
         rule.conditions,
         skipAttributeMapping,
         savedGroupIdMap,
+        featuresMap,
       );
 
       // Determine which environments this rule applies to

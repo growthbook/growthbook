@@ -1,11 +1,11 @@
 import {
   ColumnRef,
-  CreateFactFilterProps,
   CreateFactMetricProps,
   FactMetricType,
   MetricCappingSettings,
   MetricQuantileSettings,
   MetricWindowSettings,
+  RowFilter,
 } from "back-end/types/fact-table";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -25,7 +25,6 @@ import {
 export async function transformStatsigMetricToMetric(
   metric: StatsigMetric,
   metricSourceIdMap: Map<string, string>,
-  savedFiltersMap: Map<string, string>,
   project: string,
   datasource: string,
 ): Promise<CreateFactMetricProps> {
@@ -49,40 +48,12 @@ export async function transformStatsigMetricToMetric(
 
   // TODO: ensure userIdTypes exists in the data source
 
-  function getFiltersFromCriteria(criterias: StatsigMetricCriteria[]): {
-    filters: string[];
-    inlineFilters: Record<string, string[]>;
-  } {
-    const filters: string[] = [];
-
-    const remainingCriteria: StatsigMetricCriteria[] = [];
-    for (const criteria of criterias) {
-      const f = transformStatsigCriteriaToSavedFilter(criteria);
-      if (f) {
-        const key = `${factTableId}::${f}`;
-        const savedFilterId = savedFiltersMap?.get(key);
-        if (savedFilterId) {
-          filters.push(savedFilterId);
-        } else {
-          remainingCriteria.push(criteria);
-        }
-      } else {
-        remainingCriteria.push(criteria);
-      }
-    }
-
-    const inlineFilters =
-      transformStatsigCriteriaToInlineFilter(remainingCriteria);
-
-    return { filters, inlineFilters };
-  }
-
   let metricType: FactMetricType;
   const numerator: ColumnRef = {
     column: data.valueColumn || "",
     factTableId,
     aggregation: "sum",
-    ...getFiltersFromCriteria(data.criteria || []),
+    rowFilters: transformStatsigCriteriaToRowFilters(data.criteria),
   };
   let denominator: ColumnRef | null = null;
   let quantileSettings: MetricQuantileSettings | null = null;
@@ -111,7 +82,7 @@ export async function transformStatsigMetricToMetric(
       column: "$$count",
       factTableId,
       aggregation: "sum",
-      ...getFiltersFromCriteria(data.criteria || []),
+      rowFilters: transformStatsigCriteriaToRowFilters(data.criteria),
     };
   } else if (data.aggregation === "count") {
     metricType = "mean";
@@ -157,7 +128,9 @@ export async function transformStatsigMetricToMetric(
       column: data.denominatorValueColumn || "",
       factTableId: denominatorFactTableId,
       aggregation: "sum",
-      ...getFiltersFromCriteria(data.denominatorCriteria || []),
+      rowFilters: transformStatsigCriteriaToRowFilters(
+        data.denominatorCriteria,
+      ),
     };
     if (data.denominatorAggregation === "count") {
       denominator.column = "$$count";
@@ -248,151 +221,51 @@ export async function transformStatsigMetricToMetric(
   };
 }
 
-function transformStatsigCriteriaToInlineFilter(
-  criterias: StatsigMetricCriteria[],
-): Record<string, string[]> {
-  const filter: Record<string, string[]> = {};
+function transformStatsigCriteriaToRowFilters(
+  criterias: StatsigMetricCriteria[] | undefined,
+): RowFilter[] {
+  if (!criterias || criterias.length === 0) {
+    return [];
+  }
 
-  for (const criteria of criterias) {
+  const filters: RowFilter[] = [];
+  criterias.forEach((criteria) => {
     if (criteria.type !== "metadata") {
-      throw new Error("Only metadata criteria are supported currently");
+      return;
     }
-    if (!criteria.column) {
-      throw new Error("Column is required for criteria");
-    }
+    const operatorMapping: Record<
+      StatsigMetricCriteria["condition"],
+      RowFilter["operator"] | null
+    > = {
+      in: "in",
+      not_in: "not_in",
+      "=": "=",
+      ">": ">",
+      "<": "<",
+      ">=": ">=",
+      "<=": "<=",
+      is_null: "is_null",
+      non_null: "not_null",
+      contains: "contains",
+      not_contains: "not_contains",
+      sql_filter: "sql_expr",
+      starts_with: "starts_with",
+      ends_with: "ends_with",
+      after_exposure: null,
+      before_exposure: null,
+      is_true: "is_true",
+      is_false: "is_false",
+    };
 
-    if (criteria.condition === "in") {
-      filter[criteria.column] = criteria.values || [];
-    } else if (criteria.condition === "=") {
-      filter[criteria.column] = criteria.values || [];
-    } else if (criteria.condition === "is_true") {
-      filter[criteria.column] = ["true"];
-    } else if (criteria.condition === "is_false") {
-      filter[criteria.column] = ["false"];
-    } else {
-      // TODO: extract unsupported criteria into saved Fact Table filters
-      throw new Error(
-        `Unsupported condition ${criteria.condition} in criteria`,
-      );
-    }
-  }
-
-  return filter;
-}
-
-export function transformStatsigCriteriaToSavedFilter(
-  criteria: StatsigMetricCriteria,
-): string | null {
-  // If it works as an inline filter, don't convert to saved filter
-  try {
-    transformStatsigCriteriaToInlineFilter([criteria]);
-    return null;
-  } catch {
-    // ignore
-  }
-
-  if (criteria.type !== "metadata") {
-    return null;
-  }
-
-  const values = criteria.values || [];
-
-  if (criteria.condition === "sql_filter") {
-    return values[0] ?? null;
-  }
-
-  if (!criteria.column) {
-    return null;
-  }
-
-  const escapedValues = values.map((v) => v.replace(/'/g, "''"));
-
-  const firstVal = escapedValues[0] ?? "";
-  const isNumber = /^-?\d+(\.\d+)?$/.test(firstVal);
-  const quotedFirstValue =
-    firstVal === "" ? "''" : isNumber ? firstVal : `'${firstVal}'`;
-
-  switch (criteria.condition) {
-    case "in":
-      return `${criteria.column} IN (${escapedValues.map((v) => `'${v}'`).join(", ")})`;
-    case "not_in":
-      return `${criteria.column} NOT IN (${escapedValues
-        .map((v) => `'${v}'`)
-        .join(", ")})`;
-    case "is_true":
-      return `${criteria.column} = TRUE`;
-    case "is_false":
-      return `${criteria.column} = FALSE`;
-    case "=":
-    case "<":
-    case "<=":
-    case ">":
-    case ">=":
-      return `${criteria.column} ${criteria.condition} ${quotedFirstValue}`;
-    case "contains":
-      return `${criteria.column} LIKE '%${escapedValues[0]}%'`;
-    case "not_contains":
-      return `${criteria.column} NOT LIKE '%${escapedValues[0]}%'`;
-    case "is_null":
-      return `${criteria.column} IS NULL`;
-    case "non_null":
-      return `${criteria.column} IS NOT NULL`;
-    case "ends_with":
-      return `${criteria.column} LIKE '%${escapedValues[0]}'`;
-    case "starts_with":
-      return `${criteria.column} LIKE '${escapedValues[0]}%'`;
-    case "before_exposure":
-    case "after_exposure":
-      return null;
-  }
-}
-
-export function getNewFiltersForMetricSource(
-  metrics: StatsigMetric[],
-  metricSourceName: string,
-  existingFilters?: Set<string>,
-): CreateFactFilterProps[] {
-  existingFilters = existingFilters || new Set<string>();
-
-  const filters: CreateFactFilterProps[] = [];
-
-  metrics.forEach((m) => {
-    // Numerator
-    if (
-      m.warehouseNative?.metricSourceName === metricSourceName &&
-      m.warehouseNative?.criteria
-    ) {
-      m.warehouseNative.criteria.forEach((criteria) => {
-        const filterValue = transformStatsigCriteriaToSavedFilter(criteria);
-        if (filterValue && !existingFilters.has(filterValue)) {
-          existingFilters.add(filterValue);
-          filters.push({
-            name: filterValue,
-            value: filterValue,
-            description: "",
-          });
-        }
-      });
+    if (!operatorMapping[criteria.condition]) {
+      return;
     }
 
-    // Denominator
-    if (
-      m.warehouseNative?.denominatorMetricSourceName === metricSourceName &&
-      m.warehouseNative?.denominatorCriteria
-    ) {
-      m.warehouseNative.denominatorCriteria.forEach((criteria) => {
-        const filterValue = transformStatsigCriteriaToSavedFilter(criteria);
-        if (filterValue && !existingFilters.has(filterValue)) {
-          existingFilters.add(filterValue);
-          filters.push({
-            name: filterValue,
-            value: filterValue,
-            description: "",
-          });
-        }
-      });
-    }
+    filters.push({
+      column: criteria.column,
+      operator: operatorMapping[criteria.condition]!,
+      values: criteria.values,
+    });
   });
-
   return filters;
 }

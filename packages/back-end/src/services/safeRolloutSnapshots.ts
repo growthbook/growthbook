@@ -24,6 +24,11 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
+import { CreateProps } from "shared/types/base-model";
+import {
+  ExperimentAnalysisSummary,
+  SafeRolloutNotification,
+} from "shared/validators";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
@@ -35,7 +40,8 @@ import {
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -48,19 +54,16 @@ import {
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { CreateProps } from "back-end/src/models/BaseModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   FeatureInterface,
   SafeRolloutRule,
 } from "back-end/src/validators/features";
-import { ResourceEvents } from "back-end/src/events/base-types";
+import { ResourceEvents } from "back-end/types/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
@@ -240,6 +243,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
+  // const hasPostStratificationFeature = organization
+  //   ? orgHasPremiumFeature(organization, "post-stratification")
+  //   : false;
   return {
     statsEngine: "frequentist",
     dimensions: [],
@@ -248,6 +254,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
+    postStratificationEnabled: false,
+    //hasPostStratificationFeature &&
+    //!(organization.settings?.postStratificationDisabled ?? false),
     sequentialTesting:
       hasSequentialTestingFeature &&
       !!organization.settings?.sequentialTestingEnabled,

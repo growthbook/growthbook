@@ -1,19 +1,24 @@
 import { z } from "zod";
 import { Router } from "express";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   createApiRequestHandler,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { _dangerousGetSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
 import { _dangerousGetAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
-import { getOrganizationIdsWithTrackingDisabled } from "back-end/src/models/OrganizationModel";
+import {
+  _dangerouslyFindAllOrganizationsByIds,
+  getOrganizationIdsWithTrackingDisabled,
+} from "back-end/src/models/OrganizationModel";
+import { getUsages } from "back-end/src/enterprise/billing";
 
 interface SdkInfo {
   organization: string;
   client_key: string;
   datasource: string;
   environment: string;
+  overLimit: boolean;
 }
 
 interface GetDataEnrichmentResponse {
@@ -22,12 +27,17 @@ interface GetDataEnrichmentResponse {
   };
 }
 
-function sdkInfo(conn: SDKConnectionInterface, datasource: string): SdkInfo {
+function sdkInfo(
+  conn: SDKConnectionInterface,
+  datasource: string,
+  overLimit: boolean,
+): SdkInfo {
   return {
     organization: conn.organization,
     client_key: conn.key,
     environment: conn.environment,
     datasource,
+    overLimit,
   };
 }
 
@@ -56,10 +66,24 @@ export const getDataEnrichment = createApiRequestHandler({
     orgIdsWithTrackingEnabled,
   );
 
+  // TODO: Organizations can be large.  We only really need the fields that are used to determine effectivePlan.
+  // If this endpoint becomes too slow or use too much memory we can project just those fields and the
+  // downstream types.  Alternatively we can batch.
+  const organizations = await _dangerouslyFindAllOrganizationsByIds(
+    orgIdsWithTrackingEnabled,
+  );
+
+  const usages = await getUsages(organizations);
+
   const sdkData = Object.fromEntries(
     sdkConnections.map((conn) => [
       conn.key,
-      sdkInfo(conn, dataSourcesByOrgId[conn.organization]),
+      sdkInfo(
+        conn,
+        dataSourcesByOrgId[conn.organization],
+        usages[conn.organization]?.managedClickhouse?.status === "over" ||
+          false,
+      ),
     ]),
   );
 

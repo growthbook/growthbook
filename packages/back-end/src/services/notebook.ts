@@ -13,27 +13,27 @@ import { getReportById } from "back-end/src/models/ReportModel";
 import { Queries } from "back-end/types/query";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterface } from "back-end/types/experiment";
+import type { DataForStatsEngine } from "back-end/types/stats";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
-  DataForStatsEngine,
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
 } from "./stats";
 
 async function getQueryData(
+  context: ReqContext,
   queries: Queries,
-  organization: string,
   map?: QueryMap,
 ): Promise<QueryMap> {
   const docs = await getQueriesByIds(
-    organization,
+    context,
     queries.map((q) => q.query),
   );
 
@@ -182,7 +182,7 @@ export async function generateNotebook({
   }
 
   // Get queries
-  const queries = await getQueryData(queryPointers, context.org.id);
+  const queries = await getQueryData(context, queryPointers);
 
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();

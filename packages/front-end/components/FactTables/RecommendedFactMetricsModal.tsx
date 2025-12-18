@@ -15,6 +15,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { GBInfo } from "@/components/Icons";
+import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 
 type RecommendedMetric = Pick<
   CreateFactMetricProps,
@@ -48,12 +49,15 @@ export function getRecommendedFactMetrics(
       numerator: {
         factTableId: factTable.id,
         column: type === "proportion" ? "$$distinctUsers" : "$$count",
-        filters: [],
-        inlineFilters: column
-          ? {
-              [column.column]: [value || ""],
-            }
-          : {},
+        rowFilters: column
+          ? [
+              {
+                column: column.column,
+                operator: "=",
+                values: [value || ""],
+              },
+            ]
+          : [],
       },
       metricType: type,
       description: description,
@@ -70,18 +74,10 @@ export function getRecommendedFactMetrics(
       column.topValues?.length,
   );
 
-  const filterMap: Record<string, string> = {};
-  factTable.filters.forEach((filter) => {
-    filterMap[filter.id] = filter.value;
-  });
-
   // If there's no top-level proportion metric yet
   if (
     !metrics.some(
-      (m) =>
-        m.metricType === "proportion" &&
-        !m.numerator.filters?.length &&
-        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length,
+      (m) => m.metricType === "proportion" && !m.numerator.rowFilters?.length,
     )
   ) {
     addMetric("proportion");
@@ -93,8 +89,7 @@ export function getRecommendedFactMetrics(
       (m) =>
         m.metricType === "mean" &&
         m.numerator.column === "$$count" &&
-        !m.numerator.filters?.length &&
-        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length,
+        !m.numerator.rowFilters?.length,
     )
   ) {
     addMetric("mean");
@@ -105,14 +100,10 @@ export function getRecommendedFactMetrics(
     column.topValues?.forEach((value) => {
       // Skip if there's already a metric filtering on this value
       if (
-        metrics.some(
-          (m) =>
-            m.numerator.inlineFilters?.[column.column]?.includes(value) ||
-            m.numerator.filters?.some(
-              (f) =>
-                filterMap[f]?.includes(column.column) &&
-                filterMap[f]?.includes(value),
-            ),
+        metrics.some((m) =>
+          m.numerator.rowFilters?.some(
+            (f) => f.column === column.column && f.values?.includes(value),
+          ),
         )
       ) {
         return;
@@ -305,7 +296,8 @@ export default function RecommendedFactMetricsModal({
               ))}
               <td>
                 <Tooltip body={metric.description}>
-                  {metric.metricType}&nbsp;
+                  <FactMetricTypeDisplayName type={metric.metricType} />
+                  &nbsp;
                   <GBInfo />
                 </Tooltip>
               </td>

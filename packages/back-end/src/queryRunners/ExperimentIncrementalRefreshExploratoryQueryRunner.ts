@@ -4,6 +4,10 @@ import {
   isRegressionAdjusted,
 } from "shared/experiments";
 import { cloneDeep } from "lodash";
+import {
+  Dimension,
+  IncrementalRefreshStatisticsQueryParams,
+} from "shared/types/integrations";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
@@ -21,11 +25,7 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import {
-  Dimension,
-  IncrementalRefreshStatisticsQueryParams,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
@@ -167,7 +167,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const metricParams: IncrementalRefreshStatisticsQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      dimensions: dimensionObjs,
+      // TODO(incremental-refresh): add post-stratification to exploratory analysis
+      // unused in exploratory analysis, use dimensionsForAnalysis instead
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: dimensionObjs,
       factTableMap: params.factTableMap,
       metricSourceTableFullName: existingSource.tableFullName,
       metricSourceCovariateTableFullName:
@@ -183,7 +186,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);

@@ -5,6 +5,7 @@ import {
   FactTableInterface,
   CreateFactMetricProps,
   FactMetricInterface,
+  RowFilter,
 } from "back-end/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -34,19 +35,23 @@ import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewE
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
-  existingInlineFilters?: Record<string, string[]>,
-) {
-  const inlineFilters = { ...existingInlineFilters };
+  existingRowFilters?: RowFilter[],
+): RowFilter[] {
+  const rowFilters = [...(existingRowFilters || [])];
   factTable.columns
     .filter(
       (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
     )
     .forEach((c) => {
-      if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
-        inlineFilters[c.column] = [""];
+      if (!rowFilters.some((rf) => rf.column === c.column)) {
+        rowFilters.push({
+          column: c.column,
+          operator: "=",
+          values: [""],
+        });
       }
     });
-  return inlineFilters;
+  return rowFilters;
 }
 
 export function getDefaultFactMetricProps({
@@ -65,7 +70,7 @@ export function getDefaultFactMetricProps({
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
   managedBy?: "" | "api" | "admin";
-}): CreateFactMetricProps {
+}): CreateFactMetricProps & { targetMDE: number } {
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
@@ -75,10 +80,9 @@ export function getDefaultFactMetricProps({
     numerator: existing?.numerator || {
       factTableId: initialFactTable?.id || "",
       column: "$$count",
-      filters: [],
-      inlineFilters: initialFactTable
+      rowFilters: initialFactTable
         ? getInitialInlineFilters(initialFactTable)
-        : {},
+        : [],
     },
     projects: existing?.projects || [],
     denominator: existing?.denominator || null,
@@ -336,6 +340,8 @@ export function getExperimentMetricFormatter(
 
   // Fact metric
   switch (metric.metricType) {
+    case "dailyParticipation":
+      return metric.displayAsPercentage ? formatPercent : formatNumber;
     case "proportion":
     case "retention":
       if (proportionFormat === "number") {
