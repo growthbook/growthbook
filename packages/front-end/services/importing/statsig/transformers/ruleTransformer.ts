@@ -82,13 +82,6 @@ export function transformStatsigConditionsToGB(
           return;
         }
         case "passes_segment": {
-          if (addSavedGroupsToConditions) {
-            // When adding saved groups directly into conditions (e.g. for
-            // saved group import), still treat missing mappings specially so
-            // we can support two-pass imports.
-          }
-
-          // These become saved groups with inclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
           if (savedGroupId) {

@@ -274,7 +274,6 @@ export default function ConditionInput(props: Props) {
 
             if (field === "$savedGroups") {
               const groupOptions = savedGroups
-                .filter((g) => g.type === "condition")
                 .filter((g) => g.id !== props.excludeSavedGroupId)
                 .map((g) => ({
                   label: g.groupName,

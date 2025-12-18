@@ -1630,6 +1630,9 @@ export async function runImport(options: RunImportOptions) {
           segment.status = "completed";
           segment.exists = isUpdate;
           segment.existingSavedGroup = existingSavedGroup;
+          // Clear any previous error message from earlier attempts so the UI
+          // reflects the latest successful import state.
+          segment.error = undefined;
 
           // Map Statsig segment name to GrowthBook saved group ID
           savedGroupIdMap.set(seg.id, res.savedGroup.id);

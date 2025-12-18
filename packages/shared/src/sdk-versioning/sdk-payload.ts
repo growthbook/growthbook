@@ -296,6 +296,21 @@ export const expandNestedSavedGroups: (
         break;
       }
 
+      // For ID List groups, create an [attributeKey]: { $inGroup: ... } targeting condition
+      if (savedGroup.type === "list") {
+        const attributeKey = savedGroup.attributeKey;
+        if (!attributeKey) {
+          // Missing attributeKey on a list group is effectively invalid
+          newConditions.push({ [SAVED_GROUP_ERROR_INVALID]: groupId });
+          break;
+        }
+        const cond: Record<string, unknown> = {
+          [attributeKey]: { $inGroup: groupId },
+        };
+        newConditions.push(cond);
+        continue;
+      }
+
       const nestedCondition = savedGroup.condition;
       if (!nestedCondition || nestedCondition === "{}") {
         // An empty condition should always pass, so skip it

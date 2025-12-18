@@ -192,6 +192,32 @@ describe("expandNestedSavedGroups", () => {
     expect(conditionHasSavedGroupErrors(condition)).toBe(true);
   });
 
+  it("expands nested ID list saved groups into attribute conditions", () => {
+    const savedGroups: GroupMap = new Map(
+      Object.entries({
+        sg_idlist1: {
+          id: "sg_idlist1",
+          type: "list",
+          attributeKey: "id",
+          values: ["00001", "00002"],
+        },
+      }),
+    );
+
+    const condition = {
+      os: "ios",
+      $savedGroups: ["sg_idlist1"],
+    };
+
+    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+
+    expect(condition).toEqual({
+      $and: [{ os: "ios" }, { id: { $inGroup: "sg_idlist1" } }],
+    });
+
+    expect(conditionHasSavedGroupErrors(condition)).toBe(false);
+  });
+
   it("flattens empty $ands", () => {
     const savedGroups: GroupMap = new Map(
       Object.entries({
