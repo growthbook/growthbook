@@ -73,8 +73,21 @@ function operatorToText(operator: string, isPrerequisite?: boolean): string {
 function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
-function hasMultiValues(operator: string) {
-  return ["$in", "$nin", "$inGroup", "$notInGroup"].includes(operator);
+function hasMultiValues(operator: string, value: string) {
+  // For generic list operators, always treat as multi-value
+  if (operator === "$in" || operator === "$nin") return true;
+
+  // For saved group operators, only treat as multi-value if there is more than
+  // one ID present in the comma-separated list
+  if (operator === "$inGroup" || operator === "$notInGroup") {
+    const parts = value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+    return parts.length > 1;
+  }
+
+  return false;
 }
 function getValue(
   operator: string,
@@ -248,7 +261,7 @@ function getConditionParts({
         <span className="mr-1">
           {operatorToText(operator, renderPrerequisite)}
         </span>
-        {hasMultiValues(operator) ? (
+        {hasMultiValues(operator, value) ? (
           <MultiValueDisplay value={value} displayMap={displayMap} />
         ) : needsValue(operator) ? (
           <Badge
