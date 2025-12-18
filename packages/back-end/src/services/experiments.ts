@@ -1380,15 +1380,7 @@ export async function createSnapshot({
       queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
       queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
     ) {
-      const incrementalRefreshData =
-        await context.models.incrementalRefresh.getByExperimentId(
-          experiment.id,
-        );
-      const hasIncrementalRefreshData = !!incrementalRefreshData;
-
-      const fullRefresh =
-        (!useCache || !hasIncrementalRefreshData) &&
-        snapshot.type === "standard";
+      const fullRefresh = !useCache && snapshot.type === "standard";
 
       await queryRunner.startAnalysis({
         ...analysisProps,
