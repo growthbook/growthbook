@@ -93,6 +93,7 @@
     "nodemailer": "^6.9.12",
     "number-format.js": "^2.0.9",
     "nunjucks": "^3.2.4",
+    "ollama": "^0.6.3",
     "openai": "6.10.0",
     "openid-client": "^5.1.10",
     "pg": "^8.9.0",

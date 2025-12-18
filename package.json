@@ -37,7 +37,6 @@
   ],
   "dependencies": {
     "dd-trace": "^5.46.0",
-    "ollama": "^0.5.17",
     "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
