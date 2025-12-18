@@ -14,7 +14,10 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
-type FeatureEvaluationQueriesProps = DataSourceQueryEditingModalBaseProps;
+type FeatureEvaluationQueriesProps = Omit<
+  DataSourceQueryEditingModalBaseProps,
+  "onCancel"
+>;
 type UIMode = "view" | "edit" | "add" | "dimension";
 export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
   dataSource,
