@@ -87,18 +87,21 @@ type EligibleDimensions = {
 export function getExposureQueryEligibleDimensions({
   exposureQuery,
   incrementalRefreshModel,
+  fullRefresh,
   nVariations,
 }: {
   exposureQuery: ExposureQuery;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
+  fullRefresh: boolean;
   nVariations: number;
 }): EligibleDimensions {
   const allDimensions = getExposureQueryDimensions({ exposureQuery });
-  const eligibleDimensions = incrementalRefreshModel
-    ? allDimensions.filter((d) =>
-        incrementalRefreshModel.unitsDimensions.includes(d.id),
-      )
-    : allDimensions;
+  const eligibleDimensions =
+    incrementalRefreshModel && !fullRefresh
+      ? allDimensions.filter((d) =>
+          incrementalRefreshModel.unitsDimensions.includes(d.id),
+        )
+      : allDimensions;
   const eligibleDimensionsWithSlices = getDimensionsWithSpecifiedSlices({
     dimensions: eligibleDimensions,
     exposureQuery,

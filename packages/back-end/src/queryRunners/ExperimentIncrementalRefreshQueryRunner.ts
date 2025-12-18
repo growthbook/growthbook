@@ -306,6 +306,7 @@ const startExperimentIncrementalRefreshQueries = async (
   } = getExposureQueryEligibleDimensions({
     exposureQuery,
     incrementalRefreshModel,
+    fullRefresh: params.fullRefresh,
     nVariations: params.variationNames.length,
   });
 

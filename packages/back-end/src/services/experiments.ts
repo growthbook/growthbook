@@ -483,6 +483,7 @@ export function getSnapshotSettings({
   factTableMap,
   metricGroups,
   incrementalRefreshModel,
+  fullRefresh,
   reweight,
   datasource,
 }: {
@@ -498,6 +499,7 @@ export function getSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   incrementalRefreshModel: IncrementalRefreshInterface | null;
+  fullRefresh: boolean;
   reweight?: boolean;
   datasource?: DataSourceInterface;
 }): ExperimentSnapshotSettings {
@@ -537,6 +539,7 @@ export function getSnapshotSettings({
       getExposureQueryEligibleDimensions({
         exposureQuery,
         incrementalRefreshModel,
+        fullRefresh,
         nVariations: experiment.variations.length,
       });
     dimensions =
@@ -763,6 +766,7 @@ export async function createManualSnapshot({
     factTableMap: new Map(),
     metricGroups: [],
     incrementalRefreshModel: null,
+    fullRefresh: false,
   });
 
   const { srm, variations } = await getManualSnapshotData(
@@ -1208,6 +1212,10 @@ export async function createSnapshot({
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(experiment.id);
 
+  // TODO(incremental-refresh): use other signal other than useCache
+  // to determine full refresh
+  const fullRefresh = !useCache || !incrementalRefreshModel;
+
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -1224,6 +1232,7 @@ export async function createSnapshot({
     reweight,
     datasource,
     incrementalRefreshModel,
+    fullRefresh,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1288,7 +1297,6 @@ export async function createSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({ data });
   const integration = getSourceIntegrationObject(context, datasource, true);
-  const fullRefresh = !useCache || !incrementalRefreshModel;
 
   const isIncrementalRefreshEnabledForExperiment =
     datasource.settings.pipelineSettings?.mode === "incremental" &&
