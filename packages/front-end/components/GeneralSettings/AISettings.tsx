@@ -259,9 +259,23 @@ export default function AISettings({
                     const isOpenAIModel =
                       AI_PROVIDER_MODEL_MAP.openai.includes(selectedModel);
 
+                    // Check if any prompt overrides use Anthropic models
+                    const promptUsesAnthropic = prompts.some((prompt) => {
+                      const promptModel = promptForm.watch(
+                        `${prompt.promptType}-model`,
+                      );
+                      return (
+                        promptModel &&
+                        AI_PROVIDER_MODEL_MAP.anthropic.includes(promptModel)
+                      );
+                    });
+
+                    const showAnthropicKey =
+                      isAnthropicModel || promptUsesAnthropic;
+
                     return (
                       <>
-                        {isAnthropicModel && (
+                        {showAnthropicKey && (
                           <Box mb="6" width="100%">
                             <Text
                               as="label"

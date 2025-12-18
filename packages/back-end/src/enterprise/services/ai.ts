@@ -290,7 +290,6 @@ export const simpleCompletion = async ({
     ...(temperature != null ? { temperature } : {}),
   };
 
-  let _response;
   let numTokensUsed = numTokens;
   let result: string;
 
