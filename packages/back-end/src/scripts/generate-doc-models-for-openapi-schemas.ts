@@ -87,6 +87,20 @@ function isValidApi(
   return true;
 }
 
+function getOrCreatePathRecord(api: ApiShape, fullPath: string, verb: string) {
+  if (api.paths[fullPath] && "$ref" in api.paths[fullPath])
+    throw new Error(
+      "Unable to add API route at '${verb}' ${fullPath}; this path has a $ref defined",
+    );
+  const pathRecord: PathRecord = api.paths[fullPath] || {};
+  if (verb in pathRecord) {
+    throw new Error(
+      `Unable to add API route at '${verb}' ${fullPath}; this route is already defined`,
+    );
+  }
+  return pathRecord;
+}
+
 async function run() {
   const specPath = path.join(__dirname, "../api/openapi/openapi.yaml");
   const api = load(fs.readFileSync(specPath, "utf-8"));
@@ -124,16 +138,7 @@ async function run() {
     crudConfig.forEach(
       ({ action, verb, pathFragment, validator, returnKey, plural }) => {
         const fullPath = modelDef.pathBase + pathFragment;
-        if (api.paths[fullPath] && "$ref" in api.paths[fullPath])
-          throw new Error(
-            "Unable to add API route at '${verb}' ${fullPath}; this path has a $ref defined",
-          );
-        const pathRecord: PathRecord = api.paths[fullPath] || {};
-        if (verb in pathRecord) {
-          throw new Error(
-            `Unable to add API route at '${verb}' ${fullPath}; this route is already defined`,
-          );
-        }
+        const pathRecord = getOrCreatePathRecord(api, fullPath, verb);
         const returnSchema =
           action === "delete"
             ? {
@@ -166,16 +171,7 @@ async function run() {
     (apiConfig.customHandlers ?? []).forEach(
       ({ pathFragment, verb, operationId, validator, zodReturnObject }) => {
         const fullPath = modelDef.pathBase + pathFragment;
-        if (api.paths[fullPath] && "$ref" in api.paths[fullPath])
-          throw new Error(
-            "Unable to add API route at '${verb}' ${fullPath}; this path has a $ref defined",
-          );
-        const pathRecord: PathRecord = api.paths[fullPath] || {};
-        if (verb in pathRecord) {
-          throw new Error(
-            `Unable to add API route at '${verb}' ${fullPath}; this route is already defined`,
-          );
-        }
+        const pathRecord = getOrCreatePathRecord(api, fullPath, verb);
         pathRecord[verb] = generateYamlForPath({
           validator,
           returnSchema: z.toJSONSchema(zodReturnObject),

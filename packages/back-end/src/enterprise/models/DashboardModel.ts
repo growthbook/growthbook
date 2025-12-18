@@ -9,6 +9,8 @@ import {
   apiCreateDashboardBody,
   apiDashboardInterface,
   ApiDashboardInterface,
+  ApiGetDashboardsForExperimentRequest,
+  ApiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentValidator,
   apiUpdateDashboardBody,
@@ -24,7 +26,6 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
@@ -42,18 +43,6 @@ type LegacyDashboardDocument = Omit<
   editLevel: "organization" | "private";
   shareLevel?: DashboardInterface["shareLevel"];
 };
-
-const apiFindByExperiment = createApiRequestHandler(
-  apiGetDashboardsForExperimentValidator,
-)(async (req): Promise<{ dashboards: ApiDashboardInterface[] }> => {
-  const dashboards = await req.context.models.dashboards.findByExperiment(
-    req.params.experimentId,
-  );
-
-  return {
-    dashboards: dashboards.map(req.context.models.dashboards.toApiInterface),
-  };
-});
 
 const COLLECTION_NAME = "dashboards";
 const BaseClass = MakeModelClass({
@@ -91,7 +80,15 @@ const BaseClass = MakeModelClass({
         operationId: "getDashboardsForExperiment",
         validator: apiGetDashboardsForExperimentValidator,
         zodReturnObject: apiGetDashboardsForExperimentReturn,
-        wrappedHandler: apiFindByExperiment,
+        reqHandler: async (
+          req: ApiGetDashboardsForExperimentRequest,
+        ): Promise<ApiGetDashboardsForExperimentReturn> => ({
+          dashboards: (
+            await req.context.models.dashboards.findByExperiment(
+              req.params.experimentId,
+            )
+          ).map(req.context.models.dashboards.toApiInterface),
+        }),
       },
     ],
   },

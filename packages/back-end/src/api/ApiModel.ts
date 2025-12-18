@@ -1,10 +1,14 @@
-import { Router, RequestHandler } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { apiBaseSchema } from "shared/validators";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ModelClass, ModelName } from "back-end/src/services/context";
-import { ApiRequestValidator, createApiRequestHandler } from "../util/handler";
+import {
+  ApiRequest,
+  ApiRequestValidator,
+  createApiRequestHandler,
+} from "../util/handler";
 
 export type ApiBaseSchema = typeof apiBaseSchema;
 
@@ -20,13 +24,20 @@ const crudActions = ["get", "create", "list", "delete", "update"] as const;
 type CrudAction = (typeof crudActions)[number];
 export const httpVerbs = ["get", "post", "put", "delete", "patch"] as const;
 export type HttpVerb = (typeof httpVerbs)[number];
-type CustomHandler = {
+type CustomHandler<
+  ParamsSchema extends z.ZodType = z.ZodTypeAny,
+  BodySchema extends z.ZodType = z.ZodTypeAny,
+  QuerySchema extends z.ZodType = z.ZodTypeAny,
+  ReturnShape = object,
+> = {
   pathFragment: string;
   verb: HttpVerb;
   operationId: string;
-  validator: ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
+  validator: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema>;
   zodReturnObject: z.ZodObject;
-  wrappedHandler: RequestHandler;
+  reqHandler: (
+    req: ApiRequest<ReturnShape, ParamsSchema, BodySchema, QuerySchema>,
+  ) => Promise<ReturnShape>;
 };
 const defaultHandlers = {
   get: "handleApiGet",
@@ -147,9 +158,12 @@ export function defineRouterForApiModel(modelDef: ApiModel) {
     r[verb](pathFragment, handler);
   });
   if (!apiConfig.customHandlers) return r;
-  apiConfig.customHandlers.forEach(({ pathFragment, wrappedHandler, verb }) => {
-    r[verb](pathFragment, wrappedHandler);
-  });
+  apiConfig.customHandlers.forEach(
+    ({ pathFragment, validator, reqHandler, verb }) => {
+      const wrappedHandler = createApiRequestHandler(validator)(reqHandler);
+      r[verb](pathFragment, wrappedHandler);
+    },
+  );
   return r;
 }
 
