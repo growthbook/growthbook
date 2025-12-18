@@ -2,7 +2,6 @@ import clsx from "clsx";
 import React, {
   CSSProperties,
   ReactElement,
-  ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -10,7 +9,6 @@ import React, {
   useState,
 } from "react";
 import { CSSTransition } from "react-transition-group";
-import { RxInfoCircled } from "react-icons/rx";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 import {
   ExperimentReportVariation,
@@ -148,11 +146,6 @@ export const RESULTS_TABLE_COLUMNS = [
 export enum RowError {
   QUANTILE_AGGREGATION_ERROR = "QUANTILE_AGGREGATION_ERROR",
 }
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export default function ResultsTable({
   id,
@@ -597,7 +590,7 @@ export default function ResultsTable({
                   <>
                     {columnsToDisplay.includes("Baseline Average") && (
                       <th
-                        style={{ width: 140 * tableCellScale }}
+                        style={{ width: 130 * tableCellScale }}
                         className={clsx("axis-col label", { noStickyHeader })}
                       >
                         <BaselineChooserColumnLabel
@@ -619,7 +612,7 @@ export default function ResultsTable({
                     )}
                     {columnsToDisplay.includes("Variation Averages") && (
                       <th
-                        style={{ width: 140 * tableCellScale }}
+                        style={{ width: 130 * tableCellScale }}
                         className={clsx("axis-col label", { noStickyHeader })}
                       >
                         <VariationChooserColumnLabel
@@ -638,8 +631,10 @@ export default function ResultsTable({
                     )}
                     {columnsToDisplay.includes("Chance to Win") && (
                       <th
-                        style={{ width: 140 * tableCellScale }}
-                        className={clsx("axis-col label nowrap", { noStickyHeader })}
+                        style={{ width: 130 * tableCellScale }}
+                        className={clsx("axis-col label nowrap", {
+                          noStickyHeader,
+                        })}
                       >
                         {statsEngine === "bayesian" ? (
                           <>
@@ -1328,80 +1323,6 @@ function drawEmptyRow({
 
       {renderLastColumn && <td>{lastColumnContent}</td>}
     </tr>
-  );
-}
-
-function getChangeTooltip(
-  changeTitle: string,
-  statsEngine: StatsEngine,
-  differenceType: DifferenceType,
-  sequentialTestingEnabled: boolean,
-  pValueCorrection: PValueCorrection,
-  pValueThreshold: number,
-) {
-  let changeText =
-    "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
-  if (differenceType == "absolute") {
-    changeText =
-      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline. Differences in proportion metrics are shown in percentage points (pp).";
-  } else if (differenceType == "scaled") {
-    changeText =
-      "The total change in the metric per day if 100% of traffic were to have gone to the variation.";
-  }
-
-  const changeElem = (
-    <>
-      <p>
-        <b>{changeTitle}</b> - {changeText}
-      </p>
-    </>
-  );
-  let intervalText: ReactNode = null;
-  if (statsEngine === "bayesian") {
-    intervalText = (
-      <>
-        The interval is a 95% credible interval. The true value is more likely
-        to be in the thicker parts of the graph.
-      </>
-    );
-  }
-  if (statsEngine === "frequentist") {
-    const confidencePct = percentFormatter.format(1 - pValueThreshold);
-    intervalText = (
-      <>
-        The interval is a {confidencePct} confidence interval. If you re-ran the
-        experiment 100 times, the true value would be in this range{" "}
-        {confidencePct} of the time.
-        {sequentialTestingEnabled && (
-          <p className="mt-2 mb-0">
-            Because sequential testing is enabled, these confidence intervals
-            are valid no matter how many times you analyze (or peek at) this
-            experiment as it runs.
-          </p>
-        )}
-        {pValueCorrection && (
-          <p className="mt-2 mb-0">
-            Because your organization has multiple comparisons corrections
-            enabled, these confidence intervals have been inflated so that they
-            match the adjusted psuedo-p-value. Because confidence intervals do
-            not generally exist for all adjusted p-values, we use a method that
-            recreates the confidence intervals that would have produced these
-            psuedo-p-values. For adjusted psuedo-p-values that are 1.0, the
-            confidence intervals are infinite.
-          </p>
-        )}
-      </>
-    );
-  }
-  return (
-    <>
-      {changeElem}
-      {intervalText && (
-        <p className="mt-3">
-          <b>Graph</b> - {intervalText}
-        </p>
-      )}
-    </>
   );
 }
 
