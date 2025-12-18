@@ -83,9 +83,9 @@ export function transformStatsigConditionsToGB(
         }
         case "passes_segment": {
           if (addSavedGroupsToConditions) {
-            // If we are not adding saved groups, treat as normal targeting condition
-            targetingConditions.push(condition);
-            return;
+            // When adding saved groups directly into conditions (e.g. for
+            // saved group import), still treat missing mappings specially so
+            // we can support two-pass imports.
           }
 
           // These become saved groups with inclusion
@@ -97,16 +97,19 @@ export function transformStatsigConditionsToGB(
             console.warn(
               `Saved group ID not found for segment: ${segmentName}`,
             );
-            // Fallback to using the name if ID not found
-            savedGroups.push({ ids: [segmentName], match: "all" });
+            // For first-pass imports where the referenced group has not been
+            // created yet, use a placeholder ID. A second import pass can then
+            // re-run with a fully-populated savedGroupIdMap and replace this
+            // with the real ID.
+            savedGroups.push({ ids: ["__unknown_group__"], match: "all" });
           }
           return;
         }
         case "fails_segment": {
           if (addSavedGroupsToConditions) {
-            // If we are not adding saved groups, treat as normal targeting condition
-            targetingConditions.push(condition);
-            return;
+            // When adding saved groups directly into conditions (e.g. for
+            // saved group import), still treat missing mappings specially so
+            // we can support two-pass imports.
           }
 
           // These become saved groups with exclusion
@@ -118,8 +121,11 @@ export function transformStatsigConditionsToGB(
             console.warn(
               `Saved group ID not found for segment: ${segmentName}`,
             );
-            // Fallback to using the name if ID not found
-            savedGroups.push({ ids: [segmentName], match: "none" });
+            // For first-pass imports where the referenced group has not been
+            // created yet, use a placeholder ID. A second import pass can then
+            // re-run with a fully-populated savedGroupIdMap and replace this
+            // with the real ID.
+            savedGroups.push({ ids: ["__unknown_group__"], match: "none" });
           }
           return;
         }

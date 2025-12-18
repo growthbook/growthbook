@@ -31,7 +31,11 @@ import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 
 // region POST /saved-groups
 
-type CreateSavedGroupRequest = AuthRequest<CreateSavedGroupProps>;
+type CreateSavedGroupRequest = AuthRequest<
+  CreateSavedGroupProps,
+  Record<string, never>,
+  { skipCycleCheck?: string }
+>;
 
 type CreateSavedGroupResponse = {
   status: 200;
@@ -60,6 +64,7 @@ export const postSavedGroup = async (
     description,
     projects,
   } = req.body;
+  const skipCycleCheck = req.query.skipCycleCheck;
 
   if (!context.permissions.canCreateSavedGroup({ ...req.body })) {
     context.permissions.throwPermissionError();
@@ -71,7 +76,8 @@ export const postSavedGroup = async (
 
   let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
-  if (type === "condition") {
+  // unless explicitly bypassed (used by importers that handle cycle safety).
+  if (type === "condition" && skipCycleCheck !== "1") {
     const allSavedGroups = await getAllSavedGroups(org.id);
     const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
     const conditionRes = validateCondition(condition, groupMap);
@@ -378,7 +384,11 @@ export const postSavedGroupRemoveItems = async (
 
 // region PUT /saved-groups/:id
 
-type PutSavedGroupRequest = AuthRequest<UpdateSavedGroupProps, { id: string }>;
+type PutSavedGroupRequest = AuthRequest<
+  UpdateSavedGroupProps,
+  { id: string },
+  { skipCycleCheck?: string }
+>;
 
 type PutSavedGroupResponse = {
   status: 200;
@@ -398,6 +408,7 @@ export const putSavedGroup = async (
   const { org } = context;
   const { groupName, owner, values, condition, description, projects } =
     req.body;
+  const skipCycleCheck = req.query.skipCycleCheck;
   const { id } = req.params;
 
   if (!id) {
@@ -440,20 +451,23 @@ export const putSavedGroup = async (
     condition &&
     condition !== savedGroup.condition
   ) {
-    // Validate condition to make sure it's valid
-    const allSavedGroups = await getAllSavedGroups(org.id);
-    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
-    // Include the updated condition in the savedGroupsObj for validation
-    groupMap.set(savedGroup.id, {
-      ...savedGroup,
-      condition,
-    });
-    const conditionRes = validateCondition(condition, groupMap);
-    if (!conditionRes.success) {
-      throw new Error(conditionRes.error);
-    }
-    if (conditionRes.empty) {
-      throw new Error("Condition cannot be empty");
+    // Validate condition to make sure it's valid unless explicitly bypassed
+    // (used by importers that handle cycle safety).
+    if (skipCycleCheck !== "1") {
+      const allSavedGroups = await getAllSavedGroups(org.id);
+      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      // Include the updated condition in the savedGroupsObj for validation
+      groupMap.set(savedGroup.id, {
+        ...savedGroup,
+        condition,
+      });
+      const conditionRes = validateCondition(condition, groupMap);
+      if (!conditionRes.success) {
+        throw new Error(conditionRes.error);
+      }
+      if (conditionRes.empty) {
+        throw new Error("Condition cannot be empty");
+      }
     }
 
     fieldsToUpdate.condition = condition;

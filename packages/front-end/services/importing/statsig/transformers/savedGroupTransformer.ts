@@ -37,15 +37,85 @@ export async function transformStatsigSegmentToSavedGroup(
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
         // Transform this rule's conditions to GrowthBook format
+        // For segments, we want nested segments (passes_segment / fails_segment)
+        // to become saved group references via $savedGroups instead of being
+        // treated as generic targeting attributes, so we let the transformer
+        // populate the savedGroups array and then merge that into the condition.
         const transformed = transformStatsigConditionsToGB(
           rule.conditions,
           skipAttributeMapping,
           _savedGroupIdMap,
-          undefined,
-          true,
         );
+
+        // Start from the base targeting condition (if any)
+        let baseConditionObj: Record<string, unknown> = {};
         if (transformed.condition && transformed.condition !== "{}") {
-          ruleConditions.push(transformed.condition);
+          try {
+            baseConditionObj = JSON.parse(transformed.condition) as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            // If parsing fails for some reason, fall back to an empty object
+            baseConditionObj = {};
+          }
+        }
+
+        // Merge any saved group references into the condition using $savedGroups
+        const savedGroups = transformed.savedGroups || [];
+        if (savedGroups.length > 0) {
+          const includeIds: string[] = [];
+          const excludeIds: string[] = [];
+
+          savedGroups.forEach((sg) => {
+            if (sg.match === "none") {
+              excludeIds.push(...sg.ids);
+            } else {
+              // "all" (and any future inclusive matches) are treated as inclusion
+              includeIds.push(...sg.ids);
+            }
+          });
+
+          let savedGroupCondition: Record<string, unknown> | null = null;
+
+          if (includeIds.length > 0) {
+            savedGroupCondition = {
+              $savedGroups: includeIds,
+            };
+          }
+
+          if (excludeIds.length > 0) {
+            const excludeClause: Record<string, unknown> = {
+              $not: { $savedGroups: excludeIds },
+            };
+
+            if (!savedGroupCondition) {
+              savedGroupCondition = excludeClause;
+            } else {
+              savedGroupCondition = {
+                $and: [savedGroupCondition, excludeClause],
+              };
+            }
+          }
+
+          if (savedGroupCondition) {
+            const hasBase =
+              baseConditionObj && Object.keys(baseConditionObj).length > 0;
+            if (!hasBase) {
+              baseConditionObj = savedGroupCondition;
+            } else {
+              baseConditionObj = {
+                $and: [baseConditionObj, savedGroupCondition],
+              };
+            }
+          }
+        }
+
+        const hasFinalCondition =
+          baseConditionObj && Object.keys(baseConditionObj).length > 0;
+
+        if (hasFinalCondition) {
+          ruleConditions.push(JSON.stringify(baseConditionObj));
         }
       }
     });
