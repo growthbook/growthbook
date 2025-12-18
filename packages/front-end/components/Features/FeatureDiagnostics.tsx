@@ -9,6 +9,7 @@ import { QueryStatistics } from "back-end/types/query";
 import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { format } from "date-fns";
+import { isNull } from "lodash";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -19,7 +20,6 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
-import Tooltip from "@/ui/Tooltip";
 import EmptyState from "@/components/EmptyState";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import Field from "../Forms/Field";
@@ -87,7 +87,7 @@ export default function FeatureDiagnostics({
   setResults: (
     results: Array<
       FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
-    >,
+    > | null,
   ) => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -156,7 +156,7 @@ export default function FeatureDiagnostics({
     defaultSortDir: -1,
     localStorageKey: "feature-diagnostics",
     searchFields: ["timestamp", ...columns],
-    pageSize: 50,
+    pageSize: 25,
   });
 
   const onRunFeatureUsageQuery = async () => {
@@ -222,7 +222,10 @@ export default function FeatureDiagnostics({
           labelClassName="font-weight-bold"
           value={form.watch("datasourceId") ?? ""}
           onChange={(newDatasource) => {
-            form.setValue("datasourceId", newDatasource);
+            if (newDatasource !== form.watch("datasourceId")) {
+              setResults(null);
+              form.setValue("datasourceId", newDatasource);
+            }
           }}
           options={validDatasources.map((d) => {
             const isDefaultDataSource = d.id === settings.defaultDataSource;
@@ -249,21 +252,12 @@ export default function FeatureDiagnostics({
 
       {datasource && datasourceHasFeatureUsageQuery && (
         <Frame mt="4">
-          <Flex direction="row" justify="between" mb="4">
-            <Box flexBasis="40%" flexShrink="1" flexGrow="0">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </Box>
-            <Tooltip
-              content="Setup a feature usage query in your data source to view feature evaluations."
-              enabled={!datasourceHasFeatureUsageQuery && !loading}
-            >
+          {isNull(results) ? (
+            <Flex justify="center">
               <Button
                 onClick={onRunFeatureUsageQuery}
                 disabled={loading || !datasourceHasFeatureUsageQuery}
+                size="md"
               >
                 {loading
                   ? "Running..."
@@ -271,20 +265,39 @@ export default function FeatureDiagnostics({
                     ? "View recent feature evaluations"
                     : "Refresh feature evaluations"}
               </Button>
-            </Tooltip>
-          </Flex>
+            </Flex>
+          ) : (
+            <Flex direction="row" justify="between" my="3">
+              <Box flexBasis="40%" flexShrink="1" flexGrow="0">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+
+              <Button
+                onClick={onRunFeatureUsageQuery}
+                disabled={loading || !datasourceHasFeatureUsageQuery}
+              >
+                {loading ? "Running..." : "Refresh feature evaluations"}
+              </Button>
+            </Flex>
+          )}
           {error && (
-            <Callout status="error">
+            <Callout status="error" my="3">
               <strong>Error:</strong> {error}
             </Callout>
           )}
           {results && results.length === 0 && (
-            <Callout status="info">No feature evaluations found.</Callout>
+            <Callout status="info" my="3">
+              No feature evaluations found.
+            </Callout>
           )}
-          {/* If there's feature usage data, show a table with the data */}
+
           {items.length > 0 && (
             <>
-              <Table>
+              <Table mt="6">
                 <TableHeader>
                   <TableRow>
                     <SortableTH field="timestamp">Timestamp</SortableTH>
