@@ -134,15 +134,26 @@ async function run() {
             `Unable to add API route at '${verb}' ${fullPath}; this route is already defined`,
           );
         }
-        const returnSchema = {
-          type: "object",
-          required: action === "delete" ? [] : [returnKey],
-          properties: {
-            [returnKey]: z.toJSONSchema(
-              plural ? z.array(apiConfig.apiInterface) : apiConfig.apiInterface,
-            ),
-          },
-        };
+        const returnSchema =
+          action === "delete"
+            ? {
+                type: "object",
+                required: ["deletedId"],
+                properties: {
+                  deletedId: { type: "string" },
+                },
+              }
+            : {
+                type: "object",
+                required: [returnKey],
+                properties: {
+                  [returnKey]: z.toJSONSchema(
+                    plural
+                      ? z.array(apiConfig.apiInterface)
+                      : apiConfig.apiInterface,
+                  ),
+                },
+              };
         pathRecord[verb] = generateYamlForPath({
           validator,
           returnSchema,

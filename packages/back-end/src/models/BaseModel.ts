@@ -288,10 +288,10 @@ export abstract class BaseModel<
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
-  ): Promise<z.infer<ApiT> | undefined> {
+  ): Promise<string> {
     const id = req.params.id;
-    const deleted = await this.deleteById(id);
-    return deleted ? this.toApiInterface(deleted) : deleted;
+    await this.deleteById(id);
+    return id;
   }
   protected async handleApiUpdate(
     req: ApiRequest<
