@@ -297,7 +297,7 @@ export default function FeatureDiagnostics({
 
           {items.length > 0 && (
             <>
-              <Table mt="6">
+              <Table mt="6" className="table gbtable responsive-table">
                 <TableHeader>
                   <TableRow>
                     <SortableTH field="timestamp">Timestamp</SortableTH>
