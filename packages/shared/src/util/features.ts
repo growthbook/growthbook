@@ -606,9 +606,13 @@ export type ValidateConditionReturn = {
   suggestedValue?: string;
   error?: string;
 };
+// skipSavedGroupReferenceChecks=true will skip only saved-group reference errors
+// (cycles, unknown groups, invalid nested group conditions, max nesting depth),
+// but will still enforce that the condition is valid JSON / dJSON.
 export function validateCondition(
   condition?: string,
   groupMap?: GroupMap,
+  skipSavedGroupCycleCheck: boolean = false,
 ): ValidateConditionReturn {
   if (!condition || condition === "{}") {
     return { success: true, empty: true };
@@ -621,7 +625,7 @@ export function validateCondition(
 
     const scrubbed = cloneDeep(res);
     recursiveWalk(scrubbed, expandNestedSavedGroups(groupMap || new Map()));
-    if (conditionHasSavedGroupErrors(scrubbed)) {
+    if (conditionHasSavedGroupErrors(scrubbed, skipSavedGroupCycleCheck)) {
       return {
         success: false,
         empty: false,

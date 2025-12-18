@@ -230,25 +230,29 @@ export const SAVED_GROUP_ERROR_CYCLE = "__sgCycle__";
 export const SAVED_GROUP_ERROR_INVALID = "__sgInvalid__";
 export const SAVED_GROUP_ERROR_UNKNOWN = "__sgUnknown__";
 
-const sgErrorRegex = new RegExp(
-  `"(${[
-    SAVED_GROUP_ERROR_MAX_DEPTH,
-    SAVED_GROUP_ERROR_CYCLE,
-    SAVED_GROUP_ERROR_INVALID,
-    SAVED_GROUP_ERROR_UNKNOWN,
-  ].join("|")})"\\s*:`,
-);
-
-export function conditionHasSavedGroupErrors(condition: unknown) {
+export function conditionHasSavedGroupErrors(
+  condition: unknown,
+  ignoreCycleErrors: boolean = false,
+) {
   if (!condition) return false;
 
-  if (typeof condition === "object") {
-    const stringified = JSON.stringify(condition);
-    return !!stringified.match(sgErrorRegex);
-  } else if (typeof condition === "string") {
-    return !!condition.match(sgErrorRegex);
-  }
-  return false;
+  const src =
+    typeof condition === "object"
+      ? JSON.stringify(condition)
+      : String(condition);
+
+  const errorMarkers = [
+    SAVED_GROUP_ERROR_INVALID,
+    SAVED_GROUP_ERROR_UNKNOWN,
+    ...(ignoreCycleErrors
+      ? []
+      : [SAVED_GROUP_ERROR_MAX_DEPTH, SAVED_GROUP_ERROR_CYCLE]),
+  ];
+
+  if (errorMarkers.length === 0) return false;
+
+  const regex = new RegExp(`"(${errorMarkers.join("|")})"\\s*:`);
+  return !!src.match(regex);
 }
 
 export const expandNestedSavedGroups: (

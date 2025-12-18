@@ -75,12 +75,20 @@ export const postSavedGroup = async (
   }
 
   let uniqValues: string[] | undefined = undefined;
-  // If this is a condition group, make sure the condition is valid and not empty
-  // unless explicitly bypassed (used by importers that handle cycle safety).
-  if (type === "condition" && skipCycleCheck !== "1") {
+  // If this is a condition group, make sure the condition is valid and not empty.
+  // When skipCycleCheck=1 (used by importers), still validate general JSON/syntax
+  // but skip saved-group cyclic/invalid reference checks so users can fix them later.
+  if (type === "condition") {
     const allSavedGroups = await getAllSavedGroups(org.id);
     const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
-    const conditionRes = validateCondition(condition, groupMap);
+    const conditionRes = validateCondition(
+      condition,
+      groupMap,
+      // When skipCycleCheck=1, skip only saved-group *cycle* checks while still
+      // enforcing JSON validity and other saved-group errors (unknown group,
+      // invalid nested condition, max depth).
+      skipCycleCheck === "1",
+    );
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
@@ -451,23 +459,29 @@ export const putSavedGroup = async (
     condition &&
     condition !== savedGroup.condition
   ) {
-    // Validate condition to make sure it's valid unless explicitly bypassed
-    // (used by importers that handle cycle safety).
-    if (skipCycleCheck !== "1") {
-      const allSavedGroups = await getAllSavedGroups(org.id);
-      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
-      // Include the updated condition in the savedGroupsObj for validation
-      groupMap.set(savedGroup.id, {
-        ...savedGroup,
-        condition,
-      });
-      const conditionRes = validateCondition(condition, groupMap);
-      if (!conditionRes.success) {
-        throw new Error(conditionRes.error);
-      }
-      if (conditionRes.empty) {
-        throw new Error("Condition cannot be empty");
-      }
+    // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
+    // importers), still validate general JSON/syntax but skip saved-group
+    // cyclic/invalid reference checks so users can fix them later.
+    const allSavedGroups = await getAllSavedGroups(org.id);
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    // Include the updated condition in the savedGroupsObj for validation
+    groupMap.set(savedGroup.id, {
+      ...savedGroup,
+      condition,
+    });
+    const conditionRes = validateCondition(
+      condition,
+      groupMap,
+      // When skipCycleCheck=1, skip only saved-group *cycle* checks while still
+      // enforcing JSON validity and other saved-group errors (unknown group,
+      // invalid nested condition, max depth).
+      skipCycleCheck === "1",
+    );
+    if (!conditionRes.success) {
+      throw new Error(conditionRes.error);
+    }
+    if (conditionRes.empty) {
+      throw new Error("Condition cannot be empty");
     }
 
     fieldsToUpdate.condition = condition;
