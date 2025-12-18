@@ -234,8 +234,9 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(experimentId);
+  const incrementalRefreshModel = params.fullRefresh
+    ? null
+    : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
@@ -285,9 +286,7 @@ const startExperimentIncrementalRefreshQueries = async (
   }
 
   // Begin Queries
-  const lastMaxTimestamp = !params.fullRefresh
-    ? incrementalRefreshModel?.unitsMaxTimestamp
-    : null;
+  const lastMaxTimestamp = incrementalRefreshModel?.unitsMaxTimestamp;
 
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId,
@@ -306,7 +305,6 @@ const startExperimentIncrementalRefreshQueries = async (
   } = getExposureQueryEligibleDimensions({
     exposureQuery,
     incrementalRefreshModel,
-    fullRefresh: params.fullRefresh,
     nVariations: params.variationNames.length,
   });
 
@@ -421,9 +419,12 @@ const startExperimentIncrementalRefreshQueries = async (
   queries.push(maxTimestampUnitsTableQuery);
 
   // Metric Queries
-  let existingSources = incrementalRefreshModel?.metricSources;
+
+  // Full refresh will have a null incremental refresh model
+  // Will recreate sources with new random id for metric sources
+  let existingSources = incrementalRefreshModel?.metricSources ?? [];
   let existingCovariateSources =
-    incrementalRefreshModel?.metricCovariateSources;
+    incrementalRefreshModel?.metricCovariateSources ?? [];
 
   // Filter out metric source groups that belong to Fact Tables with new metrics
   // This forces a full refresh for those Fact Tables
@@ -446,13 +447,6 @@ const startExperimentIncrementalRefreshQueries = async (
     existingCovariateSources = existingCovariateSources?.filter(
       (source) => !sourcesGroupIdsToDelete.includes(source.groupId),
     );
-  }
-
-  // Full refresh, pretend no existing sources
-  // Will recreate sources with new random id for metric sources
-  if (params.fullRefresh) {
-    existingSources = [];
-    existingCovariateSources = [];
   }
 
   const metricSourceGroups = getIncrementalRefreshMetricSources(
@@ -781,10 +775,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     }
 
-    const incrementalRefreshModel =
-      await this.context.models.incrementalRefresh.getByExperimentId(
-        params.experimentId,
-      );
+    const incrementalRefreshModel = params.fullRefresh
+      ? null
+      : await this.context.models.incrementalRefresh.getByExperimentId(
+          params.experimentId,
+        );
 
     const experiment = await getExperimentById(
       this.context,
