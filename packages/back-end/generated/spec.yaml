@@ -5800,6 +5800,7 @@ paths:
                   $ref: '#/components/schemas/CustomField'
   '/dashboards/:id':
     get:
+      $skipValidatorGeneration: true
       parameters:
         - name: id
           in: path
@@ -6354,6 +6355,7 @@ paths:
                       - blocks
                     additionalProperties: false
     delete:
+      $skipValidatorGeneration: true
       parameters:
         - name: id
           in: path
@@ -6377,6 +6379,7 @@ paths:
                   deletedId:
                     type: string
     post:
+      $skipValidatorGeneration: true
       parameters:
         - name: id
           in: path
@@ -7799,6 +7802,7 @@ paths:
                     additionalProperties: false
   /dashboards/:
     post:
+      $skipValidatorGeneration: true
       parameters: []
       tags:
         - Dashboards
@@ -8784,6 +8788,7 @@ paths:
                       - blocks
                     additionalProperties: false
     get:
+      $skipValidatorGeneration: true
       parameters: []
       tags:
         - Dashboards
@@ -9968,6 +9973,7 @@ components:
         - dateUpdated
         - blocks
       additionalProperties: false
+      $skipValidatorGeneration: true
     PaginationFields:
       type: object
       required:

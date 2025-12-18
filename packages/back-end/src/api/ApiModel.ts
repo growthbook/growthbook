@@ -257,6 +257,7 @@ export function generateYamlForPath({
     };
   }
   return {
+    $skipValidatorGeneration: true,
     parameters: formattedParams,
     tags: tags,
     summary,

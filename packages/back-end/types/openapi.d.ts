@@ -15234,7 +15234,6 @@ import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
 
 // Schemas
-export type ApiDashboard = z.infer<typeof openApiValidators.apiDashboardValidator>;
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
 export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidator>;
 export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
@@ -15376,8 +15375,3 @@ export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"][
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
 export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];
-export type GetDashboardResponse = operations["getDashboard"]["responses"]["200"]["content"]["application/json"];
-export type UpdateDashboardResponse = operations["updateDashboard"]["responses"]["200"]["content"]["application/json"];
-export type DeleteDashboardResponse = operations["deleteDashboard"]["responses"]["200"]["content"]["application/json"];
-export type ListDashboardsResponse = operations["listDashboards"]["responses"]["200"]["content"]["application/json"];
-export type CreateDashboardResponse = operations["createDashboard"]["responses"]["200"]["content"]["application/json"];

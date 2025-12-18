@@ -163,9 +163,9 @@ async function run() {
         api.paths[fullPath] = pathRecord;
       },
     );
-    api.components.schemas[singularCapitalized] = z.toJSONSchema(
-      apiConfig.apiInterface,
-    );
+    const schema = z.toJSONSchema(apiConfig.apiInterface);
+    schema.$skipValidatorGeneration = true;
+    api.components.schemas[singularCapitalized] = schema;
   });
 
   // Add all model schemas to the tags
