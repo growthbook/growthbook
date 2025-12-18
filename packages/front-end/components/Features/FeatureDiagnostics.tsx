@@ -174,7 +174,6 @@ export default function FeatureDiagnostics({
         },
       );
       if (results.rows) {
-        // add an id to each row based on the timestamp
         const rowsWithId = results.rows.map((row, index) => ({
           ...row,
           id: index.toString(),
