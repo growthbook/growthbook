@@ -190,7 +190,7 @@ export default function VariationChooserColumnLabel({
 
   // Determine what to display in the trigger
   let triggerContent: React.ReactNode;
-  if (singleSelected) {
+  if (singleSelected && !isHoldout) {
     const selectedVariation = filteredVariations[0];
     triggerContent = (
       <Flex
