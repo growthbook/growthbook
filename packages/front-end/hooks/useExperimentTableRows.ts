@@ -655,4 +655,3 @@ export function filterMetricsByTags(
     })
     .map((m) => m.id);
 }
-

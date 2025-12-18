@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
 import React, { useMemo, useState } from "react";
+import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import clsx from "clsx";
@@ -14,6 +15,14 @@ import {
   expandAllSliceMetricsInMap,
   ExperimentMetricInterface,
 } from "shared/experiments";
+import { getSnapshotAnalysis } from "shared/util";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { getValidDate } from "shared/dates";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { startCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -23,7 +32,6 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import { isOutdated } from "@/components/Experiment/AnalysisSettingsBar";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -315,6 +323,215 @@ export default function AnalysisSettingsSummary({
   ]);
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
+
+  function isDifferent(
+    val1?: string | boolean | number | null,
+    val2?: string | boolean | number | null,
+  ) {
+    if (!val1 && !val2) return false;
+    return val1 !== val2;
+  }
+
+  function isDifferentStringArray(
+    val1?: string[] | null,
+    val2?: string[] | null,
+  ) {
+    if (!val1 && !val2) return false;
+    if (!val1 || !val2) return true;
+    if (val1.length !== val2.length) return true;
+    return val1.some((v) => !val2.includes(v));
+  }
+
+  function isStringArrayMissingElements(
+    strings: string[] = [],
+    elements: string[] = [],
+  ) {
+    if (!elements.length) return false;
+    if (elements.length > strings.length) return true;
+    return elements.some((v) => !strings.includes(v));
+  }
+
+  function isDifferentDate(
+    val1: Date,
+    val2: Date,
+    threshold: number = 86400000,
+  ) {
+    // 86400000 = 1 day
+    return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
+  }
+
+  function isOutdated({
+    experiment: exp,
+    snapshot: snap,
+    metricGroups: mg = [],
+    orgSettings: org,
+    statsEngine: engine,
+    hasRegressionAdjustmentFeature,
+    hasSequentialFeature,
+    phase: currentPhase,
+    unjoinableMetrics: unjoinable,
+    conversionWindowMetrics: conversion,
+  }: {
+    experiment?: ExperimentInterfaceStringDates;
+    snapshot?: ExperimentSnapshotInterface;
+    metricGroups?: MetricGroupInterface[];
+    orgSettings: OrganizationSettings;
+    statsEngine: StatsEngine;
+    hasRegressionAdjustmentFeature: boolean;
+    hasSequentialFeature: boolean;
+    phase?: number;
+    unjoinableMetrics?: Set<string>;
+    conversionWindowMetrics?: Set<string>;
+  }): { outdated: boolean; reasons: string[] } {
+    const snapshotSettings = snap?.settings;
+    const analysisSettings = snap
+      ? getSnapshotAnalysis(snap)?.settings
+      : null;
+    if (!exp || !snapshotSettings || !analysisSettings) {
+      return { outdated: false, reasons: [] };
+    }
+
+    const reasons: string[] = [];
+
+    if (
+      isDifferent(
+        analysisSettings.statsEngine || DEFAULT_STATS_ENGINE,
+        engine || DEFAULT_STATS_ENGINE,
+      )
+    ) {
+      reasons.push("Stats engine changed");
+    }
+    if (
+      isDifferent(exp.activationMetric, snapshotSettings.activationMetric)
+    ) {
+      reasons.push("Activation metric changed");
+    }
+    if (isDifferent(exp.segment, snapshotSettings.segment)) {
+      reasons.push("Segment changed");
+    }
+    if (isDifferent(exp.queryFilter, snapshotSettings.queryFilter)) {
+      reasons.push("Query filter changed");
+    }
+    if (
+      isDifferent(exp.skipPartialData, snapshotSettings.skipPartialData)
+    ) {
+      reasons.push("In-progress conversion behavior changed");
+    }
+    if (
+      isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)
+    ) {
+      reasons.push("Experiment assignment query changed");
+    }
+    if (
+      isDifferent(
+        exp.attributionModel || "firstExposure",
+        snapshotSettings.attributionModel || "firstExposure",
+      )
+    ) {
+      reasons.push("Attribution model changed");
+    }
+
+    const snapshotMetrics = Array.from(
+      new Set(
+        expandMetricGroups(
+          getAllMetricIdsFromExperiment(
+            snapshotSettings,
+            false,
+            mg,
+          ),
+          mg,
+        ),
+      ),
+    ).filter((m) => (unjoinable ? !unjoinable.has(m) : true));
+
+    let experimentMetrics = Array.from(
+      new Set(
+        expandMetricGroups(
+          getAllMetricIdsFromExperiment(exp, false, mg),
+          mg,
+        ),
+      ),
+    ).filter((m) => (unjoinable ? !unjoinable.has(m) : true));
+
+    if (exp.type === "holdout" && conversion?.size) {
+      experimentMetrics = experimentMetrics.filter(
+        (m) => !conversion.has(m),
+      );
+    }
+    if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
+      reasons.push("Metrics changed");
+    }
+
+    if (
+      isDifferentStringArray(
+        exp.variations.map((v) => v.key),
+        snapshotSettings.variations.map((v) => v.id),
+      )
+    ) {
+      reasons.push("Variations changed");
+    }
+    if (
+      isDifferentDate(
+        getValidDate(
+          exp.phases?.[currentPhase ?? 0]?.dateStarted ?? "",
+        ),
+        getValidDate(snapshotSettings.startDate),
+      ) ||
+      isDifferentDate(
+        getValidDate(
+          exp.phases?.[currentPhase ?? 0]?.dateEnded ?? "",
+        ),
+        getValidDate(snapshotSettings.endDate),
+      )
+    ) {
+      reasons.push("Analysis dates changed");
+    }
+    if (
+      isDifferent(
+        analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+        org.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+      )
+    ) {
+      reasons.push("P-value threshold changed");
+    }
+
+    const experimentRegressionAdjustmentEnabled =
+      !hasRegressionAdjustmentFeature
+        ? false
+        : !!exp.regressionAdjustmentEnabled;
+    if (
+      isDifferent(
+        experimentRegressionAdjustmentEnabled,
+        !!analysisSettings?.regressionAdjusted,
+      )
+    ) {
+      reasons.push("CUPED settings changed");
+    }
+
+    const experimentSequentialEnabled =
+      engine !== "frequentist" || !hasSequentialFeature
+        ? false
+        : (exp.sequentialTestingEnabled ??
+          !!org.sequentialTestingEnabled);
+    const experimentSequentialTuningParameter: number =
+      exp.sequentialTestingTuningParameter ??
+      org.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+    if (
+      (isDifferent(
+        experimentSequentialEnabled,
+        !!analysisSettings?.sequentialTesting,
+      ) ||
+        (experimentSequentialEnabled &&
+          experimentSequentialTuningParameter !==
+            analysisSettings?.sequentialTestingTuningParameter)) &&
+      engine === "frequentist"
+    ) {
+      reasons.push("Sequential testing settings changed");
+    }
+
+    return { outdated: reasons.length > 0, reasons };
+  }
 
   return (
     <div className="px-3 py-2">

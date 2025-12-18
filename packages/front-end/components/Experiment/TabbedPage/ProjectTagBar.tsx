@@ -78,9 +78,7 @@ export default function ProjectTagBar({
         phase?.lookbackStartDate && isHoldout
           ? date(phase.lookbackStartDate, "UTC")
           : date(phase?.dateStarted ?? "", "UTC");
-      const endDate = phase?.dateEnded
-        ? date(phase.dateEnded, "UTC")
-        : "now";
+      const endDate = phase?.dateEnded ? date(phase.dateEnded, "UTC") : "now";
 
       if (!startDate) {
         return "not started";
@@ -118,22 +116,22 @@ export default function ProjectTagBar({
 
     const firstPhase = phases[0];
     const lastPhase = phases[phases.length - 1];
-    
+
     // Get the actual start date (not formatted)
     const startDateStr =
       firstPhase?.lookbackStartDate && isHoldout
         ? firstPhase.lookbackStartDate
         : firstPhase?.dateStarted;
-    
+
     if (!startDateStr) {
       return "";
     }
 
     // Get the end date (or use now)
     const endDateStr = lastPhase?.dateEnded || new Date().toISOString();
-    
+
     const days = daysBetween(startDateStr, endDateStr);
-    
+
     // Format the date range
     const startDateFormatted =
       firstPhase?.lookbackStartDate && isHoldout
@@ -147,7 +145,8 @@ export default function ProjectTagBar({
       <>
         <strong>Total runtime</strong>
         <br />
-        {startDateFormatted} - {endDateFormatted} ({days} {days === 1 ? "day" : "days"})
+        {startDateFormatted} - {endDateFormatted} ({days}{" "}
+        {days === 1 ? "day" : "days"})
       </>
     );
   };
@@ -301,9 +300,7 @@ export default function ProjectTagBar({
         )}
         <Metadata label="Owner" value={renderOwner()} />
         <Metadata label="Created" value={createdDate} />
-        <Tooltip
-          body={renderTotalRuntimeTooltip()}
-        >
+        <Tooltip body={renderTotalRuntimeTooltip()}>
           <Metadata
             label={hasMultiplePhases ? "Latest Phase" : "Runtime"}
             value={renderRuntime()}

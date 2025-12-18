@@ -1,7 +1,7 @@
 import { date } from "shared/dates";
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
-import { phaseSummary } from "@/services/utils";
 import { Flex, Text } from "@radix-ui/themes";
+import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
@@ -73,7 +73,11 @@ export default function PhaseSelector({
           tipPosition="top"
         >
           <>
-            {newUi ? <span className="font-weight-bold">{!isHoldout ? "Phase " : "Holdout"}</span> : null}
+            {newUi ? (
+              <span className="font-weight-bold">
+                {!isHoldout ? "Phase " : "Holdout"}
+              </span>
+            ) : null}
             {!isHoldout && (
               <span className="font-weight-bold">{phaseIndex + 1}: </span>
             )}
@@ -101,9 +105,7 @@ export default function PhaseSelector({
           — {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
         </span>
         {!isHoldout && (
-          <div className="small">
-            {phaseSummary(phase, isBandit)}
-          </div>
+          <div className="small">{phaseSummary(phase, isBandit)}</div>
         )}
       </div>
     );
@@ -133,7 +135,9 @@ export default function PhaseSelector({
   if (newUi) {
     return (
       <Flex direction="row" gap="2" align="center">
-        {!newUi ? <Text weight="medium">{isHoldout ? "Date Range:" : "Phase:"}</Text> : null}
+        {!newUi ? (
+          <Text weight="medium">{isHoldout ? "Date Range:" : "Phase:"}</Text>
+        ) : null}
         {selectOptions.length > 1 ? (
           <SelectField
             options={selectOptions}

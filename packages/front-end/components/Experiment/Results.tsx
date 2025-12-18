@@ -10,7 +10,6 @@ import {
 import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -18,15 +17,19 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import FilterSummary from "@/components/Experiment/FilterSummary";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import AnalysisSettingsBar, {
-  AnalysisBarSettings,
-} from "@/components/Experiment/AnalysisSettingsBar";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { ExperimentTab } from "./TabbedPage";
+
+export type AnalysisBarSettings = {
+  dimension: string;
+  baselineRow: number;
+  differenceType: DifferenceType;
+  variationFilter: number[];
+};
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults"),
@@ -37,7 +40,6 @@ const CompactResults = dynamic(
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutateExperiment: () => void;
   draftMode?: boolean;
   editMetrics?: () => void;
@@ -51,14 +53,12 @@ const Results: FC<{
   sliceTagsFilter?: string[];
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
-  holdout?: HoldoutInterface;
   sortBy?: "significance" | "change" | null;
   setSortBy?: (s: "significance" | "change" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
-  envs,
   mutateExperiment,
   draftMode = false,
   editMetrics,
@@ -72,7 +72,6 @@ const Results: FC<{
   sliceTagsFilter,
   isTabActive = true,
   setTab,
-  holdout,
   sortBy,
   setSortBy,
   sortDirection,
@@ -234,19 +233,7 @@ const Results: FC<{
 
   return (
     <>
-      {!draftMode ? (
-        <AnalysisSettingsBar
-          envs={envs}
-          mutateExperiment={mutateExperiment}
-          analysisBarSettings={analysisBarSettings}
-          setAnalysisBarSettings={setAnalysisBarSettings}
-          setAnalysisSettings={setAnalysisSettings}
-          editMetrics={editMetrics}
-          variations={variations}
-          showMoreMenu={false}
-          holdout={holdout}
-        />
-      ) : (
+      {!draftMode ? null : (
         <StatusBanner
           mutateExperiment={mutateExperiment}
           editResult={editResult || undefined}
@@ -374,7 +361,10 @@ const Results: FC<{
           variations={variations}
           variationFilter={analysisBarSettings.variationFilter}
           setVariationFilter={(v: number[]) =>
-            setAnalysisBarSettings({ ...analysisBarSettings, variationFilter: v })
+            setAnalysisBarSettings({
+              ...analysisBarSettings,
+              variationFilter: v,
+            })
           }
           baselineRow={analysisBarSettings.baselineRow}
           setBaselineRow={(b: number) =>
@@ -406,7 +396,10 @@ const Results: FC<{
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
           setDifferenceType={(d: DifferenceType) =>
-            setAnalysisBarSettings({ ...analysisBarSettings, differenceType: d })
+            setAnalysisBarSettings({
+              ...analysisBarSettings,
+              differenceType: d,
+            })
           }
           metricTagFilter={metricTagFilter}
           metricGroupsFilter={metricGroupsFilter}
@@ -435,7 +428,10 @@ const Results: FC<{
             variations={variations}
             variationFilter={analysisBarSettings.variationFilter}
             setVariationFilter={(v: number[]) =>
-              setAnalysisBarSettings({ ...analysisBarSettings, variationFilter: v })
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                variationFilter: v,
+              })
             }
             baselineRow={analysisBarSettings.baselineRow}
             setBaselineRow={(b: number) =>
@@ -464,10 +460,13 @@ const Results: FC<{
             pValueCorrection={pValueCorrection}
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-          differenceType={analysis.settings?.differenceType}
-          setDifferenceType={(d: DifferenceType) =>
-            setAnalysisBarSettings({ ...analysisBarSettings, differenceType: d })
-          }
+            differenceType={analysis.settings?.differenceType}
+            setDifferenceType={(d: DifferenceType) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                differenceType: d,
+              })
+            }
             metricTagFilter={metricTagFilter}
             metricGroupsFilter={metricGroupsFilter}
             sliceTagsFilter={sliceTagsFilter}

@@ -1,13 +1,11 @@
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import React, { ReactNode, useEffect, useRef, useState } from "react";
-import { date } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
@@ -56,6 +54,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "../Templates/TemplateForm";
 import AddToHoldoutModal from "../holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
@@ -66,7 +65,6 @@ import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import EditHoldoutInfoModal from "./EditHoldoutInfoModal";
 import { ExperimentTab } from ".";
-import PhaseSelector from "@/components/Experiment/PhaseSelector";
 
 export interface Props {
   tab: ExperimentTab;
@@ -1053,54 +1051,53 @@ export default function ExperimentHeader({
               >
                 <TabsList size="3">
                   <Flex align="center" className="flex-1">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="results">Results</TabsTrigger>
-                  {isBandit ? (
-                    <TabsTrigger value="explore">Explore</TabsTrigger>
-                  ) : null}
-                  {growthbook.isOn("experiment-dashboards-enabled") &&
-                    !isBandit &&
-                    !isHoldout && (
-                      <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
-                    )}
-                  {disableHealthTab ? (
-                    <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                      <TabsTrigger disabled value="health">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="results">Results</TabsTrigger>
+                    {isBandit ? (
+                      <TabsTrigger value="explore">Explore</TabsTrigger>
+                    ) : null}
+                    {growthbook.isOn("experiment-dashboards-enabled") &&
+                      !isBandit &&
+                      !isHoldout && (
+                        <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+                      )}
+                    {disableHealthTab ? (
+                      <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                        <TabsTrigger disabled value="health">
+                          Health
+                        </TabsTrigger>
+                      </DisabledHealthTabTooltip>
+                    ) : (
+                      <TabsTrigger
+                        value="health"
+                        onClick={() => {
+                          track("Open health tab", { source: "tab-click" });
+                        }}
+                      >
                         Health
+                        {healthNotificationCount > 0 ? (
+                          <Avatar size="sm" ml="2" color="red">
+                            {healthNotificationCount}
+                          </Avatar>
+                        ) : null}
                       </TabsTrigger>
-                    </DisabledHealthTabTooltip>
-                  ) : (
-                    <TabsTrigger
-                      value="health"
-                      onClick={() => {
-                        track("Open health tab", { source: "tab-click" });
-                      }}
-                    >
-                      Health
-                      {healthNotificationCount > 0 ? (
-                        <Avatar size="sm" ml="2" color="red">
-                          {healthNotificationCount}
-                        </Avatar>
-                      ) : null}
-                    </TabsTrigger>
-                  )}
-                  {hasMultiplePhases ? (
-                    <>
-                      <div className="flex-1" />
-                      <Text size="2" weight="medium">
-                        <PhaseSelector
-                          phase={phase}
-                          phases={experiment.phases}
-                          isBandit={experiment.type === "multi-armed-bandit"}
-                          isHoldout={experiment.type === "holdout"}
-                        />
-                      </Text>
-                    </>
-                  ): null}
+                    )}
+                    {hasMultiplePhases ? (
+                      <>
+                        <div className="flex-1" />
+                        <Text size="2" weight="medium">
+                          <PhaseSelector
+                            phase={phase}
+                            phases={experiment.phases}
+                            isBandit={experiment.type === "multi-armed-bandit"}
+                            isHoldout={experiment.type === "holdout"}
+                          />
+                        </Text>
+                      </>
+                    ) : null}
                   </Flex>
                 </TabsList>
               </Tabs>
-
             </div>
           </div>
         </div>

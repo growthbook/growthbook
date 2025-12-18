@@ -414,11 +414,9 @@ export default function DimensionChooser({
       <Text weight="medium">Unit Dimension:</Text>
       <DropdownMenu
         trigger={
-          <Link color="gray" highContrast>
-            <Flex align="center" gap="0.5">
-              <Text>{currentDimensionName}</Text>
-              <PiCaretDownFill />
-            </Flex>
+          <Link type="button" style={{ color: "var(--color-text-high)" }}>
+            <Text mr="1">{currentDimensionName}</Text>
+            <PiCaretDownFill style={{ fontSize: "12px" }} />
           </Link>
         }
         open={dropdownOpen}

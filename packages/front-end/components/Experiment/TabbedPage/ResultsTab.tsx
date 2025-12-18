@@ -11,11 +11,11 @@ import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import Results from "@/components/Experiment/Results";
+import Results, { AnalysisBarSettings } from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -23,9 +23,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import track from "@/services/track";
-import { AnalysisBarSettings } from "@/components/Experiment/AnalysisSettingsBar";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -97,7 +97,7 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot, analysis } = useSnapshot();
+  const { snapshot, analysis, setSnapshotType } = useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
   const { organization } = useUser();
@@ -152,7 +152,7 @@ export default function ResultsTab({
       ) : null}
 
       <Box>
-        <Flex direction="row" gap="3" mx="1" mb="4">
+        <Flex direction="row" align="start" gap="3" mx="1" mb="4">
           {!(
             experiment.type === "multi-armed-bandit" &&
             experiment.status === "running"
@@ -197,6 +197,57 @@ export default function ResultsTab({
                   label="Activation Metric"
                   value={activationMetric.name}
                 />
+              ) : null}
+              {isBandit && snapshot ? (
+                <>
+                  <Flex style={{ flex: 1 }} />
+                  <Flex direction="column" align="end">
+                    <Metadata
+                      label="Analysis type"
+                      value={
+                        snapshot?.type === "exploratory" ? (
+                          <Tooltip
+                            body={
+                              <div className="text-left">
+                                <p>This is an exploratory analysis.</p>
+                                <p>
+                                  Exploratory analyses do not cause bandit
+                                  variation weights to change.
+                                </p>
+                              </div>
+                            }
+                          >
+                            Exploratory
+                          </Tooltip>
+                        ) : snapshot?.type === "standard" ? (
+                          <Tooltip
+                            body={
+                              <div className="text-left">
+                                <p>This is a standard analysis.</p>
+                                <p>
+                                  Bandit variation weights may have changed in
+                                  response to this analysis.
+                                </p>
+                              </div>
+                            }
+                          >
+                            Standard
+                          </Tooltip>
+                        ) : (
+                          <span>{snapshot?.type || `unknown`}</span>
+                        )
+                      }
+                    />
+                    {snapshot?.type !== "standard" && (
+                      <Link
+                        onClick={() => setSnapshotType("standard")}
+                        style={{ marginBottom: -8 }}
+                      >
+                        <Text size="1">View standard analysis</Text>
+                      </Link>
+                    )}
+                  </Flex>
+                </>
               ) : null}
             </>
           )}
@@ -339,7 +390,6 @@ export default function ResultsTab({
               ) : (
                 <Results
                   experiment={experiment}
-                  envs={envs}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}

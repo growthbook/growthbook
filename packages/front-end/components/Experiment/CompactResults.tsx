@@ -413,7 +413,7 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
-          setDifferenceType={setDifferenceType}
+            setDifferenceType={setDifferenceType}
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,
@@ -474,7 +474,7 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
-          setDifferenceType={setDifferenceType}
+            setDifferenceType={setDifferenceType}
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,
