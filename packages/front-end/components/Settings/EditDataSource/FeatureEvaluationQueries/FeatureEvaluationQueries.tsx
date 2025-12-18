@@ -4,14 +4,13 @@ import {
   FeatureUsageQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { FaPlus } from "react-icons/fa";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
@@ -20,62 +19,24 @@ type UIMode = "view" | "edit" | "add" | "dimension";
 export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
   dataSource,
   onSave,
-  onCancel,
   canEdit = true,
 }) => {
-  const intitialOpenIndexes: boolean[] = Array.from(
-    Array(dataSource.settings?.queries?.featureUsage?.length || 0),
-  ).fill(true);
-
   const [uiMode, setUiMode] = useState<UIMode>("view");
-  const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] =
-    useState<boolean[]>(intitialOpenIndexes);
-
-  const permissionsUtil = usePermissionsUtil();
-  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
-
-  const handleExpandCollapseForIndex = useCallback(
-    (index) => () => {
-      const currentValue = openIndexes[index] || false;
-      const updatedOpenIndexes = [...openIndexes];
-      updatedOpenIndexes[index] = !currentValue;
-
-      setOpenIndexes(updatedOpenIndexes);
-    },
-    [openIndexes],
-  );
-
-  const handleCancel = useCallback(() => {
-    setUiMode("view");
-    setEditingIndex(-1);
-    onCancel();
-  }, [onCancel]);
 
   const featureUsageQueries = useMemo(
     () => dataSource.settings?.queries?.featureUsage || [],
     [dataSource.settings?.queries?.featureUsage],
   );
 
-  const handleAdd = useCallback(() => {
-    setUiMode("add");
-    setEditingIndex(featureUsageQueries.length);
-  }, [featureUsageQueries]);
-
-  const handleActionClicked = useCallback(
-    (idx: number, uiMode: UIMode) => async () => {
-      setEditingIndex(idx);
-      setUiMode(uiMode);
-    },
-    [],
-  );
-
   const handleActionDeleteClicked = useCallback(
-    (idx: number) => async () => {
+    () => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
 
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      copy.settings.queries.featureUsage.splice(idx, 1);
+      if (!copy.settings.queries) {
+        copy.settings.queries = { featureUsage: [] };
+      } else {
+        copy.settings.queries.featureUsage = [];
+      }
 
       await onSave(copy);
     },
@@ -83,29 +44,15 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
   );
 
   const handleSave = useCallback(
-    (idx: number) => async (featureUsageQuery: FeatureUsageQuery) => {
+    () => async (featureUsageQuery: FeatureUsageQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      if (!copy.settings.queries.featureUsage) {
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        copy.settings.queries.featureUsage = [];
+
+      if (!copy.settings.queries) {
+        copy.settings.queries = { featureUsage: [featureUsageQuery] };
+      } else {
+        copy.settings.queries.featureUsage = [featureUsageQuery];
       }
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      copy.settings.queries.featureUsage[idx] = featureUsageQuery;
       await onSave(copy);
-    },
-    [dataSource, onSave],
-  );
-
-  const [validatingQuery, setValidatingQuery] = useState(false);
-
-  const handleValidate = useCallback(
-    () => async () => {
-      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      setValidatingQuery(true);
-      // Resaving the document as-is will automatically revalidate any queries in error state
-      await onSave(copy);
-      setValidatingQuery(false);
     },
     [dataSource, onSave],
   );
@@ -128,10 +75,34 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
         {canEdit && featureUsageQueries.length === 0 && (
           <Box>
-            <Button onClick={handleAdd}>
+            <Button onClick={() => setUiMode("add")}>
               <FaPlus className="mr-1" /> Add
             </Button>
           </Box>
+        )}
+        {canEdit && featureUsageQueries.length > 0 && (
+          <MoreMenu>
+            <button
+              className="dropdown-item py-2"
+              onClick={() => setUiMode("edit")}
+            >
+              Edit Query
+            </button>
+
+            <hr className="dropdown-divider" />
+            <DeleteButton
+              onClick={handleActionDeleteClicked()}
+              className="dropdown-item text-danger py-2"
+              iconClassName="mr-2"
+              style={{ borderRadius: 0 }}
+              useIcon={false}
+              displayName={"Feature Usage Query"}
+              deleteMessage={`Are you sure you want to delete this feature usage query?`}
+              title="Delete"
+              text="Delete"
+              outline={false}
+            />
+          </MoreMenu>
         )}
       </Flex>
       <p>
@@ -148,120 +119,26 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
       ) : null}
       {/* endregion Empty state */}
 
-      {featureUsageQueries.map((query, idx) => {
-        const isOpen = openIndexes[idx] || false;
-
-        return (
-          <Card mt="3" key={query.id}>
-            <Flex align="start" justify="between" py="2" px="3" gap="3">
-              {/* region Title Bar */}
-              <Box width="100%">
-                <Flex>
-                  <Heading as="h4" size="3" mb="1">
-                    {query.name}
-                  </Heading>
-                  {query.description && (
-                    <p className="ml-3 text-muted">{query.description}</p>
-                  )}
-                </Flex>
-
-                <Flex gap="4"></Flex>
-                {query.error && (
-                  <Callout status="error" mt="3">
-                    <Box>
-                      This query had an error with it the last time it ran:{" "}
-                      <Box className="font-weight-bold" py="2">
-                        {query.error}
-                      </Box>
-                      <Box mt="3">
-                        <Button
-                          onClick={handleValidate()}
-                          loading={validatingQuery}
-                        >
-                          Check it again.
-                        </Button>
-                        {canEdit && (
-                          <Button
-                            onClick={handleActionClicked(idx, "edit")}
-                            style={{ marginLeft: "1rem" }}
-                          >
-                            Edit it now.
-                          </Button>
-                        )}
-                      </Box>
-                    </Box>
-                  </Callout>
-                )}
-              </Box>
-
-              {/* endregion Title Bar */}
-
-              {/* region Actions*/}
-
-              <Flex align="center">
-                {canEdit && (
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item py-2"
-                      onClick={handleActionClicked(idx, "edit")}
-                    >
-                      Edit Query
-                    </button>
-
-                    <hr className="dropdown-divider" />
-                    <DeleteButton
-                      onClick={handleActionDeleteClicked(idx)}
-                      className="dropdown-item text-danger py-2"
-                      iconClassName="mr-2"
-                      style={{ borderRadius: 0 }}
-                      useIcon={false}
-                      displayName={query.name}
-                      deleteMessage={`Are you sure you want to delete feature usage query ${query.name}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                    />
-                  </MoreMenu>
-                )}
-
-                <button
-                  className="btn ml-3 text-dark"
-                  onClick={handleExpandCollapseForIndex(idx)}
-                >
-                  <FaChevronRight
-                    style={{
-                      transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
-                    }}
-                  />
-                </button>
-              </Flex>
-
-              {/* endregion Actions*/}
-            </Flex>
-
-            {isOpen && (
-              <Box p="2">
-                <Code
-                  language="sql"
-                  code={query.query}
-                  containerClassName="mb-0"
-                  expandable
-                />
-              </Box>
-            )}
-          </Card>
-        );
-      })}
+      {featureUsageQueries.length > 0 && (
+        <Box p="2">
+          <Code
+            language="sql"
+            code={featureUsageQueries[0].query}
+            containerClassName="mb-0"
+            expandable
+          />
+        </Box>
+      )}
 
       {/* region Add/Edit modal */}
 
       {uiMode === "edit" || uiMode === "add" ? (
         <FeatureEvaluationQueryModal
-          featureUsageQuery={featureUsageQueries[editingIndex]}
+          featureUsageQuery={featureUsageQueries[0]}
           dataSource={dataSource}
           mode={uiMode}
-          onSave={handleSave(editingIndex)}
-          onCancel={handleCancel}
+          onSave={handleSave()}
+          onCancel={() => setUiMode("view")}
         />
       ) : null}
 

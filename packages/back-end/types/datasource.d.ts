@@ -173,10 +173,7 @@ export interface ExposureQuery {
 
 export interface FeatureUsageQuery {
   id: string;
-  name: string;
-  description?: string;
   query: string;
-  error?: string;
 }
 
 export interface UserIdType {

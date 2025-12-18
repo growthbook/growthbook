@@ -10,7 +10,6 @@ import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 
 type FeatureEvaluationQueryProps = {
@@ -30,11 +29,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "sql">("view");
   const modalTitle =
-    mode === "add"
-      ? "Add a Feature Usage query"
-      : `Edit ${
-          featureUsageQuery ? featureUsageQuery.name : "Feature Usage"
-        } query`;
+    mode === "add" ? "Add a Feature Usage query" : `Edit Feature Usage query`;
 
   const defaultQuery = `SELECT\n  timestamp as timestamp,\n  feature_key as feature_key,\n  value as value\nFROM my_table`;
 
@@ -43,9 +38,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
       mode === "edit" && featureUsageQuery
         ? cloneDeep<FeatureUsageQuery>(featureUsageQuery)
         : {
-            description: "",
             id: uniqId("tbl_"),
-            name: "",
             query: defaultQuery,
           },
   });
@@ -58,8 +51,6 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
     form.reset({
       id: undefined,
       query: "",
-      name: "",
-      description: "",
     });
   });
 
@@ -103,7 +94,6 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
           validateResponseOverride={validateResponse}
           sqlObjectInfo={{
             objectType: "Feature Usage Query",
-            objectName: form.watch("name"),
           }}
         />
       )}
@@ -121,13 +111,6 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
         <div className="my-2 ml-3 mr-3">
           <div className="row">
             <div className="col-12">
-              <Field label="Display Name" required {...form.register("name")} />
-              <Field
-                label="Description (optional)"
-                textarea
-                minRows={1}
-                {...form.register("description")}
-              />
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (

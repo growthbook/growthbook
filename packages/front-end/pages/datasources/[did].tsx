@@ -422,7 +422,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   <FeatureEvaluationQueries
                     dataSource={d}
                     onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
