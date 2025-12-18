@@ -11,6 +11,7 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
+  UnrecoverableApiError,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -135,13 +136,6 @@ import {
 } from "back-end/types/feature-rule";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutRule } from "back-end/src/validators/features";
-
-class UnrecoverableApiError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UnrecoverableApiError";
-  }
-}
 
 export async function getPayloadParamsFromApiKey(
   key: string,

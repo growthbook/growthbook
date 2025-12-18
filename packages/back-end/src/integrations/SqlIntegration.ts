@@ -36,6 +36,7 @@ import {
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
 } from "shared/sql";
+import { MissingDatasourceParamsError } from "shared/util";
 import {
   PhaseSQLVar,
   SQLVars,
@@ -113,6 +114,7 @@ import {
   CovariatePhaseStartSettings,
   PipelineIntegration,
 } from "shared/types/integrations";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";
@@ -126,10 +128,6 @@ import {
   AutoFactTableSchemas,
   SchemaFormat,
 } from "back-end/types/datasource";
-import {
-  MissingDatasourceParamsError,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import {
   getBaseIdTypeAndJoins,
