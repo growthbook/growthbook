@@ -541,3 +541,7 @@ export function parseProcessLogBase() {
         base: parsedLogBase,
       };
 }
+
+export function capitalizeFirstCharacter(s: string) {
+  return s.charAt(0).toLocaleUpperCase() + s.slice(1);
+}

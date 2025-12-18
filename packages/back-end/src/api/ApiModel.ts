@@ -18,7 +18,8 @@ type ApiUpdateZodObject<T extends ApiBaseSchema> = z.ZodType<
 
 const crudActions = ["get", "create", "list", "delete", "update"] as const;
 type CrudAction = (typeof crudActions)[number];
-type HttpVerb = "get" | "post" | "put" | "delete" | "patch";
+export const httpVerbs = ["get", "post", "put", "delete", "patch"] as const;
+export type HttpVerb = (typeof httpVerbs)[number];
 type CustomHandler = {
   pathFragment: string;
   verb: HttpVerb;
@@ -103,25 +104,42 @@ const crudDefaults: Record<
     pathFragment: "/:id",
   },
 };
+type CrudActionConfig<
+  T extends ApiBaseSchema,
+  A extends CrudAction = CrudAction,
+> = {
+  action: A;
+  verb: HttpVerb;
+  pathFragment: string;
+  validator: CrudValidatorShapes<T>[A];
+  returnKey: string;
+  plural: boolean | undefined;
+};
+export function getCrudConfig<T extends ApiBaseSchema>(
+  apiConfig: ApiModelConfig,
+): CrudActionConfig<T>[] {
+  const actions = apiConfig.includeDefaultCrud
+    ? crudActions
+    : (apiConfig.crudActions ?? []);
+  return actions.map((action) => {
+    const { verb, pathFragment, plural } = crudDefaults[action];
+    const validator = getCrudValidator(action, apiConfig);
+    const returnKey = plural ? apiConfig.modelPlural : apiConfig.modelSingular;
+    return { action, verb, pathFragment, validator, returnKey, plural };
+  });
+}
 
 export function defineRouterForApiModel(modelDef: ApiModel) {
   const r = Router();
   const modelConfig = modelDef.modelClass.getModelConfig();
   if (!modelConfig.apiConfig) return;
   const apiConfig = modelConfig.apiConfig;
-  const actions = apiConfig.includeDefaultCrud
-    ? crudActions
-    : (apiConfig.crudActions ?? []);
-  actions.forEach((action) => {
-    const { verb, pathFragment, plural } = crudDefaults[action];
-    const modelString = plural
-      ? apiConfig.modelPlural
-      : apiConfig.modelSingular;
-    const validator = getCrudValidator(action, apiConfig);
+  const crudConfig = getCrudConfig(apiConfig);
+  crudConfig.forEach(({ action, verb, pathFragment, validator, returnKey }) => {
     const handler = createApiRequestHandler(validator)(async (req) => {
       const modelInstance = req.context.models[apiConfig.modelKey];
       const result = await modelInstance[defaultHandlers[action]](req);
-      return { [modelString]: result };
+      return { [returnKey]: result };
     });
     r[verb](pathFragment, handler);
   });
@@ -181,4 +199,78 @@ function getDefaultValidator<
       paramsSchema: z.object({ id: z.string() }).strict(),
     },
   }[action];
+}
+
+export function generateYamlForPath({
+  validator,
+  returnSchema,
+  operationId,
+  summary = "",
+  tags = [],
+}: {
+  validator: ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
+  returnSchema: object;
+  operationId: string;
+  summary?: string;
+  tags?: string[];
+}) {
+  const formattedParams: Array<object> = [];
+  const { paramsSchema, bodySchema, querySchema } = validator;
+  if (paramsSchema instanceof z.ZodObject) {
+    const paramsJson = z.toJSONSchema(paramsSchema);
+    Object.entries(paramsJson.properties ?? {}).forEach(
+      ([paramName, paramInfo]) => {
+        if (typeof paramInfo !== "object") return;
+        formattedParams.push({
+          name: paramName,
+          in: "path",
+          required: (paramsJson.required ?? []).includes(paramName),
+          schema: paramInfo,
+        });
+      },
+    );
+  }
+  if (querySchema instanceof z.ZodObject) {
+    const queryJson = z.toJSONSchema(querySchema);
+    Object.entries(queryJson.properties ?? {}).forEach(
+      ([paramName, paramInfo]) => {
+        if (typeof paramInfo !== "object") return;
+        formattedParams.push({
+          name: paramName,
+          in: "query",
+          required: (queryJson.required ?? []).includes(paramName),
+          schema: paramInfo,
+        });
+      },
+    );
+  }
+  let requestBody: object | undefined = undefined;
+  if (bodySchema instanceof z.ZodObject) {
+    const bodyJson = z.toJSONSchema(bodySchema);
+    requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: bodyJson,
+        },
+      },
+    };
+  }
+  return {
+    parameters: formattedParams,
+    tags: tags,
+    summary,
+    operationId,
+    "x-codeSamples": [],
+    requestBody,
+    responses: {
+      "200": {
+        content: {
+          "application/json": {
+            schema: returnSchema,
+          },
+        },
+      },
+    },
+  };
 }

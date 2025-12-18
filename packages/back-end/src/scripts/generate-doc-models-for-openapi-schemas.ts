@@ -1,15 +1,33 @@
 import path from "path";
 import fs from "fs";
 import { load, dump } from "js-yaml";
+import { capitalizeFirstCharacter } from "shared/util";
+import { z } from "zod";
+import {
+  apiModels,
+  generateYamlForPath,
+  getCrudConfig,
+  HttpVerb,
+  httpVerbs,
+} from "back-end/src/api/ApiModel";
 
 type ApiTag = {
   name: string;
   "x-displayName": string;
   description: string;
 };
-
+type PathRef = { $ref: string };
+type PathDefinition = Record<string, unknown>;
+type PathRecord = {
+  [verb in HttpVerb]?: PathRef | PathDefinition;
+};
+type ApiPaths = PathRecord | PathRef;
 type ApiShape = {
   tags: ApiTag[];
+  paths: Record<string, ApiPaths>;
+  components: {
+    schemas: Record<string, object>;
+  };
   "x-tagGroups"?: Array<{
     name: string;
     tags: string[];
@@ -25,7 +43,29 @@ function isValidTag(tag: unknown): tag is ApiTag {
     return false;
   return true;
 }
-
+function isValidPathRecord(pathRecord: unknown): pathRecord is ApiPaths {
+  if (!pathRecord || typeof pathRecord !== "object") return false;
+  if (
+    "$ref" in pathRecord &&
+    typeof pathRecord.$ref === "string" &&
+    Object.keys(pathRecord).length === 1
+  )
+    return true;
+  if (
+    Object.keys(pathRecord).some((key) => !httpVerbs.includes(key as HttpVerb))
+  )
+    return false;
+  if (
+    Object.values(pathRecord).some(
+      (pathRef) =>
+        typeof pathRef !== "object" ||
+        !("$ref" in pathRef) ||
+        typeof pathRef.$ref !== "string",
+    )
+  )
+    return false;
+  return true;
+}
 function isValidApi(
   loadedApiDoc: string | number | object | null | undefined,
 ): loadedApiDoc is ApiShape {
@@ -34,6 +74,16 @@ function isValidApi(
     return false;
   }
   if (loadedApiDoc.tags.some((tag) => !isValidTag(tag))) return false;
+  if (
+    !("paths" in loadedApiDoc) ||
+    !loadedApiDoc.paths ||
+    typeof loadedApiDoc.paths !== "object"
+  )
+    return false;
+  if (
+    Object.values(loadedApiDoc.paths).some((path) => !isValidPathRecord(path))
+  )
+    return false;
   return true;
 }
 
@@ -47,9 +97,10 @@ async function run() {
   // Group all existing tags under "Endpoints"
   // This is to avoid confusion in the docs when we programmatically add a section for all the models
   api["x-tagGroups"] = api["x-tagGroups"] || [];
+  const endpointTags = api.tags.map((tag) => tag.name);
   api["x-tagGroups"].push({
     name: "Endpoints",
-    tags: api.tags.map((tag) => tag.name),
+    tags: endpointTags,
   });
 
   // Before generating types, programmatically add all models to the spec
@@ -57,6 +108,54 @@ async function run() {
     .readdirSync(path.join(__dirname, "../api/openapi/schemas"))
     .filter((fileName) => !fileName.includes("index"))
     .map((fileName) => fileName.replace(".yaml", ""));
+
+  // Set up references for ApiModel classes
+  apiModels.forEach((modelDef) => {
+    const modelConfig = modelDef.modelClass.getModelConfig();
+    if (!modelConfig.apiConfig) return;
+    const apiConfig = modelConfig.apiConfig;
+    const singularCapitalized = capitalizeFirstCharacter(
+      apiConfig.modelSingular,
+    );
+    const pluralCapitalized = capitalizeFirstCharacter(apiConfig.modelPlural);
+    models.push(singularCapitalized);
+    endpointTags.push(pluralCapitalized);
+    const crudConfig = getCrudConfig(apiConfig);
+    crudConfig.forEach(
+      ({ action, verb, pathFragment, validator, returnKey, plural }) => {
+        const fullPath = modelDef.pathBase + pathFragment;
+        if (api.paths[fullPath] && "$ref" in api.paths[fullPath])
+          throw new Error(
+            "Unable to add API route at '${verb}' ${fullPath}; this path has a $ref defined",
+          );
+        const pathRecord: PathRecord = api.paths[fullPath] || {};
+        if (verb in pathRecord) {
+          throw new Error(
+            `Unable to add API route at '${verb}' ${fullPath}; this route is already defined`,
+          );
+        }
+        const returnSchema = {
+          type: "object",
+          required: action === "delete" ? [] : [returnKey],
+          properties: {
+            [returnKey]: z.toJSONSchema(
+              plural ? z.array(apiConfig.apiInterface) : apiConfig.apiInterface,
+            ),
+          },
+        };
+        pathRecord[verb] = generateYamlForPath({
+          validator,
+          returnSchema,
+          operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
+          tags: [pluralCapitalized],
+        });
+        api.paths[fullPath] = pathRecord;
+      },
+    );
+    api.components.schemas[singularCapitalized] = z.toJSONSchema(
+      apiConfig.apiInterface,
+    );
+  });
 
   // Add all model schemas to the tags
   models.forEach((model) => {
