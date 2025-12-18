@@ -67,12 +67,15 @@ import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 import styles from "./ResultsTable.module.scss";
 import BaselineChooserColumnLabel from "./BaselineChooserColumnLabel";
+import DifferenceTypeChooserChangeColumnLabel from "./DifferenceTypeChooserChangeColumnLabel";
+import VariationChooserColumnLabel from "./VariationChooserColumnLabel";
 
 export type ResultsTableProps = {
   id: string;
   experimentId: string;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   status: ExperimentStatus;
   queryStatusData?: QueryStatusData;
@@ -126,6 +129,7 @@ export type ResultsTableProps = {
   ) => void;
   mutate?: () => void;
   manualSnapshot?: boolean;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
 };
 
 const ROW_HEIGHT = 46;
@@ -164,6 +168,7 @@ export default function ResultsTable({
   editMetrics,
   variations,
   variationFilter,
+  setVariationFilter,
   baselineRow = 0,
   startDate,
   endDate,
@@ -192,6 +197,7 @@ export default function ResultsTable({
   setAnalysisSettings,
   mutate,
   manualSnapshot,
+  setDifferenceType,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -555,7 +561,7 @@ export default function ResultsTable({
                     })}
                     style={{
                       lineHeight: "15px",
-                      width: 280 * tableCellScale,
+                      width: 260 * tableCellScale,
                     }}
                   >
                     <div className="row px-0">
@@ -591,7 +597,7 @@ export default function ResultsTable({
                   <>
                     {columnsToDisplay.includes("Baseline Average") && (
                       <th
-                        style={{ width: 120 * tableCellScale }}
+                        style={{ width: 140 * tableCellScale }}
                         className={clsx("axis-col label", { noStickyHeader })}
                       >
                         <BaselineChooserColumnLabel
@@ -613,69 +619,33 @@ export default function ResultsTable({
                     )}
                     {columnsToDisplay.includes("Variation Averages") && (
                       <th
-                        style={{ width: 120 * tableCellScale }}
+                        style={{ width: 140 * tableCellScale }}
                         className={clsx("axis-col label", { noStickyHeader })}
                       >
-                        <Tooltip
-                          usePortal={true}
-                          innerClassName={"text-left"}
-                          body={
-                            !compactResults ? (
-                              ""
-                            ) : (
-                              <div style={{ lineHeight: 1.5 }}>
-                                {isHoldout
-                                  ? "The variation being compared to the holdout."
-                                  : "The variation being compared to the baseline."}
-                                <div
-                                  className={`variation variation${filteredVariations[1]?.index} with-variation-label d-flex mt-1 align-items-top`}
-                                  style={{ marginBottom: 2 }}
-                                >
-                                  <span
-                                    className="label mr-1"
-                                    style={{
-                                      width: 16,
-                                      height: 16,
-                                      marginTop: 2,
-                                    }}
-                                  >
-                                    {filteredVariations[1]?.index}
-                                  </span>
-                                  <span className="font-weight-bold">
-                                    {filteredVariations[1]?.name}
-                                  </span>
-                                </div>
-                              </div>
-                            )
+                        <VariationChooserColumnLabel
+                          variations={variations}
+                          variationFilter={variationFilter ?? []}
+                          setVariationFilter={setVariationFilter}
+                          baselineRow={baselineRow}
+                          dropdownEnabled={
+                            !isHoldout &&
+                            !manualSnapshot &&
+                            snapshot?.dimension !== "pre:date"
                           }
-                        >
-                          Variation {compactResults ? <RxInfoCircled /> : null}
-                        </Tooltip>
+                          isHoldout={isHoldout}
+                        />
                       </th>
                     )}
                     {columnsToDisplay.includes("Chance to Win") && (
                       <th
-                        style={{ width: 120 * tableCellScale }}
-                        className={clsx("axis-col label", { noStickyHeader })}
+                        style={{ width: 140 * tableCellScale }}
+                        className={clsx("axis-col label nowrap", { noStickyHeader })}
                       >
                         {statsEngine === "bayesian" ? (
-                          <div
-                            className="d-flex align-items-end"
-                            style={{ width: 44 }}
-                          >
-                            <div
-                              style={{
-                                lineHeight: "15px",
-                                marginBottom: 2,
-                              }}
-                            >
-                              <span className="nowrap">Chance</span>{" "}
-                              <span className="nowrap">to Win</span>
-                            </div>
-                            <div style={{ top: -2, position: "relative" }}>
-                              <SortButton column="significance" />
-                            </div>
-                          </div>
+                          <>
+                            Chance to Win
+                            <SortButton column="significance" />
+                          </>
                         ) : sequentialTestingEnabled ||
                           appliedPValueCorrection ? (
                           <Tooltip
@@ -693,8 +663,7 @@ export default function ResultsTable({
                               </div>
                             }
                           >
-                            {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
-                            <RxInfoCircled />
+                            {appliedPValueCorrection ? "Adj. " : ""}P-value
                             <SortButton column="significance" />
                           </Tooltip>
                         ) : (
@@ -745,27 +714,24 @@ export default function ResultsTable({
                           },
                         )}
                       >
-                        <div style={{ lineHeight: "15px", marginBottom: 2 }}>
-                          <Tooltip
-                            usePortal={true}
-                            innerClassName={"text-left"}
-                            body={
-                              <div style={{ lineHeight: 1.5 }}>
-                                {getChangeTooltip(
-                                  changeTitle,
-                                  statsEngine || DEFAULT_STATS_ENGINE,
-                                  differenceType,
-                                  !!sequentialTestingEnabled,
-                                  pValueCorrection ?? null,
-                                  pValueThreshold,
-                                )}
-                              </div>
-                            }
-                          >
-                            {changeTitle} <RxInfoCircled />
-                          </Tooltip>
+                        <Flex className="nowrap" align="center">
+                          <div className="flex-1" />
+                          <DifferenceTypeChooserChangeColumnLabel
+                            changeTitle={changeTitle}
+                            differenceType={differenceType}
+                            setDifferenceType={setDifferenceType}
+                            statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
+                            sequentialTestingEnabled={sequentialTestingEnabled}
+                            pValueCorrection={pValueCorrection ?? null}
+                            pValueThreshold={pValueThreshold}
+                            snapshot={snapshot}
+                            phase={phase}
+                            analysis={analysis}
+                            setAnalysisSettings={setAnalysisSettings}
+                            mutate={mutate}
+                          />
                           <SortButton column="change" />
-                        </div>
+                        </Flex>
                       </th>
                     )}
                   </>

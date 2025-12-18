@@ -424,6 +424,7 @@ export default function DimensionChooser({
         open={dropdownOpen}
         onOpenChange={setDropdownOpen}
         menuPlacement="start"
+        variant="soft"
       >
         <DropdownMenuGroup>{renderMenuItems()}</DropdownMenuGroup>
       </DropdownMenu>

@@ -50,6 +50,7 @@ const CompactResults: FC<{
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   multipleExposures?: number;
   results: ExperimentReportResultDimension;
@@ -109,11 +110,13 @@ const CompactResults: FC<{
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   mutate?: () => void;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
   editMetrics,
   variations,
   variationFilter,
+  setVariationFilter,
   baselineRow = 0,
   multipleExposures = 0,
   results,
@@ -160,6 +163,7 @@ const CompactResults: FC<{
   analysis,
   setAnalysisSettings,
   mutate,
+  setDifferenceType,
 }) => {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -330,6 +334,7 @@ const CompactResults: FC<{
           queryStatusData={queryStatusData}
           variations={variations}
           variationFilter={variationFilter}
+          setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
           rows={rows.filter((r) => r.resultGroup === "goal")}
           id={id}
@@ -347,6 +352,7 @@ const CompactResults: FC<{
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
           differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
           renderLabelColumn={getRenderLabelColumn({
             statsEngine,
             hideDetails,
@@ -395,6 +401,7 @@ const CompactResults: FC<{
             queryStatusData={queryStatusData}
             variations={variations}
             variationFilter={variationFilter}
+            setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.resultGroup === "secondary")}
             id={id}
@@ -406,6 +413,7 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,
@@ -454,6 +462,7 @@ const CompactResults: FC<{
             queryStatusData={queryStatusData}
             variations={variations}
             variationFilter={variationFilter}
+            setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.resultGroup === "guardrail")}
             id={id}
@@ -465,6 +474,7 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,

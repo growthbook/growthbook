@@ -51,6 +51,7 @@ const BreakDownResults: FC<{
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   goalMetrics: string[];
@@ -104,6 +105,7 @@ const BreakDownResults: FC<{
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   mutate?: () => void;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
   dimensionId,
@@ -112,6 +114,7 @@ const BreakDownResults: FC<{
   queryStatusData,
   variations,
   variationFilter,
+  setVariationFilter,
   baselineRow,
   columnsFilter,
   goalMetrics,
@@ -157,6 +160,7 @@ const BreakDownResults: FC<{
   analysis,
   setAnalysisSettings,
   mutate,
+  setDifferenceType,
 }) => {
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
@@ -258,6 +262,7 @@ const BreakDownResults: FC<{
               queryStatusData={queryStatusData}
               variations={variations}
               variationFilter={variationFilter}
+              setVariationFilter={setVariationFilter}
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={table.rows}
@@ -287,6 +292,7 @@ const BreakDownResults: FC<{
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
+              setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label }) => (
                 <div
                   className="pl-3 font-weight-bold"

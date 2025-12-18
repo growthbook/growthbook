@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -373,6 +373,9 @@ const Results: FC<{
           queryStatusData={queryStatusData}
           variations={variations}
           variationFilter={analysisBarSettings.variationFilter}
+          setVariationFilter={(v: number[]) =>
+            setAnalysisBarSettings({ ...analysisBarSettings, variationFilter: v })
+          }
           baselineRow={analysisBarSettings.baselineRow}
           setBaselineRow={(b: number) =>
             setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
@@ -402,6 +405,9 @@ const Results: FC<{
           settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
+          setDifferenceType={(d: DifferenceType) =>
+            setAnalysisBarSettings({ ...analysisBarSettings, differenceType: d })
+          }
           metricTagFilter={metricTagFilter}
           metricGroupsFilter={metricGroupsFilter}
           sliceTagsFilter={sliceTagsFilter}
@@ -428,6 +434,9 @@ const Results: FC<{
             editMetrics={editMetrics}
             variations={variations}
             variationFilter={analysisBarSettings.variationFilter}
+            setVariationFilter={(v: number[]) =>
+              setAnalysisBarSettings({ ...analysisBarSettings, variationFilter: v })
+            }
             baselineRow={analysisBarSettings.baselineRow}
             setBaselineRow={(b: number) =>
               setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
@@ -455,7 +464,10 @@ const Results: FC<{
             pValueCorrection={pValueCorrection}
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-            differenceType={analysis.settings?.differenceType}
+          differenceType={analysis.settings?.differenceType}
+          setDifferenceType={(d: DifferenceType) =>
+            setAnalysisBarSettings({ ...analysisBarSettings, differenceType: d })
+          }
             metricTagFilter={metricTagFilter}
             metricGroupsFilter={metricGroupsFilter}
             sliceTagsFilter={sliceTagsFilter}

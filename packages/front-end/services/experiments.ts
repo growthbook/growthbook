@@ -876,7 +876,7 @@ export function getRowResults({
 
 export function getEffectLabel(differenceType: DifferenceType): string {
   if (differenceType === "absolute") {
-    return "Absolute Change";
+    return "Change";
   }
   if (differenceType === "scaled") {
     return "Scaled Impact";

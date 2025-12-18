@@ -239,6 +239,7 @@ export default function BaselineChooserColumnLabel({
       open={dropdownOpen}
       onOpenChange={setDropdownOpen}
       menuPlacement="start"
+      variant="soft"
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
