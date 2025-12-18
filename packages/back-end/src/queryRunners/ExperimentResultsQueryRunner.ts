@@ -272,7 +272,6 @@ export const startExperimentResultQueries = async (
     ? getExposureQueryEligibleDimensions({
         exposureQuery,
         incrementalRefreshModel: null,
-        fullRefresh: true,
         nVariations: snapshotSettings.variations.length,
       })
     : {
