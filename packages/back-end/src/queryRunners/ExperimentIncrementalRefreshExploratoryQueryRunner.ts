@@ -167,7 +167,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const metricParams: IncrementalRefreshStatisticsQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      dimensions: dimensionObjs,
+      // TODO(incremental-refresh): add post-stratification to exploratory analysis
+      // unused in exploratory analysis, use dimensionsForAnalysis instead
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: dimensionObjs,
       factTableMap: params.factTableMap,
       metricSourceTableFullName: existingSource.tableFullName,
       metricSourceCovariateTableFullName:

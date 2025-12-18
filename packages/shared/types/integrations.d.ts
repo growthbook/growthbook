@@ -257,6 +257,7 @@ export type ProcessedDimensions = {
   unitDimensions: UserDimension[];
   experimentDimensions: ExperimentDimension[];
   activationDimension: ActivationDimension | null;
+  dateDimension: DateDimension | null;
 };
 
 export interface DropTableQueryParams {
@@ -369,7 +370,8 @@ export interface InsertMetricSourceCovariateDataQueryParams {
 export interface IncrementalRefreshStatisticsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
-  dimensions: Dimension[];
+  dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
+  dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
   metricSourceCovariateTableFullName: string | null;
