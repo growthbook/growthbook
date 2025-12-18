@@ -118,6 +118,9 @@ export const apiGetDashboardsForExperimentValidator = {
   querySchema: z.never(),
   paramsSchema: z.strictObject({ experimentId: z.string() }),
 };
+export const apiGetDashboardsForExperimentReturn = z.strictObject({
+  dashboards: z.array(apiDashboardInterface),
+});
 export type DashboardInterface = z.infer<typeof dashboardInterface>;
 export type ApiDashboardInterface = z.infer<typeof apiDashboardInterface>;
 

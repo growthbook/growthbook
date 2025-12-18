@@ -23,6 +23,9 @@ export type HttpVerb = (typeof httpVerbs)[number];
 type CustomHandler = {
   pathFragment: string;
   verb: HttpVerb;
+  operationId: string;
+  validator: ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
+  zodReturnObject: z.ZodObject;
   wrappedHandler: RequestHandler;
 };
 const defaultHandlers = {

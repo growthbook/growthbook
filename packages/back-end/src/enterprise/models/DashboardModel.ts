@@ -9,6 +9,7 @@ import {
   apiCreateDashboardBody,
   apiDashboardInterface,
   ApiDashboardInterface,
+  apiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentValidator,
   apiUpdateDashboardBody,
   dashboardInterface,
@@ -87,6 +88,9 @@ const BaseClass = MakeModelClass({
       {
         pathFragment: "/by-experiment/:experimentId",
         verb: "get",
+        operationId: "getDashboardsForExperiment",
+        validator: apiGetDashboardsForExperimentValidator,
+        zodReturnObject: apiGetDashboardsForExperimentReturn,
         wrappedHandler: apiFindByExperiment,
       },
     ],

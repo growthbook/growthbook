@@ -163,6 +163,28 @@ async function run() {
         api.paths[fullPath] = pathRecord;
       },
     );
+    (apiConfig.customHandlers ?? []).forEach(
+      ({ pathFragment, verb, operationId, validator, zodReturnObject }) => {
+        const fullPath = modelDef.pathBase + pathFragment;
+        if (api.paths[fullPath] && "$ref" in api.paths[fullPath])
+          throw new Error(
+            "Unable to add API route at '${verb}' ${fullPath}; this path has a $ref defined",
+          );
+        const pathRecord: PathRecord = api.paths[fullPath] || {};
+        if (verb in pathRecord) {
+          throw new Error(
+            `Unable to add API route at '${verb}' ${fullPath}; this route is already defined`,
+          );
+        }
+        pathRecord[verb] = generateYamlForPath({
+          validator,
+          returnSchema: z.toJSONSchema(zodReturnObject),
+          operationId,
+          tags: [pluralCapitalized],
+        });
+        api.paths[fullPath] = pathRecord;
+      },
+    );
     const schema = z.toJSONSchema(apiConfig.apiInterface);
     schema.$skipValidatorGeneration = true;
     api.components.schemas[singularCapitalized] = schema;
