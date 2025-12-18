@@ -15,8 +15,8 @@ export type TransformedCondition = {
     condition: string;
   }>; // Array of prerequisite feature conditions
   scheduleRules?: [
-    start: { timestamp: string; enabled: boolean },
-    end: { timestamp: string; enabled: boolean },
+    start: { timestamp: string | null; enabled: boolean },
+    end: { timestamp: string | null; enabled: boolean },
   ];
 };
 
