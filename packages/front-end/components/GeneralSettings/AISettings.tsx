@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
-  AIPromptDefaults,
+  AI_PROMPT_DEFAULTS,
   AIPromptInterface,
   AI_PROVIDER_MODEL_MAP,
 } from "shared/ai";
@@ -28,6 +28,7 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptValue: string;
   promptDefaultValue: string;
   promptHelpText: string;
+  textModel: string | undefined;
 }> {
   return [
     {
@@ -37,10 +38,12 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         "When an experiment is stopped, this prompt creates an analysis of the results.",
       promptValue:
         data.prompts.find((p) => p.type === "experiment-analysis")?.prompt ||
-        AIPromptDefaults["experiment-analysis"],
-      promptDefaultValue: AIPromptDefaults["experiment-analysis"],
+        AI_PROMPT_DEFAULTS["experiment-analysis"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-analysis"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
+      textModel: data.prompts.find((p) => p.type === "experiment-analysis")
+        ?.textModel,
     },
     {
       promptType: "experiment-hypothesis",
@@ -49,9 +52,11 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         "Specify a style for your hypothesis so that it is consistent across experiments.",
       promptValue:
         data.prompts.find((p) => p.type === "experiment-hypothesis")?.prompt ||
-        AIPromptDefaults["experiment-hypothesis"],
-      promptDefaultValue: AIPromptDefaults["experiment-hypothesis"],
+        AI_PROMPT_DEFAULTS["experiment-hypothesis"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
       promptHelpText: "",
+      textModel: data.prompts.find((p) => p.type === "experiment-hypothesis")
+        ?.textModel,
     },
     {
       promptType: "metric-description",
@@ -60,10 +65,12 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         "When a metric is created, this prompt creates a description of the metric.",
       promptValue:
         data.prompts.find((p) => p.type === "metric-description")?.prompt ||
-        AIPromptDefaults["metric-description"],
-      promptDefaultValue: AIPromptDefaults["metric-description"],
+        AI_PROMPT_DEFAULTS["metric-description"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["metric-description"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
+      textModel: data.prompts.find((p) => p.type === "metric-description")
+        ?.textModel,
     },
   ];
 }
@@ -84,6 +91,11 @@ const AI_MODEL_LABELS = [
   { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
   { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
   { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+];
+
+const PROMPT_MODEL_LABELS = [
+  { value: "", label: "Use Default AI Model" },
+  ...AI_MODEL_LABELS,
 ];
 
 const EMBEDDING_MODEL_LABELS = [
@@ -147,6 +159,10 @@ export default function AISettings({
       const prompts = getPrompts(data);
       prompts.forEach((prompt) => {
         promptForm.setValue(prompt.promptType, prompt.promptValue);
+        promptForm.setValue(
+          `${prompt.promptType}-model`,
+          prompt.textModel || "",
+        );
       });
     }
   }, [data, promptForm]);
@@ -347,13 +363,48 @@ export default function AISettings({
                               {prompt.promptDescription}
                             </Text>
                           </Box>
-                          <Field
-                            textarea={true}
-                            id={`prompt-${prompt.promptType}`}
-                            placeholder=""
-                            helpText={prompt.promptHelpText}
-                            {...promptForm.register(prompt.promptType)}
-                          />
+                          <Box mb="3">
+                            <Text
+                              as="label"
+                              htmlFor={`${prompt.promptType}-model`}
+                              size="2"
+                              className="font-weight-semibold"
+                            >
+                              Model
+                            </Text>
+                            <SelectField
+                              id={`${prompt.promptType}-model`}
+                              value={
+                                promptForm.watch(
+                                  `${prompt.promptType}-model`,
+                                ) || ""
+                              }
+                              onChange={(v) =>
+                                promptForm.setValue(
+                                  `${prompt.promptType}-model`,
+                                  v,
+                                )
+                              }
+                              options={PROMPT_MODEL_LABELS}
+                            />
+                          </Box>
+                          <Box mb="3">
+                            <Text
+                              as="label"
+                              htmlFor={`prompt-${prompt.promptType}`}
+                              size="2"
+                              className="font-weight-semibold"
+                            >
+                              Prompt
+                            </Text>
+                            <Field
+                              textarea={true}
+                              id={`prompt-${prompt.promptType}`}
+                              placeholder=""
+                              helpText={prompt.promptHelpText}
+                              {...promptForm.register(prompt.promptType)}
+                            />
+                          </Box>
                           {prompt.promptDefaultValue !==
                             promptForm.watch(prompt.promptType) && (
                             <Box style={{ position: "relative" }}>

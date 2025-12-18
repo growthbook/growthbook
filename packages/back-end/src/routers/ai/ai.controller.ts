@@ -29,7 +29,7 @@ export async function getAIPrompts(
 
 export async function postAIPrompts(
   req: AuthRequest<{
-    prompts: { type: AIPromptType; prompt: string }[];
+    prompts: { type: AIPromptType; prompt: string; textModel?: string }[];
   }>,
   res: Response,
 ) {
@@ -39,14 +39,18 @@ export async function postAIPrompts(
   const currentPrompts = await context.models.aiPrompts.getAll();
 
   await Promise.all(
-    prompts.map(async ({ type, prompt }) => {
+    prompts.map(async ({ type, prompt, textModel }) => {
       const existingPrompt = currentPrompts.find((p) => p.type === type);
       if (existingPrompt) {
-        return context.models.aiPrompts.update(existingPrompt, { prompt });
+        return context.models.aiPrompts.update(existingPrompt, {
+          prompt,
+          textModel,
+        });
       } else {
         return context.models.aiPrompts.create({
           type,
           prompt,
+          textModel,
         });
       }
     }),
@@ -89,7 +93,7 @@ export async function postReformat(
     });
   }
 
-  const { prompt, isDefaultPrompt } =
+  const { prompt, isDefaultPrompt, textModel } =
     await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
     return res.status(400).json({
@@ -106,6 +110,7 @@ export async function postReformat(
     temperature: 0.1,
     type: req.body.type,
     isDefaultPrompt,
+    overrideModel: textModel,
   });
 
   res.status(200).json({

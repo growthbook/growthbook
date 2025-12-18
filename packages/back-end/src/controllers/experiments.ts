@@ -358,7 +358,7 @@ export async function postAIExperimentAnalysis(
     releasedVariationName;
 
   const type = "experiment-analysis";
-  const { isDefaultPrompt, prompt } =
+  const { isDefaultPrompt, prompt, textModel } =
     await context.models.aiPrompts.getAIPrompt(type);
 
   const aiResults = await simpleCompletion({
@@ -368,6 +368,7 @@ export async function postAIExperimentAnalysis(
     type,
     isDefaultPrompt,
     temperature: 0.1,
+    overrideModel: textModel,
   });
 
   res.status(200).json({

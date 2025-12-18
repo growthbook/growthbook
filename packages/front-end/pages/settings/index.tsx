@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
+import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -323,12 +324,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    const formattedPrompts = Object.entries(promptValues).map(
-      ([key, value]) => ({
-        type: key,
-        prompt: value,
-      }),
-    );
+    // Filter out model selector fields and create prompt objects with textModel
+    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
+      type,
+      prompt: promptValues[type],
+      textModel: promptValues[`${type}-model`] || undefined,
+    }));
 
     await apiCall(`/ai/prompts`, {
       method: "POST",

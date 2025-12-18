@@ -11,7 +11,6 @@ export const aiPromptValidator = z
     organization: z.string(),
     type: aiPromptTypeValidator,
     prompt: z.string(),
-    modelProvider: aiProviderValidator.optional(),
     textModel: z.string().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),

@@ -89,9 +89,10 @@ export interface AIPromptInterface {
   organization: string;
   type: AIPromptType;
   prompt: string;
+  textModel?: string;
 }
 
-export const AIPromptDefaults: Record<AIPromptType, string> = {
+export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "experiment-analysis":
     "Provide a justification for the chosen outcome of the experiment based on the snapshot data" +
     "\nIf the chosen outcome is 'dnf' your output should be in the form 'We are not finishing the experiment because ...' and provide a reason such as that the experiment was underpowered and would take too long to complete.  It needs no sections at all." +
@@ -113,3 +114,8 @@ export const AIPromptDefaults: Record<AIPromptType, string> = {
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
 };
+
+// Prompt types that have default values and can be customized by users
+export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
+  (key) => AI_PROMPT_DEFAULTS[key as AIPromptType] !== "",
+) as AIPromptType[];
