@@ -74,7 +74,7 @@ function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function hasMultiValues(operator: string) {
-  return ["$in", "$nin"].includes(operator);
+  return ["$in", "$nin", "$inGroup", "$notInGroup"].includes(operator);
 }
 function getValue(
   operator: string,
@@ -87,7 +87,6 @@ function getValue(
   // Get the groupName from the associated group.id to display a human readable name.
   if ((operator === "$inGroup" || operator === "$notInGroup") && savedGroups) {
     const index = savedGroups.find((i) => i.id === value);
-
     return index?.groupName || "Group was Deleted";
   }
   return value;
