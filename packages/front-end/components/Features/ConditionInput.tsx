@@ -269,6 +269,7 @@ export default function ConditionInput(props: Props) {
                   }
                   setConds(newConds);
                 }}
+                sort={false}
               />
             );
 

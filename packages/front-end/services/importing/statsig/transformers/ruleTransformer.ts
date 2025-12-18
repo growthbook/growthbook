@@ -143,17 +143,18 @@ export function transformStatsigConditionsToGB(
         )
       : "{}";
 
-  // Create schedule rules tuple if we have both start and end times
+  // Create schedule rules tuple if we have at least one time
+  // ScheduleRules requires exactly 2 elements, so we use null for missing times
   const scheduleRules:
     | [
-        start: { timestamp: string; enabled: boolean },
-        end: { timestamp: string; enabled: boolean },
+        start: { timestamp: string | null; enabled: boolean },
+        end: { timestamp: string | null; enabled: boolean },
       ]
     | undefined =
-    startTime && endTime
+    startTime || endTime
       ? [
-          { timestamp: startTime, enabled: true },
-          { timestamp: endTime, enabled: false },
+          { timestamp: startTime || null, enabled: true },
+          { timestamp: endTime || null, enabled: false },
         ]
       : undefined;
 

@@ -176,6 +176,19 @@ export async function transformStatsigSegmentToSavedGroup(
       >();
 
       allConditions.forEach((cond) => {
+        // Skip special condition types that are transformed, not treated as attributes
+        // Note: "time" with an operator is transformed to scheduleRules, but "time" without
+        // an operator should be treated as an attribute, so we don't skip it here
+        if (
+          cond.type === "passes_segment" ||
+          cond.type === "fails_segment" ||
+          cond.type === "passes_gate" ||
+          cond.type === "fails_gate" ||
+          (cond.type === "time" && cond.operator)
+        ) {
+          return;
+        }
+
         // Determine the attribute name:
         // - For custom_field type, use the field value
         // - For unit_id type with customID, use the customID (custom unit ID)
