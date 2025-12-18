@@ -28,6 +28,7 @@ export function transformStatsigConditionsToGB(
   skipAttributeMapping: boolean = false,
   savedGroupIdMap?: Map<string, string>,
   featuresMap?: Map<string, FeatureInterface>,
+  addSavedGroupsToConditions: boolean = false,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
   const savedGroups: Array<{ ids: string[]; match: "all" | "any" | "none" }> =
@@ -81,6 +82,12 @@ export function transformStatsigConditionsToGB(
           return;
         }
         case "passes_segment": {
+          if (addSavedGroupsToConditions) {
+            // If we are not adding saved groups, treat as normal targeting condition
+            targetingConditions.push(condition);
+            return;
+          }
+
           // These become saved groups with inclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
@@ -96,6 +103,12 @@ export function transformStatsigConditionsToGB(
           return;
         }
         case "fails_segment": {
+          if (addSavedGroupsToConditions) {
+            // If we are not adding saved groups, treat as normal targeting condition
+            targetingConditions.push(condition);
+            return;
+          }
+
           // These become saved groups with exclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
@@ -124,7 +137,11 @@ export function transformStatsigConditionsToGB(
   // Convert targeting conditions to GrowthBook format
   const conditionString =
     targetingConditions.length > 0
-      ? transformTargetingConditions(targetingConditions, skipAttributeMapping)
+      ? transformTargetingConditions(
+          targetingConditions,
+          savedGroupIdMap,
+          skipAttributeMapping,
+        )
       : "{}";
 
   // Create schedule rules tuple if we have both start and end times
@@ -154,6 +171,7 @@ export function transformStatsigConditionsToGB(
  */
 function transformTargetingConditions(
   conditions: StatsigCondition[],
+  savedGroupIdMap?: Map<string, string>,
   skipAttributeMapping: boolean = false,
 ): string {
   // Map Statsig operators to GrowthBook operators
@@ -184,6 +202,8 @@ function transformTargetingConditions(
 
   const conditionObj: ConditionInterface = {};
 
+  const and: ConditionInterface[] = [];
+
   conditions.forEach((condition) => {
     const { type, operator, targetValue, field, customID } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
@@ -197,6 +217,20 @@ function transformTargetingConditions(
       attributeName = field || "custom_field";
     } else if (type === "unit_id" && customID) {
       attributeName = customID;
+    } else if (type === "passes_gate" || type === "fails_gate") {
+      const segmentName = String(targetValue);
+      const savedGroupId = savedGroupIdMap?.get(segmentName);
+
+      if (type === "passes_gate") {
+        and.push({
+          $savedGroups: [savedGroupId ?? segmentName],
+        });
+      } else {
+        and.push({
+          $not: { $savedGroups: [savedGroupId ?? segmentName] },
+        });
+      }
+      return;
     } else {
       attributeName = type;
     }
@@ -274,5 +308,16 @@ function transformTargetingConditions(
     }
   });
 
-  return JSON.stringify(conditionObj);
+  if (Object.keys(conditionObj).length > 0) {
+    and.push(conditionObj);
+  }
+
+  if (and.length === 0) {
+    return "{}";
+  } else if (and.length === 1) {
+    // Only one condition, return it directly
+    return JSON.stringify(and[0]);
+  } else {
+    return JSON.stringify({ $and: and });
+  }
 }

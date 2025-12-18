@@ -40,7 +40,9 @@ export async function transformStatsigSegmentToSavedGroup(
         const transformed = transformStatsigConditionsToGB(
           rule.conditions,
           skipAttributeMapping,
-          undefined, // Don't resolve saved groups during saved group creation
+          _savedGroupIdMap,
+          undefined,
+          true,
         );
         if (transformed.condition && transformed.condition !== "{}") {
           ruleConditions.push(transformed.condition);
