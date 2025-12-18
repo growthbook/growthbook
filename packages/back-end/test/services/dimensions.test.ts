@@ -4,7 +4,7 @@ import {
   trimPrecomputedDimensionsToMaxCells,
 } from "back-end/src/services/dimensions";
 
-describe("getPredefinedDimensionSlicesByExperiment", () => {
+describe("trimPrecomputedDimensionsToMaxCells", () => {
   it("returns correct number of slices", () => {
     const dimensions: ExperimentDimensionWithSpecifiedSlices[] = [
       {
