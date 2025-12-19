@@ -224,7 +224,6 @@ export const simpleCompletion = async ({
   context,
   instructions,
   prompt,
-  maxTokens,
   temperature,
   type,
   isDefaultPrompt,
@@ -235,7 +234,6 @@ export const simpleCompletion = async ({
   context: ReqContext | ApiReqContext;
   instructions?: string;
   prompt: string;
-  maxTokens?: number;
   temperature?: number;
   type: AIPromptType;
   isDefaultPrompt: boolean;
@@ -251,12 +249,6 @@ export const simpleCompletion = async ({
 
   const messages = constructMessages(prompt, instructions);
   const numTokens = numTokensFromMessages(messages, context);
-
-  if (maxTokens != null && numTokens > maxTokens) {
-    throw new Error(
-      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
-    );
-  }
 
   const generateOptions = {
     model: aiProvider(model),
@@ -309,7 +301,6 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   context,
   instructions,
   prompt,
-  maxTokens,
   temperature,
   type,
   isDefaultPrompt,
@@ -319,7 +310,6 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   context: ReqContext | ApiReqContext;
   instructions?: string;
   prompt: string;
-  maxTokens?: number;
   temperature?: number;
   type: AIPromptType;
   isDefaultPrompt: boolean;
@@ -344,11 +334,6 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   const messages = constructMessages(prompt, instructions);
   const numTokens = numTokensFromMessages(messages, context);
 
-  if (maxTokens != null && numTokens > maxTokens) {
-    throw new Error(
-      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
-    );
-  }
   const modelToUse = model || defaultModel;
 
   // Convert messages to the format expected by Vercel AI SDK
