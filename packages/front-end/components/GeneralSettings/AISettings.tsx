@@ -377,40 +377,44 @@ export default function AISettings({
                               {prompt.promptDescription}
                             </Text>
                           </Box>
+                          {!isCloud() && (
+                            <Box mb="3">
+                              <Text
+                                as="label"
+                                htmlFor={`${prompt.promptType}-model`}
+                                size="2"
+                                className="font-weight-semibold"
+                              >
+                                Model
+                              </Text>
+                              <SelectField
+                                id={`${prompt.promptType}-model`}
+                                value={
+                                  promptForm.watch(
+                                    `${prompt.promptType}-model`,
+                                  ) || ""
+                                }
+                                onChange={(v) =>
+                                  promptForm.setValue(
+                                    `${prompt.promptType}-model`,
+                                    v,
+                                  )
+                                }
+                                options={PROMPT_MODEL_LABELS}
+                              />
+                            </Box>
+                          )}
                           <Box mb="3">
-                            <Text
-                              as="label"
-                              htmlFor={`${prompt.promptType}-model`}
-                              size="2"
-                              className="font-weight-semibold"
-                            >
-                              Model
-                            </Text>
-                            <SelectField
-                              id={`${prompt.promptType}-model`}
-                              value={
-                                promptForm.watch(
-                                  `${prompt.promptType}-model`,
-                                ) || ""
-                              }
-                              onChange={(v) =>
-                                promptForm.setValue(
-                                  `${prompt.promptType}-model`,
-                                  v,
-                                )
-                              }
-                              options={PROMPT_MODEL_LABELS}
-                            />
-                          </Box>
-                          <Box mb="3">
-                            <Text
-                              as="label"
-                              htmlFor={`prompt-${prompt.promptType}`}
-                              size="2"
-                              className="font-weight-semibold"
-                            >
-                              Prompt
-                            </Text>
+                            {!isCloud() && (
+                              <Text
+                                as="label"
+                                htmlFor={`prompt-${prompt.promptType}`}
+                                size="2"
+                                className="font-weight-semibold"
+                              >
+                                Prompt
+                              </Text>
+                            )}
                             <Field
                               textarea={true}
                               id={`prompt-${prompt.promptType}`}
