@@ -18,7 +18,15 @@ import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
-function operatorToText(operator: string, isPrerequisite?: boolean): string {
+function operatorToText({
+  operator,
+  isPrerequisite,
+  isPluralSavedGroups,
+}: {
+  operator: string;
+  isPrerequisite?: boolean;
+  isPluralSavedGroups?: boolean;
+}): string {
   switch (operator) {
     case "$eq":
     case "$veq":
@@ -55,9 +63,9 @@ function operatorToText(operator: string, isPrerequisite?: boolean): string {
     case "$nin":
       return `is not in the list`;
     case "$inGroup":
-      return `is in the saved group`;
+      return `is in the saved group${isPluralSavedGroups ? "s" : ""}`;
     case "$notInGroup":
-      return `is not in the saved group`;
+      return `is not in the saved group${isPluralSavedGroups ? "s" : ""}`;
     case "$true":
       return "is";
     case "$false":
@@ -139,14 +147,18 @@ export function MultiValuesDisplay({
 function MultiValueDisplay({
   value,
   displayMap,
+  noParensForSingleValue = false,
 }: {
   value: string;
   displayMap?: Record<string, string>;
+  noParensForSingleValue?: boolean;
 }) {
   const parts = value
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
+
+  const skipParens = noParensForSingleValue && parts.length <= 1;
 
   if (!parts.length) {
     return (
@@ -157,8 +169,9 @@ function MultiValueDisplay({
   }
   return (
     <>
-      <span className="mr-1">(</span>
-      <MultiValuesDisplay values={parts} displayMap={displayMap} />)
+      {!skipParens && <span>(</span>}
+      <MultiValuesDisplay values={parts} displayMap={displayMap} />
+      {!skipParens && <span>)</span>}
     </>
   );
 }
@@ -233,13 +246,26 @@ function getConditionParts({
       }
     }
 
+    const savedGroupValueParts =
+      field === "$savedGroups"
+        ? value
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : [];
+
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}
         {parentIdEl}
         {fieldEl}
         <span className="mr-1">
-          {operatorToText(operator, renderPrerequisite)}
+          {operatorToText({
+            operator,
+            isPrerequisite: renderPrerequisite,
+            isPluralSavedGroups:
+              field === "$savedGroups" && savedGroupValueParts.length > 1,
+          })}
         </span>
         {field === "$savedGroups" ? (
           <MultiValueDisplay
@@ -247,6 +273,7 @@ function getConditionParts({
             displayMap={Object.fromEntries(
               (savedGroups || []).map((sg) => [sg.id, sg.groupName]),
             )}
+            noParensForSingleValue={true}
           />
         ) : hasMultiValues(operator) ? (
           <MultiValueDisplay value={value} />
