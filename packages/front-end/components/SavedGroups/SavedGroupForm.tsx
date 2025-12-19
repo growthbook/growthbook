@@ -112,7 +112,7 @@ const SavedGroupForm: FC<{
               form.setValue("condition", c);
               forceConditionRender();
             },
-            false,
+            true,
             groupMap,
           );
           if (conditionRes.empty) {
