@@ -75,18 +75,13 @@ export const postSavedGroup = async (
   }
 
   let uniqValues: string[] | undefined = undefined;
-  // If this is a condition group, make sure the condition is valid and not empty.
-  // When skipCycleCheck=1 (used by importers), still validate general JSON/syntax
-  // but skip saved-group cyclic/invalid reference checks so users can fix them later.
+  // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const allSavedGroups = await getAllSavedGroups(org.id);
     const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
     const conditionRes = validateCondition(
       condition,
       groupMap,
-      // When skipCycleCheck=1, skip only saved-group *cycle* checks while still
-      // enforcing JSON validity and other saved-group errors (unknown group,
-      // invalid nested condition, max depth).
       skipCycleCheck === "1",
     );
     if (!conditionRes.success) {

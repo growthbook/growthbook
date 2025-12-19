@@ -606,9 +606,6 @@ export type ValidateConditionReturn = {
   suggestedValue?: string;
   error?: string;
 };
-// skipSavedGroupReferenceChecks=true will skip only saved-group reference errors
-// (cycles, unknown groups, invalid nested group conditions, max nesting depth),
-// but will still enforce that the condition is valid JSON / dJSON.
 export function validateCondition(
   condition?: string,
   groupMap?: GroupMap,
