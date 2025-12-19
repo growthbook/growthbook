@@ -94,7 +94,7 @@ const AI_MODEL_LABELS = [
 ];
 
 const PROMPT_MODEL_LABELS = [
-  { value: "", label: "Use Default AI Model" },
+  { value: "", label: "-- Use Default AI Model --" },
   ...AI_MODEL_LABELS,
 ];
 

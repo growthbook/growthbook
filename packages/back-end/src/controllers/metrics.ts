@@ -701,7 +701,7 @@ export const getMetricNorthstarData = async (
   });
 };
 
-// get endpoint to use OpenAI library to generate a description for a given
+// get endpoint to use ai library to generate a description for a given
 // metric based on the ID, based on the data source, project, SQL, any template
 // variables, and options. Supports both regular metrics and fact-table metrics.
 export const getGeneratedDescription = async (
