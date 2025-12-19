@@ -190,7 +190,7 @@ export default function IdLists({ groups, mutate }: Props) {
                         <tr key={s.id}>
                           <td>
                             <Link
-                              className="text-color-primary"
+                              className="link-purple"
                               key={s.id}
                               href={`/saved-groups/${s.id}`}
                             >
