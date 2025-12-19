@@ -21,11 +21,11 @@ type ConditionWithParentId = Condition & { parentId?: string };
 function operatorToText({
   operator,
   isPrerequisite,
-  isPluralSavedGroups,
+  hasMultipleSavedGroups,
 }: {
   operator: string;
   isPrerequisite?: boolean;
-  isPluralSavedGroups?: boolean;
+  hasMultipleSavedGroups?: boolean;
 }): string {
   switch (operator) {
     case "$eq":
@@ -63,9 +63,9 @@ function operatorToText({
     case "$nin":
       return `is not in the list`;
     case "$inGroup":
-      return `is in the saved group${isPluralSavedGroups ? "s" : ""}`;
+      return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
-      return `is not in the saved group${isPluralSavedGroups ? "s" : ""}`;
+      return `is not in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$true":
       return "is";
     case "$false":
@@ -253,6 +253,7 @@ function getConditionParts({
             .map((v) => v.trim())
             .filter(Boolean)
         : [];
+    const hasMultipleSavedGroups = savedGroupValueParts.length > 1;
 
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
@@ -263,8 +264,7 @@ function getConditionParts({
           {operatorToText({
             operator,
             isPrerequisite: renderPrerequisite,
-            isPluralSavedGroups:
-              field === "$savedGroups" && savedGroupValueParts.length > 1,
+            hasMultipleSavedGroups,
           })}
         </span>
         {field === "$savedGroups" ? (
