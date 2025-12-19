@@ -106,24 +106,36 @@ export function evaluateDecisionRuleOnVariation({
   return undefined;
 }
 
+// If a condition only has "none" rules, then it cannot return an action
+// unless the desired power is reached
+export function ruleEligibleForEarlyStopping(
+  rule: DecisionCriteriaRule,
+): boolean {
+  return rule.conditions.every((condition) => {
+    return condition.match !== "none";
+  });
+}
+
 // Get the decision for each variation based on the decision criteria
 export function getVariationDecisions({
   resultsStatus,
   decisionCriteria,
+  powerReached,
   goalMetrics,
   guardrailMetrics,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
+  powerReached: boolean;
   goalMetrics: string[];
   guardrailMetrics: string[];
 }): {
   variation: DecisionFrameworkVariation;
-  decisionCriteriaAction: DecisionCriteriaAction;
+  decisionCriteriaAction: DecisionCriteriaAction | null;
 }[] {
   const results: {
     variation: DecisionFrameworkVariation;
-    decisionCriteriaAction: DecisionCriteriaAction;
+    decisionCriteriaAction: DecisionCriteriaAction | null;
   }[] = [];
 
   const { rules } = decisionCriteria;
@@ -131,6 +143,9 @@ export function getVariationDecisions({
   resultsStatus.variations.forEach((variation) => {
     let decisionReached = false;
     for (const rule of rules) {
+      if (ruleEligibleForEarlyStopping(rule) || powerReached) {
+        continue;
+      }
       const action = evaluateDecisionRuleOnVariation({
         rule,
         variationStatus: variation,
@@ -150,16 +165,26 @@ export function getVariationDecisions({
         break;
       }
     }
-    // If no decision was reached, use the default action from the
-    // decision criteria
     if (!decisionReached) {
-      results.push({
-        variation: {
-          variationId: variation.variationId,
-          decidingRule: null,
-        },
-        decisionCriteriaAction: decisionCriteria.defaultAction,
-      });
+      // if no decision was reached and power was reached, return the default action
+      if (powerReached) {
+        results.push({
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: null,
+          },
+          decisionCriteriaAction: decisionCriteria.defaultAction,
+        });
+      } else {
+        // if no decision was reached and power was not reached, return null
+        results.push({
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: null,
+          },
+          decisionCriteriaAction: null,
+        });
+      }
     }
   });
 
@@ -277,6 +302,7 @@ export function getDecisionFrameworkStatus({
       decisionCriteria,
       goalMetrics,
       guardrailMetrics,
+      powerReached,
     });
 
     const allRollbackNow =
@@ -323,14 +349,10 @@ export function getDecisionFrameworkStatus({
     }
   } else {
     // only return ship or rollback for super stat sig metrics
-    const earlyStoppingCriteria =
-      decisionCriteria.name === "Do No Harm"
-        ? PRESET_DECISION_CRITERIA
-        : decisionCriteria;
-
-    const superStatSigVariationDecisions = getEarlyStoppingVariationDecisions({
+    const superStatSigVariationDecisions = getVariationDecisions({
       resultsStatus,
-      decisionCriteria: earlyStoppingCriteria,
+      decisionCriteria,
+      powerReached,
       goalMetrics,
       guardrailMetrics,
     });
