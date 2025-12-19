@@ -10,6 +10,7 @@ export * from "./metric-time-series";
 export * from "./openapi";
 export * from "./queries";
 export * from "./safe-rollout";
+export * from "./saved-groups";
 export * from "./saved-queries";
 export * from "./segment";
 export * from "./shared";
