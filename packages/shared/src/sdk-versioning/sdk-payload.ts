@@ -243,10 +243,13 @@ export function conditionHasSavedGroupErrors(
 
   const errorMarkers = [
     SAVED_GROUP_ERROR_INVALID,
-    SAVED_GROUP_ERROR_UNKNOWN,
     ...(ignoreCycleErrors
       ? []
-      : [SAVED_GROUP_ERROR_MAX_DEPTH, SAVED_GROUP_ERROR_CYCLE]),
+      : [
+          SAVED_GROUP_ERROR_UNKNOWN,
+          SAVED_GROUP_ERROR_MAX_DEPTH,
+          SAVED_GROUP_ERROR_CYCLE,
+        ]),
   ];
 
   if (errorMarkers.length === 0) return false;

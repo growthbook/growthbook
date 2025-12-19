@@ -28,7 +28,6 @@ export function transformStatsigConditionsToGB(
   skipAttributeMapping: boolean = false,
   savedGroupIdMap?: Map<string, string>,
   featuresMap?: Map<string, FeatureInterface>,
-  addSavedGroupsToConditions: boolean = false,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
   const savedGroups: Array<{ ids: string[]; match: "all" | "any" | "none" }> =
@@ -99,13 +98,6 @@ export function transformStatsigConditionsToGB(
           return;
         }
         case "fails_segment": {
-          if (addSavedGroupsToConditions) {
-            // When adding saved groups directly into conditions (e.g. for
-            // saved group import), still treat missing mappings specially so
-            // we can support two-pass imports.
-          }
-
-          // These become saved groups with exclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
           if (savedGroupId) {
