@@ -13,6 +13,7 @@ import {
 import { SafeRolloutInterface } from "shared/validators";
 import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
+import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -27,8 +28,9 @@ import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import { useExperiments } from "@/hooks/useExperiments";
+import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 
-const featureTabs = ["overview", "stats", "test"] as const;
+const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
 export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
@@ -43,6 +45,9 @@ export default function FeaturePage() {
   const [lastDisplayedVersion, setLastDisplayedVersion] = useState<
     number | null
   >(null);
+  const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
+    FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+  > | null>(null);
 
   const { apiCall } = useAuth();
 
@@ -352,6 +357,14 @@ export default function FeaturePage() {
 
       {tab === "stats" && (
         <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+      )}
+
+      {tab === "diagnostics" && (
+        <FeatureDiagnostics
+          feature={feature}
+          results={diagnosticsResults}
+          setResults={setDiagnosticsResults}
+        />
       )}
 
       {editTagsModal && (
