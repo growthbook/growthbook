@@ -3,8 +3,6 @@ import { AI_PROMPT_TYPES } from "shared/ai";
 
 export const aiPromptTypeValidator = z.enum(AI_PROMPT_TYPES);
 
-export const aiProviderValidator = z.enum(["openai", "anthropic"]);
-
 export const aiPromptValidator = z
   .object({
     id: z.string(),

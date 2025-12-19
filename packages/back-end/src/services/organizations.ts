@@ -184,38 +184,31 @@ export function getAISettingsForOrg(
   includeKey: boolean = false,
 ): {
   aiEnabled: boolean;
-  aiProvider: "openai" | "anthropic";
   openAIAPIKey: string;
   anthropicAPIKey: string;
   defaultAIModel: AiModel;
-  embeddingModel: EmbeddingModel;
+  embeddingModel: EmbeddingModel | undefined;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
 
-  // Determine which provider to use (prefer org settings, fall back to available keys)
-  const preferredProvider =
-    context.org.settings?.aiProvider ||
-    (openAIKey ? "openai" : anthropicKey ? "anthropic" : "openai");
-
-  const hasValidKey =
-    preferredProvider === "openai" ? !!openAIKey : !!anthropicKey;
+  const hasValidKey = !!(openAIKey || anthropicKey);
 
   const aiEnabled = IS_CLOUD
-    ? context.org.settings?.aiEnabled !== false
+    ? !!context.org.settings?.aiEnabled
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
   return {
     aiEnabled,
-    aiProvider: preferredProvider as "openai" | "anthropic",
     openAIAPIKey: includeKey ? openAIKey : "",
     anthropicAPIKey: includeKey ? anthropicKey : "",
     defaultAIModel:
       context.org.settings?.defaultAIModel ||
       context.org.settings?.openAIDefaultModel ||
       "gpt-4o-mini",
-    embeddingModel:
-      context.org.settings?.embeddingModel || "text-embedding-ada-002",
+    embeddingModel: openAIKey
+      ? context.org.settings?.embeddingModel || "text-embedding-ada-002"
+      : undefined,
   };
 }
 

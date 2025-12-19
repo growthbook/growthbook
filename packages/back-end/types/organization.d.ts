@@ -218,7 +218,6 @@ export interface OrganizationSettings {
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
   aiEnabled?: boolean;
-  aiProvider?: "openai" | "anthropic";
   defaultAIModel?: AiModel;
   embeddingModel?: EmbeddingModel;
   /** @deprecated */
