@@ -87,13 +87,15 @@ export default function IdLists({ groups, mutate }: Props) {
     [filteredIdLists, experiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: filteredIdLists,
-    localStorageKey: "savedGroups",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: filteredIdLists,
+      localStorageKey: "savedGroups",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
+      pageSize: 50,
+    });
 
   if (!idLists) return <LoadingOverlay />;
 
@@ -264,6 +266,7 @@ export default function IdLists({ groups, mutate }: Props) {
                     )}
                   </tbody>
                 </table>
+                {pagination}
               </div>
             </div>
           </>

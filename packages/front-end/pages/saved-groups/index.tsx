@@ -19,6 +19,7 @@ import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups?: FeatureInterface[],
@@ -179,10 +180,10 @@ export default function SavedGroupsPage() {
           </a>
         </div>
       </div>
-      <p>
+      <div>
         Create reusable user groups as targets for feature flags or experiments.
-      </p>
-      <div className="alert alert-info mt-2">
+      </div>
+      <Callout status="info" my="3">
         Learn more about using Condition Groups and ID Lists.{" "}
         <a
           href="https://docs.growthbook.io/features/targeting#saved-groups"
@@ -192,7 +193,7 @@ export default function SavedGroupsPage() {
         >
           View docs <FaExternalLinkAlt />
         </a>
-      </div>
+      </Callout>
 
       {error ? (
         <div className="alert alert-danger">
