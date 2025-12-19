@@ -48,12 +48,12 @@ export class AiPromptModel extends BaseClass {
       ? {
           isDefaultPrompt: false,
           prompt: existing.prompt,
-          textModel: existing.textModel,
+          overrideModel: existing.overrideModel,
         }
       : {
           isDefaultPrompt: true,
           prompt: AI_PROMPT_DEFAULTS[type],
-          textModel: undefined,
+          overrideModel: undefined,
         };
   };
 }

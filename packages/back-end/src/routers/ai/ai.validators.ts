@@ -9,7 +9,7 @@ export const aiPromptValidator = z
     organization: z.string(),
     type: aiPromptTypeValidator,
     prompt: z.string(),
-    textModel: z.string().optional(),
+    overrideModel: z.string().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })

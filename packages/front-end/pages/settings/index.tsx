@@ -324,11 +324,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    // Filter out model selector fields and create prompt objects with textModel
+    // Filter out model selector fields and create prompt objects with overrideModel
     const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
       type,
       prompt: promptValues[type],
-      textModel: promptValues[`${type}-model`] || undefined,
+      overrideModel: promptValues[`${type}-model`] || undefined,
     }));
 
     await apiCall(`/ai/prompts`, {

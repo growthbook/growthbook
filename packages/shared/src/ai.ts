@@ -89,7 +89,7 @@ export interface AIPromptInterface {
   organization: string;
   type: AIPromptType;
   prompt: string;
-  textModel?: string;
+  overrideModel?: string;
 }
 
 export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {

@@ -735,7 +735,7 @@ export const getGeneratedDescription = async (
   }
 
   const type = "metric-description";
-  const { isDefaultPrompt, prompt, textModel } =
+  const { isDefaultPrompt, prompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(type);
 
   // try to see if this id is a fact metric id:
@@ -848,7 +848,7 @@ export const getGeneratedDescription = async (
       temperature: 0.1,
       type,
       isDefaultPrompt,
-      overrideModel: textModel,
+      overrideModel,
     });
 
     res.status(200).json({
@@ -971,7 +971,7 @@ export const getGeneratedDescription = async (
       temperature: 0.1,
       type,
       isDefaultPrompt,
-      overrideModel: textModel,
+      overrideModel,
     });
 
     res.status(200).json({

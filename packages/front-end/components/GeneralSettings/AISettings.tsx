@@ -28,7 +28,7 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptValue: string;
   promptDefaultValue: string;
   promptHelpText: string;
-  textModel: string | undefined;
+  overrideModel: string | undefined;
 }> {
   return [
     {
@@ -42,8 +42,8 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
       promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-analysis"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
-      textModel: data.prompts.find((p) => p.type === "experiment-analysis")
-        ?.textModel,
+      overrideModel: data.prompts.find((p) => p.type === "experiment-analysis")
+        ?.overrideModel,
     },
     {
       promptType: "experiment-hypothesis",
@@ -55,8 +55,9 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         AI_PROMPT_DEFAULTS["experiment-hypothesis"],
       promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
       promptHelpText: "",
-      textModel: data.prompts.find((p) => p.type === "experiment-hypothesis")
-        ?.textModel,
+      overrideModel: data.prompts.find(
+        (p) => p.type === "experiment-hypothesis",
+      )?.overrideModel,
     },
     {
       promptType: "metric-description",
@@ -69,8 +70,8 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
       promptDefaultValue: AI_PROMPT_DEFAULTS["metric-description"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
-      textModel: data.prompts.find((p) => p.type === "metric-description")
-        ?.textModel,
+      overrideModel: data.prompts.find((p) => p.type === "metric-description")
+        ?.overrideModel,
     },
   ];
 }
@@ -161,7 +162,7 @@ export default function AISettings({
         promptForm.setValue(prompt.promptType, prompt.promptValue);
         promptForm.setValue(
           `${prompt.promptType}-model`,
-          prompt.textModel || "",
+          prompt.overrideModel || "",
         );
       });
     }
