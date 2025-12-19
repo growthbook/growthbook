@@ -187,7 +187,7 @@ export function getAISettingsForOrg(
   openAIAPIKey: string;
   anthropicAPIKey: string;
   defaultAIModel: AiModel;
-  embeddingModel: EmbeddingModel | undefined;
+  embeddingModel: EmbeddingModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
@@ -206,9 +206,8 @@ export function getAISettingsForOrg(
       context.org.settings?.defaultAIModel ||
       context.org.settings?.openAIDefaultModel ||
       "gpt-4o-mini",
-    embeddingModel: openAIKey
-      ? context.org.settings?.embeddingModel || "text-embedding-ada-002"
-      : undefined,
+    embeddingModel:
+      context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
 }
 

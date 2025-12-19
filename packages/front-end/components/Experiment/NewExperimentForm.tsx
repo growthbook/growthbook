@@ -40,6 +40,7 @@ import {
   useEnvironments,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import { hasOpenAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -549,7 +550,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
-    if (!aiEnabled || !useCheckForSimilar) return;
+    if (!aiEnabled || !useCheckForSimilar || !hasOpenAIKey()) return;
 
     // check how many words we're sending in the hypothesis, name, and description:
     const wordCount =

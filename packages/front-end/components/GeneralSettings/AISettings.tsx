@@ -481,11 +481,20 @@ export default function AISettings({
                       </p>
                       <Button
                         onClick={handleRegenerate}
-                        disabled={loading}
+                        disabled={loading || !hasOpenAIKey()}
                         variant="solid"
                       >
                         {loading ? "Regenerating..." : "Regenerate all"}
                       </Button>
+                      {!hasOpenAIKey() && (
+                        <Box mt="2">
+                          <Callout status="warning">
+                            OpenAI API key is required for embeddings. Please
+                            set <code>OPENAI_API_KEY</code> in your environment
+                            variables.
+                          </Callout>
+                        </Box>
+                      )}
                       {error && (
                         <Box className="col-auto pt-3">
                           <div className="alert alert-danger">{error}</div>
