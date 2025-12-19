@@ -45,7 +45,10 @@ import Callout from "@/ui/Callout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
-import { getAllMetricTags } from "@/hooks/useExperimentTableRows";
+import {
+  getAllMetricTags,
+  filterMetricsByTags,
+} from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
 
@@ -269,32 +272,15 @@ export default function AnalysisSettingsSummary({
 
   const ds = getDatasourceById(experiment.datasource);
 
-  const goals: string[] = [];
-  expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) goals.push(name);
-    },
-  );
-  const secondary: string[] = [];
-  expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) secondary.push(name);
-    },
-  );
-  const guardrails: string[] = [];
-  expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) guardrails.push(name);
-    },
-  );
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const numMetrics = goals.length + secondary.length + guardrails.length;
+  const { allMetricTags, allMetrics, filteredMetrics } = useMemo(() => {
+    const allMetricsArrays = [
+      experiment.goalMetrics ?? [],
+      experiment.secondaryMetrics ?? [],
+      experiment.guardrailMetrics ?? [],
+    ];
 
-  // Compute all metric tags for filtering
-  const allMetricTags = useMemo(() => {
     const expandedGoals = expandMetricGroups(
       experiment.goalMetrics ?? [],
       metricGroups,
@@ -307,22 +293,76 @@ export default function AnalysisSettingsSummary({
       experiment.guardrailMetrics ?? [],
       metricGroups,
     );
-    return getAllMetricTags(
+
+    const allExpandedIds = [
+      ...expandedGoals,
+      ...expandedSecondaries,
+      ...expandedGuardrails,
+    ];
+    const allMetricsMap = new Map<string, ExperimentMetricInterface>();
+    allExpandedIds.forEach((id) => {
+      const metric = getExperimentMetricById(id);
+      if (metric && !allMetricsMap.has(id)) {
+        allMetricsMap.set(id, metric);
+      }
+    });
+    const allMetrics = Array.from(allMetricsMap.values());
+
+    const allMetricTags = getAllMetricTags(
       expandedGoals,
       expandedSecondaries,
       expandedGuardrails,
       undefined,
       getExperimentMetricById,
     );
+
+    const hasGroupFilter = (metricGroupsFilter?.length ?? 0) > 0;
+    const groupsToUse = hasGroupFilter
+      ? metricGroups.filter((g) => metricGroupsFilter!.includes(g.id))
+      : metricGroups;
+
+    const allowedMetricIds = hasGroupFilter
+      ? new Set(groupsToUse.flatMap((g) => g.metrics))
+      : null;
+
+    const processMetrics = (metrics: string[]) => {
+      let filtered = metrics;
+      if (allowedMetricIds && metricGroupsFilter) {
+        filtered = filtered.filter(
+          (id) => metricGroupsFilter.includes(id) || allowedMetricIds.has(id),
+        );
+      }
+      const expanded = expandMetricGroups(filtered, groupsToUse);
+      const defs = expanded
+        .map((id) => getExperimentMetricById(id))
+        .filter((m): m is ExperimentMetricInterface => !!m);
+      return filterMetricsByTags(defs, metricTagFilter);
+    };
+
+    const filteredIds = allMetricsArrays.flatMap(processMetrics);
+    const filteredMetricsMap = new Map<string, ExperimentMetricInterface>();
+    filteredIds.forEach((id) => {
+      const metric = getExperimentMetricById(id);
+      if (metric && !filteredMetricsMap.has(id)) {
+        filteredMetricsMap.set(id, metric);
+      }
+    });
+    const filteredMetrics = Array.from(filteredMetricsMap.values());
+
+    return {
+      allMetricTags,
+      allMetrics,
+      filteredMetrics,
+    };
   }, [
     experiment.goalMetrics,
     experiment.secondaryMetrics,
     experiment.guardrailMetrics,
     metricGroups,
+    metricGroupsFilter,
+    metricTagFilter,
     getExperimentMetricById,
   ]);
-
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   function isDifferent(
     val1?: string | boolean | number | null,
@@ -384,9 +424,7 @@ export default function AnalysisSettingsSummary({
     conversionWindowMetrics?: Set<string>;
   }): { outdated: boolean; reasons: string[] } {
     const snapshotSettings = snap?.settings;
-    const analysisSettings = snap
-      ? getSnapshotAnalysis(snap)?.settings
-      : null;
+    const analysisSettings = snap ? getSnapshotAnalysis(snap)?.settings : null;
     if (!exp || !snapshotSettings || !analysisSettings) {
       return { outdated: false, reasons: [] };
     }
@@ -401,9 +439,7 @@ export default function AnalysisSettingsSummary({
     ) {
       reasons.push("Stats engine changed");
     }
-    if (
-      isDifferent(exp.activationMetric, snapshotSettings.activationMetric)
-    ) {
+    if (isDifferent(exp.activationMetric, snapshotSettings.activationMetric)) {
       reasons.push("Activation metric changed");
     }
     if (isDifferent(exp.segment, snapshotSettings.segment)) {
@@ -412,14 +448,10 @@ export default function AnalysisSettingsSummary({
     if (isDifferent(exp.queryFilter, snapshotSettings.queryFilter)) {
       reasons.push("Query filter changed");
     }
-    if (
-      isDifferent(exp.skipPartialData, snapshotSettings.skipPartialData)
-    ) {
+    if (isDifferent(exp.skipPartialData, snapshotSettings.skipPartialData)) {
       reasons.push("In-progress conversion behavior changed");
     }
-    if (
-      isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)
-    ) {
+    if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
       reasons.push("Experiment assignment query changed");
     }
     if (
@@ -434,11 +466,7 @@ export default function AnalysisSettingsSummary({
     const snapshotMetrics = Array.from(
       new Set(
         expandMetricGroups(
-          getAllMetricIdsFromExperiment(
-            snapshotSettings,
-            false,
-            mg,
-          ),
+          getAllMetricIdsFromExperiment(snapshotSettings, false, mg),
           mg,
         ),
       ),
@@ -446,17 +474,12 @@ export default function AnalysisSettingsSummary({
 
     let experimentMetrics = Array.from(
       new Set(
-        expandMetricGroups(
-          getAllMetricIdsFromExperiment(exp, false, mg),
-          mg,
-        ),
+        expandMetricGroups(getAllMetricIdsFromExperiment(exp, false, mg), mg),
       ),
     ).filter((m) => (unjoinable ? !unjoinable.has(m) : true));
 
     if (exp.type === "holdout" && conversion?.size) {
-      experimentMetrics = experimentMetrics.filter(
-        (m) => !conversion.has(m),
-      );
+      experimentMetrics = experimentMetrics.filter((m) => !conversion.has(m));
     }
     if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
       reasons.push("Metrics changed");
@@ -472,15 +495,11 @@ export default function AnalysisSettingsSummary({
     }
     if (
       isDifferentDate(
-        getValidDate(
-          exp.phases?.[currentPhase ?? 0]?.dateStarted ?? "",
-        ),
+        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
         getValidDate(snapshotSettings.startDate),
       ) ||
       isDifferentDate(
-        getValidDate(
-          exp.phases?.[currentPhase ?? 0]?.dateEnded ?? "",
-        ),
+        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
         getValidDate(snapshotSettings.endDate),
       )
     ) {
@@ -511,8 +530,7 @@ export default function AnalysisSettingsSummary({
     const experimentSequentialEnabled =
       engine !== "frequentist" || !hasSequentialFeature
         ? false
-        : (exp.sequentialTestingEnabled ??
-          !!org.sequentialTestingEnabled);
+        : (exp.sequentialTestingEnabled ?? !!org.sequentialTestingEnabled);
     const experimentSequentialTuningParameter: number =
       exp.sequentialTestingTuningParameter ??
       org.sequentialTestingTuningParameter ??
@@ -534,7 +552,7 @@ export default function AnalysisSettingsSummary({
   }
 
   return (
-    <div className="px-3 py-2">
+    <Box px="3" pt="2">
       <Flex align="center" justify="between" gap="6">
         <Flex align="center">
           {setDimension && (
@@ -594,7 +612,7 @@ export default function AnalysisSettingsSummary({
             ))}
 
           {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-            numMetrics > 0 && (
+            allMetrics.length > 0 && (
               <>
                 {experiment.datasource &&
                 latest &&
@@ -718,7 +736,7 @@ export default function AnalysisSettingsSummary({
             snapshotId={snapshot?.id || ""}
             datasource={datasource}
             forceRefresh={
-              numMetrics > 0
+              allMetrics.length > 0
                 ? async () => {
                     await apiCall<{
                       snapshot: ExperimentSnapshotInterface;
@@ -798,6 +816,13 @@ export default function AnalysisSettingsSummary({
           />
         </Flex>
       </Flex>
+      {filteredMetrics.length < allMetrics.length && (
+        <Box mt="2">
+          <Text>
+            Showing {filteredMetrics.length} of {allMetrics.length} metrics
+          </Text>
+        </Box>
+      )}
       {refreshError && (
         <>
           <Callout status="error" mt="2">
@@ -817,6 +842,6 @@ export default function AnalysisSettingsSummary({
           )}
         </>
       )}
-    </div>
+    </Box>
   );
 }
