@@ -1,21 +1,10 @@
 // AI Provider types and configurations
 export type AIProvider = "openai" | "anthropic";
 
-export interface AIProviderConfig {
-  provider: AIProvider;
-  textModel: string;
-  embeddingModel?: EmbeddingModel;
-  maxTokens: number;
-  supportsJSON: boolean;
-  supportsEmbeddings: boolean;
-}
-
 export type AiModel =
   | "gpt-4o"
   | "gpt-4o-mini"
   | "gpt-4-turbo"
-  | "gpt-4"
-  | "gpt-3.5-turbo"
   | "claude-haiku-4-5-20251001"
   | "claude-sonnet-4-5-20250929"
   | "claude-opus-4-1-20250805"
@@ -32,7 +21,7 @@ export type EmbeddingModel =
 
 // Available models for each provider
 export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AiModel[]> = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
   anthropic: [
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
@@ -43,25 +32,6 @@ export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AiModel[]> = {
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
   ],
-};
-
-export const AI_PROVIDER_CONFIGS: Record<AIProvider, AIProviderConfig> = {
-  openai: {
-    provider: "openai",
-    textModel: "gpt-4o-mini",
-    embeddingModel: "text-embedding-ada-002",
-    maxTokens: 128000,
-    supportsJSON: true,
-    supportsEmbeddings: true,
-  },
-  anthropic: {
-    provider: "anthropic",
-    textModel: "claude-haiku-4-5-20251001",
-    embeddingModel: undefined, // Anthropic doesn't have embedding models
-    maxTokens: 200000,
-    supportsJSON: true,
-    supportsEmbeddings: false,
-  },
 };
 
 export interface AITokenUsageInterface {

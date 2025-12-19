@@ -137,6 +137,8 @@ export default function AISettings({
             setError(
               `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
             );
+          } else if (responseData.message) {
+            throw new Error(responseData.message);
           } else {
             setError("Error getting AI suggestion");
           }

@@ -7,15 +7,13 @@
  * To add a new provider:
  * 1. Install the provider SDK: `yarn add @ai-sdk/[provider]`
  * 2. Add provider type to AIProvider union type
- * 3. Add configuration to AI_PROVIDER_CONFIGS
- * 4. Add provider creation logic in getAIProvider()
- * 5. Add environment variable handling in getAISettingsForOrg()
- * 6. Update organization.d.ts types if needed
+ * 3. Add provider creation logic in getAIProvider()
+ * 4. Add environment variable handling in getAISettingsForOrg()
+ * 5. Update organization.d.ts types if needed
  *
  * Example: Adding Google AI
  * - `yarn add @ai-sdk/google`
  * - Add "google" to AIProvider type
- * - Add google config to AI_PROVIDER_CONFIGS
  * - Add createGoogle() call in getAIProvider()
  * - Add GOOGLE_API_KEY handling
  */
@@ -28,12 +26,7 @@ import {
   get_encoding,
   TiktokenModel,
 } from "@dqbd/tiktoken";
-import {
-  AIPromptType,
-  AIProvider,
-  AI_PROVIDER_MODEL_MAP,
-  AI_PROVIDER_CONFIGS,
-} from "shared/ai";
+import { AIPromptType, AIProvider, AI_PROVIDER_MODEL_MAP } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -88,10 +81,6 @@ export function getProviderFromModel(model: string): AIProvider | null {
   return null;
 }
 
-// Require a minimum of 30 tokens for responses.
-const getMessageTokenLimit = (provider: AIProvider) =>
-  AI_PROVIDER_CONFIGS[provider].maxTokens - 30;
-
 export const getAIProvider = (
   context: ReqContext | ApiReqContext,
   overrideModel?: string,
@@ -101,7 +90,7 @@ export const getAIProvider = (
     | ReturnType<typeof createOpenAI>
     | null;
   model: string;
-  config: (typeof AI_PROVIDER_CONFIGS)[AIProvider];
+  selectedProvider: AIProvider;
 } => {
   const { aiEnabled, openAIAPIKey, anthropicAPIKey, defaultAIModel } =
     getAISettingsForOrg(context, true);
@@ -125,7 +114,7 @@ export const getAIProvider = (
     return {
       provider: null,
       model: modelToUse,
-      config: AI_PROVIDER_CONFIGS[selectedProvider],
+      selectedProvider,
     };
   }
 
@@ -143,7 +132,7 @@ export const getAIProvider = (
   return {
     provider,
     model: modelToUse,
-    config: AI_PROVIDER_CONFIGS[selectedProvider],
+    selectedProvider,
   };
 };
 
@@ -165,10 +154,10 @@ const numTokensFromMessages = (
   messages: ChatCompletionRequestMessage[],
   context: ReqContext | ApiReqContext,
 ) => {
-  const { config, model } = getAIProvider(context);
+  const { selectedProvider, model } = getAIProvider(context);
 
   // For non-OpenAI providers, use a rough approximation
-  if (config.provider !== "openai") {
+  if (selectedProvider !== "openai") {
     // Rough approximation: ~4 characters per token
     const totalChars = messages.reduce(
       (sum, msg) => sum + JSON.stringify(msg).length,
@@ -254,33 +243,18 @@ export const simpleCompletion = async ({
   jsonSchema?: ZodObject<ZodRawShape>;
   overrideModel?: string;
 }) => {
-  const {
-    provider: aiProvider,
-    model,
-    config,
-  } = getAIProvider(context, overrideModel);
+  const { provider: aiProvider, model } = getAIProvider(context, overrideModel);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
   }
 
-  // Check if JSON is supported for this provider
-  if (returnType === "json" && !config.supportsJSON) {
-    throw new Error(`JSON generation not supported by ${config.provider}`);
-  }
-
   const messages = constructMessages(prompt, instructions);
   const numTokens = numTokensFromMessages(messages, context);
-  const messageTokenLimit = getMessageTokenLimit(config.provider);
 
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
       `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
-    );
-  }
-  if (numTokens > messageTokenLimit) {
-    throw new Error(
-      `Number of tokens (${numTokens}) exceeds limit for ${config.provider} (${messageTokenLimit})`,
     );
   }
 
@@ -352,18 +326,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   zodObjectSchema: T;
   model?: string;
 }): Promise<z.infer<T>> => {
-  const {
-    provider: aiProvider,
-    model: defaultModel,
-    config,
-  } = getAIProvider(context, model);
+  const { provider: aiProvider, model: defaultModel } = getAIProvider(
+    context,
+    model,
+  );
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
-  }
-
-  if (!config.supportsJSON) {
-    throw new Error(`JSON generation not supported by ${config.provider}`);
   }
 
   if (!zodObjectSchema) {
@@ -374,16 +343,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   const messages = constructMessages(prompt, instructions);
   const numTokens = numTokensFromMessages(messages, context);
-  const messageTokenLimit = getMessageTokenLimit(config.provider);
 
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
       `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
-    );
-  }
-  if (numTokens > messageTokenLimit) {
-    throw new Error(
-      `Number of tokens (${numTokens}) exceeds limit for ${config.provider} (${messageTokenLimit})`,
     );
   }
   const modelToUse = model || defaultModel;
