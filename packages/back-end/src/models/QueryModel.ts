@@ -279,7 +279,7 @@ export async function createNewQueryFromCached({
     statistics: existing.statistics,
     dependencies: dependencies,
     runAtEnd: runAtEnd,
-    cachedQueryUsed: existing.id || existing.cachedQueryUsed,
+    cachedQueryUsed: existing.cachedQueryUsed || existing.id,
     hasChunkedResults: existing.hasChunkedResults,
   };
   const doc = await QueryModel.create(data);
