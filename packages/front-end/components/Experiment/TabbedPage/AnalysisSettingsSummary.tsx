@@ -32,15 +32,13 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import RunQueriesButton, {
-  getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
 import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
@@ -141,8 +139,6 @@ export default function AnalysisSettingsSummary({
     setDimension: setSnapshotDimension,
     phase,
   } = useSnapshot();
-
-  const { mutateDashboards } = useExperimentDashboards(experiment.id);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
@@ -613,61 +609,38 @@ export default function AnalysisSettingsSummary({
 
           {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
             allMetrics.length > 0 && (
-              <>
-                {experiment.datasource &&
-                latest &&
-                latest.queries?.length > 0 ? (
-                  <RunQueriesButton
-                    cta="Update"
-                    cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                    mutate={() => {
-                      mutateSnapshot();
-                      mutate();
-                      mutateDashboards();
-                    }}
-                    model={latest}
-                    icon="refresh"
-                    color="outline-primary"
-                    resetFilters={async () => {
-                      // todo: remove baseline resetter (here and below) once refactored.
-                      if (baselineRow !== 0) {
-                        setBaselineRow?.(0);
-                        setVariationFilter?.([]);
-                      }
-                      setDifferenceType("relative");
-                      experiment.type === "multi-armed-bandit"
-                        ? setSnapshotType("exploratory")
-                        : setSnapshotType(undefined);
-                    }}
-                    onSubmit={async () => {
-                      await apiCall<{
-                        snapshot: ExperimentSnapshotInterface;
-                      }>(`/experiment/${experiment.id}/snapshot`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
-                      })
-                        .then((res) => {
-                          trackSnapshot(
-                            "create",
-                            "RunQueriesButton",
-                            datasource?.type || null,
-                            res.snapshot,
-                          );
-
-                          setAnalysisSettings(null);
-                          mutateSnapshot();
-                          mutate();
-                          setRefreshError("");
-                        })
-                        .catch((e) => {
-                          setRefreshError(e.message);
-                        });
-                    }}
-                  />
-                ) : (
+              <RefreshResultsButton
+                entityType={
+                  experiment.type === "holdout" ? "holdout" : "experiment"
+                }
+                entityId={experiment.id}
+                datasourceId={experiment.datasource}
+                latest={latest}
+                onSubmitSuccess={(snapshot) => {
+                  trackSnapshot(
+                    "create",
+                    "RunQueriesButton",
+                    datasource?.type || null,
+                    snapshot,
+                  );
+                  setAnalysisSettings(null);
+                }}
+                mutate={mutateSnapshot}
+                mutateAdditional={mutate}
+                setRefreshError={setRefreshError}
+                resetFilters={async () => {
+                  if (baselineRow !== 0) {
+                    setBaselineRow?.(0);
+                    setVariationFilter?.([]);
+                  }
+                  setDifferenceType("relative");
+                  if (experiment.type === "multi-armed-bandit") {
+                    setSnapshotType?.("exploratory");
+                  } else {
+                    setSnapshotType?.(undefined);
+                  }
+                }}
+                refreshButton={
                   <RefreshSnapshotButton
                     mutate={() => {
                       mutateSnapshot();
@@ -685,13 +658,16 @@ export default function AnalysisSettingsSummary({
                         setVariationFilter?.([]);
                       }
                       setDifferenceType("relative");
-                      experiment.type === "multi-armed-bandit"
-                        ? setSnapshotType("exploratory")
-                        : setSnapshotType(undefined);
+                      if (experiment.type === "multi-armed-bandit") {
+                        setSnapshotType?.("exploratory");
+                      } else {
+                        setSnapshotType?.(undefined);
+                      }
                     }}
                   />
-                )}
-              </>
+                }
+                debugLabel="Experiment"
+              />
             )}
 
           {ds &&

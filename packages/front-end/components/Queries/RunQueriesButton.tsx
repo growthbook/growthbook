@@ -156,7 +156,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
     return (
       <>
         <div
-          className={`d-flex ${
+          className={`d-flex position-relative ${
             position === "right"
               ? "justify-content-end"
               : "justify-content-start"
