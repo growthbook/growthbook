@@ -95,6 +95,7 @@ export default function IdLists({ groups, mutate }: Props) {
       defaultSortDir: -1,
       searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
       pageSize: 50,
+      updateSearchQueryOnChange: true,
     });
 
   if (!idLists) return <LoadingOverlay />;

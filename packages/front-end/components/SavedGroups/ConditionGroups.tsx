@@ -87,6 +87,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
       defaultSortDir: -1,
       searchFields: ["groupName^3", "condition^2", "owner"],
       pageSize: 50,
+      updateSearchQueryOnChange: true,
     });
 
   if (!conditionGroups) return <LoadingOverlay />;

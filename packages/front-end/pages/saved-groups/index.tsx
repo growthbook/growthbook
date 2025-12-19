@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/groups";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
@@ -101,9 +102,11 @@ export const getListOfReferences = (
 };
 
 export default function SavedGroupsPage() {
+  const router = useRouter();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("conditionGroups");
 
   const { refreshOrganization } = useUser();
 
@@ -201,7 +204,28 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <Tabs defaultValue="conditionGroups">
+          <Tabs
+            value={activeTab}
+            onValueChange={(newTab) => {
+              setActiveTab(newTab);
+              // Clear search query and update hash when switching tabs
+              const searchParams = new URLSearchParams(
+                router.query as Record<string, string>,
+              );
+              if (searchParams.has("q")) {
+                searchParams.delete("q");
+              }
+              router.replace(
+                {
+                  pathname: router.pathname,
+                  query: Object.fromEntries(searchParams),
+                  hash: `#${newTab}`,
+                },
+                undefined,
+                { shallow: true },
+              );
+            }}
+          >
             <TabsList>
               <TabsTrigger value="conditionGroups">
                 Condition Groups
