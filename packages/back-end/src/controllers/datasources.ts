@@ -34,6 +34,7 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
+  runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
@@ -62,7 +63,10 @@ import {
   getDimensionSlicesById,
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  SourceIntegrationInterface,
+  SQLExecutionError,
+} from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   _dangerousRecreateClickhouseTables,
@@ -936,6 +940,46 @@ export async function runUserExperimentExposuresQuery(
     error,
     sql,
   });
+}
+
+export async function postFeatureEvalDiagnostics(
+  req: AuthRequest<{
+    feature: string;
+    datasourceId: string;
+  }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { feature, datasourceId } = req.body;
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  try {
+    const { rows, statistics, sql } = await runFeatureEvalDiagnosticsQuery(
+      context,
+      datasource,
+      feature,
+    );
+
+    res.status(200).json({
+      status: 200,
+      rows,
+      statistics,
+      sql,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      error: e.message,
+      sql: e instanceof SQLExecutionError ? e.query : undefined,
+    });
+  }
 }
 
 export async function getDataSourceMetrics(
