@@ -70,10 +70,7 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
-import {
-  getAllSavedGroups,
-  getSavedGroupsById,
-} from "back-end/src/models/SavedGroupModel";
+import { getAllSavedGroups } from "back-end/src/models/SavedGroupModel";
 import {
   Environment,
   OrganizationInterface,
@@ -582,7 +579,7 @@ export type FeatureDefinitionsResponseArgs = {
   secureAttributeSalt?: string;
   projects: string[];
   capabilities: SDKCapability[];
-  savedGroups: SavedGroupInterface[];
+  usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
 };
@@ -601,10 +598,18 @@ export async function getFeatureDefinitionsResponse({
   secureAttributeSalt,
   projects,
   capabilities,
-  savedGroups,
+  usedSavedGroups,
   savedGroupReferencesEnabled = false,
   organization,
-}: FeatureDefinitionsResponseArgs) {
+}: FeatureDefinitionsResponseArgs): Promise<{
+  features: Record<string, FeatureDefinition>;
+  experiments?: AutoExperiment[];
+  dateUpdated: Date | null;
+  encryptedFeatures?: string;
+  encryptedExperiments?: string;
+  savedGroups?: SavedGroupsValues;
+  encryptedSavedGroups?: string;
+}> {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }
@@ -679,29 +684,29 @@ export async function getFeatureDefinitionsResponse({
       );
     }
 
-    savedGroups = applySavedGroupHashing(
-      savedGroups,
+    usedSavedGroups = applySavedGroupHashing(
+      usedSavedGroups,
       attributes,
       secureAttributeSalt,
     );
   }
 
   const savedGroupsValues = getSavedGroupsValuesFromInterfaces(
-    savedGroups,
+    usedSavedGroups,
     organization,
   );
 
   features = scrubFeatures(
     features,
     capabilities,
-    savedGroups,
+    usedSavedGroups,
     savedGroupReferencesEnabled,
     organization,
   );
   experiments = scrubExperiments(
     experiments,
     capabilities,
-    savedGroups,
+    usedSavedGroups,
     savedGroupReferencesEnabled,
     organization,
   );
@@ -828,9 +833,9 @@ export async function getFeatureDefinitions({
       let secureAttributeSalt: string | undefined = undefined;
       const { features, experiments, savedGroupsInUse, holdouts } =
         cached.contents;
-      const usedSavedGroups = await getSavedGroupsById(
-        savedGroupsInUse,
-        context.org.id,
+      const allSavedGroups = await getAllSavedGroups(context.org.id);
+      const usedSavedGroups = allSavedGroups.filter((sg) =>
+        savedGroupsInUse?.includes(sg.id),
       );
       if (hashSecureAttributes) {
         // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
@@ -855,7 +860,7 @@ export async function getFeatureDefinitions({
         secureAttributeSalt,
         projects: projects || [],
         capabilities,
-        savedGroups: usedSavedGroups || [],
+        usedSavedGroups: usedSavedGroups || [],
         savedGroupReferencesEnabled,
         organization: context.org,
       });
@@ -879,13 +884,13 @@ export async function getFeatureDefinitions({
     attributes = context.org.settings?.attributeSchema;
   }
   // TODO: filter by projects
-  const savedGroups = await getAllSavedGroups(context.org.id);
+  const allSavedGroups = await getAllSavedGroups(context.org.id);
 
   // Generate the feature definitions
   const features = await getAllFeatures(context, {
     projects: filterByProjects && projects ? projects : undefined,
   });
-  const groupMap = await getSavedGroupMap(context.org, savedGroups);
+  const groupMap = await getSavedGroupMap(context.org, allSavedGroups);
   const experimentMap = await getAllPayloadExperiments(
     context,
     filterByProjects && projects ? projects : undefined,
@@ -940,6 +945,10 @@ export async function getFeatureDefinitions({
     experimentsDefinitions,
   );
 
+  const usedSavedGroups = allSavedGroups.filter(
+    (sg) => sg.id in savedGroupsInUse,
+  );
+
   // Cache in Mongo
   await updateSDKPayload({
     organization: context.org.id,
@@ -975,7 +984,7 @@ export async function getFeatureDefinitions({
     secureAttributeSalt,
     projects: projects || [],
     capabilities,
-    savedGroups,
+    usedSavedGroups,
     savedGroupReferencesEnabled,
     organization: context.org,
   });

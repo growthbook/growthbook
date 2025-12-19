@@ -247,7 +247,7 @@ export const ExperimentAssignmentQueries: FC<
                       style={{ borderRadius: 0 }}
                       useIcon={false}
                       displayName={query.name}
-                      deleteMessage={`Are you sure you want to delete identifier join ${query.name}?`}
+                      deleteMessage={`Are you sure you want to delete experiment assignment query ${query.name}?`}
                       title="Delete"
                       text="Delete"
                       outline={false}
