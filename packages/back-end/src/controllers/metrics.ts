@@ -1066,7 +1066,8 @@ export async function postSimilarMetrics(
   const newMetric = `Name: ${name}\nDescription: ${description || ""}`;
 
   // Generate embeddings for the new metric
-  const newMetricEmbeddingResponse = await generateEmbeddings(context, {
+  const newMetricEmbeddingResponse = await generateEmbeddings({
+    context,
     input: [newMetric],
   });
   const newEmbedding = newMetricEmbeddingResponse[0];

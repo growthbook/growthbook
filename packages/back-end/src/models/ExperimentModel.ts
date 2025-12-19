@@ -1525,7 +1525,7 @@ export async function generateExperimentEmbeddings(
   for (let i = 0; i < experimentsToGenerateEmbeddings.length; i += batchSize) {
     const batch = experimentsToGenerateEmbeddings.slice(i, i + batchSize);
     const input = batch.map((exp) => getTextForEmbedding(exp));
-    const embeddings = await generateEmbeddings(context, { input });
+    const embeddings = await generateEmbeddings({ context, input });
 
     for (let j = 0; j < batch.length; j++) {
       const exp = batch[j];

@@ -432,10 +432,13 @@ export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   return dot / (normA * normB);
 }
 
-export async function generateEmbeddings(
-  context: ReqContext | ApiReqContext,
-  { input }: { input: string[] },
-): Promise<number[][]> {
+export async function generateEmbeddings({
+  context,
+  input,
+}: {
+  context: ReqContext | ApiReqContext;
+  input: string[];
+}): Promise<number[][]> {
   const { aiEnabled, openAIAPIKey, embeddingModel } = getAISettingsForOrg(
     context,
     true,

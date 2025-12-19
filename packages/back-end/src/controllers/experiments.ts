@@ -484,7 +484,8 @@ export async function postSimilarExperiments(
   }`;
 
   // Generate embeddings for the new experiment
-  const newExperimentEmbeddingResponse = await generateEmbeddings(context, {
+  const newExperimentEmbeddingResponse = await generateEmbeddings({
+    context,
     input: [newExperimentText],
   });
   const newEmbedding = newExperimentEmbeddingResponse[0];
