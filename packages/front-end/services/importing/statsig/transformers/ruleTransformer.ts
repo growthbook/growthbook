@@ -202,8 +202,6 @@ function transformTargetingConditions(
 
   const conditionObj: ConditionInterface = {};
 
-  const and: ConditionInterface[] = [];
-
   conditions.forEach((condition) => {
     const { type, operator, targetValue, field, customID } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
@@ -217,20 +215,6 @@ function transformTargetingConditions(
       attributeName = field || "custom_field";
     } else if (type === "unit_id" && customID) {
       attributeName = customID;
-    } else if (type === "passes_gate" || type === "fails_gate") {
-      const segmentName = String(targetValue);
-      const savedGroupId = savedGroupIdMap?.get(segmentName);
-
-      if (type === "passes_gate") {
-        and.push({
-          $savedGroups: [savedGroupId ?? segmentName],
-        });
-      } else {
-        and.push({
-          $not: { $savedGroups: [savedGroupId ?? segmentName] },
-        });
-      }
-      return;
     } else {
       attributeName = type;
     }
@@ -308,16 +292,9 @@ function transformTargetingConditions(
     }
   });
 
-  if (Object.keys(conditionObj).length > 0) {
-    and.push(conditionObj);
+  if (Object.keys(conditionObj).length === 0) {
+    return "{}";
   }
 
-  if (and.length === 0) {
-    return "{}";
-  } else if (and.length === 1) {
-    // Only one condition, return it directly
-    return JSON.stringify(and[0]);
-  } else {
-    return JSON.stringify({ $and: and });
-  }
+  return JSON.stringify(conditionObj);
 }
