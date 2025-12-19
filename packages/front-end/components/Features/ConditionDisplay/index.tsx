@@ -73,21 +73,8 @@ function operatorToText(operator: string, isPrerequisite?: boolean): string {
 function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
-function hasMultiValues(operator: string, value: string) {
-  // For generic list operators, always treat as multi-value
-  if (operator === "$in" || operator === "$nin") return true;
-
-  // For saved group operators, only treat as multi-value if there is more than
-  // one ID present in the comma-separated list
-  if (operator === "$inGroup" || operator === "$notInGroup") {
-    const parts = value
-      .split(",")
-      .map((v) => v.trim())
-      .filter(Boolean);
-    return parts.length > 1;
-  }
-
-  return false;
+function hasMultiValues(operator: string) {
+  return ["$in", "$nin"].includes(operator);
 }
 function getValue(
   operator: string,
@@ -190,13 +177,6 @@ function getConditionParts({
   keyPrefix?: string;
 }) {
   return conditions.map(({ field, operator, value, parentId }, i) => {
-    const displayMap =
-      field === "$savedGroups"
-        ? Object.fromEntries(
-            (savedGroups || []).map((sg) => [sg.id, sg.groupName]),
-          )
-        : undefined;
-
     let fieldEl: ReactNode = (
       <Badge
         color="gray"
@@ -261,8 +241,15 @@ function getConditionParts({
         <span className="mr-1">
           {operatorToText(operator, renderPrerequisite)}
         </span>
-        {hasMultiValues(operator, value) ? (
-          <MultiValueDisplay value={value} displayMap={displayMap} />
+        {field === "$savedGroups" ? (
+          <MultiValueDisplay
+            value={value}
+            displayMap={Object.fromEntries(
+              (savedGroups || []).map((sg) => [sg.id, sg.groupName]),
+            )}
+          />
+        ) : hasMultiValues(operator) ? (
+          <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
           <Badge
             color="gray"
