@@ -74,7 +74,8 @@
   "resolutions": {
     "@growthbook/growthbook": "1.6.2",
     "vite": "^6.0.0",
-    "execa": "^5.0.0"
+    "execa": "^5.0.0",
+    "form-data": "4.0.5"
   },
   "prettier": {
     "overrides": [
