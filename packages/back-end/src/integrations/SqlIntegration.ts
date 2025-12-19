@@ -1705,7 +1705,7 @@ export default abstract class SqlIntegration
         initial.${baseIdType}`;
   }
 
-  private getDimensionColumn(
+  private getDimensionValuePerUnit(
     dimension: UserDimension | ExperimentDimension | null,
     experimentDimensionPrefix?: string,
   ) {
@@ -1877,6 +1877,7 @@ export default abstract class SqlIntegration
       unitDimensions: [],
       experimentDimensions: [],
       activationDimension: null,
+      dateDimension: null,
     };
 
     dimensions.forEach((dimension) => {
@@ -1898,6 +1899,8 @@ export default abstract class SqlIntegration
         processedDimensions.unitDimensions.push(clonedDimension);
       } else if (dimension?.type === "experiment") {
         processedDimensions.experimentDimensions.push(dimension);
+      } else if (dimension?.type === "date") {
+        processedDimensions.dateDimension = dimension;
       }
     });
     return processedDimensions;
@@ -2152,13 +2155,13 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_unit_${d.dimension.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_unit_${d.dimension.id}`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
@@ -2471,7 +2474,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+            , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -6830,7 +6833,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${experimentDimensions
               .map(
                 (d) => `
-              , ${this.getDimensionColumn(d, "dim_exp_")} AS dim_exp_${d.id}`,
+              , ${this.getDimensionValuePerUnit(d, "dim_exp_")} AS dim_exp_${d.id}`,
               )
               .join("\n")}
           FROM __jointExposures e
@@ -7528,11 +7531,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       percentileTableIndices.add(0);
     }
 
-    const { unitDimensions } = this.processDimensions(
-      params.dimensions,
-      params.settings,
-      params.activationMetric,
-    );
+    // exploratory dimensions
+    const { experimentDimensions, unitDimensions, dateDimension } =
+      this.processDimensions(
+        params.dimensionsForAnalysis,
+        params.settings,
+        params.activationMetric,
+      );
 
     const idTypeObjects = [
       [exposureQuery.userIdType],
@@ -7547,14 +7552,39 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       experimentId: params.settings.experimentId,
     });
 
-    const unitDimensionCols = unitDimensions.map((d) =>
+    const unitDimensionCols = unitDimensions.map((d) => ({
+      // override value with the a MAX statement that will get one
+      // value per unit
+      value: this.getDimensionValuePerUnit(d),
+      alias: this.getDimensionCol(d).alias,
+    }));
+
+    const experimentDimensionCols = experimentDimensions.map((d) =>
       this.getDimensionCol(d),
     );
-    const nonUnitDimensionCols = params.dimensions
-      .filter((d) => d.type !== "user")
-      .map((d) => this.getDimensionCol(d));
+    const precomputedDimensionCols: DimensionColumnData[] =
+      params.dimensionsForPrecomputation.map((d) => {
+        const col = this.getDimensionCol(d);
+        // override value with case when statement for precomputed dimensions
+        const value = this.getDimensionInStatement(
+          col.alias,
+          d.specifiedSlices,
+        );
+        return {
+          value,
+          alias: col.alias,
+        };
+      });
+    const dateDimensionCol = dateDimension
+      ? this.getDimensionCol(dateDimension)
+      : undefined;
 
-    const allDimensionCols = [...unitDimensionCols, ...nonUnitDimensionCols];
+    const nonUnitDimensionCols = [
+      ...experimentDimensionCols,
+      ...(dateDimensionCol ? [dateDimensionCol] : []),
+      ...precomputedDimensionCols,
+    ];
+    const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -7575,20 +7605,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             )})`,
         )
         .join("\n")}
-      ${
+      , __experimentUnits AS (${
         unitDimensions.length > 0
-          ? `
-        , __experimentUnits AS (
-          SELECT
+          ? `SELECT
             e.${baseIdType} AS ${baseIdType}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
-            ${unitDimensions.map((d) => `, ${this.getDimensionColumn(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
-            ${nonUnitDimensionCols
-              .map((d) => {
-                return `, MIN(${d.value}) AS ${d.alias}`;
-              })
-              .join("")}
+            ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
+            ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
           FROM ${params.unitsSourceTableFullName} e
           ${unitDimensions
             .map(
@@ -7601,21 +7625,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .join("\n")}
           GROUP BY
             e.${baseIdType}
-        )
       `
-          : `, __experimentUnits AS (
-        SELECT
+          : `SELECT
           e.${baseIdType} AS ${baseIdType}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
-            ${nonUnitDimensionCols
-              .map((d) => {
-                return `, ${d.value} AS ${d.alias}`;
-              })
-              .join("")}
-        FROM ${params.unitsSourceTableFullName} e
-      )`
-      }
+          ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
+        FROM ${params.unitsSourceTableFullName} e`
+      })
       , __metricDataAggregated AS (
         SELECT
           ${baseIdType}

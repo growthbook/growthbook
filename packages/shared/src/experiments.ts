@@ -8,6 +8,7 @@ import {
   FactTableMap,
   MetricQuantileSettings,
   MetricWindowSettings,
+  RowFilter,
 } from "back-end/types/fact-table";
 import {
   MetricDefaults,
@@ -27,7 +28,6 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-  ExperimentDimensionMetadata,
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
@@ -133,9 +133,6 @@ export function getColumnRefWhereClause({
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
 }): string[] {
-  const inlineFilters = columnRef.inlineFilters || {};
-  const filterIds = columnRef.filters || [];
-
   const where = new Set<string>();
 
   // First add slice filters if this is a slice metric
@@ -189,56 +186,156 @@ export function getColumnRefWhereClause({
     });
   }
 
-  // Then add inline filters
-  Object.entries(inlineFilters).forEach(([column, values]) => {
-    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
-
-    const columnType = factTable.columns?.find(
-      (c) => c.column === column,
-    )?.datatype;
-
-    // Special handling for boolean columns
-    if (columnType === "boolean") {
-      // This should never happen, but if it does, skip
-      if (values.length !== 1) return;
-      const v = values[0];
-      // An empty value means do not filter
-      if (!v) return;
-      where.add(`(${evalBoolean(columnExpr, stringToBoolean(v))})`);
-      return;
-    }
-
-    // TODO: Special handling for number columns
-
-    // Treat everything else as string
-    const escapedValues = new Set(
-      values
-        .filter((v) => v.length > 0)
-        .map((v) => "'" + escapeStringLiteral(v) + "'"),
-    );
-    if (!escapedValues.size) {
-      return;
-    } else if (escapedValues.size === 1) {
-      // parentheses are overkill here but they help de-dupe with
-      // any identical user additional filters
-      where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
-    } else {
-      where.add(
-        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`,
-      );
-    }
-  });
-
-  // Finally add additional filters
-  filterIds.forEach((filterId) => {
-    const filter = factTable.filters.find((f) => f.id === filterId);
-    if (filter) {
-      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      where.add(comment + `(${filter.value})`);
+  columnRef.rowFilters?.forEach((filter) => {
+    const filterSQL = getRowFilterSQL({
+      rowFilter: filter,
+      factTable,
+      jsonExtract,
+      escapeStringLiteral,
+      evalBoolean,
+      showSourceComment,
+    });
+    if (filterSQL) {
+      where.add(filterSQL);
     }
   });
 
   return [...where];
+}
+
+export function getRowFilterSQL({
+  rowFilter,
+  factTable,
+  jsonExtract,
+  escapeStringLiteral,
+  evalBoolean,
+  showSourceComment = false,
+}: {
+  rowFilter: RowFilter;
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  escapeStringLiteral: (s: string) => string;
+  evalBoolean: (col: string, value: boolean) => string;
+  showSourceComment?: boolean;
+}): string | null {
+  // Some operators do not require a column
+  if (rowFilter.operator === "saved_filter") {
+    const filter = factTable.filters.find(
+      (f) => f.id === rowFilter.values?.[0],
+    );
+    if (filter) {
+      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
+      return comment + `(${filter.value})`;
+    }
+    return null;
+  }
+  if (rowFilter.operator === "sql_expr") {
+    if (!rowFilter.values?.[0]) {
+      return null;
+    }
+    return `(${rowFilter.values?.[0] || ""})`;
+  }
+
+  if (!rowFilter.column) {
+    return null;
+  }
+  const columnExpr = getColumnExpression(
+    rowFilter.column,
+    factTable,
+    jsonExtract,
+  );
+  const columnType = getSelectedColumnDatatype({
+    factTable,
+    column: rowFilter.column,
+  });
+
+  // If a boolean column is using equals operator, convert to is_true/is_false
+  let operator = rowFilter.operator;
+  if (
+    operator === "=" &&
+    rowFilter.values?.[0] === "true" &&
+    columnType === "boolean"
+  ) {
+    operator = "is_true";
+  }
+  if (
+    operator === "=" &&
+    rowFilter.values?.[0] === "false" &&
+    columnType === "boolean"
+  ) {
+    operator = "is_false";
+  }
+
+  // Some operators do not require values
+  if (operator === "is_null") {
+    return `(${columnExpr} IS NULL)`;
+  }
+  if (operator === "not_null") {
+    return `(${columnExpr} IS NOT NULL)`;
+  }
+  if (operator === "is_true") {
+    return `(${evalBoolean(columnExpr, true)})`;
+  }
+  if (operator === "is_false") {
+    return `(${evalBoolean(columnExpr, false)})`;
+  }
+
+  if (!rowFilter.values?.length) {
+    return null;
+  }
+  const escapedValues = [
+    ...new Set(
+      rowFilter.values.map((v) => {
+        // Number, don't wrap in quotes
+        if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
+          return v;
+        }
+
+        return "'" + escapeStringLiteral(v) + "'";
+      }),
+    ),
+  ];
+
+  const firstEscapedValue = escapedValues[0];
+
+  // Convert single-value in/not_in to =/!=
+  if (escapedValues.length === 1) {
+    if (operator === "in") {
+      operator = "=";
+    } else if (operator === "not_in") {
+      operator = "!=";
+    }
+  }
+
+  const likeEscapedValue = escapeStringLiteral(rowFilter.values[0]).replace(
+    /([%_])/g,
+    "\\$1",
+  );
+
+  // Handle remaining operators
+  switch (operator) {
+    case "=":
+    case "!=":
+    case "<":
+    case "<=":
+    case ">":
+    case ">=":
+      return `(${columnExpr} ${operator} ${firstEscapedValue})`;
+    case "in":
+      return `(${columnExpr} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "not_in":
+      return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "starts_with":
+      return `(${columnExpr} LIKE '${likeEscapedValue}%')`;
+    case "ends_with":
+      return `(${columnExpr} LIKE '%${likeEscapedValue}')`;
+    case "contains":
+      return `(${columnExpr} LIKE '%${likeEscapedValue}%')`;
+    case "not_contains":
+      return `(${columnExpr} NOT LIKE '%${likeEscapedValue}%')`;
+
+    // IMPORTANT: no default to ensure missing cases are caught by the compiler
+  }
 }
 
 export function getAggregateFilters({
@@ -1608,43 +1705,6 @@ export function getAdjustedCI(
   } else {
     return ci;
   }
-}
-
-export function getPredefinedDimensionSlicesByExperiment(
-  dimensionMetadata: ExperimentDimensionMetadata[],
-  nVariations: number,
-): ExperimentDimensionMetadata[] {
-  // Ensure we return no more than 1k rows in full joint distribution
-  // for post-stratification
-  let dimensions = dimensionMetadata;
-
-  // remove dimensions that have no slices
-  dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
-
-  let totalLevels = countDimensionLevels(dimensions, nVariations);
-  const maxLevels = 1000;
-  while (totalLevels > maxLevels) {
-    dimensions = dimensions.slice(0, -1);
-    if (dimensions.length === 0) {
-      break;
-    }
-    totalLevels = countDimensionLevels(dimensions, nVariations);
-  }
-
-  return dimensions;
-}
-
-export function countDimensionLevels(
-  dimensionMetadata: { specifiedSlices: string[] }[],
-  nVariations: number,
-): number {
-  const nLevels: number[] = [];
-  dimensionMetadata.forEach((dim) => {
-    // add 1 for __other__ slice
-    nLevels.push(dim.specifiedSlices.length + 1);
-  });
-
-  return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
 }
 
 export function dedupeSliceMetrics(
