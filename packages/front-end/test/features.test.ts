@@ -228,6 +228,35 @@ describe("json <-> conds", () => {
     expect(jsonToConds(json, attributeMap)).toEqual(conds);
     expect(condToJson(conds, attributeMap)).toEqual(json);
   });
+  it("$savedGroups $in", () => {
+    const json = stringify({ $savedGroups: ["sg_1", "sg_2"] });
+    const conds = [
+      { field: "$savedGroups", operator: "$in", value: "sg_1, sg_2" },
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("$savedGroups $nin", () => {
+    const json = stringify({ $not: { $savedGroups: ["sg_1", "sg_2"] } });
+    const conds = [
+      { field: "$savedGroups", operator: "$nin", value: "sg_1, sg_2" },
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("$savedGroups merging", () => {
+    const json = stringify({
+      $savedGroups: ["sg_1", "sg_2"],
+      $not: { $savedGroups: ["sg_3", "sg_4"] },
+    });
+    const conds = [
+      { field: "$savedGroups", operator: "$in", value: "sg_1" },
+      { field: "$savedGroups", operator: "$in", value: "sg_2" },
+      { field: "$savedGroups", operator: "$nin", value: "sg_3" },
+      { field: "$savedGroups", operator: "$nin", value: "sg_4" },
+    ];
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
 
   // Advanced mode
   it("unknown attribute", () => {
