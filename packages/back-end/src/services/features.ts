@@ -835,7 +835,7 @@ export async function getFeatureDefinitions({
         cached.contents;
       const allSavedGroups = await getAllSavedGroups(context.org.id);
       const usedSavedGroups = allSavedGroups.filter((sg) =>
-        savedGroupsInUse.includes(sg.id),
+        savedGroupsInUse?.includes(sg.id),
       );
       if (hashSecureAttributes) {
         // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
