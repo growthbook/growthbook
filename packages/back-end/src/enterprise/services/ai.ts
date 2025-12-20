@@ -38,6 +38,7 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { logCloudAIUsage } from "back-end/src/services/clickhouse";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 // Helper function to get available providers based on API keys
 export function getAvailableAIProviders(): AIProvider[] {
@@ -90,7 +91,6 @@ export const getAIProvider = (
     | ReturnType<typeof createOpenAI>
     | null;
   model: string;
-  selectedProvider: AIProvider;
 } => {
   const { aiEnabled, openAIAPIKey, anthropicAPIKey, defaultAIModel } =
     getAISettingsForOrg(context, true);
@@ -114,7 +114,6 @@ export const getAIProvider = (
     return {
       provider: null,
       model: modelToUse,
-      selectedProvider,
     };
   }
 
@@ -132,7 +131,6 @@ export const getAIProvider = (
   return {
     provider,
     model: modelToUse,
-    selectedProvider,
   };
 };
 
@@ -142,29 +140,14 @@ type ChatCompletionRequestMessage = {
 };
 
 /**
- * Function for counting tokens for messages passed to the model.
- * The exact way that messages are converted into tokens may change from model
- * to model. So when future model versions are released, the answers returned
- * by this function may be only approximate.
- *
- * Note: Token counting is primarily accurate for OpenAI models.
- * For other providers, this provides an approximation.
+ * The docs say OpenAI might not always return token usage info in rare edge cases.
+ * So this is a fallback, so we can keep track of token usage on cloud regardless.
  */
 const numTokensFromMessages = (
   messages: ChatCompletionRequestMessage[],
   context: ReqContext | ApiReqContext,
 ) => {
-  const { selectedProvider, model } = getAIProvider(context);
-
-  // For non-OpenAI providers, use a rough approximation
-  if (selectedProvider !== "openai") {
-    // Rough approximation: ~4 characters per token
-    const totalChars = messages.reduce(
-      (sum, msg) => sum + JSON.stringify(msg).length,
-      0,
-    );
-    return Math.ceil(totalChars / 4) + messages.length * 4; // Add overhead per message
-  }
+  const { model } = getAIProvider(context);
 
   // Use tiktoken for OpenAI models
   let encoding;
@@ -248,7 +231,6 @@ export const simpleCompletion = async ({
   }
 
   const messages = constructMessages(prompt, instructions);
-  const numTokens = numTokensFromMessages(messages, context);
 
   const generateOptions = {
     model: aiProvider(model),
@@ -256,7 +238,7 @@ export const simpleCompletion = async ({
     ...(temperature != null ? { temperature } : {}),
   };
 
-  let numTokensUsed = numTokens;
+  let numTokensUsed: number | undefined;
   let result: string;
 
   if (returnType === "json" && jsonSchema) {
@@ -264,7 +246,7 @@ export const simpleCompletion = async ({
       ...generateOptions,
       schema: jsonSchema,
     });
-    numTokensUsed = objectResponse.usage?.totalTokens ?? numTokens;
+    numTokensUsed = objectResponse.usage?.totalTokens;
     result = JSON.stringify(objectResponse.object);
     // Fire and forget
     logCloudAIUsage({
@@ -278,7 +260,7 @@ export const simpleCompletion = async ({
     });
   } else {
     const textResponse = await generateText(generateOptions);
-    numTokensUsed = textResponse.usage?.totalTokens ?? numTokens;
+    numTokensUsed = textResponse.usage?.totalTokens;
     result = textResponse.text;
     // Fire and forget
     logCloudAIUsage({
@@ -292,7 +274,12 @@ export const simpleCompletion = async ({
     });
   }
 
-  await updateTokenUsage({ numTokensUsed, organization: context.org });
+  if (IS_CLOUD) {
+    if (!numTokensUsed) {
+      numTokensUsed = numTokensFromMessages(messages, context);
+    }
+    await updateTokenUsage({ numTokensUsed, organization: context.org });
+  }
 
   return result;
 };
@@ -332,7 +319,6 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
 
   const messages = constructMessages(prompt, instructions);
-  const numTokens = numTokensFromMessages(messages, context);
 
   const modelToUse = model || defaultModel;
 
@@ -349,20 +335,22 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ...(temperature != null ? { temperature } : {}),
   });
 
-  const numTokensUsed = response.usage?.totalTokens ?? numTokens;
+  if (IS_CLOUD) {
+    // Fire and forget
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model: modelToUse,
+      numPromptTokensUsed: response.usage?.inputTokens,
+      numCompletionTokensUsed: response.usage?.outputTokens,
+      temperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
 
-  // Fire and forget
-  logCloudAIUsage({
-    organization: context.org.id,
-    type,
-    model: modelToUse,
-    numPromptTokensUsed: response.usage?.inputTokens,
-    numCompletionTokensUsed: response.usage?.outputTokens,
-    temperature,
-    usedDefaultPrompt: isDefaultPrompt,
-  });
-
-  await updateTokenUsage({ numTokensUsed, organization: context.org });
+    const numTokensUsed =
+      response.usage?.totalTokens ?? numTokensFromMessages(messages, context);
+    await updateTokenUsage({ numTokensUsed, organization: context.org });
+  }
 
   if (!response.object) {
     throw new Error("No object returned from AI API.");
