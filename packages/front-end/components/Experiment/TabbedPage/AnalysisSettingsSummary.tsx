@@ -600,6 +600,7 @@ export default function AnalysisSettingsSummary({
                 status={status}
                 dateCreated={snapshot?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
+                showAutoUpdateWidget={true}
                 queries={
                   latest &&
                   (status === "failed" || status === "partially-succeeded")

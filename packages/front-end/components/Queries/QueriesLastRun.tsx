@@ -1,6 +1,6 @@
 import { FC } from "react";
-import { PiWarningFill } from "react-icons/pi";
-import { ago, datetime } from "shared/dates";
+import { PiLightning, PiLightningSlash, PiWarningFill } from "react-icons/pi";
+import { ago, datetime, getValidDate } from "shared/dates";
 import { Text, Flex, IconButton, Box } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -11,16 +11,20 @@ const QueriesLastRun: FC<{
   status;
   dateCreated: Date | undefined;
   nextUpdate?: Date;
+  autoUpdateEnabled?: boolean;
   partiallySucceededString?: string;
   queries?: string[];
   onViewQueries?: () => void;
+  showAutoUpdateWidget?: boolean;
 }> = ({
   status,
   dateCreated,
   nextUpdate,
+  autoUpdateEnabled,
   partiallySucceededString = PARTIALLY_SUCCEEDED_STRING,
   queries,
   onViewQueries,
+  showAutoUpdateWidget = true,
 }) => {
   const abbreviatedAgo = ago(dateCreated ?? "")
     .replace("about ", "")
@@ -31,11 +35,37 @@ const QueriesLastRun: FC<{
   return (
     <Text weight="medium">
       <Flex align="center">
+        {showAutoUpdateWidget && autoUpdateEnabled ? (
+          <Tooltip
+            className="mr-1"
+            body={
+              <Text>
+                {!nextUpdate
+                  ? "Next auto-update: never"
+                  : nextUpdate && getValidDate(nextUpdate) > new Date()
+                    ? `Next auto-update ${ago(nextUpdate)}`
+                    : "Auto-update starting soon"}
+              </Text>
+            }
+          >
+            <PiLightning size={18} style={{ color: "var(--violet-11)" }} />
+          </Tooltip>
+        ) : (
+          <Tooltip
+            className="mr-1"
+            body={<Text>Auto-updates are disabled.</Text>}
+          >
+            <PiLightningSlash size={18} style={{ color: "var(--gray-8)" }} />
+          </Tooltip>
+        )}
+
         <Tooltip
           body={
             <Flex direction="column">
               <Text>Last update: {datetime(dateCreated ?? "")}</Text>
-              {nextUpdate && <Text>Next update: {datetime(nextUpdate)}</Text>}
+              {nextUpdate && !showAutoUpdateWidget ? (
+                <Text>Next update: {datetime(nextUpdate)}</Text>
+              ) : null}
             </Flex>
           }
         >
