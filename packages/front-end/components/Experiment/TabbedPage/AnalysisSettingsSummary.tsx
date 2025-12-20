@@ -1,10 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
 import React, { useMemo, useState } from "react";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import clsx from "clsx";
 import { Box, Flex, Text, Separator } from "@radix-ui/themes";
 import {
   expandMetricGroups,
@@ -34,8 +32,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
@@ -141,6 +139,7 @@ export default function AnalysisSettingsSummary({
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
@@ -547,7 +546,7 @@ export default function AnalysisSettingsSummary({
   }
 
   return (
-    <Box px="3" pt="2" mb="2">
+    <Box px="3" pt="3" mb="2">
       <Flex align="center" justify="between" gap="6">
         <Flex align="center">
           {setDimension && (
@@ -594,54 +593,36 @@ export default function AnalysisSettingsSummary({
           value={numberFormatter.format(totalUnits ?? 0)}
         />
 
-        <Flex align="center" gap="3">
-          {hasData &&
-            (outdated && status !== "running" ? (
-              <OutdatedBadge reasons={reasons} />
-            ) : (
+        <Flex align="center" gap="4">
+          {hasData && (
+            <Flex align="center" gap="2">
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
-              />
-            ))}
-
-          {ds &&
-            permissionsUtil.canRunExperimentQueries(ds) &&
-            latest &&
-            (status === "failed" || status === "partially-succeeded") && (
-              <ViewAsyncQueriesButton
-                queries={latest.queries.map((q) => q.query)}
-                error={latest.error}
-                color={clsx(
-                  {
-                    "outline-danger":
-                      status === "failed" || status === "partially-succeeded",
-                  },
-                  " ",
-                )}
-                display={null}
-                status={status}
-                icon={
-                  <span
-                    className="position-relative pr-2"
-                    style={{ marginRight: 6 }}
-                  >
-                    <span className="text-main">
-                      <FaDatabase />
-                    </span>
-                    <FaExclamationTriangle
-                      className="position-absolute"
-                      style={{
-                        top: -6,
-                        right: -4,
-                      }}
-                    />
-                  </span>
+                queries={
+                  latest &&
+                  (status === "failed" || status === "partially-succeeded")
+                    ? latest.queries.map((q) => q.query)
+                    : undefined
                 }
-                condensed={true}
+                onViewQueries={
+                  latest &&
+                  ds &&
+                  permissionsUtil.canRunExperimentQueries(ds) &&
+                  (status === "failed" || status === "partially-succeeded")
+                    ? () => setQueriesModalOpen(true)
+                    : undefined
+                }
               />
-            )}
+              {outdated && status !== "running" ? (
+                <OutdatedBadge
+                  label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
+                  reasons={reasons}
+                />
+              ) : null}
+            </Flex>
+          )}
 
           {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
             allMetrics.length > 0 && (
@@ -795,6 +776,16 @@ export default function AnalysisSettingsSummary({
           )}
         </>
       )}
+      {queriesModalOpen &&
+        latest &&
+        (status === "failed" || status === "partially-succeeded") && (
+          <AsyncQueriesModal
+            close={() => setQueriesModalOpen(false)}
+            queries={latest.queries.map((q) => q.query)}
+            savedQueries={[]}
+            error={latest.error}
+          />
+        )}
     </Box>
   );
 }

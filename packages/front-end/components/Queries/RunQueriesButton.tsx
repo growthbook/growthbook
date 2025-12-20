@@ -74,6 +74,7 @@ type Props = {
   color?: string;
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
+  radixVariant?: "outline" | "solid" | "soft";
   onSubmit?: () => void | Promise<void>;
   disabled?: boolean;
   useRadixButton?: boolean;
@@ -91,6 +92,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       color = "primary",
       position = "right",
       resetFilters,
+      radixVariant = "outline",
       onSubmit,
       disabled,
       useRadixButton = false,
@@ -179,8 +181,9 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
               >
                 <IconButton
                   variant="solid"
-                  color="red"
+                  color="tomato"
                   size="2"
+                  style={{ width: 20, height: 20, padding: 2 }}
                   radius="full"
                   onClick={async () => {
                     resetFilters?.();
@@ -201,7 +204,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
             {useRadixButton ? (
               <Button
                 ref={ref}
-                variant="outline"
+                variant={radixVariant}
                 size="sm"
                 disabled={status === "running" || disabled}
                 type="button"
@@ -211,14 +214,15 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 }}
                 icon={buttonIcon}
                 style={{
-                  minWidth: 130,
+                  minWidth: 110,
+                  paddingLeft: 2,
+                  paddingRight: 2,
                 }}
               >
                 {status === "running" ? (
-                  <>
-                    {loadingText}{" "}
-                    <Text size="1">({getTimeDisplay(elapsed)})</Text>
-                  </>
+                  <Text className="small">
+                    {loadingText} ({getTimeDisplay(elapsed)})
+                  </Text>
                 ) : (
                   cta
                 )}
@@ -244,7 +248,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                   : cta}
               </button>
             )}
-            {status === "running" && numQueries > 0 && (
+            {status === "running" && numQueries > 1 && (
               <Progress
                 value={Math.floor((100 * numFinished) / numQueries)}
                 color="green"
@@ -254,7 +258,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                   bottom: 2,
                   width: "calc(100% - 6px)",
                   left: 3,
-                  height: 3.5,
+                  height: 3,
                 }}
               />
             )}

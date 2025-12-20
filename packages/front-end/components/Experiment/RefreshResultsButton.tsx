@@ -111,6 +111,7 @@ export default function RefreshResultsButton<
           }}
           icon="refresh"
           useRadixButton={true}
+          radixVariant="solid"
           resetFilters={resetFilters}
           onSubmit={async () => {
             const body =
@@ -148,6 +149,8 @@ export default function RefreshResultsButton<
           dimension={dimension}
           setError={(error) => setRefreshError(error ?? "")}
           setAnalysisSettings={setAnalysisSettings}
+          useRadixButton={true}
+          radixVariant="solid"
           resetFilters={resetFilters}
         />
       ) : shouldRenderSafeRolloutButton ? (

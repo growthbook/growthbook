@@ -238,6 +238,7 @@ export default function DifferenceTypeChooserChangeColumnLabel({
       open={dropdownOpen}
       onOpenChange={setDropdownOpen}
       menuPlacement="end"
+      variant="soft"
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
