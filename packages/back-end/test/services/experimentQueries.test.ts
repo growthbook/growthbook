@@ -158,7 +158,8 @@ describe("experimentQueries", () => {
         expect(totalMetricsInChunks).toBe(200);
 
         // We should need multiple chunks since 200 metrics with ~9-18 cols each won't all fit
-        expect(chunks.length).toBeGreaterThan(1);
+        expect(chunks.length).toEqual(4);
+        // So we can get 200 metrics into 4 queries now, rather than into 10 queries
 
         // Verify the chunking is efficient (not overly fragmented)
         // Mean metrics take 9 cols, ratio 18 cols
