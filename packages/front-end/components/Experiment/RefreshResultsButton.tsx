@@ -1,7 +1,15 @@
-import React, { ReactElement } from "react";
+import React from "react";
 import { Queries } from "back-end/types/query";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+} from "back-end/types/experiment-snapshot";
+import { SafeRolloutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
+import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
+import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
@@ -21,8 +29,16 @@ export interface RefreshResultsButtonProps<
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
   resetFilters?: () => void | Promise<void>;
-  refreshButton: ReactElement;
-  debugLabel?: string;
+  // Experiment/holdout-specific props
+  experiment?: ExperimentInterfaceStringDates;
+  analysis?: ExperimentSnapshotAnalysis;
+  phase?: number;
+  dimension?: string;
+  setAnalysisSettings?: (
+    settings: ExperimentSnapshotAnalysisSettings | null,
+  ) => void;
+  // SafeRollout-specific props
+  safeRollout?: SafeRolloutInterface;
 }
 
 export default function RefreshResultsButton<
@@ -41,14 +57,34 @@ export default function RefreshResultsButton<
   mutateAdditional,
   setRefreshError,
   resetFilters,
-  refreshButton,
-  debugLabel = "Entity",
+  experiment,
+  analysis,
+  phase,
+  dimension,
+  setAnalysisSettings,
+  safeRollout,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
 
   const hasQueries = latest?.queries && latest.queries.length > 0;
 
-  // Construct endpoints based on entity type
+  // Determine which button to render
+  const shouldUseRunQueriesButton = datasourceId && latest && hasQueries;
+
+  const shouldRenderExperimentButton =
+    !shouldUseRunQueriesButton &&
+    (entityType === "experiment" || entityType === "holdout") &&
+    experiment &&
+    phase !== undefined &&
+    setAnalysisSettings;
+
+  const shouldRenderSafeRolloutButton =
+    !shouldUseRunQueriesButton &&
+    !shouldRenderExperimentButton &&
+    entityType === "safe-rollout" &&
+    safeRollout;
+
+  // Endpoints for the various buttons
   const cancelEndpoint =
     entityType === "safe-rollout"
       ? `/safe-rollout/snapshot/${latest?.id}/cancel`
@@ -59,15 +95,9 @@ export default function RefreshResultsButton<
       ? `/safe-rollout/${entityId}/snapshot`
       : `/experiment/${entityId}/snapshot`;
 
-  if (datasourceId && latest && hasQueries) {
-    return (
-      <>
-        <div>
-          {debugLabel} Datasource: {datasourceId}
-        </div>
-        <div>Latest Snapshot: {latest?.id}</div>
-        <div>Latest Snapshot Queries: {latest?.queries?.length}</div>
-        <div>Run Queries Button</div>
+  return (
+    <>
+      {shouldUseRunQueriesButton ? (
         <RunQueriesButton
           cta="Update"
           cancelEndpoint={cancelEndpoint}
@@ -80,11 +110,20 @@ export default function RefreshResultsButton<
             runStarted: latest.runStarted ?? null,
           }}
           icon="refresh"
-          color="outline-primary"
+          useRadixButton={true}
           resetFilters={resetFilters}
           onSubmit={async () => {
+            const body =
+              entityType === "experiment" || entityType === "holdout"
+                ? JSON.stringify({
+                    phase: phase ?? 0,
+                    dimension: dimension ?? "",
+                  })
+                : undefined;
+
             await apiCall<{ snapshot: T }>(snapshotEndpoint, {
               method: "POST",
+              ...(body && { body }),
             })
               .then((res) => {
                 onSubmitSuccess?.(res.snapshot);
@@ -97,19 +136,26 @@ export default function RefreshResultsButton<
               });
           }}
         />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <div>
-        {debugLabel} Datasource: {datasourceId}
-      </div>
-      <div>Latest Snapshot: {latest?.id}</div>
-      <div>Latest Snapshot Queries: {latest?.queries?.length}</div>
-      <div>Refresh Snapshot Button</div>
-      {refreshButton}
+      ) : shouldRenderExperimentButton ? (
+        <ExperimentRefreshSnapshotButton
+          mutate={() => {
+            mutate();
+            mutateAdditional?.();
+          }}
+          phase={phase}
+          experiment={experiment}
+          lastAnalysis={analysis}
+          dimension={dimension}
+          setError={(error) => setRefreshError(error ?? "")}
+          setAnalysisSettings={setAnalysisSettings}
+          resetFilters={resetFilters}
+        />
+      ) : shouldRenderSafeRolloutButton ? (
+        <SafeRolloutRefreshSnapshotButton
+          mutate={mutate}
+          safeRollout={safeRollout}
+        />
+      ) : null}
     </>
   );
 }

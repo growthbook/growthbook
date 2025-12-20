@@ -15,7 +15,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Metadata from "@/ui/Metadata";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
-import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 const numberFormatter = Intl.NumberFormat();
 export interface Props {
@@ -142,13 +141,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
                     latest={latest}
                     mutate={mutateSnapshot}
                     setRefreshError={setRefreshError}
-                    refreshButton={
-                      <RefreshSnapshotButton
-                        mutate={mutateSnapshot}
-                        safeRollout={safeRollout}
-                      />
-                    }
-                    debugLabel="SafeRollout"
+                    safeRollout={safeRollout}
                   />
                 </div>
               )}

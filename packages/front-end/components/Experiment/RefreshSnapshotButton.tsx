@@ -105,6 +105,9 @@ const RefreshSnapshotButton: FC<{
             throw e;
           }
         }}
+        style={{
+          minWidth: 130,
+        }}
       >
         <BsArrowRepeat /> Update
       </Button>
