@@ -159,16 +159,16 @@ import {
   INCREMENTAL_METRICS_TABLE_PREFIX,
   INCREMENTAL_UNITS_TABLE_PREFIX,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import {
+  ALL_NON_QUANTILE_METRIC_FLOAT_COLS,
+  MAX_METRICS_PER_QUERY,
+  N_STAR_VALUES,
+} from "back-end/src/services/experimentQueries/constants";
 import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 export const TEST_QUERY_SQL = "SELECT 1";
-
-const N_STAR_VALUES = [
-  100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200, 102400, 204800,
-  409600, 819200, 1638400, 3276800, 6553600, 13107200, 26214400, 52428800,
-];
 
 const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
   segment: true,
@@ -254,6 +254,7 @@ export default abstract class SqlIntegration
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       hasCountDistinctHLL: this.hasCountDistinctHLL(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
+      maxColumns: 1000,
     };
   }
 
@@ -1304,38 +1305,17 @@ export default abstract class SqlIntegration
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows: Record<string, any>[],
   ): ExperimentFactMetricsQueryResponseRows {
-    const floatCols = [
-      "main_sum",
-      "main_sum_squares",
-      "main_cap_value",
-      "denominator_sum",
-      "denominator_sum_squares",
-      "main_denominator_sum_product",
-      "denominator_cap_value",
-      "covariate_sum",
-      "covariate_sum_squares",
-      "denominator_pre_sum",
-      "denominator_pre_sum_squares",
-      "main_covariate_sum_product",
-      "quantile",
-      "theta",
-      "main_post_denominator_pre_sum_product",
-      "main_pre_denominator_post_sum_product",
-      "main_pre_denominator_pre_sum_product",
-      "denominator_post_denominator_pre_sum_product",
-    ];
-
     return rows.map((row) => {
       let metricData: {
         [key: string]: number | string;
       } = {};
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
         const prefix = `m${i}_`;
         // Reached the end
         if (!row[prefix + "id"]) break;
 
         metricData[prefix + "id"] = row[prefix + "id"];
-        floatCols.forEach((col) => {
+        ALL_NON_QUANTILE_METRIC_FLOAT_COLS.forEach((col) => {
           if (row[prefix + col] !== undefined) {
             metricData[prefix + col] = parseFloat(row[prefix + col]) || 0;
           }

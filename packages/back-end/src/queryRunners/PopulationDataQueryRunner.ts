@@ -25,7 +25,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import { getFactMetricGroups } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
   PopulationDataInterface,
   PopulationDataMetric,
