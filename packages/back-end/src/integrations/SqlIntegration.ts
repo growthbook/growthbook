@@ -1264,6 +1264,8 @@ export default abstract class SqlIntegration
       [key: string]: number;
     } = {};
     if (row[`${prefix}quantile`] !== undefined) {
+      quantileData[`${prefix}quantile`] =
+        parseFloat(row[`${prefix}quantile`]) || 0;
       quantileData[`${prefix}quantile_n`] =
         parseFloat(row[`${prefix}quantile_n`]) || 0;
 
