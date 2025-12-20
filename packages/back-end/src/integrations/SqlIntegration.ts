@@ -92,6 +92,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -104,6 +105,7 @@ import {
   FactMetricQuantileData,
   FactMetricPercentileData,
   FactMetricAggregationMetadata,
+  FeatureEvalDiagnosticsQueryResponse,
   UserExperimentExposuresQueryParams,
   UserExperimentExposuresQueryResponse,
   CovariateWindowType,
@@ -2603,6 +2605,31 @@ export default abstract class SqlIntegration
     );
   }
 
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string {
+    const featureKey = this.escapeStringLiteral(params.feature);
+
+    // We only support one feature usage query per data source for now
+    // Always use the first query in the array for now
+    const featureEvalQuery = this.datasource.settings?.queries?.featureUsage
+      ? this.datasource.settings.queries.featureUsage[0].query
+      : "";
+
+    return format(
+      `-- Feature Evaluation Diagnostics Query
+      WITH __featureEvalQuery AS (
+        ${featureEvalQuery}
+      )
+      SELECT * FROM __featureEvalQuery
+      WHERE feature_key = '${featureKey}'
+      ORDER BY timestamp DESC
+      LIMIT ${SQL_ROW_LIMIT}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
   public async runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse> {
@@ -2617,6 +2644,27 @@ export default abstract class SqlIntegration
           timestamp: row.timestamp,
           experiment_id: row.experiment_id,
           variation_id: row.variation_id,
+          ...row,
+        };
+      }),
+      statistics,
+      truncated,
+    };
+  }
+
+  public async runFeatureEvalDiagnosticsQuery(
+    query: string,
+  ): Promise<FeatureEvalDiagnosticsQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
+
+    // Check if SQL_ROW_LIMIT was reached
+    const truncated = rows.length === SQL_ROW_LIMIT;
+
+    return {
+      rows: rows.map((row) => {
+        return {
+          timestamp: row.timestamp,
+          feature_key: row.feature_key,
           ...row,
         };
       }),

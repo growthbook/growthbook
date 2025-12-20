@@ -3,6 +3,7 @@ import { PostSavedGroupResponse } from "back-end/types/openapi";
 import {
   createSavedGroup,
   toSavedGroupApiInterface,
+  getAllSavedGroups,
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postSavedGroupValidator } from "back-end/src/validators/openapi";
@@ -39,7 +40,10 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         );
       }
 
-      const conditionRes = validateCondition(condition);
+      // Validate condition
+      const allSavedGroups = await getAllSavedGroups(req.organization.id);
+      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
       }

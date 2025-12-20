@@ -49,7 +49,7 @@ export class SqlResultChunkModel extends BaseClass {
   public async addResultsToQueries(queries: QueryInterface[]) {
     const idsToFetch = queries
       .filter((q) => q.hasChunkedResults)
-      .map((q) => q.id);
+      .map((q) => (q.cachedQueryUsed ? q.cachedQueryUsed : q.id));
 
     if (!idsToFetch.length) return;
 
@@ -69,8 +69,9 @@ export class SqlResultChunkModel extends BaseClass {
       chunksByQueryId[chunk.queryId].push(chunk);
     }
     for (const query of queries) {
-      if (chunksByQueryId[query.id]) {
-        const result = decodeSQLResults(chunksByQueryId[query.id]);
+      const queryId = query.cachedQueryUsed ? query.cachedQueryUsed : query.id;
+      if (chunksByQueryId[queryId]) {
+        const result = decodeSQLResults(chunksByQueryId[queryId]);
         query.rawResult = result;
         query.result = result;
       }
