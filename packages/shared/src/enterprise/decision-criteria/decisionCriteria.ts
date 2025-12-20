@@ -143,9 +143,6 @@ export function getVariationDecisions({
   resultsStatus.variations.forEach((variation) => {
     let decisionReached = false;
     for (const rule of rules) {
-      if (ruleEligibleForEarlyStopping(rule) || powerReached) {
-        continue;
-      }
       const action = evaluateDecisionRuleOnVariation({
         rule,
         variationStatus: variation,
@@ -176,7 +173,7 @@ export function getVariationDecisions({
           decisionCriteriaAction: decisionCriteria.defaultAction,
         });
       } else {
-        // if no decision was reached and power was not reached, return null
+        // if no decision was reached and power was not reached (sequential testing), return null
         results.push({
           variation: {
             variationId: variation.variationId,
@@ -349,10 +346,12 @@ export function getDecisionFrameworkStatus({
     }
   } else {
     // only return ship or rollback for super stat sig metrics
-    const superStatSigVariationDecisions = getVariationDecisions({
+    // using the strict decision criteria
+    const earlyStoppingCriteria = PRESET_DECISION_CRITERIA;
+
+    const superStatSigVariationDecisions = getEarlyStoppingVariationDecisions({
       resultsStatus,
-      decisionCriteria,
-      powerReached,
+      decisionCriteria: earlyStoppingCriteria,
       goalMetrics,
       guardrailMetrics,
     });
