@@ -260,6 +260,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/includeArchived'
       operationId: listFeatures
       x-codeSamples:
         - lang: cURL
@@ -6051,6 +6052,13 @@ components:
       description: Filter by a SDK connection's client key
       schema:
         type: string
+    includeArchived:
+      name: includeArchived
+      in: query
+      description: Whether to include archived features or not (true by default)
+      schema:
+        type: boolean
+        default: true
   schemas:
     PaginationFields:
       type: object

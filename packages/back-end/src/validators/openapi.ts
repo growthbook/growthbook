@@ -92,7 +92,7 @@ export const apiCustomFieldValidator = z.object({ "id": z.string(), "name": z.st
 
 export const listFeaturesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional() }).strict(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional(), "includeArchived": z.boolean().default(true) }).strict(),
   paramsSchema: z.never(),
 };
 
