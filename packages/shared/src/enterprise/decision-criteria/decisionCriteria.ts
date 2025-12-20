@@ -106,16 +106,6 @@ export function evaluateDecisionRuleOnVariation({
   return undefined;
 }
 
-// If a condition only has "none" rules, then it cannot return an action
-// unless the desired power is reached
-export function ruleEligibleForEarlyStopping(
-  rule: DecisionCriteriaRule,
-): boolean {
-  return rule.conditions.every((condition) => {
-    return condition.match !== "none";
-  });
-}
-
 // Get the decision for each variation based on the decision criteria
 export function getVariationDecisions({
   resultsStatus,
