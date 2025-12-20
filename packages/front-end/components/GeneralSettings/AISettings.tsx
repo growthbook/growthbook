@@ -5,7 +5,10 @@ import {
   AI_PROMPT_DEFAULTS,
   AIPromptInterface,
   AI_PROVIDER_MODEL_MAP,
+  AiModel,
+  EmbeddingModel,
 } from "shared/ai";
+import { ensureAllUnionValues } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
@@ -19,6 +22,31 @@ import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
+
+const AI_MODEL_LABELS = ensureAllUnionValues<AiModel>()([
+  { value: "gpt-4o-mini", label: "GTP 4o mini" },
+  { value: "gpt-4o", label: "GTP 4o" },
+  { value: "gpt-4-turbo", label: "GTP 4 turbo" },
+  { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
+  { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
+  { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },
+  { value: "claude-opus-4-20250514", label: "Claude 4 Opus" },
+  { value: "claude-sonnet-4-20250514", label: "Claude 4 Sonnet" },
+  { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
+  { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
+  { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+] as const);
+
+const PROMPT_MODEL_LABELS = [
+  { value: "", label: "-- Use Default AI Model --" },
+  ...AI_MODEL_LABELS,
+];
+
+const EMBEDDING_MODEL_LABELS = ensureAllUnionValues<EmbeddingModel>()([
+  { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
+  { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
+  { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
+] as const);
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
@@ -75,31 +103,6 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
   ];
 }
-
-const AI_MODEL_LABELS = [
-  { value: "gpt-4o-mini", label: "GTP 4o mini" },
-  { value: "gpt-4o", label: "GTP 4o" },
-  { value: "gpt-4-turbo", label: "GTP 4 turbo" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
-  { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
-  { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },
-  { value: "claude-opus-4-20250514", label: "Claude 4 Opus" },
-  { value: "claude-sonnet-4-20250514", label: "Claude 4 Sonnet" },
-  { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
-  { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
-  { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
-];
-
-const PROMPT_MODEL_LABELS = [
-  { value: "", label: "-- Use Default AI Model --" },
-  ...AI_MODEL_LABELS,
-];
-
-const EMBEDDING_MODEL_LABELS = [
-  { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
-  { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
-  { value: "text-embedding-ada-002", label: "OpenAI text embedding ada 002" },
-];
 
 export default function AISettings({
   promptForm,

@@ -80,3 +80,26 @@ export function isString(data: unknown): data is string {
 export function isNumber(data: unknown): data is number {
   return typeof data === "number";
 }
+
+/**
+ * Helper function to ensure all union type values are present in an array.
+ * Useful for creating exhaustive label mappings for union types.
+ *
+ * @example
+ * type Color = "red" | "green" | "blue";
+ * const colorLabels = ensureAllUnionValues<Color>()([
+ *   { value: "red", label: "Red" },
+ *   { value: "green", label: "Green" },
+ *   { value: "blue", label: "Blue" },
+ * ] as const);
+ */
+export function ensureAllUnionValues<UnionType extends string>() {
+  return <const T extends ReadonlyArray<{ value: UnionType; label: string }>>(
+    labels: T &
+      ([UnionType] extends [T[number]["value"]]
+        ? T
+        : "Missing values in array"),
+  ): T => {
+    return labels;
+  };
+}

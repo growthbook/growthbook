@@ -1,26 +1,13 @@
 // AI Provider types and configurations
 export type AIProvider = "openai" | "anthropic";
 
-export type AiModel =
-  | "gpt-4o"
-  | "gpt-4o-mini"
-  | "gpt-4-turbo"
-  | "claude-haiku-4-5-20251001"
-  | "claude-sonnet-4-5-20250929"
-  | "claude-opus-4-1-20250805"
-  | "claude-opus-4-20250514"
-  | "claude-sonnet-4-20250514"
-  | "claude-3-7-sonnet-20250219"
-  | "claude-3-5-haiku-20241022"
-  | "claude-3-haiku-20240307";
-
 export type EmbeddingModel =
   | "text-embedding-3-small"
   | "text-embedding-3-large"
   | "text-embedding-ada-002";
 
 // Available models for each provider
-export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AiModel[]> = {
+export const AI_PROVIDER_MODEL_MAP = {
   openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
   anthropic: [
     "claude-haiku-4-5-20251001",
@@ -32,7 +19,10 @@ export const AI_PROVIDER_MODEL_MAP: Record<AIProvider, AiModel[]> = {
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
   ],
-};
+} as const;
+
+// Derive AiModel type from the models defined in AI_PROVIDER_MODEL_MAP
+export type AiModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
 export interface AITokenUsageInterface {
   id?: string;
