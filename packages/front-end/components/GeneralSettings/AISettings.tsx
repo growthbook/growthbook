@@ -79,11 +79,7 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
 const AI_MODEL_LABELS = [
   { value: "gpt-4o-mini", label: "GTP 4o mini" },
   { value: "gpt-4o", label: "GTP 4o" },
-  { value: "gpt-4", label: "GTP 4" },
   { value: "gpt-4-turbo", label: "GTP 4 turbo" },
-  { value: "gpt-4-vision-preview", label: "GTP 4 vision preview" },
-  { value: "gpt-3.5-turbo", label: "GTP 3.5 turbo" },
-  { value: "gpt-3.5-turbo-16k", label: "GTP 3.5 turbo 16k" },
   { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
   { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
   { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },

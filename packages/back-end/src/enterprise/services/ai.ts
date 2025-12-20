@@ -147,6 +147,7 @@ const numTokensFromMessages = (
   messages: ChatCompletionRequestMessage[],
   context: ReqContext | ApiReqContext,
 ) => {
+  logger.warn("Calculating token usage from messages as fallback");
   const { model } = getAIProvider(context);
 
   // Use tiktoken for OpenAI models
