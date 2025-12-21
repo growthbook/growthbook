@@ -1,23 +1,3 @@
-/**
- * Generic AI Service for GrowthBook
- *
- * This service provides a unified interface for multiple AI providers using Vercel's AI SDK.
- * Currently supports: OpenAI, Anthropic
- *
- * To add a new provider:
- * 1. Install the provider SDK: `yarn add @ai-sdk/[provider]`
- * 2. Add provider type to AIProvider union type
- * 3. Add provider creation logic in getAIProvider()
- * 4. Add environment variable handling in getAISettingsForOrg()
- * 5. Update organization.d.ts types if needed
- *
- * Example: Adding Google AI
- * - `yarn add @ai-sdk/google`
- * - Add "google" to AIProvider type
- * - Add createGoogle() call in getAIProvider()
- * - Add GOOGLE_API_KEY handling
- */
-
 import { generateText, generateObject, embed } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -40,7 +20,6 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { logCloudAIUsage } from "back-end/src/services/clickhouse";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-// Helper function to get available providers based on API keys
 export function getAvailableAIProviders(): AIProvider[] {
   const providers: AIProvider[] = [];
   if (process.env.OPENAI_API_KEY) providers.push("openai");
@@ -48,31 +27,27 @@ export function getAvailableAIProviders(): AIProvider[] {
   return providers;
 }
 
-// Helper function to validate provider configuration
 export function validateAIProvider(provider: AIProvider): boolean {
   if (provider === "openai") return !!process.env.OPENAI_API_KEY;
   if (provider === "anthropic") return !!process.env.ANTHROPIC_API_KEY;
   return false;
 }
 
-// Get all available models grouped by provider
-export function getAvailableAIModels(): Record<AIProvider, string[]> {
+export function getAvailableAIModels(): Record<AIProvider, readonly string[]> {
   const availableProviders = getAvailableAIProviders();
-  const result: Partial<Record<AIProvider, string[]>> = {};
+  const result: Partial<Record<AIProvider, readonly string[]>> = {};
 
   availableProviders.forEach((provider) => {
     result[provider] = AI_PROVIDER_MODEL_MAP[provider];
   });
 
-  return result as Record<AIProvider, string[]>;
+  return result as Record<AIProvider, readonly string[]>;
 }
 
-// Get models for a specific provider
-export function getModelsForProvider(provider: AIProvider): string[] {
+export function getModelsForProvider(provider: AIProvider): readonly string[] {
   return AI_PROVIDER_MODEL_MAP[provider] || [];
 }
 
-// Determine provider from model name
 export function getProviderFromModel(model: string): AIProvider | null {
   for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
     if (models.includes(model as never)) {
