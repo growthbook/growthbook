@@ -550,6 +550,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
+    // only OpenAI allows for embeddings right now.
     if (!aiEnabled || !useCheckForSimilar || !hasOpenAIKey()) return;
 
     // check how many words we're sending in the hypothesis, name, and description:

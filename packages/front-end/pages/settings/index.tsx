@@ -324,7 +324,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    // Filter out model selector fields and create prompt objects with overrideModel
     const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
       type,
       prompt: promptValues[type],

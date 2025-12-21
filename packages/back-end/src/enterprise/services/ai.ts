@@ -161,6 +161,8 @@ export const simpleCompletion = async ({
   };
 
   let numTokensUsed: number | undefined;
+  let inputTokensUsed: number | undefined;
+  let outputTokensUsed: number | undefined;
   let result: string;
 
   if (returnType === "json" && jsonSchema) {
@@ -170,30 +172,14 @@ export const simpleCompletion = async ({
     });
     numTokensUsed = objectResponse.usage?.totalTokens;
     result = JSON.stringify(objectResponse.object);
-    // Fire and forget
-    logCloudAIUsage({
-      organization: context.org.id,
-      type,
-      model,
-      numPromptTokensUsed: objectResponse.usage?.inputTokens,
-      numCompletionTokensUsed: objectResponse.usage?.outputTokens,
-      temperature,
-      usedDefaultPrompt: isDefaultPrompt,
-    });
+    inputTokensUsed = objectResponse.usage?.inputTokens;
+    outputTokensUsed = objectResponse.usage?.outputTokens;
   } else {
     const textResponse = await generateText(generateOptions);
     numTokensUsed = textResponse.usage?.totalTokens;
     result = textResponse.text;
-    // Fire and forget
-    logCloudAIUsage({
-      organization: context.org.id,
-      type,
-      model,
-      numPromptTokensUsed: textResponse.usage?.inputTokens,
-      numCompletionTokensUsed: textResponse.usage?.outputTokens,
-      temperature,
-      usedDefaultPrompt: isDefaultPrompt,
-    });
+    inputTokensUsed = textResponse.usage?.inputTokens;
+    outputTokensUsed = textResponse.usage?.outputTokens;
   }
 
   if (IS_CLOUD) {
@@ -201,6 +187,17 @@ export const simpleCompletion = async ({
       numTokensUsed = numTokensFromMessages(messages, model);
     }
     await updateTokenUsage({ numTokensUsed, organization: context.org });
+
+    // Fire and forget
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model,
+      numPromptTokensUsed: inputTokensUsed,
+      numCompletionTokensUsed: outputTokensUsed,
+      temperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
   }
 
   return result;
@@ -242,15 +239,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   const messages = constructMessages(prompt, instructions);
 
-  // Convert messages to the format expected by Vercel AI SDK
-  const coreMessages = messages.map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-  }));
-
   const response = await generateObject({
     model: aiProvider(model),
-    messages: coreMessages,
+    messages: messages,
     schema: zodObjectSchema,
     ...(temperature != null ? { temperature } : {}),
   });
