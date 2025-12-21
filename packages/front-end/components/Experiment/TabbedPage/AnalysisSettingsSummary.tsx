@@ -600,6 +600,7 @@ export default function AnalysisSettingsSummary({
                 status={status}
                 dateCreated={snapshot?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
+                autoUpdateEnabled={experiment.autoSnapshots}
                 showAutoUpdateWidget={true}
                 queries={
                   latest &&
