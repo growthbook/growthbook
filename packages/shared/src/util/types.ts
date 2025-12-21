@@ -87,14 +87,14 @@ export function isNumber(data: unknown): data is number {
  *
  * @example
  * type Color = "red" | "green" | "blue";
- * const colorLabels = ensureAllUnionValues<Color>()([
+ * const colorLabels = ensureValuesExactlyMatchUnion<Color>()([
  *   { value: "red", label: "Red" },
  *   { value: "green", label: "Green" },
  *   { value: "blue", label: "Blue" },
  * ]);
  */
 export function ensureValuesExactlyMatchUnion<UnionType extends string>() {
-  return <const T extends ReadonlyArray<{ value: UnionType; label: string }>>(
+  return <T extends ReadonlyArray<{ value: UnionType; label: string }>>(
     labels: T &
       (Exclude<UnionType, T[number]["value"]> extends never
         ? T
