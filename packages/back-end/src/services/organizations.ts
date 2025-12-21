@@ -184,19 +184,36 @@ export function getAISettingsForOrg(
   includeKey: boolean = false,
 ): {
   aiEnabled: boolean;
+  aiProvider: "openai" | "ollama" | null;
   openAIAPIKey: string;
   openAIDefaultModel: TiktokenModel;
+  ollamaBaseUrl: string;
+  ollamaDefaultModel: string;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
+  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
   const aiEnabled = IS_CLOUD
     ? context.org.settings?.aiEnabled !== false
-    : !!(context.org.settings?.aiEnabled && openAIKey);
+    : !!(
+        context.org.settings?.aiEnabled &&
+        ((context.org.settings?.aiProvider === "openai" && openAIKey) ||
+          (context.org.settings?.aiProvider === "ollama" &&
+            !!context.org.settings?.ollamaDefaultModel &&
+            ollamaBaseUrl))
+      );
+
+  const openAIDefaultModel =
+    context.org.settings?.openAIDefaultModel || "gpt-4o-mini";
+
+  const ollamaDefaultModel = context.org.settings?.ollamaDefaultModel || "";
 
   return {
     aiEnabled,
+    aiProvider: context.org.settings?.aiProvider || null,
     openAIAPIKey: includeKey ? openAIKey : "",
-    openAIDefaultModel:
-      context.org.settings?.openAIDefaultModel || "gpt-4o-mini",
+    openAIDefaultModel,
+    ollamaBaseUrl,
+    ollamaDefaultModel,
   };
 }
 

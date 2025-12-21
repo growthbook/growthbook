@@ -26,8 +26,7 @@ import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
   parsePrompt,
-  supportsJSONSchema,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/providerAI";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
@@ -282,7 +281,7 @@ export async function postGenerateSQL(
 ) {
   const { input, datasourceId } = req.body;
   const context = getContextFromReq(req);
-  const { aiEnabled, openAIDefaultModel } = getAISettingsForOrg(context);
+  const { aiEnabled } = getAISettingsForOrg(context);
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     throw new Error(
@@ -302,7 +301,7 @@ export async function postGenerateSQL(
       message: "Datasource not found",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -406,13 +405,12 @@ export async function postGenerateSQL(
     });
     try {
       // only certain models support json_schema:
-      if (supportsJSONSchema(openAIDefaultModel)) {
+      try {
         const aiResultsTables = await parsePrompt({
           context,
           instructions,
           prompt: input,
           type: "generate-sql-query",
-          model: "gpt-4o-mini",
           isDefaultPrompt: true,
           zodObjectSchema: zodObjectSchemaTables,
           temperature: 0.1,
@@ -440,7 +438,7 @@ export async function postGenerateSQL(
             `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
           ),
         );
-      } else {
+      } catch (e) {
         // fall back to simple completion if the model does not support json_schema
         const aiResults = await simpleCompletion({
           context,
@@ -559,7 +557,7 @@ export async function postGenerateSQL(
       ),
   });
   try {
-    if (supportsJSONSchema(openAIDefaultModel)) {
+    try {
       const aiResults = await parsePrompt({
         context,
         instructions,
@@ -568,7 +566,6 @@ export async function postGenerateSQL(
         isDefaultPrompt: true,
         zodObjectSchema,
         temperature: 0.1,
-        model: "gpt-4o-mini",
       });
 
       if (!aiResults || typeof aiResults.sql_string !== "string") {
@@ -583,7 +580,7 @@ export async function postGenerateSQL(
           sql: aiResults.sql_string,
         },
       });
-    } else {
+    } catch (e) {
       // fall back to simple completion:
       const aiResults = await simpleCompletion({
         context,

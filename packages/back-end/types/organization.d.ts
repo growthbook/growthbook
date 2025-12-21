@@ -218,7 +218,9 @@ export interface OrganizationSettings {
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
   aiEnabled?: boolean;
+  aiProvider?: "openai" | "ollama";
   openAIDefaultModel?: TiktokenModel;
+  ollamaDefaultModel?: string;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;

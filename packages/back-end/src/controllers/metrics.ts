@@ -57,7 +57,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/providerAI";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -725,7 +725,7 @@ export const getGeneratedDescription = async (
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -1012,7 +1012,7 @@ export async function postSimilarMetrics(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -1067,7 +1067,7 @@ export async function postSimilarMetrics(
     context,
     input: [newMetric],
   });
-  const newEmbedding = newMetricEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newMetricEmbeddingResponse[0].embedding;
   // Call to calculate cosine similarity between the new metric and existing metrics: cosineSimilarity
   const similarities = metricsToSearch
     .map((mv) => {
@@ -1123,7 +1123,7 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
