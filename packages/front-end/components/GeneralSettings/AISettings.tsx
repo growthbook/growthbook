@@ -35,7 +35,7 @@ const AI_MODEL_LABELS = ensureAllUnionValues<AiModel>()([
   { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
   { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
   { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
-] as const);
+]);
 
 const PROMPT_MODEL_LABELS = [
   { value: "", label: "-- Use Default AI Model --" },
@@ -46,7 +46,7 @@ const EMBEDDING_MODEL_LABELS = ensureAllUnionValues<EmbeddingModel>()([
   { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
   { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
   { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
-] as const);
+]);
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{

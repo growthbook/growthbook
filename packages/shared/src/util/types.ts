@@ -91,14 +91,14 @@ export function isNumber(data: unknown): data is number {
  *   { value: "red", label: "Red" },
  *   { value: "green", label: "Green" },
  *   { value: "blue", label: "Blue" },
- * ] as const);
+ * ]);
  */
 export function ensureAllUnionValues<UnionType extends string>() {
   return <const T extends ReadonlyArray<{ value: UnionType; label: string }>>(
     labels: T &
-      ([UnionType] extends [T[number]["value"]]
+      (Exclude<UnionType, T[number]["value"]> extends never
         ? T
-        : "Missing values in array"),
+        : `Missing value: ${Exclude<UnionType, T[number]["value"]>}`),
   ): T => {
     return labels;
   };
