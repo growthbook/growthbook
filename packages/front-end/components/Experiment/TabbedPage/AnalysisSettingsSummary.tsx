@@ -547,7 +547,7 @@ export default function AnalysisSettingsSummary({
 
   return (
     <Box px="3" pt="3" mb="2">
-      <Flex align="center" justify="between" gap="6">
+      <Flex align="center" justify="between" gap="6" pr="1">
         <Flex align="center">
           {setDimension && (
             <DimensionChooser
@@ -752,6 +752,7 @@ export default function AnalysisSettingsSummary({
           />
         </Flex>
       </Flex>
+
       {filteredMetrics.length < allMetrics.length && (
         <Box mt="2">
           <Text>
@@ -759,6 +760,7 @@ export default function AnalysisSettingsSummary({
           </Text>
         </Box>
       )}
+
       {refreshError && (
         <>
           <Callout status="error" mt="2">

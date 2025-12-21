@@ -190,7 +190,7 @@ export function DropdownMenuItem({
             {children}
           </Box>
           {loading || error ? (
-            <Box width="14px" className="ml-4">
+            <Box width="14px" className="ml-3">
               {loading ? <LoadingSpinner /> : null}
               {error ? (
                 <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
