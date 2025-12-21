@@ -21,8 +21,18 @@ export const AI_PROVIDER_MODEL_MAP = {
   ],
 } as const;
 
-// Derive AiModel type from the models defined in AI_PROVIDER_MODEL_MAP
-export type AiModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
+// Derive AIModel type from the models defined in AI_PROVIDER_MODEL_MAP
+export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
+
+// Helper to determine which provider a model belongs to
+export function getProviderFromModel(model: AIModel): AIProvider {
+  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
+    if (models.includes(model as never)) {
+      return provider as AIProvider;
+    }
+  }
+  throw new Error(`Model ${model} is not supported.`);
+}
 
 export interface AITokenUsageInterface {
   id?: string;

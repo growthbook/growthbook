@@ -4,9 +4,9 @@ import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
   AIPromptInterface,
-  AI_PROVIDER_MODEL_MAP,
-  AiModel,
+  AIModel,
   EmbeddingModel,
+  getProviderFromModel,
 } from "shared/ai";
 import { ensureAllUnionValues } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -23,7 +23,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 
-const AI_MODEL_LABELS = ensureAllUnionValues<AiModel>()([
+const AI_MODEL_LABELS = ensureAllUnionValues<AIModel>()([
   { value: "gpt-4o-mini", label: "GTP 4o mini" },
   { value: "gpt-4o", label: "GTP 4o" },
   { value: "gpt-4-turbo", label: "GTP 4 turbo" },
@@ -47,7 +47,6 @@ const EMBEDDING_MODEL_LABELS = ensureAllUnionValues<EmbeddingModel>()([
   { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
   { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
 ]);
-
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
@@ -254,12 +253,9 @@ export default function AISettings({
                     />
                   </Box>
                   {(() => {
-                    const selectedModel =
+                    const defaultModel =
                       form.watch("defaultAIModel") || "gpt-4o-mini";
-                    const isAnthropicModel =
-                      AI_PROVIDER_MODEL_MAP.anthropic.includes(selectedModel);
-                    const isOpenAIModel =
-                      AI_PROVIDER_MODEL_MAP.openai.includes(selectedModel);
+                    const defaultProvider = getProviderFromModel(defaultModel);
 
                     // Check if any prompt overrides use Anthropic models
                     const promptUsesAnthropic = prompts.some((prompt) => {
@@ -268,12 +264,12 @@ export default function AISettings({
                       );
                       return (
                         promptModel &&
-                        AI_PROVIDER_MODEL_MAP.anthropic.includes(promptModel)
+                        getProviderFromModel(promptModel) === "anthropic"
                       );
                     });
 
                     const showAnthropicKey =
-                      isAnthropicModel || promptUsesAnthropic;
+                      defaultProvider === "anthropic" || promptUsesAnthropic;
 
                     return (
                       <>
@@ -325,7 +321,7 @@ export default function AISettings({
                           ) : (
                             <Box>
                               <Callout status="warning">
-                                {isOpenAIModel
+                                {defaultProvider === "openai"
                                   ? "You must set your OpenAI API key to use GPT models."
                                   : "OpenAI API key is required for embeddings."}{" "}
                                 Please define it in your environment variables

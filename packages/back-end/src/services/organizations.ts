@@ -20,7 +20,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { AiModel, EmbeddingModel } from "shared/ai";
+import { AIModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -186,7 +186,7 @@ export function getAISettingsForOrg(
   aiEnabled: boolean;
   openAIAPIKey: string;
   anthropicAPIKey: string;
-  defaultAIModel: AiModel;
+  defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";

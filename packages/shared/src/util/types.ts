@@ -99,7 +99,7 @@ export function ensureAllUnionValues<UnionType extends string>() {
       (Exclude<UnionType, T[number]["value"]> extends never
         ? T
         : `Missing value: ${Exclude<UnionType, T[number]["value"]>}`),
-  ): T => {
-    return labels;
+  ): Array<T[number]> => {
+    return [...labels];
   };
 }

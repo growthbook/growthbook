@@ -6,7 +6,7 @@ import {
   get_encoding,
   TiktokenModel,
 } from "@dqbd/tiktoken";
-import { AIPromptType, AIProvider, AI_PROVIDER_MODEL_MAP } from "shared/ai";
+import { AIModel, AIPromptType, getProviderFromModel } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -20,93 +20,37 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { logCloudAIUsage } from "back-end/src/services/clickhouse";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-export function getAvailableAIProviders(): AIProvider[] {
-  const providers: AIProvider[] = [];
-  if (process.env.OPENAI_API_KEY) providers.push("openai");
-  if (process.env.ANTHROPIC_API_KEY) providers.push("anthropic");
-  return providers;
-}
-
-export function validateAIProvider(provider: AIProvider): boolean {
-  if (provider === "openai") return !!process.env.OPENAI_API_KEY;
-  if (provider === "anthropic") return !!process.env.ANTHROPIC_API_KEY;
-  return false;
-}
-
-export function getAvailableAIModels(): Record<AIProvider, readonly string[]> {
-  const availableProviders = getAvailableAIProviders();
-  const result: Partial<Record<AIProvider, readonly string[]>> = {};
-
-  availableProviders.forEach((provider) => {
-    result[provider] = AI_PROVIDER_MODEL_MAP[provider];
-  });
-
-  return result as Record<AIProvider, readonly string[]>;
-}
-
-export function getModelsForProvider(provider: AIProvider): readonly string[] {
-  return AI_PROVIDER_MODEL_MAP[provider] || [];
-}
-
-export function getProviderFromModel(model: string): AIProvider | null {
-  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
-  }
-  return null;
-}
-
-export const getAIProvider = (
+export const getAIProviderClass = (
   context: ReqContext | ApiReqContext,
-  overrideModel?: string,
-): {
-  provider:
-    | ReturnType<typeof createAnthropic>
-    | ReturnType<typeof createOpenAI>
-    | null;
-  model: string;
-} => {
-  const { aiEnabled, openAIAPIKey, anthropicAPIKey, defaultAIModel } =
-    getAISettingsForOrg(context, true);
-
-  // Determine the model to use (override > default)
-  const modelToUse = overrideModel || defaultAIModel;
-
-  let selectedProvider = null;
-
-  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
-    if (models.includes(modelToUse as never)) {
-      selectedProvider = provider as AIProvider;
-      break;
-    }
-  }
-  if (!selectedProvider) {
-    throw new Error(`Model ${modelToUse} is not supported.`);
-  }
+  model: AIModel,
+): ReturnType<typeof createAnthropic> | ReturnType<typeof createOpenAI> => {
+  const { aiEnabled, openAIAPIKey, anthropicAPIKey } = getAISettingsForOrg(
+    context,
+    true,
+  );
 
   if (!aiEnabled) {
-    return {
-      provider: null,
-      model: modelToUse,
-    };
+    throw new Error("AI is not enabled for this organization.");
   }
 
-  let provider = null;
-  if (selectedProvider === "anthropic" && anthropicAPIKey) {
-    provider = createAnthropic({
+  const selectedProvider = getProviderFromModel(model);
+
+  if (selectedProvider === "anthropic") {
+    if (!anthropicAPIKey) {
+      throw new Error("ANTHROPIC_API_KEY is not set.");
+    }
+    return createAnthropic({
       apiKey: anthropicAPIKey,
     });
-  } else if (selectedProvider === "openai" && openAIAPIKey) {
-    provider = createOpenAI({
+  } else {
+    // selectedProvider === "openai"
+    if (!openAIAPIKey) {
+      throw new Error("OPENAI_API_KEY is not set.");
+    }
+    return createOpenAI({
       apiKey: openAIAPIKey,
     });
   }
-
-  return {
-    provider,
-    model: modelToUse,
-  };
 };
 
 type ChatCompletionRequestMessage = {
@@ -120,11 +64,9 @@ type ChatCompletionRequestMessage = {
  */
 const numTokensFromMessages = (
   messages: ChatCompletionRequestMessage[],
-  context: ReqContext | ApiReqContext,
+  model: AIModel,
 ) => {
   logger.warn("Calculating token usage from messages as fallback");
-  const { model } = getAIProvider(context);
-
   // Use tiktoken for OpenAI models
   let encoding;
   try {
@@ -198,9 +140,13 @@ export const simpleCompletion = async ({
   isDefaultPrompt: boolean;
   returnType?: "text" | "json";
   jsonSchema?: ZodObject<ZodRawShape>;
-  overrideModel?: string;
+  overrideModel?: AIModel;
 }) => {
-  const { provider: aiProvider, model } = getAIProvider(context, overrideModel);
+  const { defaultAIModel } = getAISettingsForOrg(context, true);
+
+  const model = overrideModel || defaultAIModel;
+
+  const aiProvider = getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -252,7 +198,7 @@ export const simpleCompletion = async ({
 
   if (IS_CLOUD) {
     if (!numTokensUsed) {
-      numTokensUsed = numTokensFromMessages(messages, context);
+      numTokensUsed = numTokensFromMessages(messages, model);
     }
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
@@ -268,7 +214,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   type,
   isDefaultPrompt,
   zodObjectSchema,
-  model,
+  overrideModel,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -277,12 +223,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   type: AIPromptType;
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
-  model?: string;
+  overrideModel?: AIModel;
 }): Promise<z.infer<T>> => {
-  const { provider: aiProvider, model: defaultModel } = getAIProvider(
-    context,
-    model,
-  );
+  const { defaultAIModel } = getAISettingsForOrg(context, true);
+  const model = overrideModel || defaultAIModel;
+
+  const aiProvider = getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -296,8 +242,6 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   const messages = constructMessages(prompt, instructions);
 
-  const modelToUse = model || defaultModel;
-
   // Convert messages to the format expected by Vercel AI SDK
   const coreMessages = messages.map((msg) => ({
     role: msg.role,
@@ -305,7 +249,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }));
 
   const response = await generateObject({
-    model: aiProvider(modelToUse),
+    model: aiProvider(model),
     messages: coreMessages,
     schema: zodObjectSchema,
     ...(temperature != null ? { temperature } : {}),
@@ -316,7 +260,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     logCloudAIUsage({
       organization: context.org.id,
       type,
-      model: modelToUse,
+      model: model,
       numPromptTokensUsed: response.usage?.inputTokens,
       numCompletionTokensUsed: response.usage?.outputTokens,
       temperature,
@@ -324,7 +268,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     });
 
     const numTokensUsed =
-      response.usage?.totalTokens ?? numTokensFromMessages(messages, context);
+      response.usage?.totalTokens ?? numTokensFromMessages(messages, model);
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 

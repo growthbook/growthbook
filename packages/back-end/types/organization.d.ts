@@ -17,7 +17,7 @@ import {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AiModel, EmbeddingModel } from "shared/ai";
+import { AIModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { AgreementType } from "shared/validators";
 import { environment } from "back-end/src/routers/environment/environment.validators";
@@ -218,10 +218,10 @@ export interface OrganizationSettings {
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
   aiEnabled?: boolean;
-  defaultAIModel?: AiModel;
+  defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
   /** @deprecated */
-  openAIDefaultModel?: AiModel;
+  openAIDefaultModel?: AIModel;
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;

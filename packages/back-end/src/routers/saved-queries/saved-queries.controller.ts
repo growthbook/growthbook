@@ -412,7 +412,7 @@ export async function postGenerateSQL(
           instructions,
           prompt: input,
           type: "generate-sql-query",
-          model: "gpt-4o-mini",
+          overrideModel: "gpt-4o-mini",
           isDefaultPrompt: true,
           zodObjectSchema: zodObjectSchemaTables,
           temperature: 0.1,
@@ -568,7 +568,7 @@ export async function postGenerateSQL(
         isDefaultPrompt: true,
         zodObjectSchema,
         temperature: 0.1,
-        model: "gpt-4o-mini",
+        overrideModel: "gpt-4o-mini",
       });
 
       if (!aiResults || typeof aiResults.sql_string !== "string") {
