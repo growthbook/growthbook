@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { AIPromptInterface, AIPromptType } from "shared/ai";
+import { AIModel, AIPromptInterface, AIPromptType } from "shared/ai";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -29,7 +29,7 @@ export async function getAIPrompts(
 
 export async function postAIPrompts(
   req: AuthRequest<{
-    prompts: { type: AIPromptType; prompt: string; overrideModel?: string }[];
+    prompts: { type: AIPromptType; prompt: string; overrideModel?: AIModel }[];
   }>,
   res: Response,
 ) {
