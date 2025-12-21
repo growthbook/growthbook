@@ -93,7 +93,7 @@ export function isNumber(data: unknown): data is number {
  *   { value: "blue", label: "Blue" },
  * ]);
  */
-export function ensureAllUnionValues<UnionType extends string>() {
+export function ensureValuesExactlyMatchUnion<UnionType extends string>() {
   return <const T extends ReadonlyArray<{ value: UnionType; label: string }>>(
     labels: T &
       (Exclude<UnionType, T[number]["value"]> extends never

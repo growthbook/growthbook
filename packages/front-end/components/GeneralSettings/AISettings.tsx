@@ -8,7 +8,7 @@ import {
   EmbeddingModel,
   getProviderFromModel,
 } from "shared/ai";
-import { ensureAllUnionValues } from "shared/util";
+import { ensureValuesExactlyMatchUnion } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
@@ -23,7 +23,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 
-const AI_MODEL_LABELS = ensureAllUnionValues<AIModel>()([
+const AI_MODEL_LABELS = ensureValuesExactlyMatchUnion<AIModel>()([
   { value: "gpt-4o-mini", label: "GTP 4o mini" },
   { value: "gpt-4o", label: "GTP 4o" },
   { value: "gpt-4-turbo", label: "GTP 4 turbo" },
@@ -42,7 +42,7 @@ const PROMPT_MODEL_LABELS = [
   ...AI_MODEL_LABELS,
 ];
 
-const EMBEDDING_MODEL_LABELS = ensureAllUnionValues<EmbeddingModel>()([
+const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
   { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
   { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
