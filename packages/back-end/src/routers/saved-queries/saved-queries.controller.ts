@@ -24,9 +24,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
   secondsUntilAICanBeUsedAgain,
-  simpleCompletion,
   parsePrompt,
-  supportsJSONSchema,
 } from "back-end/src/enterprise/services/ai";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import {
@@ -405,66 +403,36 @@ export async function postGenerateSQL(
         ),
     });
     try {
-      // only certain models support json_schema:
-      if (supportsJSONSchema()) {
-        const aiResultsTables = await parsePrompt({
-          context,
-          instructions,
-          prompt: input,
-          type: "generate-sql-query",
-          overrideModel: "gpt-4o-mini",
-          isDefaultPrompt: true,
-          zodObjectSchema: zodObjectSchemaTables,
-          temperature: 0.1,
+      const aiResultsTables = await parsePrompt({
+        context,
+        instructions,
+        prompt: input,
+        type: "generate-sql-query",
+        overrideModel: "gpt-4o-mini",
+        isDefaultPrompt: true,
+        zodObjectSchema: zodObjectSchemaTables,
+        temperature: 0.1,
+      });
+
+      if (!aiResultsTables || typeof aiResultsTables.table_names !== "object") {
+        return res.status(400).json({
+          status: 400,
+          message: "AI did not return the expected list of tables",
         });
-
-        if (
-          !aiResultsTables ||
-          typeof aiResultsTables.table_names !== "object"
-        ) {
-          return res.status(400).json({
-            status: 400,
-            message: "AI did not return the expected list of tables",
-          });
-        }
-        const tableNames = Array.isArray(aiResultsTables.table_names)
-          ? aiResultsTables.table_names
-              .map((name) => name.trim())
-              .filter((name) => name)
-              .slice(0, 20)
-          : [];
-
-        // filter the tablesInfo to only include the ones that are in the AI response:
-        filteredTablesInfo = tablesInfo.filter((table) =>
-          tableNames.includes(
-            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
-          ),
-        );
-      } else {
-        // fall back to simple completion if the model does not support json_schema
-        const aiResults = await simpleCompletion({
-          context,
-          instructions:
-            instructions +
-            "\nReturn only the FQTN, separated by commas, without any additional text or explanations.",
-          prompt: input,
-          type: "generate-sql-query",
-          isDefaultPrompt: true,
-          temperature: 0.1,
-        });
-
-        const tableNames = aiResults
-          .split(",")
-          .map((name) => name.trim())
-          .filter((name) => name);
-
-        // filter the tablesInfo to only include the ones that are in the AI response:
-        filteredTablesInfo = tablesInfo.filter((table) =>
-          tableNames.includes(
-            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
-          ),
-        );
       }
+      const tableNames = Array.isArray(aiResultsTables.table_names)
+        ? aiResultsTables.table_names
+            .map((name) => name.trim())
+            .filter((name) => name)
+            .slice(0, 20)
+        : [];
+
+      // filter the tablesInfo to only include the ones that are in the AI response:
+      filteredTablesInfo = tablesInfo.filter((table) =>
+        tableNames.includes(
+          `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
+        ),
+      );
     } catch (e) {
       logger.error(e, "Error generating SQL from AI, first part");
       return res.status(400).json({
@@ -559,55 +527,29 @@ export async function postGenerateSQL(
       ),
   });
   try {
-    if (supportsJSONSchema()) {
-      const aiResults = await parsePrompt({
-        context,
-        instructions,
-        prompt: input,
-        type: "generate-sql-query",
-        isDefaultPrompt: true,
-        zodObjectSchema,
-        temperature: 0.1,
-        overrideModel: "gpt-4o-mini",
-      });
+    const aiResults = await parsePrompt({
+      context,
+      instructions,
+      prompt: input,
+      type: "generate-sql-query",
+      isDefaultPrompt: true,
+      zodObjectSchema,
+      temperature: 0.1,
+      overrideModel: "gpt-4o-mini",
+    });
 
-      if (!aiResults || typeof aiResults.sql_string !== "string") {
-        return res.status(400).json({
-          status: 400,
-          message: "AI did not return the expected SQL string",
-        });
-      }
-      res.status(200).json({
-        status: 200,
-        data: {
-          sql: aiResults.sql_string,
-        },
-      });
-    } else {
-      // fall back to simple completion:
-      const aiResults = await simpleCompletion({
-        context,
-        instructions:
-          instructions +
-          "\nReturn only the SQL query, without any additional text or explanations.",
-        prompt: input,
-        type: "generate-sql-query",
-        isDefaultPrompt: true,
-        temperature: 0.1,
-      });
-
-      // sometimes, even though we ask it not to, it returns in markdown:
-      const cleanSQL = aiResults.startsWith("```")
-        ? aiResults.replace(/```sql|```/g, "").trim()
-        : aiResults;
-
-      res.status(200).json({
-        status: 200,
-        data: {
-          sql: cleanSQL,
-        },
+    if (!aiResults || typeof aiResults.sql_string !== "string") {
+      return res.status(400).json({
+        status: 400,
+        message: "AI did not return the expected SQL string",
       });
     }
+    res.status(200).json({
+      status: 200,
+      data: {
+        sql: aiResults.sql_string,
+      },
+    });
   } catch (e) {
     logger.error(e, "Error generating SQL from AI, second part");
     return res.status(400).json({

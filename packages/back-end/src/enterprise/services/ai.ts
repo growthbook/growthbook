@@ -334,7 +334,3 @@ export async function generateEmbeddings({
     throw new Error("Failed to generate embeddings");
   }
 }
-
-export function supportsJSONSchema(): boolean {
-  return true;
-}

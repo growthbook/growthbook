@@ -47,6 +47,7 @@ const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
   { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
 ]);
+
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
