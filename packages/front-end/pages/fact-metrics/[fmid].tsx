@@ -6,7 +6,7 @@ import {
   FactMetricType,
   FactTableInterface,
   RowFilter,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { Flex, Box, Text, Heading } from "@radix-ui/themes";
 import { getDisallowedProjects } from "shared/util";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";

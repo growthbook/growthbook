@@ -1,5 +1,5 @@
 import request from "supertest";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import {
   createFeature,
   getFeature,

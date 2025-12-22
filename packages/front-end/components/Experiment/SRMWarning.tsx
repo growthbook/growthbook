@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";

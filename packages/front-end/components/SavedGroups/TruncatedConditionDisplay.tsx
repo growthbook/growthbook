@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { SavedGroupTargeting } from "back-end/types/feature";
+import { SavedGroupTargeting } from "shared/types/feature";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Link from "@/ui/Link";
 

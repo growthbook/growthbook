@@ -1,10 +1,10 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { BsXCircle } from "react-icons/bs";
 import clsx from "clsx";
 import { MdSwapCalls } from "react-icons/md";
 import { isFactMetric } from "shared/experiments";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import { BanditEvent } from "shared/validators";
 import { RxInfoCircled } from "react-icons/rx";
 import { HiOutlineExclamationCircle } from "react-icons/hi";

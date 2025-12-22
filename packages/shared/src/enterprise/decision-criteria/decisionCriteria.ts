@@ -12,12 +12,12 @@ import {
   ExperimentHealthSettings,
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
-} from "back-end/types/safe-rollout";
-import { OrganizationSettings } from "back-end/types/organization";
+} from "shared/types/safe-rollout";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,

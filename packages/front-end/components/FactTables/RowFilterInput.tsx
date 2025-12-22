@@ -3,7 +3,7 @@ import {
   ColumnInterface,
   FactTableInterface,
   RowFilter,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";

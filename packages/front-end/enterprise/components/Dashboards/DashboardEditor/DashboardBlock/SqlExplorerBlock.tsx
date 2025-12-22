@@ -1,6 +1,9 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isResultsTableItem, blockHasFieldOfType } from "shared/enterprise";
+import {
+  blockHasFieldOfType,
+  isResultsTableItem,
+  SqlExplorerBlockInterface,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import { useMemo } from "react";
 import {

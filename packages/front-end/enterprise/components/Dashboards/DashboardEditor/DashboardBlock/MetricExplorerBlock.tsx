@@ -1,10 +1,12 @@
-import { MetricExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  MetricExplorerBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { blockHasFieldOfType } from "shared/enterprise";
 import { isString } from "shared/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCurrency } from "@/hooks/useCurrency";

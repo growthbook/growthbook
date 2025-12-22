@@ -1,4 +1,4 @@
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import SelectField, {
   FormatOptionLabelType,
 } from "@/components/Forms/SelectField";

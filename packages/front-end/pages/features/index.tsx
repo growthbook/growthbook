@@ -7,7 +7,7 @@ import {
   ComputedFeatureInterface,
   FeatureInterface,
   FeatureRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,

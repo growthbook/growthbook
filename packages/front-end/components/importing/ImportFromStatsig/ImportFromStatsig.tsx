@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle, FaExchangeAlt } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
-import { FeatureInterface } from "back-end/types/feature";
-import { ProjectInterface } from "back-end/types/project";
+import { FeatureInterface } from "shared/types/feature";
+import { ProjectInterface } from "shared/types/project";
 import {
   buildImportedData,
   runImport,

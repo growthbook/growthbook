@@ -2,11 +2,12 @@ import path from "path";
 import fs from "fs";
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
+import { DefaultMemberRole, OrgMemberInfo } from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
 import { getInstallation } from "back-end/src/models/InstallationModel";
 import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { getInstallationDatasources } from "back-end/src/models/DataSourceModel";
-import { DefaultMemberRole, OrgMemberInfo } from "back-end/types/organization";
 import {
   getAllOrgMemberInfoInDb,
   getSelfHostedOrganization,
@@ -20,7 +21,6 @@ import {
   getAllTeamRoleInfoInDb,
   getTeamsForOrganization,
 } from "back-end/src/models/TeamModel";
-import { TeamInterface } from "back-end/types/team";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";

@@ -3,7 +3,7 @@ import {
   InformationSchemaInterface,
   InformationSchemaInterfaceWithPaths,
 } from "shared/types/integrations";
-import { DataSourceInterface, DataSourceType } from "back-end/types/datasource";
+import { DataSourceInterface, DataSourceType } from "shared/types/datasource";
 import {
   createInformationSchema,
   updateInformationSchemaById,

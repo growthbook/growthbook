@@ -1,9 +1,9 @@
 import { Box, Text, Flex } from "@radix-ui/themes";
-import { DecisionFrameworkExperimentRecommendationStatus } from "back-end/types/experiment";
+import { DecisionFrameworkExperimentRecommendationStatus } from "shared/types/experiment";
 import {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
-} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+} from "shared/enterprise";
 import Link from "@/ui/Link";
 
 interface Props {

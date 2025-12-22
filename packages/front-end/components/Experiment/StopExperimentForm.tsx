@@ -4,7 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
   ExperimentResultsType,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { datetime } from "shared/dates";

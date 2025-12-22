@@ -4,9 +4,9 @@ import {
   meanVarianceFromSums,
   ratioVarianceFromSums,
 } from "shared/util";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { PopulationDataInterface } from "back-end/types/population-data";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { PopulationDataInterface } from "shared/types/population-data";
 import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import { AuthContextValue } from "@/services/auth";
 

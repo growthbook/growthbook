@@ -17,11 +17,11 @@ import {
   FeatureUsageData,
   FeatureUsageDataPoint,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { SeriesPoint } from "@visx/shape/lib/types";

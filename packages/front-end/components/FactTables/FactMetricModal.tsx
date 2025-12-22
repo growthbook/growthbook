@@ -21,7 +21,7 @@ import {
   ColumnAggregation,
   FactTableColumnType,
   RowFilter,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
   getAggregateFilters,
@@ -29,7 +29,7 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
