@@ -830,8 +830,9 @@ export async function getFeatureDefinitions({
       let secureAttributeSalt: string | undefined = undefined;
       const { features, experiments, savedGroupsInUse, holdouts } =
         cached.contents;
-      const usedSavedGroups =
-        await context.models.savedGroups.getByIds(savedGroupsInUse || []);
+      const usedSavedGroups = await context.models.savedGroups.getByIds(
+        savedGroupsInUse || [],
+      );
       if (hashSecureAttributes) {
         // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
         // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
@@ -879,13 +880,13 @@ export async function getFeatureDefinitions({
     attributes = context.org.settings?.attributeSchema;
   }
   // TODO: filter by projects
-  const savedGroups = await context.models.savedGroups.getAll();
+  const allSavedGroups = await context.models.savedGroups.getAll();
 
   // Generate the feature definitions
   const features = await getAllFeatures(context, {
     projects: filterByProjects && projects ? projects : undefined,
   });
-  const groupMap = await getSavedGroupMap(context, savedGroups);
+  const groupMap = await getSavedGroupMap(context, allSavedGroups);
   const experimentMap = await getAllPayloadExperiments(
     context,
     filterByProjects && projects ? projects : undefined,
@@ -940,7 +941,7 @@ export async function getFeatureDefinitions({
     experimentsDefinitions,
   );
 
-  const usedSavedGroups = savedGroups.filter(
+  const usedSavedGroups = allSavedGroups.filter(
     (sg) => sg.id in savedGroupsInUse,
   );
 

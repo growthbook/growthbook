@@ -454,7 +454,10 @@ export const putSavedGroup = async (
     });
   }
 
-  await context.models.savedGroups.updateById(id, fieldsToUpdate);
+  const updatedSavedGroup = await context.models.savedGroups.updateById(
+    id,
+    fieldsToUpdate,
+  );
 
   // If the values, condition, or projects change, we need to invalidate cached feature rules
   if (
@@ -462,7 +465,7 @@ export const putSavedGroup = async (
     fieldsToUpdate.values ||
     fieldsToUpdate.projects
   ) {
-    savedGroupUpdated(context, savedGroup).catch((e) => {
+    savedGroupUpdated(context, updatedSavedGroup).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on saved group update");
     });
   }
@@ -503,6 +506,7 @@ export const deleteSavedGroup = async (
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
+
   const { org } = context;
 
   const savedGroup = await context.models.savedGroups.getById(id);
