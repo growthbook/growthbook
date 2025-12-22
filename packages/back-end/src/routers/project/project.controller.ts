@@ -31,7 +31,11 @@ import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableMod
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{ name: string; description: string }>;
+type CreateProjectRequest = AuthRequest<{
+  name: string;
+  description: string;
+  publicId?: string;
+}>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -56,11 +60,12 @@ export const postProject = async (
   if (!context.permissions.canCreateProjects()) {
     context.permissions.throwPermissionError();
   }
-  const { name, description } = req.body;
+  const { name, description, publicId } = req.body;
 
   const doc = await context.models.projects.create({
     name,
     description,
+    publicId,
   });
 
   res.status(200).json({
@@ -74,7 +79,7 @@ export const postProject = async (
 // region PUT /projects/:id
 
 type PutProjectRequest = AuthRequest<
-  Record<string, never>,
+  { name?: string; description?: string; publicId?: string },
   { id: string },
   Record<string, never>
 >;
@@ -113,11 +118,12 @@ export const putProject = async (
     return;
   }
 
-  const { name, description } = req.body;
+  const { name, description, publicId } = req.body;
 
   await context.models.projects.updateById(id, {
     name,
     description,
+    publicId,
   });
 
   res.status(200).json({

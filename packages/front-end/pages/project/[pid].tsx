@@ -28,6 +28,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
+import Metadata from "@/ui/Metadata";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -155,10 +156,20 @@ const ProjectPage: FC = () => {
           </Box>
         ) : null}
         <Flex align="center" justify="between" width="100%">
-          <Flex align="center">
+          <Flex direction="column" align="start">
             <Heading size="7" as="h1">
               {p.name}
             </Heading>
+            <Flex gap="6" mb="4">
+              <Metadata
+                label="Public ID"
+                value={<code>{p.publicId || p.id}</code>}
+              />
+              <Metadata
+                label="ID"
+                value={<code className="text-muted">{p.id}</code>}
+              />
+            </Flex>
           </Flex>
           <MoreMenu useRadix={true}>
             <a

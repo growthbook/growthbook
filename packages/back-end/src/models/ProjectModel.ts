@@ -5,11 +5,12 @@ import {
   ProjectSettings,
   projectValidator,
 } from "back-end/src/validators/projects";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { refreshSDKPayloadCache } from "../services/features";
+import { logger } from "../util/logger";
+import { getPayloadKeysForAllEnvs } from "./ExperimentModel";
 import { MakeModelClass } from "./BaseModel";
-
-type MigratedProject = Omit<ProjectInterface, "settings"> & {
-  settings: Partial<ProjectInterface["settings"]>;
-};
 
 const BaseClass = MakeModelClass({
   schema: projectValidator,
@@ -26,6 +27,7 @@ const BaseClass = MakeModelClass({
 
 interface CreateProjectProps {
   name: string;
+  publicId?: string;
   description?: string;
   id?: string;
   managedBy?: ManagedBy;
@@ -46,14 +48,6 @@ export class ProjectModel extends BaseClass {
 
   protected canDelete(doc: ProjectInterface) {
     return this.context.permissions.canDeleteProject(doc.id);
-  }
-
-  protected migrate(doc: MigratedProject) {
-    const settings = {
-      ...(doc.settings || {}),
-    };
-
-    return { ...doc, settings };
   }
 
   public create(project: CreateProjectProps) {
@@ -96,6 +90,7 @@ export class ProjectModel extends BaseClass {
     return {
       id: project.id,
       name: project.name,
+      publicId: project.publicId,
       description: project.description || "",
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
@@ -103,5 +98,70 @@ export class ProjectModel extends BaseClass {
         statsEngine: project.settings?.statsEngine,
       },
     };
+  }
+
+  protected async afterCreate(
+    doc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterCreate(doc, writeOptions);
+    // Refresh SDK payload cache for all environments
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [doc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project create",
+      );
+    });
+  }
+
+  protected async afterUpdate(
+    existing: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+    newDoc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterUpdate(existing, updates, newDoc, writeOptions);
+    // Refresh SDK payload cache for all environments
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [newDoc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project update",
+      );
+    });
+  }
+
+  protected async afterDelete(
+    doc: ProjectInterface,
+    writeOptions?: never,
+  ): Promise<void> {
+    await super.afterDelete(doc, writeOptions);
+    // Refresh SDK payload cache for all environments
+    const payloadKeys = getPayloadKeysForAllEnvs(
+      this.context as ReqContext | ApiReqContext,
+      [doc.id],
+    );
+    refreshSDKPayloadCache(
+      this.context as ReqContext | ApiReqContext,
+      payloadKeys,
+    ).catch((e) => {
+      logger.error(
+        e,
+        "Error refreshing SDK payload cache after project delete",
+      );
+    });
   }
 }

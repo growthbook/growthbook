@@ -44,6 +44,7 @@ import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Checkbox from "@/ui/Checkbox";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -68,12 +69,7 @@ function getSecurityTabState(
   value: Partial<SDKConnectionInterface>,
 ): "none" | "ciphered" | "remote" {
   if (value.remoteEvalEnabled) return "remote";
-  if (
-    value.encryptPayload ||
-    value.hashSecureAttributes ||
-    !value.includeExperimentNames
-  )
-    return "ciphered";
+  if (value.encryptPayload || value.hashSecureAttributes) return "ciphered";
   return "none";
 }
 
@@ -93,7 +89,7 @@ export default function SDKConnectionForm({
   cta?: string;
 }) {
   const environments = useEnvironments();
-  const { project, projects, getProjectById } = useDefinitions();
+  const { project, projects, getProjectById, tags } = useDefinitions();
   const projectIds = projects.map((p) => p.id);
 
   const { apiCall } = useAuth();
@@ -101,6 +97,7 @@ export default function SDKConnectionForm({
 
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const customFields = useCustomFields();
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint",
   );
@@ -121,6 +118,14 @@ export default function SDKConnectionForm({
   );
 
   const [languageError, setLanguageError] = useState<string | null>(null);
+
+  const initialCustomFieldSelection = initialValue.includeCustomFields ?? [];
+  const [customFieldsEnabled, setCustomFieldsEnabled] = useState(
+    initialCustomFieldSelection.length > 0,
+  );
+  const [customFieldsPickerVisible, setCustomFieldsPickerVisible] = useState(
+    initialCustomFieldSelection.length > 0,
+  );
 
   const form = useForm({
     defaultValues: {
@@ -149,6 +154,9 @@ export default function SDKConnectionForm({
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
       includeRuleIds: initialValue.includeRuleIds ?? false,
+      includeProjectPublicId: initialValue.includeProjectPublicId ?? false,
+      includeCustomFields: initialValue.includeCustomFields ?? [],
+      includeTags: initialValue.includeTags || false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -173,6 +181,8 @@ export default function SDKConnectionForm({
   };
 
   const languages = form.watch("languages");
+  const includeCustomFieldsSelection = form.watch("includeCustomFields") || [];
+  const includeCustomFieldsCount = includeCustomFieldsSelection.length;
   const languageTypes: Set<LanguageType> = new Set(
     languages.map((l) => languageMapping[l].type),
   );
@@ -307,15 +317,10 @@ export default function SDKConnectionForm({
       const enableSecureAttributes = hasSecureAttributesFeature;
       form.setValue("remoteEvalEnabled", false);
       if (
-        !(
-          form.watch("encryptPayload") ||
-          form.watch("hashSecureAttributes") ||
-          !form.watch("includeExperimentNames")
-        )
+        !(form.watch("encryptPayload") || form.watch("hashSecureAttributes"))
       ) {
         form.setValue("encryptPayload", enableEncryption);
         form.setValue("hashSecureAttributes", enableSecureAttributes);
-        form.setValue("includeExperimentNames", false);
       }
     } else if (selectedSecurityTab === "remote") {
       if (!hasRemoteEvaluationFeature) {
@@ -340,6 +345,19 @@ export default function SDKConnectionForm({
       setLanguageError(null);
     }
   }, [languages, languageError, setLanguageError]);
+
+  useEffect(() => {
+    if (includeCustomFieldsCount > 0 && !customFieldsEnabled) {
+      setCustomFieldsEnabled(true);
+    }
+    if (includeCustomFieldsCount > 0 && !customFieldsPickerVisible) {
+      setCustomFieldsPickerVisible(true);
+    }
+  }, [
+    includeCustomFieldsCount,
+    customFieldsEnabled,
+    customFieldsPickerVisible,
+  ]);
 
   // If the SDK Connection is externally managed, filter the environments that are in 'All Projects' or where the current project is included
   const filteredEnvironments =
@@ -388,6 +406,10 @@ export default function SDKConnectionForm({
           ...value,
           projects: value.projects || [],
         };
+
+        if (!customFieldsEnabled && includeCustomFieldsCount === 0) {
+          body.includeCustomFields = [];
+        }
 
         if (edit) {
           await apiCall(`/sdk-connections/${initialValue.id}`, {
@@ -813,40 +835,6 @@ export default function SDKConnectionForm({
                           }
                         />
                       </div>
-
-                      <div className="d-flex align-items-center">
-                        <Checkbox
-                          value={!form.watch("includeExperimentNames")}
-                          setValue={(val) =>
-                            form.setValue("includeExperimentNames", !val)
-                          }
-                          label={
-                            <Tooltip
-                              body={
-                                <>
-                                  <p>
-                                    Experiment and variation names can help add
-                                    context when debugging or tracking events.
-                                  </p>
-                                  <p>
-                                    However, this could expose potentially
-                                    sensitive information to your users if
-                                    enabled for a client-side or mobile
-                                    application.
-                                  </p>
-                                  <p className="mb-0">
-                                    For maximum privacy and security, we
-                                    recommend hiding these fields.
-                                  </p>
-                                </>
-                              }
-                            >
-                              Hide experiment and variation names{" "}
-                              <FaInfoCircle />
-                            </Tooltip>
-                          }
-                        />
-                      </div>
                     </div>
 
                     {form.watch("encryptPayload") &&
@@ -1052,7 +1040,7 @@ export default function SDKConnectionForm({
             <label>Auto Experiments</label>
             <div className="mt-2">
               {showVisualEditorSettings && (
-                <div className="mb-2 d-flex align-items-center">
+                <div className="mb-2">
                   <Checkbox
                     value={form.watch("includeVisualExperiments")}
                     setValue={(val) =>
@@ -1069,7 +1057,7 @@ export default function SDKConnectionForm({
               )}
 
               {showRedirectSettings && (
-                <div className="mb-2 d-flex align-items-center">
+                <div className="mb-2">
                   <Checkbox
                     value={form.watch("includeRedirectExperiments")}
                     setValue={(val) =>
@@ -1088,7 +1076,7 @@ export default function SDKConnectionForm({
               {(form.watch("includeVisualExperiments") ||
                 form.watch("includeRedirectExperiments")) && (
                 <>
-                  <div className="mb-2 d-flex align-items-center">
+                  <div className="mb-2">
                     <Checkbox
                       value={form.watch("includeDraftExperiments")}
                       setValue={(val) =>
@@ -1181,7 +1169,7 @@ export default function SDKConnectionForm({
           <div className="mt-4">
             <label>Saved Groups</label>
             <div className="mt-2">
-              <div className="mb-2 d-flex align-items-center">
+              <div className="mb-2">
                 <Checkbox
                   value={form.watch("savedGroupReferencesEnabled")}
                   setValue={(val) =>
@@ -1223,13 +1211,102 @@ export default function SDKConnectionForm({
           </div>
         )}
         <div className="mt-4">
-          <label>Feature Options</label>
-          <div>
-            <Checkbox
-              label={"Include Feature Rule IDs in Payload"}
-              value={!!form.watch("includeRuleIds")}
-              setValue={(val) => form.setValue("includeRuleIds", val)}
-            />
+          <label>Included Metadata</label>
+          <div className="mt-2">
+            <div className="mb-2">
+              <Checkbox
+                label="Include project IDs"
+                value={!!form.watch("includeProjectPublicId")}
+                setValue={(val) => form.setValue("includeProjectPublicId", val)}
+              />
+            </div>
+            {customFields && customFields.length > 0 && (
+              <div className="mb-2">
+                <Checkbox
+                  label="Include custom fields"
+                  value={customFieldsEnabled || includeCustomFieldsCount > 0}
+                  disabled={includeCustomFieldsCount > 0}
+                  setValue={(checked) => {
+                    if (checked) {
+                      setCustomFieldsPickerVisible(true);
+                      setCustomFieldsEnabled(true);
+                    } else {
+                      setCustomFieldsEnabled(false);
+                    }
+                  }}
+                />
+                {(customFieldsPickerVisible ||
+                  includeCustomFieldsCount > 0) && (
+                  <div className="mt-1 mb-3">
+                    <MultiSelectField
+                      placeholder="Select custom fields..."
+                      value={includeCustomFieldsSelection}
+                      onChange={(fields) => {
+                        if (!customFieldsPickerVisible) {
+                          setCustomFieldsPickerVisible(true);
+                        }
+                        form.setValue("includeCustomFields", fields);
+                        if (fields.length > 0) {
+                          setCustomFieldsEnabled(true);
+                        } else {
+                          setCustomFieldsEnabled(false);
+                        }
+                      }}
+                      options={customFields.map((field) => ({
+                        value: field.id,
+                        label: `${field.name} (${field.section})`,
+                      }))}
+                      sort={false}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            {tags && tags.length > 0 && (
+              <div className="mb-2">
+                <Checkbox
+                  label="Include tags"
+                  value={!!form.watch("includeTags")}
+                  setValue={(checked) => form.setValue("includeTags", checked)}
+                />
+              </div>
+            )}
+            <div className="mb-2">
+              <Checkbox
+                label="Include rule IDs"
+                value={!!form.watch("includeRuleIds")}
+                setValue={(val) => form.setValue("includeRuleIds", val)}
+              />
+            </div>
+            <div className="mb-2">
+              <Checkbox
+                label={
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          Experiment and variation names can help add context
+                          when debugging or tracking events.
+                        </p>
+                        <p>
+                          However, this could expose potentially sensitive
+                          information to your users if enabled for a client-side
+                          or mobile application.
+                        </p>
+                        <p className="mb-0">
+                          For maximum privacy and security, we recommend hiding
+                          these fields.
+                        </p>
+                      </>
+                    }
+                  >
+                    Include experiment & variation names <FaInfoCircle />
+                  </Tooltip>
+                }
+                value={!!form.watch("includeExperimentNames")}
+                setValue={(val) => form.setValue("includeExperimentNames", val)}
+              />
+            </div>
           </div>
         </div>
       </div>

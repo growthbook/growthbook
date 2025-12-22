@@ -2,6 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import uniqWith from "lodash/uniqWith";
 import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import { SafeRolloutInterface } from "shared/validators";
 import {
@@ -18,6 +19,7 @@ import {
   getNextScheduledUpdate,
   getSavedGroupMap,
   refreshSDKPayloadCache,
+  shouldRefreshForMetadataChanges,
 } from "back-end/src/services/features";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
@@ -25,6 +27,8 @@ import {
   applyEnvironmentInheritance,
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
+  getEnabledEnvironments,
+  getSDKPayloadKeys,
 } from "back-end/src/util/features";
 import { EventUser } from "back-end/types/events/event-types";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -622,13 +626,37 @@ export async function onFeatureUpdate(
 ) {
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
+  let payloadKeys = getSDKPayloadKeysByDiff(
+    feature,
+    updatedFeature,
+    getEnvironmentIdsFromOrg(context.org),
+  );
+
+  // Check if tags or customFields changed, and if any SDK connections use them
+  const needsMetadataRefresh = await shouldRefreshForMetadataChanges(
+    context,
+    feature,
+    updatedFeature,
+  );
+
+  if (needsMetadataRefresh) {
+    // Add all enabled environments for this feature
+    const environments = getEnabledEnvironments(
+      [feature, updatedFeature],
+      getEnvironmentIdsFromOrg(context.org),
+    );
+    const projects = new Set([
+      "",
+      feature.project || "",
+      updatedFeature.project || "",
+    ]);
+    const additionalKeys = getSDKPayloadKeys(environments, projects);
+    payloadKeys = uniqWith([...payloadKeys, ...additionalKeys], isEqual);
+  }
+
   await refreshSDKPayloadCache(
     context,
-    getSDKPayloadKeysByDiff(
-      feature,
-      updatedFeature,
-      getEnvironmentIdsFromOrg(context.org),
-    ),
+    payloadKeys,
     null,
     undefined,
     safeRolloutMap,

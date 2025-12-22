@@ -386,7 +386,11 @@ export async function fireSdkWebhook(
           includeExperimentNames: connection.includeExperimentNames,
           includeRedirectExperiments: connection.includeRedirectExperiments,
           includeRuleIds: connection.includeRuleIds,
+          includeProjectPublicId: connection.includeProjectPublicId,
+          includeCustomFields: connection.includeCustomFields,
+          includeTags: connection.includeTags,
           hashSecureAttributes: connection.hashSecureAttributes,
+          savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
         });
 
         return [[connection.key, defs], ...payloads];
@@ -481,6 +485,9 @@ export async function fireGlobalSdkWebhooks(
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
+      includeProjectPublicId: connection.includeProjectPublicId,
+      includeCustomFields: connection.includeCustomFields,
+      includeTags: connection.includeTags,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 

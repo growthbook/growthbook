@@ -204,6 +204,7 @@ export default function SetupFlow() {
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
               includeRuleIds: true,
+              includeProjectPublicId: false,
               projects: project ? [project] : [],
             };
 

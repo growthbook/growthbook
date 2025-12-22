@@ -1,7 +1,10 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { experimentHasLinkedChanges } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  generateProjectPublicIdFromName,
+} from "shared/util";
 import {
   getRoles,
   areProjectRolesValid,
@@ -1388,8 +1391,12 @@ export async function signup(
     req.organization = org;
     const context = getContextFromReq(req);
 
+    const projectName = "My First Project";
+    const basePublicId =
+      generateProjectPublicIdFromName(projectName) || "my-first-project";
     const project = await context.models.projects.create({
-      name: "My First Project",
+      name: projectName,
+      publicId: basePublicId,
     });
 
     // Alert the site manager about new organizations that are created

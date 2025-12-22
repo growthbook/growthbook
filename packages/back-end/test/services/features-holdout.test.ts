@@ -20,6 +20,10 @@ jest.mock("back-end/src/models/SdkPayloadModel", () => ({
   getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
 }));
 
+jest.mock("back-end/src/models/SdkConnectionModel", () => ({
+  findSDKConnectionsByOrganization: jest.fn(),
+}));
+
 // Now import the features service after mocking its dependencies
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
@@ -38,6 +42,7 @@ import {
   getSDKPayload,
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "../../types/organization";
 
 // Mock shared/util functions
@@ -84,6 +89,9 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
           .fn()
           .mockResolvedValue(new Map()) as jest.Mock,
       },
+      projects: {
+        getAll: jest.fn().mockResolvedValue([]) as jest.Mock,
+      },
     },
     userId: "test-user",
     email: "test@example.com",
@@ -101,6 +109,7 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
     (getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
     (getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
+    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([]);
   });
 
   it("should include holdout and holdout rule when holdout has the requested project", async () => {

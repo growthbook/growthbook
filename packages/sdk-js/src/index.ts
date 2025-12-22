@@ -17,6 +17,8 @@ export type {
   DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
+  FeatureMetadata,
+  ExperimentMetadata,
   FeatureRule,
   FeatureResult,
   FeatureResultSource,

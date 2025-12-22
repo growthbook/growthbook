@@ -1,6 +1,8 @@
 import {
   AutoExperiment,
-  FeatureRule as FeatureDefinitionRule,
+  FeatureDefinition as SDKFeatureDefinition,
+  FeatureMetadata,
+  ExperimentMetadata,
 } from "@growthbook/growthbook";
 import { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "back-end/types/events/event-types";
@@ -19,11 +21,13 @@ export interface ExperimentOverride {
   url?: string;
 }
 
-export interface FeatureDefinition {
+export type { FeatureMetadata, ExperimentMetadata };
+
+// make defaultValue required for API contract
+export type FeatureDefinition = Omit<SDKFeatureDefinition, "defaultValue"> & {
   // eslint-disable-next-line
   defaultValue: any;
-  rules?: FeatureDefinitionRule[];
-}
+};
 
 export type FeatureDefinitionWithProject = FeatureDefinition & {
   project?: string;

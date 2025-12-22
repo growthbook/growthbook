@@ -988,6 +988,9 @@ paths:
               properties:
                 name:
                   type: string
+                publicId:
+                  type: string
+                  description: 'Unique identifier for the project. If not provided, the project ID will be used in payloads.'
                 description:
                   type: string
                 settings:
@@ -1609,6 +1612,14 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectPublicId:
+                  type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
+                includeTags:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1697,6 +1708,14 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeProjectPublicId:
+                  type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
+                includeTags:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -6388,6 +6407,8 @@ components:
           type: string
         name:
           type: string
+        publicId:
+          type: string
         dateCreated:
           type: string
           format: date-time
@@ -7135,6 +7156,14 @@ components:
         includeRedirectExperiments:
           type: boolean
         includeRuleIds:
+          type: boolean
+        includeProjectPublicId:
+          type: boolean
+        includeCustomFields:
+          type: array
+          items:
+            type: string
+        includeTags:
           type: boolean
         key:
           type: string

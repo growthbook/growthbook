@@ -11,6 +11,7 @@ export const projectSettingsValidator = z.object({
 export const projectValidator = baseSchema
   .extend({
     name: z.string(),
+    publicId: z.string().optional(),
     description: z.string().default("").optional(),
     settings: projectSettingsValidator.default({}).optional(),
     managedBy: managedByValidator.optional(),

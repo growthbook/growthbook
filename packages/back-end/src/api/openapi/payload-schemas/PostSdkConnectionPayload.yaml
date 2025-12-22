@@ -28,6 +28,14 @@ properties:
     type: boolean
   includeRuleIds:
     type: boolean
+  includeProjectPublicId:
+    type: boolean
+  includeCustomFields:
+    type: array
+    items:
+      type: string
+  includeTags:
+    type: boolean
   proxyEnabled:
     type: boolean
   proxyHost:
