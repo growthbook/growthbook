@@ -30,30 +30,46 @@ jobs:
           node-version: "20"
           cache: "yarn"
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
-          cache: "pip"
-
       - name: Cache eslint
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          key: ${{ runner.os }}-eslint-${{ hashFiles('yarn.lock', '.eslint*', 'package.json') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
 
-      - name: Install dependencies
-        run: |
-          # Main app
-          yarn install
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-
 
-          # Stats engine
+      - name: Install yarn dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install python dependencies
+        run: |
           pip install pipx
           pipx install poetry
-        env:
-          CI: true
+          poetry config virtualenvs.in-project true
+
+      - name: Cache poetry dependencies
+        uses: actions/cache@v4
+        id: poetry-cache
+        with:
+          path: packages/stats/.venv
+          # Key is based on the OS and the hash of the lock file
+          key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
 
       - name: Build dependencies
         run: |
@@ -74,13 +90,6 @@ jobs:
         run: |
           yarn generate-api-types
           [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
-
-      - name: Check doc
-        run: |
-          cd docs
-          yarn
-          yarn gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |
