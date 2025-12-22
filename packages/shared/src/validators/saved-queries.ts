@@ -235,6 +235,11 @@ export const queryExecutionResultValidator = z.object({
   sql: z.string().optional(),
 });
 
+// So with this new flow, I wonder if we should create a new validator that doesn't allow a dataVizConfig to be passed in?
+// As with this new flow, we're divorcing the saved query from the dataVizConfig.
+// Now, a user will create and save a query, and then build a visualization from it
+// Which means we'll also need to update the `SqlExplorerModal` so a user can no longer create visualizations from the results.
+// This new SqlExplorerModal can then be used in other places as well, such as via the modal that shows the queries that've been run for an experiment/dashboard.
 export const savedQueryValidator = z
   .object({
     id: z.string(),
