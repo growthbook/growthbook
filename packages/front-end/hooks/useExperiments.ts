@@ -1,9 +1,9 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentType,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useMemo } from "react";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import useApi from "./useApi";
 
 export function useExperiments(

@@ -1,4 +1,4 @@
-import { SavedGroupTargeting } from "back-end/types/feature";
+import { SavedGroupTargeting } from "shared/types/feature";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";

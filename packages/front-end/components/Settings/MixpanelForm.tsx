@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import SelectField from "@/components/Forms/SelectField";
 
 const MixpanelForm: FC<{

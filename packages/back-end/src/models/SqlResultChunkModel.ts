@@ -1,8 +1,7 @@
 import { decodeSQLResults, encodeSQLResults } from "shared/sql";
 import { sqlResultChunkValidator } from "shared/validators";
-import { SqlResultChunkInterface } from "shared/types/query";
+import { QueryInterface, SqlResultChunkInterface } from "shared/types/query";
 import { promiseAllChunks } from "back-end/src/util/promise";
-import { QueryInterface } from "back-end/types/query";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

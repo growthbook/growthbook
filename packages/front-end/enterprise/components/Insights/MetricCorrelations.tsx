@@ -3,15 +3,15 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
 } from "shared/experiments";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import router, { useRouter } from "next/router";
 import Callout from "@/ui/Callout";
 import ScatterPlotGraph, {

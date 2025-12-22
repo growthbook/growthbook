@@ -1,20 +1,17 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "back-end/types/feature-revision";
-import {
-  EventUser,
-  EventUserLoggedIn,
-} from "back-end/types/events/event-types";
-import { OrganizationInterface } from "back-end/types/organization";
+} from "shared/types/feature-revision";
+import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
+import { OrganizationInterface } from "shared/types/organization";
+import { MinimalFeatureRevisionInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
-import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 

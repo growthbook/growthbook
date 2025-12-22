@@ -1,6 +1,6 @@
 import { NextPage } from "next";
 import { useRouter } from "next/router";
-import { GithubIntegrationInterface } from "back-end/types/github";
+import { GithubIntegrationInterface } from "shared/types/github";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import { AppFeatures } from "@/types/app-features";

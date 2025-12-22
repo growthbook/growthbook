@@ -6,7 +6,7 @@ import {
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_MAX_PERCENT_CHANGE,

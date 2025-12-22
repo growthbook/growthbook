@@ -1,4 +1,4 @@
-import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
+import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { getEqualWeights } from "shared/experiments";

@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";

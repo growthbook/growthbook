@@ -1,12 +1,12 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { getDefaultRole, isRoleValid } from "shared/permissions";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "back-end/src/services/organizations";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ScimError, ScimUser, ScimUserPostRequest } from "back-end/types/scim";
 import {
   createUser as createNewUser,

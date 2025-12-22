@@ -2,7 +2,7 @@ import React, { FC, useCallback, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   VisualChange,
   VisualChangesetInterface,

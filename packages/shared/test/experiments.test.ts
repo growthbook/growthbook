@@ -3,8 +3,8 @@ import {
   FactTableInterface,
   ColumnInterface,
   FactFilterInterface,
-} from "back-end/types/fact-table";
-import { IndexedPValue } from "back-end/types/stats";
+} from "shared/types/fact-table";
+import { IndexedPValue } from "shared/types/stats";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,

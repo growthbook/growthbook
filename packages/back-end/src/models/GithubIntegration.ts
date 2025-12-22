@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 import {
   GithubIntegrationInterface,
   CreateGithubIntegrationInput,
-} from "back-end/types/github";
-import { OrganizationInterface } from "back-end/types/organization";
+} from "shared/types/github";
+import { OrganizationInterface } from "shared/types/organization";
 import { fetchRepositories } from "back-end/src/services/github";
 import { doesTokenExist } from "./GithubUserTokenModel";
 

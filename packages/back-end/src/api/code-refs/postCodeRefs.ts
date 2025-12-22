@@ -1,13 +1,13 @@
 import { groupBy, values } from "lodash";
-import { PostCodeRefsResponse } from "back-end/types/openapi";
+import { PostCodeRefsResponse } from "shared/types/openapi";
+import { postCodeRefsValidator } from "shared/validators";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postCodeRefsValidator } from "back-end/src/validators/openapi";
 import {
   getFeatureCodeRefsByFeatures,
   upsertFeatureCodeRefs,
   getAllCodeRefsForOrg,
 } from "back-end/src/models/FeatureCodeRefs";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(

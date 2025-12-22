@@ -1,18 +1,20 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   getDependentExperiments,
   getDependentFeatures,
   mergeRevision,
 } from "shared/util";
-import { SafeRolloutInterface } from "shared/validators";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
-import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
+import {
+  SafeRolloutInterface,
+  HoldoutInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/validators";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";

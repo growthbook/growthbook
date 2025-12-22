@@ -1,6 +1,6 @@
 import React, { FC, Fragment, useState } from "react";
 import { ArchetypeInterface } from "shared/types/archetype";
-import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import Link from "next/link";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";

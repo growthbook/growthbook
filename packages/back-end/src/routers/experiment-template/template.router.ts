@@ -1,12 +1,12 @@
 import express from "express";
 import { z } from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawTemplateController from "./template.controller";
 import {
   createTemplateValidator,
   updateTemplateValidator,
-} from "./template.validators";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as rawTemplateController from "./template.controller";
 
 const router = express.Router();
 

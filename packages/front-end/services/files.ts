@@ -1,4 +1,4 @@
-import { SignedUploadUrlResponse, UploadResponse } from "back-end/types/upload";
+import { SignedUploadUrlResponse, UploadResponse } from "shared/types/upload";
 import { ApiCallType } from "./auth";
 import { getApiHost, getUploadMethod } from "./env";
 

@@ -17,7 +17,7 @@ import { date, datetime } from "shared/dates";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
