@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useEffect } from "react";
+import { useCallback, useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
@@ -144,16 +144,6 @@ export function DataVisualizationDisplay({
   chartId?: string;
 }) {
   const chartsContext = useDashboardCharts();
-  const chartRef = useRef<EChartsReact | null>(null);
-
-  // Cleanup on unmount - must be called before any conditional returns
-  useEffect(() => {
-    return () => {
-      if (chartId && chartsContext) {
-        chartsContext.unregisterChart(chartId);
-      }
-    };
-  }, [chartId, chartsContext]);
 
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
@@ -861,7 +851,6 @@ export function DataVisualizationDisplay({
     return (
       <Flex justify="center" align="center" height="100%" overflowY="auto">
         <EChartsReact
-          ref={chartRef}
           key={JSON.stringify(option)}
           option={option}
           style={{ width: "100%", minHeight: "350px", height: "80%" }}

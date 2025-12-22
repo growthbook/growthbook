@@ -90,7 +90,6 @@ export function DashboardChartsProvider({
 
   // Cleanup on unmount
   useEffect(() => {
-    const chartsMap = chartsRef.current;
     const groupId = connectedGroupIdRef.current;
 
     return () => {
@@ -102,7 +101,6 @@ export function DashboardChartsProvider({
           console.debug("Error disconnecting charts on unmount:", error);
         }
       }
-      chartsMap.clear();
     };
   }, []);
 

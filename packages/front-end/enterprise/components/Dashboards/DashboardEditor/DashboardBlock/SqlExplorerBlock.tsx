@@ -27,8 +27,6 @@ export default function SqlExplorerBlock({
     const dataVizConfig = savedQuery.dataVizConfig?.[block.dataVizConfigIndex];
     if (!dataVizConfig) return null; // Warning state handled by parent component
 
-    // For backwards compatibility, we can't easily pass chartId through SqlExplorerDataVisualization
-    // This is fine - the new blockConfig approach will handle chart connections
     return (
       <div>
         <SqlExplorerDataVisualization
@@ -92,9 +90,7 @@ export default function SqlExplorerBlock({
               rows={savedQuery.results.results}
               dataVizConfig={dataVizConfig}
               chartId={
-                blockId
-                  ? `sql-explorer-${blockId}-${configId}-${index}`
-                  : undefined
+                blockId ? `sql-explorer-${blockId}-${configId}` : undefined
               }
             />
           </Box>

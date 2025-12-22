@@ -1,5 +1,5 @@
 import { MetricExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
@@ -32,7 +32,6 @@ export default function MetricExplorerBlock({
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
   const chartsContext = useDashboardCharts();
-  const chartRef = useRef<EChartsReact | null>(null);
 
   const chartId = useMemo(() => {
     if (blockHasFieldOfType(block, "id", isString) && block.id) {
@@ -42,14 +41,6 @@ export default function MetricExplorerBlock({
     return `metric-explorer-${block.metricAnalysisId || "unknown"}`;
   }, [block]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (chartsContext) {
-        chartsContext.unregisterChart(chartId);
-      }
-    };
-  }, [chartsContext, chartId]);
   const formatterOptions = useMemo(
     () => ({ currency: displayCurrency }),
     [displayCurrency],
@@ -242,7 +233,6 @@ export default function MetricExplorerBlock({
         />
       ) : (
         <EChartsReact
-          ref={chartRef}
           key={JSON.stringify(chartData)}
           option={chartData}
           style={{ width: "100%", minHeight: "450px", height: "80%" }}
