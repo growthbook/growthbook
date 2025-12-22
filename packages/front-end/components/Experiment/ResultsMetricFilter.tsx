@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import { FactTableColumnType } from "back-end/types/fact-table";
+import { parseSliceQueryString } from "shared/experiments";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
@@ -29,7 +31,10 @@ export default function ResultsMetricFilter({
   availableMetricGroups?: Array<{ id: string; name: string }>;
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
-  availableSliceTags?: string[];
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+  }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
   showMetricFilter: boolean;
@@ -45,6 +50,66 @@ export default function ResultsMetricFilter({
     (metricTagFilter?.length || 0) +
     (metricGroupsFilter?.length || 0) +
     (sliceTagsFilter?.length || 0);
+
+  type SliceChunk = {
+    column: string;
+    value: string | null;
+    datatype: FactTableColumnType;
+    isOther: boolean;
+  };
+
+  const sliceOptions = useMemo(() => {
+    return availableSliceTags.map((tag) => {
+      // Parse slice tag using parseSliceQueryString
+      const sliceLevels = parseSliceQueryString(tag.id);
+      const parsedChunks: SliceChunk[] = sliceLevels.map((sl) => {
+        const value = sl?.levels?.[0] || "";
+        const datatype = tag?.datatypes?.[sl?.column] || "string";
+
+        return {
+          column: sl.column,
+          value: value || null,
+          datatype,
+          isOther: !value,
+        };
+      });
+
+      return {
+        value: tag.id,
+        parsedChunks,
+      };
+    });
+  }, [availableSliceTags]);
+
+  const formatSliceOptionLabel = useCallback(
+    (option: { value: string; parsedChunks: SliceChunk[] }) => {
+      return (
+        <span>
+          {option.parsedChunks.map((chunk, index) => (
+            <React.Fragment key={index}>
+              {index > 0 && ", "}
+              {chunk.isOther ? (
+                <>
+                  {chunk.column}:{" "}
+                  <span
+                    style={{
+                      fontVariant: "small-caps",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {chunk.datatype === "boolean" ? "null" : "other"}
+                  </span>
+                </>
+              ) : (
+                `${chunk.column}: ${chunk.value}`
+              )}
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    },
+    [],
+  );
 
   return (
     <Flex align="center" gap="3" className="position-relative">
@@ -127,10 +192,19 @@ export default function ResultsMetricFilter({
                     containerClassName="w-100"
                     placeholder="Type to search..."
                     value={sliceTagsFilter || []}
-                    options={availableSliceTags.map((tag) => ({
-                      label: tag,
-                      value: tag,
+                    options={sliceOptions.map(({ value }) => ({
+                      label: value,
+                      value,
                     }))}
+                    formatOptionLabel={(option) => {
+                      const fullOption = sliceOptions.find(
+                        (o) => o.value === option.value,
+                      );
+                      if (!fullOption || !fullOption.parsedChunks) {
+                        return option.label;
+                      }
+                      return formatSliceOptionLabel(fullOption);
+                    }}
                     onChange={(v) => {
                       setSliceTagsFilter?.(v);
                       return;

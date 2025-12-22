@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FactTableColumnType } from "back-end/types/fact-table";
 import React, { useMemo, useState } from "react";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -63,7 +64,10 @@ export interface Props {
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
   availableMetricGroups?: Array<{ id: string; name: string }>;
-  availableSliceTags?: string[];
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+  }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
   sortBy?: "significance" | "change" | null;

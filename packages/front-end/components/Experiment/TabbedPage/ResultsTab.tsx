@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FactTableColumnType } from "back-end/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import React, { useState } from "react";
 import {
@@ -46,7 +47,10 @@ export interface Props {
   metricGroupsFilter: string[];
   setMetricGroupsFilter: (groups: string[]) => void;
   availableMetricGroups: Array<{ id: string; name: string }>;
-  availableSliceTags: string[];
+  availableSliceTags: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+  }>;
   sliceTagsFilter: string[];
   setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;

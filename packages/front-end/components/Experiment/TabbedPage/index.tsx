@@ -11,8 +11,13 @@ import {
   isFactMetric,
   SliceDataForMetric,
   generateSliceString,
+  parseSliceQueryString,
 } from "shared/experiments";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+  FactTableColumnType,
+} from "back-end/types/fact-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -222,8 +227,12 @@ export default function TabbedPage({
   }, [experiment.defaultDashboardId, dashboards]);
 
   const { phase, setPhase } = useSnapshot();
-  const { metricGroups, getExperimentMetricById, getFactTableById } =
-    useDefinitions();
+  const {
+    metricGroups,
+    getExperimentMetricById,
+    getFactTableById,
+    factTables,
+  } = useDefinitions();
 
   // Extract metric group IDs from experiment metrics (dedupe using Map)
   const availableMetricGroups = useMemo(() => {
@@ -253,7 +262,16 @@ export default function TabbedPage({
 
   // Extract all slice tags from expanded metrics
   const availableSliceTags = useMemo(() => {
-    const sliceTagsMap = new Map<string, boolean>();
+    const sliceTagsMap = new Map<
+      string,
+      { datatypes: Record<string, FactTableColumnType> }
+    >();
+
+    // Build factTableMap for parseSliceQueryString
+    const factTableMap: Record<string, FactTableInterface> = {};
+    factTables.forEach((table) => {
+      factTableMap[table.id] = table;
+    });
 
     // Expand all metrics
     const expandedGoals = expandMetricGroups(
@@ -270,73 +288,30 @@ export default function TabbedPage({
     );
 
     // Extract from customMetricSlices
+    // For custom slices, only generate the exact combinations defined (no permutations)
     if (
       experiment.customMetricSlices &&
       experiment.customMetricSlices.length > 0
     ) {
       experiment.customMetricSlices.forEach((group) => {
-        // Generate single dimension tags
+        // Build the exact slice combination for this group
+        const slices: Record<string, string> = {};
+
         group.slices.forEach((slice) => {
-          slice.levels.forEach((level) => {
-            const tag = generateSliceString({ [slice.column]: level });
-            sliceTagsMap.set(tag, true);
-          });
-          // Add "other" tag for empty level
-          const otherTag = generateSliceString({ [slice.column]: "" });
-          sliceTagsMap.set(otherTag, true);
+          // Use the first level for each column (custom slices define one combination)
+          const level = slice.levels[0] || "";
+          slices[slice.column] = level;
         });
 
-        // Generate combined tag for multi-dimensional slices
-        if (group.slices.length > 1) {
-          // Build cartesian product of all level combinations
-          const allLevelCombinations: Array<
-            Array<{ column: string; level: string }>
-          > = [];
-
-          group.slices.forEach((slice) => {
-            const newCombinations: Array<
-              Array<{ column: string; level: string }>
-            > = [];
-
-            slice.levels.forEach((level) => {
-              if (allLevelCombinations.length === 0) {
-                newCombinations.push([{ column: slice.column, level }]);
-              } else {
-                allLevelCombinations.forEach((combo) => {
-                  newCombinations.push([
-                    ...combo,
-                    { column: slice.column, level },
-                  ]);
-                });
-              }
-            });
-
-            // Also add "other" level combinations
-            if (allLevelCombinations.length > 0) {
-              allLevelCombinations.forEach((combo) => {
-                newCombinations.push([
-                  ...combo,
-                  { column: slice.column, level: "" },
-                ]);
-              });
-            } else {
-              newCombinations.push([{ column: slice.column, level: "" }]);
-            }
-
-            allLevelCombinations.length = 0;
-            allLevelCombinations.push(...newCombinations);
-          });
-
-          // Generate combined tags
-          allLevelCombinations.forEach((combo) => {
-            const slices: Record<string, string> = {};
-            combo.forEach(({ column, level }) => {
-              slices[column] = level;
-            });
-            const tag = generateSliceString(slices);
-            sliceTagsMap.set(tag, true);
-          });
-        }
+        // Generate a single tag for this exact combination
+        const tag = generateSliceString(slices);
+        // Parse the tag to get datatypes using parseSliceQueryString
+        const sliceLevels = parseSliceQueryString(tag, factTableMap);
+        const datatypes: Record<string, FactTableColumnType> = {};
+        sliceLevels.forEach((sl) => {
+          datatypes[sl.column] = sl.datatype;
+        });
+        sliceTagsMap.set(tag, { datatypes });
       });
     }
 
@@ -370,7 +345,10 @@ export default function TabbedPage({
               slice.sliceLevels.forEach((sliceLevel) => {
                 const value = sliceLevel.levels[0] || "";
                 const tag = generateSliceString({ [sliceLevel.column]: value });
-                sliceTagsMap.set(tag, true);
+                const datatypes = sliceLevel.datatype
+                  ? { [sliceLevel.column]: sliceLevel.datatype }
+                  : {};
+                sliceTagsMap.set(tag, { datatypes });
               });
 
               // Generate combined tag for multi-dimensional slices
@@ -380,7 +358,16 @@ export default function TabbedPage({
                   slices[sl.column] = sl.levels[0] || "";
                 });
                 const comboTag = generateSliceString(slices);
-                sliceTagsMap.set(comboTag, true);
+                // Parse the tag to get datatypes using parseSliceQueryString
+                const sliceLevels = parseSliceQueryString(
+                  comboTag,
+                  factTableMap,
+                );
+                const datatypes: Record<string, FactTableColumnType> = {};
+                sliceLevels.forEach((sl) => {
+                  datatypes[sl.column] = sl.datatype;
+                });
+                sliceTagsMap.set(comboTag, { datatypes });
               }
             });
           }
@@ -388,7 +375,45 @@ export default function TabbedPage({
       }
     });
 
-    return Array.from(sliceTagsMap.keys()).sort();
+    const sliceTags = Array.from(sliceTagsMap.entries()).map(
+      ([id, { datatypes }]) => ({ id, datatypes }),
+    );
+
+    // Sort slices: group by column(s), put empty values at the end of each group
+    return sliceTags.sort((a, b) => {
+      const aLevels = parseSliceQueryString(a.id, factTableMap);
+      const bLevels = parseSliceQueryString(b.id, factTableMap);
+
+      // Sort by first column name
+      const aFirstColumn = aLevels[0]?.column || "";
+      const bFirstColumn = bLevels[0]?.column || "";
+      const columnCompare = aFirstColumn.localeCompare(bFirstColumn);
+      if (columnCompare !== 0) return columnCompare;
+
+      // For same first column, check if it's a multi-column slice
+      if (aLevels.length !== bLevels.length) {
+        // Single column slices come before multi-column
+        return aLevels.length - bLevels.length;
+      }
+
+      // Compare each column level
+      for (let i = 0; i < Math.min(aLevels.length, bLevels.length); i++) {
+        const aValue = aLevels[i]?.levels[0] || "";
+        const bValue = bLevels[i]?.levels[0] || "";
+
+        // Empty values go to the end
+        if (aValue === "" && bValue !== "") return 1;
+        if (aValue !== "" && bValue === "") return -1;
+
+        // Both non-empty or both empty: compare normally
+        if (aValue !== bValue) {
+          return aValue.localeCompare(bValue);
+        }
+      }
+
+      // Fallback to ID comparison
+      return a.id.localeCompare(b.id);
+    });
   }, [
     experiment.goalMetrics,
     experiment.secondaryMetrics,
@@ -397,6 +422,7 @@ export default function TabbedPage({
     metricGroups,
     getExperimentMetricById,
     getFactTableById,
+    factTables,
   ]);
 
   const variables = {
