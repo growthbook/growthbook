@@ -92,6 +92,22 @@ export type CovariateFirstExposureSettings = {
   alias: string;
 };
 
+/**
+ * Transformation function applied to aggregated metric values at the user level.
+ * For most metrics, this is an identity function that returns the column unchanged.
+ * For dailyParticipation metrics, this divides by the participation window to
+ * produce a participation rate.
+ */
+export type AggregatedValueTransformation = ({
+  column,
+  initialTimestampColumn,
+  analysisEndDate,
+}: {
+  column: string;
+  initialTimestampColumn: string;
+  analysisEndDate: Date;
+}) => string;
+
 export type FactMetricData = {
   alias: string;
   id: string;
@@ -121,6 +137,8 @@ export type FactMetricData = {
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
+  // Transformation applied to aggregated values at the user level
+  aggregatedValueTransformation: AggregatedValueTransformation;
 };
 
 export type FactMetricSourceData = {
@@ -216,6 +234,13 @@ export type ExperimentDimension = {
   id: string;
   specifiedSlices?: string[];
 };
+
+export type ExperimentDimensionWithSpecifiedSlices = Omit<
+  ExperimentDimension,
+  "specifiedSlices"
+> & {
+  specifiedSlices: string[];
+};
 export type DateDimension = {
   type: "date";
 };
@@ -232,6 +257,7 @@ export type ProcessedDimensions = {
   unitDimensions: UserDimension[];
   experimentDimensions: ExperimentDimension[];
   activationDimension: ActivationDimension | null;
+  dateDimension: DateDimension | null;
 };
 
 export interface DropTableQueryParams {
@@ -344,7 +370,8 @@ export interface InsertMetricSourceCovariateDataQueryParams {
 export interface IncrementalRefreshStatisticsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
-  dimensions: Dimension[];
+  dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
+  dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
   metricSourceCovariateTableFullName: string | null;
@@ -383,7 +410,8 @@ export interface PopulationFactMetricsQueryParams
     PopulationBaseQueryParams {}
 
 export interface ExperimentAggregateUnitsQueryParams
-  extends ExperimentBaseQueryParams {
+  extends Omit<ExperimentBaseQueryParams, "dimensions"> {
+  dimensions: ExperimentDimensionWithSpecifiedSlices[];
   useUnitsTable: boolean;
 }
 
@@ -397,6 +425,10 @@ export type UserExperimentExposuresQueryParams = {
   userIdType: string;
   unitId: string;
   lookbackDays: number;
+};
+
+export type FeatureEvalDiagnosticsQueryParams = {
+  feature: string;
 };
 
 export type PastExperimentParams = {
@@ -611,6 +643,12 @@ export type UserExperimentExposuresQueryResponseRows = {
   [key: string]: string | null;
 }[];
 
+export type FeatureEvalDiagnosticsQueryResponseRows = {
+  timestamp: string;
+  feature_key: string;
+  [key: string]: unknown;
+}[];
+
 export type QueryResponseColumnData = {
   name: string;
   dataType?: FactTableColumnType;
@@ -650,6 +688,10 @@ export type ColumnTopValuesResponse = QueryResponse<
 >;
 export type UserExperimentExposuresQueryResponse =
   QueryResponse<UserExperimentExposuresQueryResponseRows> & {
+    truncated?: boolean;
+  };
+export type FeatureEvalDiagnosticsQueryResponse =
+  QueryResponse<FeatureEvalDiagnosticsQueryResponseRows> & {
     truncated?: boolean;
   };
 

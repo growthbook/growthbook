@@ -1,7 +1,13 @@
 import { z } from "zod";
-import { queryPointerValidator, queryStatusValidator } from "shared/validators";
+import {
+  queryPointerValidator,
+  queryStatusValidator,
+  sqlResultChunkValidator,
+} from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
 import { QueryLanguage } from "./datasource";
+
+export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;
 
@@ -85,6 +91,7 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  hasChunkedResults?: boolean;
 }
 export type PopulationDataQuerySettings = Pick<
   PopulationDataInterface,

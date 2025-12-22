@@ -101,7 +101,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "value",
-      filters: [],
     },
     windowSettings: EMPTY_WINDOW_SETTINGS,
   },
@@ -112,7 +111,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "$$distinctUsers",
-      filters: [],
     },
     windowSettings: EMPTY_WINDOW_SETTINGS,
   },
@@ -123,7 +121,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "$$distinctUsers",
-      filters: [],
     },
     windowSettings: RETENTION_WINDOW_SETTINGS,
   },
@@ -144,12 +141,10 @@ const DEMO_RATIO_METRIC: Pick<
   numerator: {
     factTableId: "",
     column: "value",
-    filters: [],
   },
   denominator: {
     factTableId: "",
     column: "$$count",
-    filters: [],
   },
   windowSettings: EMPTY_WINDOW_SETTINGS,
 };

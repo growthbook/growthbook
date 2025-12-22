@@ -72,7 +72,7 @@ export function getTypedSavedGroupValues(
 
 export function getSavedGroupValueType(
   group: SavedGroupInterface,
-  organization: OrganizationInterface,
+  organization: Pick<OrganizationInterface, "settings">,
 ): string {
   const attributes = organization.settings?.attributeSchema;
 

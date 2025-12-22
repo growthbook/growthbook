@@ -239,9 +239,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
-  const hasPostStratificationFeature = organization
-    ? orgHasPremiumFeature(organization, "post-stratification")
-    : false;
+  // const hasPostStratificationFeature = organization
+  //   ? orgHasPremiumFeature(organization, "post-stratification")
+  //   : false;
   return {
     statsEngine: "frequentist",
     dimensions: [],
@@ -250,9 +250,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
-    postStratificationEnabled:
-      hasPostStratificationFeature &&
-      !(organization.settings?.postStratificationDisabled ?? false),
+    postStratificationEnabled: false,
+    //hasPostStratificationFeature &&
+    //!(organization.settings?.postStratificationDisabled ?? false),
     sequentialTesting:
       hasSequentialTestingFeature &&
       !!organization.settings?.sequentialTestingEnabled,

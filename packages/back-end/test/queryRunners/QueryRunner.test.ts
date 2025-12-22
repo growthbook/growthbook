@@ -1,5 +1,5 @@
 import { QueryInterface, QueryStatus } from "shared/types/query";
-import { ReqContext } from "shared/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   QueryRunner,
   QueryMap,
@@ -44,11 +44,19 @@ class TestQueryRunner extends QueryRunner<
 
   async executeQuery(
     query: QueryInterface,
-    run: unknown,
-    process: unknown,
-    onFailure: unknown,
+    {
+      run,
+      process,
+      onFailure,
+      onSuccess,
+    }: {
+      run: unknown;
+      process?: unknown;
+      onFailure: unknown;
+      onSuccess?: unknown;
+    },
   ) {
-    this.executeQuerySpy(query, run, process, onFailure);
+    this.executeQuerySpy(query, { run, process, onFailure, onSuccess });
     // Don't actually execute for tests
     return Promise.resolve();
   }
@@ -164,25 +172,31 @@ describe("QueryRunner", () => {
       // Query A should NOT execute (has timer)
       expect(runner.executeQuerySpy).not.toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_A" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
 
       // Query B SHOULD execute (no timer, no dependencies)
       expect(runner.executeQuerySpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_B" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
 
       // Query C SHOULD execute (no timer, no dependencies)
       expect(runner.executeQuerySpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_C" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
 
       // Clean up timer
@@ -221,9 +235,11 @@ describe("QueryRunner", () => {
       // Query A should NOT execute (dependency is still running)
       expect(runner.executeQuerySpy).not.toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_A" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
     });
 
@@ -258,6 +274,7 @@ describe("QueryRunner", () => {
 
       // Query A should be marked as failed
       expect(updateQuery).toHaveBeenCalledWith(
+        mockContext,
         expect.objectContaining({ id: "qry_A" }),
         expect.objectContaining({
           status: "failed",
@@ -268,9 +285,12 @@ describe("QueryRunner", () => {
       // Query A should NOT execute
       expect(runner.executeQuerySpy).not.toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_A" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+          onSuccess: expect.any(Function),
+        }),
       );
     });
 
@@ -306,9 +326,11 @@ describe("QueryRunner", () => {
       // Query A SHOULD execute (dependency succeeded)
       expect(runner.executeQuerySpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_A" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
     });
 
@@ -379,21 +401,26 @@ describe("QueryRunner", () => {
       // Query A should execute (dependency succeeded)
       expect(runner.executeQuerySpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_A" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
 
       // Query B should NOT execute (dependency pending)
       expect(runner.executeQuerySpy).not.toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_B" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
 
       // Query C should be marked failed (dependency failed)
       expect(updateQuery).toHaveBeenCalledWith(
+        mockContext,
         expect.objectContaining({ id: "qry_C" }),
         expect.objectContaining({ status: "failed" }),
       );
@@ -401,9 +428,11 @@ describe("QueryRunner", () => {
       // Query D should execute (no dependencies)
       expect(runner.executeQuerySpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: "qry_D" }),
-        expect.any(Function),
-        expect.any(Function),
-        expect.any(Function),
+        expect.objectContaining({
+          run: expect.any(Function),
+          process: expect.any(Function),
+          onFailure: expect.any(Function),
+        }),
       );
     });
   });

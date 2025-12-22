@@ -34,4 +34,10 @@ export class MetricGroupModel extends BaseClass {
   protected canDelete(): boolean {
     return this.context.permissions.canDeleteMetricGroup();
   }
+
+  findByMetric(metricId: string): Promise<MetricGroupInterface[]> {
+    return this.getAll({
+      metrics: metricId,
+    });
+  }
 }

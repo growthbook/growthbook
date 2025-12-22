@@ -18,6 +18,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createSavedGroup,
   deleteSavedGroupById,
+  getAllSavedGroups,
   getSavedGroupById,
   updateSavedGroupById,
 } from "back-end/src/models/SavedGroupModel";
@@ -30,7 +31,11 @@ import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 
 // region POST /saved-groups
 
-type CreateSavedGroupRequest = AuthRequest<CreateSavedGroupProps>;
+type CreateSavedGroupRequest = AuthRequest<
+  CreateSavedGroupProps,
+  Record<string, never>,
+  { skipCycleCheck?: string }
+>;
 
 type CreateSavedGroupResponse = {
   status: 200;
@@ -59,6 +64,7 @@ export const postSavedGroup = async (
     description,
     projects,
   } = req.body;
+  const skipCycleCheck = req.query.skipCycleCheck;
 
   if (!context.permissions.canCreateSavedGroup({ ...req.body })) {
     context.permissions.throwPermissionError();
@@ -71,7 +77,13 @@ export const postSavedGroup = async (
   let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
-    const conditionRes = validateCondition(condition);
+    const allSavedGroups = await getAllSavedGroups(org.id);
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    const conditionRes = validateCondition(
+      condition,
+      groupMap,
+      skipCycleCheck === "1",
+    );
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
@@ -265,7 +277,7 @@ export const postSavedGroupAddItems = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  savedGroupUpdated(context, savedGroup.id);
+  savedGroupUpdated(context, savedGroup);
 
   return res.status(200).json({
     status: 200,
@@ -364,7 +376,7 @@ export const postSavedGroupRemoveItems = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  savedGroupUpdated(context, savedGroup.id);
+  savedGroupUpdated(context, updatedSavedGroup);
 
   return res.status(200).json({
     status: 200,
@@ -375,7 +387,11 @@ export const postSavedGroupRemoveItems = async (
 
 // region PUT /saved-groups/:id
 
-type PutSavedGroupRequest = AuthRequest<UpdateSavedGroupProps, { id: string }>;
+type PutSavedGroupRequest = AuthRequest<
+  UpdateSavedGroupProps,
+  { id: string },
+  { skipCycleCheck?: string }
+>;
 
 type PutSavedGroupResponse = {
   status: 200;
@@ -395,6 +411,7 @@ export const putSavedGroup = async (
   const { org } = context;
   const { groupName, owner, values, condition, description, projects } =
     req.body;
+  const skipCycleCheck = req.query.skipCycleCheck;
   const { id } = req.params;
 
   if (!id) {
@@ -437,8 +454,24 @@ export const putSavedGroup = async (
     condition &&
     condition !== savedGroup.condition
   ) {
-    // Validate condition to make sure it's valid
-    const conditionRes = validateCondition(condition);
+    // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
+    // importers), still validate general JSON/syntax but skip saved-group
+    // cyclic/invalid reference checks so users can fix them later.
+    const allSavedGroups = await getAllSavedGroups(org.id);
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    // Include the updated condition in the savedGroupsObj for validation
+    groupMap.set(savedGroup.id, {
+      ...savedGroup,
+      condition,
+    });
+    const conditionRes = validateCondition(
+      condition,
+      groupMap,
+      // When skipCycleCheck=1, skip only saved-group *cycle* checks while still
+      // enforcing JSON validity and other saved-group errors (unknown group,
+      // invalid nested condition, max depth).
+      skipCycleCheck === "1",
+    );
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
@@ -488,7 +521,7 @@ export const putSavedGroup = async (
     fieldsToUpdate.values ||
     fieldsToUpdate.projects
   ) {
-    savedGroupUpdated(context, savedGroup.id).catch((e) => {
+    savedGroupUpdated(context, updatedSavedGroup).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on saved group update");
     });
   }

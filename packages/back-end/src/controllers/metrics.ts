@@ -566,11 +566,11 @@ export const getMetricExperimentResults = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const experiments = await getExperimentsUsingMetric(
+  const experiments = await getExperimentsUsingMetric({
     context,
-    req.params.id,
-    500,
-  );
+    metricId: req.params.id,
+    limit: 500,
+  });
 
   const snapshots = await _getSnapshots(context, experiments);
 
@@ -627,11 +627,11 @@ export const getMetricNorthstarData = async (
   // get metric analysis and latest experiments
   const context = getContextFromReq(req);
 
-  const experiments = await getExperimentsUsingMetric(
+  const experiments = await getExperimentsUsingMetric({
     context,
-    req.params.id,
-    100,
-  );
+    metricId: req.params.id,
+    limit: 100,
+  });
 
   // get analysis
   let analysis: MetricAnalysisInterface | null = null;
@@ -830,8 +830,7 @@ export const getGeneratedDescription = async (
       "Fact tables are a way that one query can return multiple columns, and those columns can be used as a numerator and/or denominator in a metric",
       "Fact tables describe what columns are selectable in the fact metric",
       'Fact table columns have a JSON structure per column of the "column" with the name of the column, and a "datatype" that describes what kind of data will be in that column',
-      "Fact tables describe filters that can be used in the fact metric",
-      "Each fact metric is described by a json object that has following keys: factTableId, which will match the fact table described, a column that is the column of the fact table query, an optional array of filter ids which will match the fact table filters by id, and an optional object of inlineFilters, which are not references, but will match the key to the column, and the value to the value of that column",
+      "Each fact metric is described by a json object that has following keys: factTableId, which will match the fact table described, a column that is the column of the fact table query, an optional array of rowFilters to filter the raw fact table rows",
       "Timeframes are common to all metrics, and not important to describe (eg: this SQL is common for all: AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}')",
       "Fact metrics of type 'proportion' are used to measure the percent of experiment users who exist in a fact table",
       "Fact metrics of type 'retention' are used to measure the percent of experiment users who exist in a fact table a certain period after experiment exposure",

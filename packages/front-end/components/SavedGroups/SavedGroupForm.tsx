@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -38,7 +38,7 @@ const SavedGroupForm: FC<{
 
   const attributeSchema = useAttributeSchema();
 
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, savedGroups } = useDefinitions();
 
   const { projects, project } = useDefinitions();
 
@@ -81,6 +81,12 @@ const SavedGroupForm: FC<{
         (!listAboveSizeLimit || adminBypassSizeLimit)
       : !!form.watch("condition"));
 
+  // Create a Map from saved groups for cycle detection
+  const groupMap = useMemo(
+    () => new Map(savedGroups.map((group) => [group.id, group])),
+    [savedGroups],
+  );
+
   return upgradeModal ? (
     <UpgradeModal
       close={() => setUpgradeModal(false)}
@@ -100,10 +106,15 @@ const SavedGroupForm: FC<{
       ctaEnabled={isValid}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
-          const conditionRes = validateAndFixCondition(value.condition, (c) => {
-            form.setValue("condition", c);
-            forceConditionRender();
-          });
+          const conditionRes = validateAndFixCondition(
+            value.condition,
+            (c) => {
+              form.setValue("condition", c);
+              forceConditionRender();
+            },
+            true,
+            groupMap,
+          );
           if (conditionRes.empty) {
             throw new Error("Condition cannot be empty");
           }
@@ -200,6 +211,7 @@ const SavedGroupForm: FC<{
           onChange={(v) => form.setValue("owner", v)}
         />
       )}
+
       {type === "condition" ? (
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
@@ -209,6 +221,8 @@ const SavedGroupForm: FC<{
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require
+          allowNestedSavedGroups={true}
+          excludeSavedGroupId={current.id}
         />
       ) : (
         <>

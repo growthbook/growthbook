@@ -1,8 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import {
-  getConversionWindowHours,
-  getDelayWindowHours,
-} from "shared/experiments";
+import { getDelayWindowHours, getMetricWindowHours } from "shared/experiments";
 import {
   DimensionSlicesQueryResponse,
   DropTableQueryResponse,
@@ -25,6 +22,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  FeatureEvalDiagnosticsQueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -222,6 +220,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getFeatureEvalDiagnosticsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runFeatureEvalDiagnosticsQuery(): Promise<FeatureEvalDiagnosticsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   private getMetricAggregationExpression(metric: MetricInterface) {
@@ -820,7 +824,7 @@ function is${name}(event) {
     experimentEnd: Date,
     conversionWindowStart: string = "",
   ) {
-    const windowHours = getConversionWindowHours(metric.windowSettings);
+    const windowHours = getMetricWindowHours(metric.windowSettings);
     const checks: string[] = [];
     const start = getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000;
     // add conversion delay

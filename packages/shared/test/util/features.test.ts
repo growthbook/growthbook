@@ -1307,6 +1307,57 @@ describe("validateCondition", () => {
       empty: false,
     });
   });
+  it("returns error when condition has unknown nested saved group id", () => {
+    expect(
+      validateCondition(
+        JSON.stringify({
+          foo: "bar",
+          $savedGroups: ["a"],
+        }),
+        new Map([
+          [
+            "known-group-id",
+            {
+              id: "known-group-id",
+              type: "condition",
+              condition: JSON.stringify({
+                bar: "baz",
+              }),
+            },
+          ],
+        ]),
+      ),
+    ).toEqual({
+      success: false,
+      empty: false,
+      error: "Condition includes invalid or cyclic saved group reference",
+    });
+  });
+  it("returns success when condition has known nested saved group id", () => {
+    expect(
+      validateCondition(
+        JSON.stringify({
+          foo: "bar",
+          $savedGroups: ["known-group-id"],
+        }),
+        new Map([
+          [
+            "known-group-id",
+            {
+              id: "known-group-id",
+              type: "condition",
+              condition: JSON.stringify({
+                bar: "baz",
+              }),
+            },
+          ],
+        ]),
+      ),
+    ).toEqual({
+      success: true,
+      empty: false,
+    });
+  });
 });
 
 describe("check enviroments match", () => {

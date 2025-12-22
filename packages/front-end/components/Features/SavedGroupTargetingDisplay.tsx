@@ -44,10 +44,15 @@ export default function SavedGroupTargetingDisplay({
               {s.ids.length > 1 && "("}
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
+                if (!group) {
+                  return (
+                    <Badge key={id} color="gray" label={<Text>{id}</Text>} />
+                  );
+                }
                 const link =
-                  group?.type === "list"
+                  group.type === "list"
                     ? `/saved-groups/${group.id}`
-                    : "/saved-groups#conditionGroups";
+                    : `/saved-groups?q=${encodeURIComponent(group.groupName)}#conditionGroups`;
                 return (
                   <Badge
                     key={id}
@@ -60,7 +65,7 @@ export default function SavedGroupTargetingDisplay({
                         target="_blank"
                         color="violet"
                       >
-                        {group?.groupName || id}
+                        {group.groupName}
                       </Link>
                     }
                   />

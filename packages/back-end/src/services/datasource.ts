@@ -2,6 +2,7 @@ import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
 import {
+  FeatureEvalDiagnosticsQueryResponseRows,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -23,7 +24,10 @@ import Vertica from "back-end/src/integrations/Vertica";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  SourceIntegrationInterface,
+  SQLExecutionError,
+} from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -233,6 +237,48 @@ export async function runUserExposureQuery(
       error: e.message,
       sql,
     };
+  }
+}
+
+export async function runFeatureEvalDiagnosticsQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  feature: string,
+): Promise<{
+  rows?: FeatureEvalDiagnosticsQueryResponseRows;
+  statistics?: QueryStatistics;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support feature usage queries
+  if (
+    !integration.getFeatureEvalDiagnosticsQuery ||
+    !integration.runFeatureEvalDiagnosticsQuery
+  ) {
+    throw new Error(
+      "Datasource does not support feature evaluation diagnostics queries.",
+    );
+  }
+
+  const sql = integration.getFeatureEvalDiagnosticsQuery({
+    feature,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runFeatureEvalDiagnosticsQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    throw new SQLExecutionError(e.message, sql);
   }
 }
 

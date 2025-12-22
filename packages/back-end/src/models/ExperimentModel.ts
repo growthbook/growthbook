@@ -556,6 +556,17 @@ export async function createExperiment({
   return experiment;
 }
 
+export function hasActualChanges(
+  experiment: ExperimentInterface,
+  changes: Partial<ExperimentInterface>,
+) {
+  const changeKeys = Object.keys(changes).filter(
+    (key) => key !== "dateUpdated",
+  ) as Array<keyof ExperimentInterface>;
+
+  return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -567,12 +578,15 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
-  // TODO: are there some changes where we don't want to update the dateUpdated?
+  // If no actual changes, return the experiment as-is
+  if (!hasActualChanges(experiment, changes)) {
+    return experiment;
+  }
+
   const allChanges = {
     ...changes,
+    dateUpdated: new Date(),
   };
-  allChanges.dateUpdated = new Date();
-
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
@@ -588,7 +602,6 @@ export async function updateExperiment({
 
   const updated = { ...experiment, ...allChanges };
 
-  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
@@ -735,22 +748,35 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
-export async function getExperimentsUsingMetric(
-  context: ReqContext | ApiReqContext,
-  metricId: string,
-  limit?: number,
-): Promise<ExperimentInterface[]> {
+export async function getExperimentsUsingMetric({
+  context,
+  metricId,
+  excludeMetricGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricId: string;
+  excludeMetricGroupIds?: boolean;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  const metricGroups = excludeMetricGroupIds
+    ? undefined
+    : await context.models.metricGroups.findByMetric(metricId);
+
+  const metricGroupIds = metricGroups?.map((g) => g.id);
+  const allIds = metricGroupIds ? [metricId, ...metricGroupIds] : [metricId];
+
   const experiments = await findExperiments(
     context,
     {
       organization: context.org.id,
       $or: [
-        { metrics: metricId },
-        { goalMetrics: metricId },
-        { guardrails: metricId },
-        { guardrailMetrics: metricId },
-        { secondaryMetrics: metricId },
-        { activationMetric: metricId },
+        { metrics: { $in: allIds } },
+        { goalMetrics: { $in: allIds } },
+        { guardrails: { $in: allIds } },
+        { guardrailMetrics: { $in: allIds } },
+        { secondaryMetrics: { $in: allIds } },
+        { activationMetric: { $in: allIds } },
       ],
       archived: {
         $ne: true,

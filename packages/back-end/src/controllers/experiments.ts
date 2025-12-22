@@ -3102,7 +3102,7 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis({
+    await createSnapshotAnalysis(context, {
       experiment: experiment,
       organization: org,
       analysisSettings: analysisSettings,

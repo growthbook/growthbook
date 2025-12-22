@@ -82,7 +82,13 @@ WHERE
   description: "Percent of users who submit a form",
   metricType:"proportion",
   numerator: {
-    inlineFilters: {event_name:["form_submit"]}
+    rowFilters: [
+      {
+        column: "event_name",
+        operator: "=",
+        values: ["form_submit"]
+      }
+    ]
   }
 }}/>
 
@@ -97,7 +103,18 @@ WHERE
   description: "Percent of users who visit the checkout page",
   metricType:"proportion",
   numerator: {
-    inlineFilters: {event_name:["page_view"], page_path:["/checkout"]}
+    rowFilters: [
+      {
+        column: "event_name",
+        operator: "=",
+        values: ["page_view"]
+      },
+      {
+        column: "page_path",
+        operator: "=",
+        values: ["/checkout"]
+      }
+    ]
   }
 }}/>
 
@@ -113,7 +130,13 @@ WHERE
   metricType:"mean",
   numerator: {
     column:"$$count",
-    inlineFilters: {event_name:["page_view"]}
+    rowFilters: [
+      {
+        column: "event_name",
+        operator: "=",
+        values: ["page_view"]
+      }
+    ]
   }
 }}/>
 
@@ -130,7 +153,13 @@ WHERE
   metricType: "mean",
   numerator: {
     column: "event_value",
-    inlineFilters: {event_name:["page_view"]},
+    rowFilters: [
+      {
+        column: "event_name",
+        operator: "=",
+        values: ["page_view"]
+      }
+    ],
     aggregation: "count distinct"
   }
 }}/>
@@ -167,11 +196,33 @@ WHERE
   metricType:"ratio",
   numerator: {
     column: "$$distinctUsers",
-    inlineFilters: {event_name:["page_view"], page_path:["/confirmation"]}
+    rowFilters: [
+      {
+        column: "event_name",
+        operator: "=",
+        values: ["page_view"]
+      },
+      {
+        column: "page_path",
+        operator: "=",
+        values: ["/confirmation"]
+      }
+    ]
   },
   denominator: {
     column: "$$distinctUsers",
-    inlineFilters: {event_name:["page_view"], page_path:["/checkout"]}
+    rowFilters: [
+      {
+        column: "event_name",
+        operator: "=",
+        values: ["page_view"]
+      },
+      {
+        column: "page_path",
+        operator: "=",
+        values: ["/checkout"]
+      }
+    ]
   }
 }}/>
 
@@ -311,7 +362,13 @@ WHERE
   description: "Percent of orders that have free shipping",
   metricType:"ratio",
   numerator: {
-    inlineFilters: {shipping_type:["free"]},
+    rowFilters: [
+      {
+        column: "shipping_type",
+        operator: "=",
+        values: ["free"]
+      }
+    ],
     column:"$$count"
   },
   denominator: {

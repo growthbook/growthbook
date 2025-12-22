@@ -19,6 +19,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
+import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 
 export async function updateSafeRolloutTimeSeries({
   context,
@@ -183,10 +184,6 @@ function getSafeRolloutMetricSettingsHash(
       ? factTableMap?.get(denominatorFactTableId)
       : undefined;
 
-    const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
-      factMetric.numerator.filters.includes(it.id),
-    );
-
     return hashObject({
       ...metricSettings,
       metricType: factMetric.metricType,
@@ -197,15 +194,12 @@ function getSafeRolloutMetricSettingsHash(
       numeratorFactTable: {
         sql: numeratorFactTable?.sql,
         eventName: numeratorFactTable?.eventName,
-        filters: numeratorFilters?.map((it) => ({
-          id: it.id,
-          name: it.name,
-          value: it.value,
-        })),
+        filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
       },
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,
         eventName: denominatorFactTable?.eventName,
+        // TODO: include denominator filters?
       },
     });
   }

@@ -333,6 +333,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     experimentResultBlockTypes as readonly string[]
   ).includes(block.type as string);
 
+  function getDefaultValueForTitle(
+    blockType: DashboardBlockInterface["type"],
+  ): string {
+    return blockType === "markdown" ? "" : BLOCK_TYPE_INFO[blockType].name;
+  }
+
   return (
     <Flex
       ref={scrollRef}
@@ -415,7 +421,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         {canEditTitle && editTitle && setBlock ? (
           <Field
             autoFocus
-            defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}
+            defaultValue={block.title || getDefaultValueForTitle(block.type)}
             placeholder="Title"
             onFocus={(e) => {
               e.target.select();
@@ -455,7 +461,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 flexShrink: 1,
               }}
             >
-              {block.title || BLOCK_TYPE_INFO[block.type].name}
+              {block.title || getDefaultValueForTitle(block.type)}
             </h4>
             {canEditTitle && (
               <a
