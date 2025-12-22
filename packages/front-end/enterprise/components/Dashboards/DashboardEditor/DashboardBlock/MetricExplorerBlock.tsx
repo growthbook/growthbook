@@ -34,7 +34,6 @@ export default function MetricExplorerBlock({
   const chartsContext = useDashboardCharts();
   const chartRef = useRef<EChartsReact | null>(null);
 
-  // Generate a unique ID for this chart
   const chartId = useMemo(() => {
     if (blockHasFieldOfType(block, "id", isString) && block.id) {
       return `metric-explorer-${block.id}`;
