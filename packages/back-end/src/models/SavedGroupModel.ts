@@ -1,8 +1,6 @@
 import { SavedGroupInterface } from "shared/types/groups";
 import { ApiSavedGroup } from "shared/types/openapi";
-import {
-  LegacySavedGroupInterface,
-} from "shared/types/saved-group";
+import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { savedGroupValidator } from "shared/validators";
 import { migrateSavedGroup } from "back-end/src/util/migrations";
 import { MakeModelClass } from "./BaseModel";
