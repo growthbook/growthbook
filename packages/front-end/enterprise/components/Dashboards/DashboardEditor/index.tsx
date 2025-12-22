@@ -44,6 +44,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DashboardModal from "../DashboardModal";
 import DashboardShareModal from "../DashboardShareModal";
+import { DashboardChartsProvider } from "../DashboardChartsContext";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
@@ -399,7 +400,7 @@ function DashboardEditor({
   };
 
   return (
-    <div>
+    <DashboardChartsProvider>
       {editDashboard && (
         <DashboardModal
           mode="edit"
@@ -695,7 +696,7 @@ function DashboardEditor({
           {isEditing && <div style={{ height: 350 }} />}
         </div>
       </div>
-    </div>
+    </DashboardChartsProvider>
   );
 }
 

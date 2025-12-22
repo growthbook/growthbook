@@ -1,6 +1,8 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isResultsTableItem } from "shared/enterprise";
+import { isResultsTableItem, blockHasFieldOfType } from "shared/enterprise";
+import { isString } from "shared/util";
+import { useMemo } from "react";
 import {
   DataVisualizationDisplay,
   SqlExplorerDataVisualization,
@@ -12,11 +14,21 @@ export default function SqlExplorerBlock({
   block,
   savedQuery,
 }: BlockProps<SqlExplorerBlockInterface>) {
+  // Generate a unique ID for this block's charts
+  const blockId = useMemo(() => {
+    if (blockHasFieldOfType(block, "id", isString) && block.id) {
+      return block.id;
+    }
+    return null;
+  }, [block]);
+
   // Backwards compatibility: Check if using the old dataVizConfigIndex approach
   if (block.dataVizConfigIndex !== undefined) {
     const dataVizConfig = savedQuery.dataVizConfig?.[block.dataVizConfigIndex];
     if (!dataVizConfig) return null; // Warning state handled by parent component
 
+    // For backwards compatibility, we can't easily pass chartId through SqlExplorerDataVisualization
+    // This is fine - the new blockConfig approach will handle chart connections
     return (
       <div>
         <SqlExplorerDataVisualization
@@ -79,6 +91,11 @@ export default function SqlExplorerBlock({
             <DataVisualizationDisplay
               rows={savedQuery.results.results}
               dataVizConfig={dataVizConfig}
+              chartId={
+                blockId
+                  ? `sql-explorer-${blockId}-${configId}-${index}`
+                  : undefined
+              }
             />
           </Box>
         </Flex>
