@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
 import { FaExclamationTriangle, FaLink } from "react-icons/fa";
 import { FaBoltLightning } from "react-icons/fa6";
@@ -15,7 +15,7 @@ import {
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import {
@@ -24,12 +24,14 @@ import {
   PiFileX,
   PiInfo,
 } from "react-icons/pi";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
+import { FeatureUsageLookback } from "shared/types/integrations";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
-import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
+import {
+  SafeRolloutInterface,
+  HoldoutInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/validators";
 import Button from "@/ui/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";

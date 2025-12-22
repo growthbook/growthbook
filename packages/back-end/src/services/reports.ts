@@ -24,27 +24,39 @@ import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
-import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
   ExperimentReportSSRData,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+} from "shared/types/experiment-snapshot";
+import { OrganizationSettings } from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+  MetricWindowSettings,
+  FactTableInterface,
+  ColumnInterface,
+} from "shared/types/fact-table";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ProjectInterface } from "shared/types/project";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   FactTableMap,
@@ -63,19 +75,8 @@ import {
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
-import { MetricInterface } from "back-end/types/metric";
-import {
-  ConversionWindowUnit,
-  MetricPriorSettings,
-  MetricWindowSettings,
-  FactTableInterface,
-  ColumnInterface,
-} from "back-end/types/fact-table";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
-import { ProjectInterface } from "back-end/types/project";
 
 export function getReportVariations(
   experiment: ExperimentInterface,

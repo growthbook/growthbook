@@ -4,23 +4,28 @@ import {
   FeatureRule as FeatureDefinitionRule,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
-import { includeExperimentInPayload, isDefined } from "shared/util";
+import {
+  includeExperimentInPayload,
+  isDefined,
+  recursiveWalk,
+} from "shared/util";
 import { GroupMap } from "shared/types/groups";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { HoldoutInterface } from "shared/validators";
+import { expandNestedSavedGroups } from "shared/sdk-versioning";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
-} from "back-end/types/feature";
-import { FeatureDefinitionWithProject } from "back-end/types/api";
+} from "shared/types/feature";
+import { ExperimentInterface } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { Environment } from "back-end/types/organization";
-import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -115,6 +120,12 @@ export function getParsedCondition(
 
   // No conditions
   if (!conditions.length) return undefined;
+
+  // Expand nested saved groups in conditions
+  conditions.forEach((cond) => {
+    recursiveWalk(cond, expandNestedSavedGroups(groupMap));
+  });
+
   // Exactly one condition, return it
   if (conditions.length === 1) {
     return conditions[0];
@@ -123,23 +134,6 @@ export function getParsedCondition(
   return {
     $and: conditions,
   };
-}
-
-export function replaceSavedGroupsInCondition(
-  condition: string,
-  groupMap: GroupMap,
-) {
-  const newString = condition.replace(
-    // Ex: replace { $inGroup: "sdf8sd9f87s0dfs09d8" } with { $in: ["123, 345, 678, 910"]}
-    /[\s|\n]*"\$(inGroup|notInGroup)"[\s|\n]*:[\s|\n]*"([^"]*)"[\s|\n]*/g,
-    (match: string, operator: string, groupId: string) => {
-      const newOperator = operator === "inGroup" ? "$in" : "$nin";
-      const ids: (string | number)[] = groupMap.get(groupId)?.values ?? [];
-      return `"${newOperator}": ${JSON.stringify(ids)}`;
-    },
-  );
-
-  return newString;
 }
 
 export function isRuleEnabled(

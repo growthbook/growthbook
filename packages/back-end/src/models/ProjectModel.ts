@@ -1,26 +1,11 @@
-import { z } from "zod";
-import { statsEngines } from "shared/constants";
-import { managedByValidator, ManagedBy, baseSchema } from "shared/validators";
-import { ApiProject } from "back-end/types/openapi";
+import { ApiProject } from "shared/types/openapi";
+import {
+  ManagedBy,
+  ProjectInterface,
+  ProjectSettings,
+  projectValidator,
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
-export const statsEnginesValidator = z.enum(statsEngines);
-
-export const projectSettingsValidator = z.object({
-  statsEngine: statsEnginesValidator.optional(),
-});
-
-export const projectValidator = baseSchema
-  .extend({
-    name: z.string(),
-    description: z.string().default("").optional(),
-    settings: projectSettingsValidator.default({}).optional(),
-    managedBy: managedByValidator.optional(),
-  })
-  .strict();
-
-export type StatsEngine = z.infer<typeof statsEnginesValidator>;
-export type ProjectSettings = z.infer<typeof projectSettingsValidator>;
-export type ProjectInterface = z.infer<typeof projectValidator>;
 
 type MigratedProject = Omit<ProjectInterface, "settings"> & {
   settings: Partial<ProjectInterface["settings"]>;

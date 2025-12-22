@@ -1,4 +1,4 @@
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";

@@ -4,17 +4,17 @@ import {
   DashboardBlockType,
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  DashboardTemplateInterface,
+} from "shared/enterprise";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+} from "shared/types/experiment-snapshot";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
 import { getSnapshotAnalysis } from "../../util";
 

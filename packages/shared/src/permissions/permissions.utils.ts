@@ -6,7 +6,7 @@ import {
   Role,
   ProjectMemberRole,
   MemberRoleInfo,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
@@ -172,4 +172,13 @@ export function roleSupportsEnvLimit(
   const role = getRoleById(roleId, org);
 
   return policiesSupportEnvLimit(role?.policies || []);
+}
+
+export function roleToPermissionMap(
+  roleId: string,
+  org: OrganizationInterface,
+): PermissionsObject {
+  const role = getRoleById(roleId || "readonly", org);
+  const policies = role?.policies || [];
+  return getPermissionsObjectByPolicies(policies);
 }

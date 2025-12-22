@@ -7,10 +7,17 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { DataSourceSettings } from "shared/types/datasource";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
+import { ProjectInterface } from "shared/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import { MetricWindowSettings } from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { createDataSource } from "back-end/src/models/DataSourceModel";
 import {
   createExperiment,
@@ -21,16 +28,9 @@ import {
   createSnapshot,
 } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { DataSourceSettings } from "back-end/types/datasource";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
-import { ProjectInterface } from "back-end/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { MetricWindowSettings } from "back-end/types/fact-table";
 
 // region Constants for Demo Datasource
 

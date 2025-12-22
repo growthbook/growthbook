@@ -4,7 +4,7 @@ import { cloneDeep } from "lodash";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "back-end/types/team";
+import { TeamInterface } from "shared/types/team";
 import {
   DemographicData,
   Invite,
@@ -14,9 +14,9 @@ import {
   OrganizationMessage,
   OrgMemberInfo,
   Role,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { ApiOrganization } from "shared/types/openapi";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
-import { ApiOrganization } from "back-end/types/openapi";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
@@ -279,6 +279,13 @@ export async function findAllOrganizations(
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
+}
+
+export async function _dangerouslyFindAllOrganizationsByIds(orgIds: string[]) {
+  const docs = await OrganizationModel.find({
+    id: { $in: orgIds },
+  });
+  return docs.map(toInterface);
 }
 
 export async function findOrganizationById(id: string) {

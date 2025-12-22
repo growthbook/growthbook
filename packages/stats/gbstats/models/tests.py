@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from dataclasses import replace
 from typing import List, Optional, Tuple, Literal, Union
 from pydantic.dataclasses import dataclass
 
 import numpy as np
 import operator
-from functools import reduce
-from gbstats.utils import multinomial_covariance
+from functools import reduce, cached_property
+from gbstats.utils import multinomial_covariance, third_moments_matrix_vectorized
 
 
 from gbstats.messages import (
@@ -23,8 +22,7 @@ from gbstats.models.statistics import (
     ScaledImpactStatistic,
     SummableStatistic,
     TestStatistic,
-    compute_theta,
-    compute_theta_regression_adjusted_ratio,
+    create_theta_adjusted_statistics,
 )
 from gbstats.models.settings import DifferenceType
 from gbstats.utils import (
@@ -261,7 +259,9 @@ class BaseABTest(ABC):
     ):
         self.stats = stats
         self.stat_a, self.stat_b = sum_stats(self.stats)
-        self.initialize_theta()
+        self.stat_a, self.stat_b = create_theta_adjusted_statistics(
+            self.stat_a, self.stat_b
+        )
         self.config = config
         self.alpha = config.alpha
         self.relative = config.difference_type == "relative"
@@ -270,45 +270,6 @@ class BaseABTest(ABC):
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
         self.moments_result = self.compute_moments_result()
-
-    def initialize_theta(self) -> None:
-        if (
-            isinstance(self.stat_b, RegressionAdjustedStatistic)
-            and isinstance(self.stat_a, RegressionAdjustedStatistic)
-            and (self.stat_a.theta is None or self.stat_b.theta is None)
-        ):
-            theta = compute_theta(self.stat_a, self.stat_b)
-            if theta == 0:
-                # revert to non-RA under the hood if no variance in a time period
-                self.stat_a = self.stat_a.post_statistic
-                self.stat_b = self.stat_b.post_statistic
-            else:
-                # override statistic with theta initialized
-                self.stat_a = replace(self.stat_a, theta=theta)
-                self.stat_b = replace(self.stat_b, theta=theta)
-        if (
-            isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
-            and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
-            and (self.stat_a.theta is None or self.stat_b.theta is None)
-        ):
-            theta = compute_theta_regression_adjusted_ratio(self.stat_a, self.stat_b)
-            if abs(theta) < 1e-8:
-                # revert to non-RA under the hood if no variance in a time period
-                self.stat_a = RatioStatistic(
-                    n=self.stat_a.n,
-                    m_statistic=self.stat_a.m_statistic_post,
-                    d_statistic=self.stat_a.d_statistic_post,
-                    m_d_sum_of_products=self.stat_a.m_post_d_post_sum_of_products,
-                )
-                self.stat_b = RatioStatistic(
-                    n=self.stat_b.n,
-                    m_statistic=self.stat_b.m_statistic_post,
-                    d_statistic=self.stat_b.d_statistic_post,
-                    m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
-                )
-            else:
-                self.stat_a = replace(self.stat_a, theta=theta)
-                self.stat_b = replace(self.stat_b, theta=theta)
 
     def compute_moments_result(self) -> EffectMomentsResult:
         moments_config = EffectMomentsConfig(
@@ -1136,11 +1097,11 @@ class PostStratificationSummary:
         )
         self.relative = relative
 
-    @property
+    @cached_property
     def n(self) -> np.ndarray:
         return np.array([stat.n for stat in self.strata_results])
 
-    @property
+    @cached_property
     def n_total(self) -> int:
         return int(np.sum(self.n).item())
 
@@ -1152,93 +1113,24 @@ class PostStratificationSummary:
     def num_cells(self) -> int:
         return len(self.strata_results)
 
-    @property
+    @cached_property
     def alpha_matrix(self) -> np.ndarray:
         alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
         for i, stat in enumerate(self.strata_results):
             alpha_matrix[:, i] = [stat.effect, stat.control_mean]
         return alpha_matrix
 
-    @property
+    @cached_property
     def mean(self) -> np.ndarray:
         return self.alpha_matrix.dot(self.nu_hat)
 
-    @property
+    @cached_property
     def covariance_nu(self) -> np.ndarray:
         return multinomial_covariance(self.nu_hat) / self.n_total
 
-    @property
+    @cached_property
     def covariance_part_1(self) -> np.ndarray:
         return self.alpha_matrix.dot(self.covariance_nu).dot(self.alpha_matrix.T)
-
-    @staticmethod
-    def multinomial_third_moments(
-        nu: np.ndarray, index_0: int, index_1: int, index_2: int, n_total: int
-    ) -> float:
-        """
-        Third moments from multinomial distribution, e.g., E(x[index_0] * x[index_1] * x[index_2])
-        from Quiment 2020 https://arxiv.org/pdf/2006.09059 Equation 3.3
-
-        Args:
-            nu: Array of probabilities that sum to 1
-            index_0, index_1, index_2: Indices for the third moment calculation
-            n_total: Total number of trials
-
-        Returns:
-            The third moment value
-        """
-        coef = n_total * (n_total - 1) * (n_total - 2)
-        coef_same_1 = 3 * n_total * (n_total - 1)
-        coef_same_2 = n_total
-        coef_one_diff = n_total * (n_total - 1)
-
-        if index_0 == index_1 and index_0 == index_2:
-            return (
-                coef * nu[index_0] ** 3
-                + coef_same_1 * nu[index_0] ** 2
-                + coef_same_2 * nu[index_0]
-            )
-        elif index_0 == index_1 and index_0 != index_2:
-            # case where i == j, but i != l
-            return (
-                coef * nu[index_0] ** 2 * nu[index_2]
-                + coef_one_diff * nu[index_0] * nu[index_2]
-                + coef_same_2 * nu[index_0]
-            )
-        elif index_1 == index_2 and index_0 != index_2:
-            return (
-                coef * nu[index_0] ** 2 * nu[index_1]
-                + coef_one_diff * nu[index_0] * nu[index_1]
-                + coef_same_2 * nu[index_1]
-            )
-        else:
-            raise ValueError("Invalid combination of indices")
-
-    @property
-    def third_moments_matrix(self) -> np.ndarray:
-        """
-        Calculate and normalize theoretical third moments matrix for a multinomial distribution.
-
-        Args:
-            n: Array of counts
-
-        Returns:
-            Normalized matrix of third moments
-        """
-        # Initialize matrix for theoretical moments
-        moments_theoretical_y = np.empty((self.num_cells, self.num_cells))
-
-        # Calculate third moments for each cell combination
-        for i in range(self.num_cells):
-            for j in range(self.num_cells):
-                moments_theoretical_y[i, j] = self.multinomial_third_moments(
-                    self.nu_hat, i, j, j, self.n_total
-                )
-
-        # Normalize by n_total^3
-        nu_mat = moments_theoretical_y / (self.n_total**3)
-
-        return nu_mat
 
     @staticmethod
     def cell_covariance_count(stat: StrataResultCount) -> np.ndarray:
@@ -1249,7 +1141,7 @@ class PostStratificationSummary:
             ]
         )
 
-    @property
+    @cached_property
     def v_full(self) -> np.ndarray:
         v_full = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
         for cell in range(self.num_cells):
@@ -1257,21 +1149,24 @@ class PostStratificationSummary:
             v_full[cell] = v / self.nu_hat[cell]
         return v_full
 
-    @property
+    @cached_property
     def covariance_part_2(self) -> np.ndarray:
         covariance_2 = np.zeros((self.len_alpha, self.len_alpha))
+        third_moments_matrix = third_moments_matrix_vectorized(
+            self.n_total, self.nu_hat
+        )
         for row in range(self.len_alpha):
             for col in range(self.len_alpha):
                 covariance_2[row, col] = np.sum(
-                    np.diag(self.v_full[:, row, col]).dot(self.third_moments_matrix)
+                    np.diag(self.v_full[:, row, col]).dot(third_moments_matrix)
                 )
         return covariance_2 / self.n_total
 
-    @property
+    @cached_property
     def covariance(self) -> np.ndarray:
         return self.covariance_part_1 + self.covariance_part_2
 
-    @property
+    @cached_property
     def nabla(self) -> np.ndarray:
         if self.relative:
             if self.mean[0] == 0:
@@ -1281,7 +1176,7 @@ class PostStratificationSummary:
         else:
             return np.array([0, 1])
 
-    @property
+    @cached_property
     def point_estimate(self) -> float:
         if self.relative:
             if self.mean[0] == 0:
@@ -1291,11 +1186,11 @@ class PostStratificationSummary:
         else:
             return self.mean[1]
 
-    @property
+    @cached_property
     def estimated_variance(self) -> float:
         return float(self.nabla.T.dot(self.covariance).dot(self.nabla))
 
-    @property
+    @cached_property
     def unadjusted_baseline_mean(self) -> float:
         return self.mean[0]
 
@@ -1382,7 +1277,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             ]
         )
 
-    @property
+    @cached_property
     def v_full(self) -> np.ndarray:
         v_full = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
         for cell in range(self.num_cells):
@@ -1390,7 +1285,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             v_full[cell] = v / self.nu_hat[cell]
         return v_full
 
-    @property
+    @cached_property
     def alpha_matrix(self) -> np.ndarray:
         alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
         for i, stat in enumerate(self.strata_results):
@@ -1402,7 +1297,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             ]
         return alpha_matrix
 
-    @property
+    @cached_property
     def nabla(self) -> np.ndarray:
         if self.mean[2] == 0 or self.mean[3] == 0:
             return np.zeros((self.len_alpha,))
@@ -1434,15 +1329,15 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             nabla[2] = nabla[3] + self.mean[0] / self.mean[2] ** 2
         return nabla
 
-    @property
+    @cached_property
     def point_estimate_rel_numerator(self) -> float:
         return self.mean[2] * (self.mean[0] + self.mean[1])
 
-    @property
+    @cached_property
     def point_estimate_rel_denominator(self) -> float:
         return self.mean[0] * (self.mean[2] + self.mean[3])
 
-    @property
+    @cached_property
     def point_estimate(self) -> float:
         if self.relative:
             if self.point_estimate_rel_denominator == 0:
@@ -1463,7 +1358,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             else:
                 return mn_trt_num / mn_trt_den - mn_ctrl_num / mn_ctrl_den
 
-    @property
+    @cached_property
     def unadjusted_baseline_mean(self) -> float:
         if self.mean[2] == 0:
             return 0
@@ -1606,7 +1501,15 @@ class EffectMomentsPostStratification:
         )
         # if there is only one strata cell, run the regular effect moments test
         if len(cells_for_analysis) == 1:
-            return EffectMoments(cells_for_analysis, EffectMomentsConfig(difference_type="relative" if self.relative else "absolute")).compute_result()  # type: ignore
+            self.stat_a, self.stat_b = create_theta_adjusted_statistics(
+                cells_for_analysis[0][0], cells_for_analysis[0][1]
+            )
+            return EffectMoments(
+                [(self.stat_a, self.stat_b)],
+                EffectMomentsConfig(
+                    difference_type="relative" if self.relative else "absolute"
+                ),
+            ).compute_result()
         strata_results = []
         for cell in cells_for_analysis:
             cell_result = self.compute_strata_result(cell)

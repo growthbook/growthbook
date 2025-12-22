@@ -2,7 +2,7 @@ import React, { FC, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";

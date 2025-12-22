@@ -1,4 +1,4 @@
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { pValueFormatter } from "@/services/experiments";
 
 export interface Props {

@@ -1,5 +1,5 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { datetime } from "shared/dates";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";

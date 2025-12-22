@@ -3,15 +3,12 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
-import {
-  FeaturePrerequisite,
-  SavedGroupTargeting,
-} from "back-end/types/feature";
+import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import {
   BsCheckCircle,
   BsExclamationCircle,

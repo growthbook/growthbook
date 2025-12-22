@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";

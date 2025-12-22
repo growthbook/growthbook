@@ -2,12 +2,13 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
-import { EventUser } from "back-end/src/events/event-types";
+import { AuditInterfaceInput } from "shared/types/audit";
+import { EventUser } from "shared/types/events/event-types";
+import { ExperimentStatus } from "shared/types/experiment";
+import { OrganizationInterface } from "shared/types/organization";
+import { UserInterface } from "shared/types/user";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
-import { AuditInterfaceInput } from "./audit";
-import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface, ReqContext } from "./organization";
-import { UserInterface } from "./user";
+import { ReqContext } from "./request";
 
 export interface ExperimentOverride {
   weights?: number[];

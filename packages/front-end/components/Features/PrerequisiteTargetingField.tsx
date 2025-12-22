@@ -4,7 +4,7 @@ import {
   FeatureInterface,
   FeaturePrerequisite,
   ForceRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import {
   FaExclamationCircle,
   FaExclamationTriangle,
@@ -25,7 +25,7 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -36,9 +36,15 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import Button from "@/ui/Button";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import HelperText from "@/ui/HelperText";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -49,6 +55,13 @@ export interface Props {
   version?: number;
   environments: string[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
+}
+
+export interface FeatureOptionMeta {
+  conditional: boolean;
+  cyclic: boolean;
+  wouldBeCyclic: boolean;
+  disabled: boolean;
 }
 
 export default function PrerequisiteTargetingField({
@@ -62,6 +75,7 @@ export default function PrerequisiteTargetingField({
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
   const { features } = useFeaturesList(false);
+  const { projects } = useDefinitions();
   const envsStr = JSON.stringify(environments);
   const valueStr = JSON.stringify(value);
 
@@ -190,12 +204,16 @@ export default function PrerequisiteTargetingField({
     setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
   }, [blockedBySdkLimitations, setPrerequisiteTargetingSdkIssues]);
 
-  const featureOptions = features
+  const projectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projects.forEach((p) => {
+      map.set(p.id, p.name);
+    });
+    return map;
+  }, [projects]);
+
+  const allFeatureOptions = features
     .filter((f) => f.id !== feature?.id)
-    .filter(
-      (f) =>
-        (f.project || "") === ((feature ? feature?.project : project) || ""),
-    )
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
         (s) => s.state === "conditional",
@@ -206,16 +224,59 @@ export default function PrerequisiteTargetingField({
       const wouldBeCyclic = wouldBeCyclicStates[f.id];
       const disabled =
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
+      const projectId = f.project || "";
+      const projectName = projectId ? projectMap.get(projectId) : null;
       return {
         label: f.id,
         value: f.id,
         meta: { conditional, cyclic, wouldBeCyclic, disabled },
+        project: projectId,
+        projectName,
       };
     })
     .sort((a, b) => {
       if (b.meta?.disabled) return -1;
       return 0;
     });
+
+  const featureProject = (feature ? feature?.project : project) || "";
+  const featureOptionsInProject = allFeatureOptions.filter(
+    (f) => (f.project || "") === featureProject,
+  );
+  const featureOptionsInOtherProjects = allFeatureOptions.filter(
+    (f) => (f.project || "") !== featureProject,
+  );
+
+  const featureOptions = [
+    ...featureOptionsInProject,
+    ...featureOptionsInOtherProjects,
+  ];
+
+  const groupedFeatureOptions: (GroupedValue & {
+    options: (SingleValue & { meta?: FeatureOptionMeta })[];
+  })[] = [];
+
+  const projectGroupOptions = featureOptionsInProject.map((f) => ({
+    label: f.label,
+    value: f.value,
+    meta: f.meta,
+  }));
+
+  groupedFeatureOptions.push({
+    label: featureProject === "" ? "In no project" : "In this project",
+    options: projectGroupOptions,
+  });
+
+  if (featureOptionsInOtherProjects.length > 0) {
+    groupedFeatureOptions.push({
+      label: "In other projects",
+      options: featureOptionsInOtherProjects.map((f) => ({
+        label: f.label,
+        value: f.value,
+        meta: f.meta,
+      })),
+    });
+  }
 
   return (
     <div className="form-group my-4">
@@ -262,10 +323,7 @@ export default function PrerequisiteTargetingField({
                   <div className="col">
                     <SelectField
                       placeholder="Select feature"
-                      options={featureOptions.map((o) => ({
-                        label: o.label,
-                        value: o.value,
-                      }))}
+                      options={groupedFeatureOptions}
                       value={v.id}
                       onChange={(v) => {
                         const meta = featureOptions.find(
@@ -284,9 +342,11 @@ export default function PrerequisiteTargetingField({
                       key={`parentId-${i}`}
                       sort={false}
                       formatOptionLabel={({ value, label }) => {
-                        const meta = featureOptions.find(
+                        const option = featureOptions.find(
                           (o) => o.value === value,
-                        )?.meta;
+                        );
+                        const meta = option?.meta;
+                        const projectName = option?.projectName;
                         return (
                           <div
                             className={clsx({
@@ -299,6 +359,21 @@ export default function PrerequisiteTargetingField({
                             >
                               {label}
                             </span>
+                            {projectName ? (
+                              <OverflowText
+                                maxWidth={150}
+                                className="text-muted small float-right text-right"
+                              >
+                                project: <strong>{projectName}</strong>
+                              </OverflowText>
+                            ) : (
+                              <em
+                                className="text-muted small float-right position-relative"
+                                style={{ top: 3, opacity: 0.5 }}
+                              >
+                                no project
+                              </em>
+                            )}
                             {meta?.wouldBeCyclic && (
                               <Tooltip
                                 body="Selecting this feature would create a cyclic dependency."
@@ -353,6 +428,19 @@ export default function PrerequisiteTargetingField({
                           </div>
                         );
                       }}
+                      formatGroupLabel={({ label }) => {
+                        return (
+                          <div
+                            className={clsx("pt-2 pb-1 text-muted", {
+                              "border-top":
+                                label === "In other projects" &&
+                                featureOptionsInProject.length > 0,
+                            })}
+                          >
+                            {label}
+                          </div>
+                        );
+                      }}
                     />
                   </div>
                 </div>
@@ -361,6 +449,7 @@ export default function PrerequisiteTargetingField({
                   parentFeature={parentFeature}
                   prereqStates={prereqStatesArr[i]}
                   environments={environments}
+                  featureProject={featureProject}
                 />
 
                 {parentFeature && hasConditionalState ? (
@@ -452,10 +541,12 @@ function PrereqStatesRows({
   parentFeature,
   prereqStates,
   environments,
+  featureProject,
 }: {
   parentFeature?: FeatureInterface;
   prereqStates: Record<string, PrerequisiteStateResult> | null;
   environments: string[];
+  featureProject: string;
 }) {
   const [showDetails, setShowDetails] = useState(true);
 
@@ -496,6 +587,15 @@ function PrereqStatesRows({
               <FaExternalLinkAlt className="ml-1" />
             </a>
           </div>
+
+          {(parentFeature?.project || "") !== featureProject ? (
+            <HelperText status="warning" mt="3" mb="6">
+              The prerequisite&apos;s project does not match this feature&apos;s
+              project. For SDK connections that do not overlap in project scope,
+              prerequisite evaluation will not pass.
+            </HelperText>
+          ) : null}
+
           <table className="table mb-4 border bg-white">
             <thead className="text-dark">
               <tr>

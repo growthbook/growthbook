@@ -5,14 +5,14 @@ import React, {
   useMemo,
   ReactNode,
 } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { useRouter } from "next/router";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useExperiments } from "@/hooks/useExperiments";

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
+import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import isEqual from "lodash/isEqual";
 import format from "date-fns/format";

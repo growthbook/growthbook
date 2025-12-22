@@ -12,8 +12,9 @@ import {
 import { AIPromptType } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
+import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,

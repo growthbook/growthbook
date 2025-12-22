@@ -5,7 +5,7 @@ import {
   DecisionCriteriaCondition,
   DecisionCriteriaRule,
   DecisionCriteriaData,
-} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+} from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 
 // UI version with key for tracking

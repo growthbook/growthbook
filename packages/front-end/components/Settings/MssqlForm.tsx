@@ -1,6 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { Flex } from "@radix-ui/themes";
-import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
+import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HostWarning from "./HostWarning";

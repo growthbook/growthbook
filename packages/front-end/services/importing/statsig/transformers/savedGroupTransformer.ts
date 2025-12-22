@@ -1,5 +1,5 @@
 import { SavedGroupInterface } from "shared/types/groups";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute } from "shared/types/organization";
 import { StatsigSavedGroup } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
@@ -17,7 +17,7 @@ export async function transformStatsigSegmentToSavedGroup(
   ) => Promise<unknown>,
   project?: string,
   skipAttributeMapping: boolean = false,
-  _savedGroupIdMap?: Map<string, string>,
+  savedGroupIdMap?: Map<string, string>,
 ): Promise<
   Omit<
     SavedGroupInterface,
@@ -37,13 +37,85 @@ export async function transformStatsigSegmentToSavedGroup(
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
         // Transform this rule's conditions to GrowthBook format
+        // For segments, we want nested segments (passes_segment / fails_segment)
+        // to become saved group references via $savedGroups instead of being
+        // treated as generic targeting attributes, so we let the transformer
+        // populate the savedGroups array and then merge that into the condition.
         const transformed = transformStatsigConditionsToGB(
           rule.conditions,
           skipAttributeMapping,
-          undefined, // Don't resolve saved groups during saved group creation
+          savedGroupIdMap,
         );
+
+        // Start from the base targeting condition (if any)
+        let baseConditionObj: Record<string, unknown> = {};
         if (transformed.condition && transformed.condition !== "{}") {
-          ruleConditions.push(transformed.condition);
+          try {
+            baseConditionObj = JSON.parse(transformed.condition) as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            // If parsing fails for some reason, fall back to an empty object
+            baseConditionObj = {};
+          }
+        }
+
+        // Merge any saved group references into the condition using $savedGroups
+        const savedGroups = transformed.savedGroups || [];
+        if (savedGroups.length > 0) {
+          const includeIds: string[] = [];
+          const excludeIds: string[] = [];
+
+          savedGroups.forEach((sg) => {
+            if (sg.match === "none") {
+              excludeIds.push(...sg.ids);
+            } else {
+              // "all" (and any future inclusive matches) are treated as inclusion
+              includeIds.push(...sg.ids);
+            }
+          });
+
+          let savedGroupCondition: Record<string, unknown> | null = null;
+
+          if (includeIds.length > 0) {
+            savedGroupCondition = {
+              $savedGroups: includeIds,
+            };
+          }
+
+          if (excludeIds.length > 0) {
+            const excludeClause: Record<string, unknown> = {
+              $not: { $savedGroups: excludeIds },
+            };
+
+            if (!savedGroupCondition) {
+              savedGroupCondition = excludeClause;
+            } else {
+              savedGroupCondition = {
+                $and: [savedGroupCondition, excludeClause],
+              };
+            }
+          }
+
+          if (savedGroupCondition) {
+            const hasBase =
+              baseConditionObj && Object.keys(baseConditionObj).length > 0;
+            if (!hasBase) {
+              baseConditionObj = savedGroupCondition;
+            } else {
+              baseConditionObj = {
+                $and: [baseConditionObj, savedGroupCondition],
+              };
+            }
+          }
+        }
+
+        const hasFinalCondition =
+          baseConditionObj && Object.keys(baseConditionObj).length > 0;
+
+        if (hasFinalCondition) {
+          ruleConditions.push(JSON.stringify(baseConditionObj));
         }
       }
     });
@@ -104,8 +176,34 @@ export async function transformStatsigSegmentToSavedGroup(
       >();
 
       allConditions.forEach((cond) => {
+        // Skip special condition types that are transformed, not treated as attributes
+        // Note: "time" with an operator is transformed to scheduleRules, but "time" without
+        // an operator should be treated as an attribute, so we don't skip it here
+        if (
+          cond.type === "passes_segment" ||
+          cond.type === "fails_segment" ||
+          cond.type === "passes_gate" ||
+          cond.type === "fails_gate" ||
+          (cond.type === "time" && cond.operator)
+        ) {
+          return;
+        }
+
+        // Determine the attribute name:
+        // - For custom_field type, use the field value
+        // - For unit_id type with customID, use the customID (custom unit ID)
+        // - Otherwise, use the type as the attribute name
+        let statsigAttributeName: string;
+        if (cond.type === "custom_field") {
+          statsigAttributeName = cond.field || "custom_field";
+        } else if (cond.type === "unit_id" && cond.customID) {
+          statsigAttributeName = cond.customID;
+        } else {
+          statsigAttributeName = cond.type;
+        }
+
         const attributeName = mapStatsigAttributeToGB(
-          cond.type,
+          statsigAttributeName,
           skipAttributeMapping,
         );
         if (!attributeOperatorMap.has(attributeName)) {

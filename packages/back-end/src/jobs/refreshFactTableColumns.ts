@@ -1,21 +1,21 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
-import { ReqContext } from "back-end/types/organization";
-import {
-  getFactTable,
-  updateFactTableColumns,
-} from "back-end/src/models/FactTableModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ReqContext } from "back-end/types/request";
+import {
+  getFactTable,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 

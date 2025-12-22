@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { DimensionInterface } from "back-end/types/dimension";
+import { DimensionInterface } from "shared/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";

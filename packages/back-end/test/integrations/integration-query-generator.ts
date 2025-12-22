@@ -6,32 +6,32 @@ import {
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
-import { DataSourceInterface, DataSourceType } from "back-end/types/datasource";
+import {
+  Dimension,
+  ExperimentFactMetricsQueryParams,
+  ExperimentMetricQueryParams,
+  ExperimentUnitsQueryParams,
+} from "shared/types/integrations";
+import { DataSourceInterface, DataSourceType } from "shared/types/datasource";
 import {
   AttributionModel,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
   Variation,
-} from "back-end/types/experiment";
-import {
-  Dimension,
-  ExperimentFactMetricsQueryParams,
-  ExperimentMetricQueryParams,
-  ExperimentUnitsQueryParams,
-} from "back-end/src/types/Integration";
-import { MetricInterface, MetricType } from "back-end/types/metric";
-import { getFactMetricGroup } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { getSnapshotSettings } from "back-end/src/services/experiments";
-import { expandDenominatorMetrics } from "back-end/src/util/sql";
+} from "shared/types/experiment";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   FactFilterInterface,
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricCappingSettings,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { getFactMetricGroup } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getSnapshotSettings } from "back-end/src/services/experiments";
+import { expandDenominatorMetrics } from "back-end/src/util/sql";
 
 const currentDate = new Date();
 const endDateString = "2022-02-01T00:00:00"; // premature end date to ensure some filter

@@ -3,12 +3,17 @@ import {
   CreateWebhookSecretProps,
   UpdateWebhookSecretProps,
 } from "shared/validators";
-import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   EventWebHookInterface,
   EventWebHookPayloadType,
   EventWebHookMethod,
-} from "back-end/types/event-webhook";
+} from "shared/types/event-webhook";
+import {
+  EventWebHookLegacyLogInterface,
+  EventWebHookLogInterface,
+} from "shared/types/event-webhook-log";
+import { NotificationEventName } from "shared/types/events/base-types";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 import * as EventWebHook from "back-end/src/models/EventWebhookModel";
 import {
   deleteEventWebHookById,
@@ -21,11 +26,6 @@ import * as EventWebHookLog from "back-end/src/models/EventWebHookLogModel";
 
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import {
-  EventWebHookLegacyLogInterface,
-  EventWebHookLogInterface,
-} from "back-end/types/event-webhook-log";
-import { NotificationEventName } from "back-end/src/events/base-types";
 
 // region GET /event-webhooks
 

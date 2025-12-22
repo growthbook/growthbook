@@ -1,8 +1,8 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
 import React, { useMemo, useState } from "react";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import clsx from "clsx";
 import { Box, Text } from "@radix-ui/themes";
 import {
@@ -14,7 +14,7 @@ import {
   expandAllSliceMetricsInMap,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { ExperimentSnapshotReportArgs } from "back-end/types/report";
+import { ExperimentSnapshotReportArgs } from "shared/types/report";
 import { startCase } from "lodash";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";

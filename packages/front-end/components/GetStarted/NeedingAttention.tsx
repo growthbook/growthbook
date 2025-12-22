@@ -7,17 +7,17 @@ import {
   PiDatabaseBold,
   PiChartLineBold,
 } from "react-icons/pi";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { EventUserLoggedIn } from "back-end/src/events/event-types";
-import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { ComputedExperimentInterface } from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box } from "spectacle";
 import Link from "next/link";

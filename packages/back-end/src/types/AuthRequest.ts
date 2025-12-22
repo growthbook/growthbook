@@ -1,14 +1,14 @@
 import { Request, Response } from "express";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { AuditInterface } from "shared/types/audit";
 import {
   EnvScopedPermission,
   GlobalPermission,
   OrganizationInterface,
   ProjectScopedPermission,
-} from "back-end/types/organization";
-import { AuditInterface } from "back-end/types/audit";
-import { TeamInterface } from "back-end/types/team";
-import { UserInterface } from "back-end/types/user";
+} from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
+import { UserInterface } from "shared/types/user";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
