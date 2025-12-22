@@ -77,6 +77,7 @@
     "googleapis": "^59.0.0",
     "handlebars": "^4.7.8",
     "isolated-vm": "5.0.4",
+    "jose": "^4.15.5",
     "js-yaml": "^4.1.0",
     "json5": "^2.2.3",
     "jsonwebtoken": "^8.5.1",
