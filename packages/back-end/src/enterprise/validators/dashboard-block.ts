@@ -232,6 +232,8 @@ const metricVisualizationConfiguration = z.object({
   factMetricId: z.string(),
   factTableId: z.string(),
   metricAnalysisId: z.string(),
+  //MKTODO: I think I probably need the analysisSettings and valueType here, too, no? - er, maybe just analysisSettings - I think we'll get the valueType in the dataVizConfig
+  //MKTODO: Though, we may need to limit the options in valueType (which maps to yAxis.aggregation) in the dataVizConfig.
 });
 
 const sqlVisualizationConfiguration = z.object({
