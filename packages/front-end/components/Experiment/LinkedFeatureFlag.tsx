@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import React from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCheckCircleFill, PiWarningFill } from "react-icons/pi";

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
-import { DecisionCriteriaData } from "back-end/types/experiment";
+import { DecisionCriteriaData } from "shared/types/experiment";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,

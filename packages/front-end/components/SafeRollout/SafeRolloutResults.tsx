@@ -6,7 +6,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   SAFE_ROLLOUT_VARIATIONS,
 } from "shared/constants";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { SafeRolloutInterface } from "shared/validators";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { PiWarningFill } from "react-icons/pi";

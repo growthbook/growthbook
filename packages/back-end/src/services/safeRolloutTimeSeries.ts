@@ -6,20 +6,18 @@ import {
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
   SafeRolloutInterface,
-} from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import {
-  FactMetricInterface,
-  FactTableInterface,
-} from "back-end/types/fact-table";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import {
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotMetricInterface,
-} from "back-end/src/validators/safe-rollout-snapshot";
+} from "shared/validators";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import { ReqContext } from "back-end/types/request";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 

@@ -36,7 +36,7 @@ async function run() {
   // Step 3: Add additional named types for easier access
   // Export each schema as a named type
   output += `import { z } from "zod";\n`;
-  output += `import * as openApiValidators from "back-end/src/validators/openapi";\n`;
+  output += `import * as openApiValidators from "shared/src/validators/openapi";\n`;
   output += "\n// Schemas\n";
   Object.keys(api.components.schemas).forEach((k) => {
     // Zod validator for response body
@@ -80,11 +80,20 @@ async function run() {
 
   // Step 4: Persist specs and generated files to file system
   fs.writeFileSync(
-    path.join(__dirname, "..", "..", "types", "openapi.d.ts"),
+    path.join(__dirname, "..", "..", "..", "shared", "types", "openapi.d.ts"),
     output,
   );
   fs.writeFileSync(
-    path.join(__dirname, "..", "..", "src", "validators", "openapi.ts"),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "shared",
+      "src",
+      "validators",
+      "openapi.ts",
+    ),
     generatedFileHeader +
       `import { z } from "zod";\n\n` +
       validators.join("\n\n"),

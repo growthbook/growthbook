@@ -2,7 +2,7 @@ import React, { FC, useCallback, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   FeatureUsageQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaPlus } from "react-icons/fa";
 import { Box, Flex, Heading } from "@radix-ui/themes";

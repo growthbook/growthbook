@@ -1,25 +1,22 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import {
-  MetricDefaults,
-  SDKAttributeSchema,
-} from "back-end/types/organization";
+} from "shared/types/report";
+import { MetricDefaults, SDKAttributeSchema } from "shared/types/organization";
 import {
   ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ExperimentTemplateInterface,
   MetricOverride,
-} from "back-end/types/experiment";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/experiment";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isNil, omit } from "lodash";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,

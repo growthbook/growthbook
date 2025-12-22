@@ -16,8 +16,8 @@ import {
   FactTableInterface,
   LegacyColumnRef,
   LegacyFactMetricInterface,
-} from "back-end/types/fact-table";
-import { ApiFactMetric } from "back-end/types/openapi";
+} from "shared/types/fact-table";
+import { ApiFactMetric } from "shared/types/openapi";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "../util/promise";
 import { MakeModelClass } from "./BaseModel";

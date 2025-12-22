@@ -6,6 +6,12 @@ import {
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
+import {
+  DataSourceInterface,
+  DataSourceParams,
+  ExposureQuery,
+} from "shared/types/datasource";
+import { QueryStatistics } from "shared/types/query";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -22,17 +28,11 @@ import {
   SourceIntegrationInterface,
   SQLExecutionError,
 } from "back-end/src/types/Integration";
-import {
-  DataSourceInterface,
-  DataSourceParams,
-  ExposureQuery,
-} from "back-end/types/datasource";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { QueryStatistics } from "back-end/types/query";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,

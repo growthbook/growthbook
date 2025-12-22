@@ -1,11 +1,11 @@
-import { Variation, VariationWithIndex } from "back-end/types/experiment";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { Variation, VariationWithIndex } from "shared/types/experiment";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useCallback, useEffect, useState } from "react";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";

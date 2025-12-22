@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Queries } from "back-end/types/query";
+import { Queries } from "shared/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+} from "shared/types/report";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { IconButton } from "@radix-ui/themes";
 import { Parser } from "json2csv";
 import { useAuth } from "@/services/auth";

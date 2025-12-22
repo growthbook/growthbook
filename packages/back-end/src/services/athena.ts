@@ -5,7 +5,7 @@ import {
   StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
-import { AthenaConnectionParams } from "back-end/types/integrations/athena";
+import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 

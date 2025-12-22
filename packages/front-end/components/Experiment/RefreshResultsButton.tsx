@@ -1,10 +1,10 @@
 import React from "react";
-import { Queries } from "back-end/types/query";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Queries } from "shared/types/query";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { SafeRolloutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";

@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { StatsigExperiment } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";

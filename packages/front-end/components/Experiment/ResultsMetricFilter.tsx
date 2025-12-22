@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback } from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { FactTableColumnType } from "back-end/types/fact-table";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { parseSliceQueryString } from "shared/experiments";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { Popover } from "@/ui/Popover";

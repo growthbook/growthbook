@@ -1,7 +1,7 @@
 import { filterEnvironmentsByFeature } from "shared/util";
+import { deleteFeatureValidator } from "shared/validators";
+import { DeleteFeatureResponse } from "shared/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteFeatureValidator } from "back-end/src/validators/openapi";
-import { DeleteFeatureResponse } from "back-end/types/openapi";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";

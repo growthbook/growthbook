@@ -1,12 +1,12 @@
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { RefObject, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { getValidDate } from "shared/dates";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";

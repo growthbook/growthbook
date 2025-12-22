@@ -1,9 +1,9 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FactTableColumnType } from "back-end/types/fact-table";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FactTableColumnType } from "shared/types/fact-table";
 import React, { useMemo, useState } from "react";
-import { OrganizationSettings } from "back-end/types/organization";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { OrganizationSettings } from "shared/types/organization";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { Box, Flex, Text, Separator } from "@radix-ui/themes";
 import {
   expandMetricGroups,
@@ -15,7 +15,7 @@ import {
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_P_VALUE_THRESHOLD,

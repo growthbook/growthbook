@@ -5,7 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { QueryStatus, Queries } from "back-end/types/query";
+import { QueryStatus, Queries } from "shared/types/query";
 import clsx from "clsx";
 import { PiPlay, PiArrowClockwise, PiXBold } from "react-icons/pi";
 import { getValidDate } from "shared/dates";

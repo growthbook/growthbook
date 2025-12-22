@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
 import {
@@ -17,16 +17,16 @@ import {
   FactMetricInterface,
   FactTableInterface,
   FactTableColumnType,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
-import { DifferenceType } from "back-end/types/stats";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { DifferenceType } from "shared/types/stats";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
-import { FeatureInterface } from "back-end/types/feature";
+import { HoldoutInterface } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";

@@ -13,18 +13,18 @@ import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
-import { ExperimentStatus } from "back-end/types/experiment";
+} from "shared/types/report";
+import { ExperimentStatus } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,

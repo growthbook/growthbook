@@ -1,5 +1,5 @@
 import { date } from "shared/dates";
-import { ExperimentPhaseStringDates } from "back-end/types/experiment";
+import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex, Text } from "@radix-ui/themes";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";

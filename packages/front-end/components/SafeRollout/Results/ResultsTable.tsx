@@ -17,14 +17,14 @@ import { extent } from "@visx/vendor/d3-array";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
-import { ExperimentStatus } from "back-end/types/experiment";
+} from "shared/types/report";
+import { ExperimentStatus } from "shared/types/experiment";
 import { MetricTimeSeries } from "shared/validators";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";

@@ -4,23 +4,23 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   ExperimentStatus,
   ExperimentType,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
-import { FactTableInterface } from "back-end/types/fact-table";
+} from "shared/types/stats";
+import { FactTableInterface } from "shared/types/fact-table";
 import {
   PiCaretCircleRight,
   PiCaretCircleDown,

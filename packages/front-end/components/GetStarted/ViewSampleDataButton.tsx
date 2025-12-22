@@ -1,4 +1,4 @@
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";

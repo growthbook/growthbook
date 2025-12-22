@@ -3,7 +3,7 @@ import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import { ComputedExperimentInterface } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import WatchButton from "@/components/WatchButton";

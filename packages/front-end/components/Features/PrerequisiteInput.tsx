@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
 import { PrerequisiteStateResult } from "shared/util";
 import { condToJson, jsonToConds } from "@/services/features";

@@ -3,12 +3,12 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill, PiCheck } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";

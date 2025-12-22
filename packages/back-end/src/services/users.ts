@@ -1,12 +1,12 @@
 import crypto from "crypto";
 import { promisify } from "util";
 import { Request } from "express";
-import { UserInterface } from "back-end/types/user";
+import { UserInterface } from "shared/types/user";
+import { UserLoginInterface } from "shared/validators";
 import { getUserByEmail, updateUser } from "back-end/src/models/UserModel";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { createEventWithPayload } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { UserLoginInterface } from "back-end/src/validators/users";
 import { validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;

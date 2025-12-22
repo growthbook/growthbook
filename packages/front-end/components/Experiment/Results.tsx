@@ -1,15 +1,15 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";

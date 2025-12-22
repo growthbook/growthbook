@@ -11,7 +11,7 @@ import {
   ContainerChanges,
   HierarchicalValue,
   NestedObjectConfig,
-} from "back-end/types/events/diff";
+} from "shared/types/events/diff";
 
 export type EventWebHookSuccessResult = {
   result: "success";

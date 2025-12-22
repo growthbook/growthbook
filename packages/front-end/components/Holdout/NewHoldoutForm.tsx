@@ -1,9 +1,9 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -14,8 +14,8 @@ import { kebabCase } from "lodash";
 import { Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
-import { FeatureEnvironment } from "back-end/types/feature";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { FeatureEnvironment } from "shared/types/feature";
+import { HoldoutInterface } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
