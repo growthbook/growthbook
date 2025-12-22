@@ -6,7 +6,7 @@ import numpy as np
 from scipy.stats import norm
 import copy
 
-from gbstats.utils import multinomial_covariance, third_moments_matrix_vectorized
+from gbstats.utils import multinomial_covariance, multinomial_third_sample_moment
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
@@ -94,34 +94,3 @@ class TestMultinomial(TestCase):
         v_theoretical = multinomial_covariance(self.nu)
         v_empirical = np.cov(data, rowvar=False, ddof=1)
         self.assertTrue(np.allclose(v_theoretical, v_empirical, atol=1e-3))
-
-    def test_multinomial_third_noncentral_moments(self):
-        rng_data = np.random.default_rng(seed=self.seed + 2)
-        data = rng_data.multinomial(n=self.n, pvals=self.nu, size=self.size)
-        third_moments_theoretical = np.zeros(
-            (self.num_cells, self.num_cells, self.num_cells)
-        )
-        third_moments_empirical = np.zeros(
-            (self.num_cells, self.num_cells, self.num_cells)
-        )
-        for i in range(self.num_cells):
-            for j in range(self.num_cells):
-                for k in range(self.num_cells):
-                    third_moments_theoretical[i, j, k] = (
-                        multinomial_third_noncentral_moments(self.nu, i, j, k, self.n)
-                    )
-                    third_moments_empirical[i, j, k] = np.mean(
-                        data[:, i] * data[:, j] * data[:, k]
-                    )
-        self.assertTrue(
-            np.allclose(
-                third_moments_theoretical / third_moments_empirical,
-                np.ones_like(third_moments_theoretical),
-                atol=1e-3,
-            )
-        )
-
-    def test_third_moments_matrix(self):
-        result_true = third_moments_matrix_slow(self.n, self.nu)
-        result_fast = third_moments_matrix_vectorized(self.n, self.nu)
-        self.assertTrue(np.allclose(result_true, result_fast, atol=1e-16))
