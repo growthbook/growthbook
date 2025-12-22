@@ -264,7 +264,7 @@ export default function TabbedPage({
   const availableSliceTags = useMemo(() => {
     const sliceTagsMap = new Map<
       string,
-      { datatypes: Record<string, FactTableColumnType> }
+      { datatypes: Record<string, FactTableColumnType>; isSelectAll?: boolean }
     >();
 
     // Build factTableMap for parseSliceQueryString
@@ -286,6 +286,10 @@ export default function TabbedPage({
       experiment.guardrailMetrics,
       metricGroups,
     );
+
+    // Track all columns that appear in slices for "select all" generation
+    const columnSet = new Set<string>();
+    const columnDatatypeMap = new Map<string, FactTableColumnType>();
 
     // Extract from customMetricSlices
     // For custom slices, only generate the exact combinations defined (no permutations)
@@ -310,6 +314,11 @@ export default function TabbedPage({
         const datatypes: Record<string, FactTableColumnType> = {};
         sliceLevels.forEach((sl) => {
           datatypes[sl.column] = sl.datatype;
+          // Track column for "select all" generation
+          columnSet.add(sl.column);
+          if (sl.datatype) {
+            columnDatatypeMap.set(sl.column, sl.datatype);
+          }
         });
         sliceTagsMap.set(tag, { datatypes });
       });
@@ -349,6 +358,11 @@ export default function TabbedPage({
                   ? { [sliceLevel.column]: sliceLevel.datatype }
                   : {};
                 sliceTagsMap.set(tag, { datatypes });
+                // Track column for "select all" generation
+                columnSet.add(sliceLevel.column);
+                if (sliceLevel.datatype) {
+                  columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
+                }
               });
 
               // Generate combined tag for multi-dimensional slices
@@ -366,6 +380,11 @@ export default function TabbedPage({
                 const datatypes: Record<string, FactTableColumnType> = {};
                 sliceLevels.forEach((sl) => {
                   datatypes[sl.column] = sl.datatype;
+                  // Track column for "select all" generation
+                  columnSet.add(sl.column);
+                  if (sl.datatype) {
+                    columnDatatypeMap.set(sl.column, sl.datatype);
+                  }
                 });
                 sliceTagsMap.set(comboTag, { datatypes });
               }
@@ -375,20 +394,48 @@ export default function TabbedPage({
       }
     });
 
+    // Generate "select all" tags for each column (format: dim:column, no equals sign)
+    columnSet.forEach((column) => {
+      const datatype = columnDatatypeMap.get(column) || "string";
+      const selectAllTag = `dim:${encodeURIComponent(column)}`;
+      sliceTagsMap.set(selectAllTag, {
+        datatypes: { [column]: datatype },
+        isSelectAll: true,
+      });
+    });
+
     const sliceTags = Array.from(sliceTagsMap.entries()).map(
-      ([id, { datatypes }]) => ({ id, datatypes }),
+      ([id, { datatypes, isSelectAll }]) => ({ id, datatypes, isSelectAll }),
     );
 
-    // Sort slices: group by column(s), put empty values at the end of each group
+    // Sort slices: group by column(s), put "select all" first, then regular values, then empty values
     return sliceTags.sort((a, b) => {
-      const aLevels = parseSliceQueryString(a.id, factTableMap);
-      const bLevels = parseSliceQueryString(b.id, factTableMap);
+      // Extract column name from tag
+      const getColumnFromTag = (tag: string): string => {
+        if (!tag.startsWith("dim:")) return "";
+        const withoutDim = tag.substring(4);
+        const equalsIndex = withoutDim.indexOf("=");
+        return decodeURIComponent(
+          withoutDim.slice(0, equalsIndex >= 0 ? equalsIndex : undefined),
+        );
+      };
 
-      // Sort by first column name
-      const aFirstColumn = aLevels[0]?.column || "";
-      const bFirstColumn = bLevels[0]?.column || "";
-      const columnCompare = aFirstColumn.localeCompare(bFirstColumn);
+      const aColumn = getColumnFromTag(a.id);
+      const bColumn = getColumnFromTag(b.id);
+      const columnCompare = aColumn.localeCompare(bColumn);
       if (columnCompare !== 0) return columnCompare;
+
+      // Same column: "select all" comes first
+      if (a.isSelectAll && !b.isSelectAll) return -1;
+      if (!a.isSelectAll && b.isSelectAll) return 1;
+
+      // Both are regular slices, parse normally
+      const aLevels = a.isSelectAll
+        ? []
+        : parseSliceQueryString(a.id, factTableMap);
+      const bLevels = b.isSelectAll
+        ? []
+        : parseSliceQueryString(b.id, factTableMap);
 
       // For same first column, check if it's a multi-column slice
       if (aLevels.length !== bLevels.length) {
@@ -400,6 +447,8 @@ export default function TabbedPage({
       for (let i = 0; i < Math.min(aLevels.length, bLevels.length); i++) {
         const aValue = aLevels[i]?.levels[0] || "";
         const bValue = bLevels[i]?.levels[0] || "";
+        const aDatatype = aLevels[i]?.datatype;
+        const bDatatype = bLevels[i]?.datatype;
 
         // Empty values go to the end
         if (aValue === "" && bValue !== "") return 1;
@@ -407,6 +456,11 @@ export default function TabbedPage({
 
         // Both non-empty or both empty: compare normally
         if (aValue !== bValue) {
+          // Special handling for boolean: true comes before false
+          if (aDatatype === "boolean" && bDatatype === "boolean") {
+            if (aValue === "true" && bValue === "false") return -1;
+            if (aValue === "false" && bValue === "true") return 1;
+          }
           return aValue.localeCompare(bValue);
         }
       }

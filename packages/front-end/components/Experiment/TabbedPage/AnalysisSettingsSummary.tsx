@@ -67,6 +67,7 @@ export interface Props {
   availableSliceTags?: Array<{
     id: string;
     datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
   }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
@@ -124,6 +125,8 @@ export default function AnalysisSettingsSummary({
     "regression-adjustment",
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
 
   const {
     snapshot,
@@ -546,6 +549,25 @@ export default function AnalysisSettingsSummary({
     return { outdated: reasons.length > 0, reasons };
   }
 
+  // Determine if any filters are currently set
+  const hasActiveFilters =
+    (metricTagFilter?.length || 0) > 0 ||
+    (metricGroupsFilter?.length || 0) > 0 ||
+    (sliceTagsFilter?.length || 0) > 0;
+
+  // Determine if any filter types are available/enabled
+  const hasAvailableSlices =
+    availableSliceTags.length > 0 && hasMetricSlicesFeature;
+  const hasAvailableMetricGroups =
+    availableMetricGroups.length > 0 && hasMetricGroupsFeature;
+  const hasAvailableTags = allMetricTags.length > 0;
+
+  const hasAnyAvailableFilter =
+    hasAvailableSlices || hasAvailableMetricGroups || hasAvailableTags;
+
+  // Render if filters are active OR at least one filter type is available
+  const shouldRenderMetricFilter = hasActiveFilters || hasAnyAvailableFilter;
+
   return (
     <Box px="3" pt="3" mb="2">
       <Flex align="center" justify="between" gap="6" pr="1">
@@ -566,24 +588,26 @@ export default function AnalysisSettingsSummary({
               setSnapshotDimension={setSnapshotDimension}
             />
           )}
-          {setDimension && setMetricTagFilter ? (
-            <Separator orientation="vertical" ml="5" mr="2" />
-          ) : null}
-          {setMetricTagFilter && (
-            <ResultsMetricFilter
-              metricTags={allMetricTags}
-              metricTagFilter={metricTagFilter}
-              setMetricTagFilter={setMetricTagFilter}
-              availableMetricGroups={availableMetricGroups}
-              metricGroupsFilter={metricGroupsFilter}
-              setMetricGroupsFilter={setMetricGroupsFilter}
-              availableSliceTags={availableSliceTags}
-              sliceTagsFilter={sliceTagsFilter}
-              setSliceTagsFilter={setSliceTagsFilter}
-              showMetricFilter={showMetricFilter}
-              setShowMetricFilter={setShowMetricFilter}
-              dimension={dimension}
-            />
+          {shouldRenderMetricFilter && (
+            <>
+              {setDimension && (
+                <Separator orientation="vertical" ml="5" mr="2" />
+              )}
+              <ResultsMetricFilter
+                metricTags={allMetricTags}
+                metricTagFilter={metricTagFilter}
+                setMetricTagFilter={setMetricTagFilter}
+                availableMetricGroups={availableMetricGroups}
+                metricGroupsFilter={metricGroupsFilter}
+                setMetricGroupsFilter={setMetricGroupsFilter}
+                availableSliceTags={availableSliceTags}
+                sliceTagsFilter={sliceTagsFilter}
+                setSliceTagsFilter={setSliceTagsFilter}
+                showMetricFilter={showMetricFilter}
+                setShowMetricFilter={setShowMetricFilter}
+                dimension={dimension}
+              />
+            </>
           )}
         </Flex>
 

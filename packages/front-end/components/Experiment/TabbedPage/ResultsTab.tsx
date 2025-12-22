@@ -50,6 +50,7 @@ export interface Props {
   availableSliceTags: Array<{
     id: string;
     datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
   }>;
   sliceTagsFilter: string[];
   setSliceTagsFilter: (tags: string[]) => void;

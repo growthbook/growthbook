@@ -3,13 +3,17 @@ import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { parseSliceQueryString } from "shared/experiments";
+import clsx from "clsx";
+import { FormatOptionLabelMeta } from "react-select";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { SingleValue } from "@/components/Forms/SelectField";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HelperText from "@/ui/HelperText";
+import { useUser } from "@/services/UserContext";
 
 export default function ResultsMetricFilter({
   metricTags = [],
@@ -34,6 +38,7 @@ export default function ResultsMetricFilter({
   availableSliceTags?: Array<{
     id: string;
     datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
   }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
@@ -41,6 +46,10 @@ export default function ResultsMetricFilter({
   setShowMetricFilter: (show: boolean) => void;
   dimension?: string;
 }) {
+  const { hasCommercialFeature } = useUser();
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
+
   const filteringApplied =
     metricTagFilter?.length > 0 ||
     metricGroupsFilter?.length > 0 ||
@@ -56,11 +65,34 @@ export default function ResultsMetricFilter({
     value: string | null;
     datatype: FactTableColumnType;
     isOther: boolean;
+    isSelectAll?: boolean;
   };
 
   const sliceOptions = useMemo(() => {
     return availableSliceTags.map((tag) => {
-      // Parse slice tag using parseSliceQueryString
+      // Handle "select all" format: dim:column (no equals sign)
+      if (tag.isSelectAll || !tag.id.includes("=")) {
+        // Extract column name from dim:column format
+        const columnMatch = tag.id.match(/^dim:(.+)$/);
+        if (columnMatch) {
+          const column = decodeURIComponent(columnMatch[1]);
+          const datatype = tag.datatypes[column] || "string";
+          return {
+            value: tag.id,
+            parsedChunks: [
+              {
+                column,
+                value: null,
+                datatype,
+                isSelectAll: true,
+                isOther: false,
+              },
+            ],
+          };
+        }
+      }
+
+      // Parse regular slice tag using parseSliceQueryString
       const sliceLevels = parseSliceQueryString(tag.id);
       const parsedChunks: SliceChunk[] = sliceLevels.map((sl) => {
         const value = sl?.levels?.[0] || "";
@@ -82,9 +114,23 @@ export default function ResultsMetricFilter({
   }, [availableSliceTags]);
 
   const formatSliceOptionLabel = useCallback(
-    (option: { value: string; parsedChunks: SliceChunk[] }) => {
+    (
+      option: { value: string; parsedChunks: SliceChunk[] },
+      meta: FormatOptionLabelMeta<SingleValue>,
+    ) => {
+      // Select all options always have exactly one chunk with isSelectAll=true
+      if (option.parsedChunks[0]?.isSelectAll) {
+        const chunk = option.parsedChunks[0];
+        return (
+          <span>
+            {chunk.column} <span className="text-muted">(All Slices)</span>
+          </span>
+        );
+      }
+
+      // Regular slices: all chunks are non-select-all
       return (
-        <span>
+        <span className={clsx(meta?.context === "menu" && "pl-3")}>
           {option.parsedChunks.map((chunk, index) => (
             <React.Fragment key={index}>
               {index > 0 && ", "}
@@ -168,7 +214,7 @@ export default function ResultsMetricFilter({
                   </Link>
                 ) : null}
               </Flex>
-              {availableSliceTags.length > 0 && (
+              {availableSliceTags.length > 0 && hasMetricSlicesFeature && (
                 <Flex
                   gap="2"
                   p="3"
@@ -196,14 +242,14 @@ export default function ResultsMetricFilter({
                       label: value,
                       value,
                     }))}
-                    formatOptionLabel={(option) => {
+                    formatOptionLabel={(option, meta) => {
                       const fullOption = sliceOptions.find(
                         (o) => o.value === option.value,
                       );
                       if (!fullOption || !fullOption.parsedChunks) {
                         return option.label;
                       }
-                      return formatSliceOptionLabel(fullOption);
+                      return formatSliceOptionLabel(fullOption, meta);
                     }}
                     onChange={(v) => {
                       setSliceTagsFilter?.(v);
@@ -213,7 +259,7 @@ export default function ResultsMetricFilter({
                   />
                 </Flex>
               )}
-              {availableMetricGroups.length > 0 && (
+              {availableMetricGroups.length > 0 && hasMetricGroupsFeature && (
                 <Flex
                   gap="2"
                   p="3"

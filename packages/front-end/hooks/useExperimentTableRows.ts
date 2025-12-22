@@ -521,27 +521,40 @@ export function generateRowsForMetric({
       // Check if slice matches filter
       let sliceMatches = true;
       if (sliceTagsFilter && sliceTagsFilter.length > 0) {
-        // Extract slice tags from slice data
-        const sliceTags: string[] = [];
-        // Generate single dimension tags
-        slice.sliceLevels.forEach((sliceLevel) => {
-          const value = sliceLevel.levels[0] || "";
-          const tag = generateSliceString({ [sliceLevel.column]: value });
-          sliceTags.push(tag);
+        // Check if any "select all" filter is active for columns in this slice
+        const hasSelectAllFilter = slice.sliceLevels.some((sliceLevel) => {
+          // "Select all" format: dim:column (no equals sign)
+          const selectAllTag = `dim:${encodeURIComponent(sliceLevel.column)}`;
+          return sliceTagsFilter.includes(selectAllTag);
         });
-        // Generate combined tag for multi-dimensional slices
-        if (slice.sliceLevels.length > 1) {
-          const slices: Record<string, string> = {};
-          slice.sliceLevels.forEach((sl) => {
-            slices[sl.column] = sl.levels[0] || "";
-          });
-          const comboTag = generateSliceString(slices);
-          sliceTags.push(comboTag);
-        }
-        // Check if any slice tag matches the filter
-        sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
-        if (sliceMatches) {
+
+        if (hasSelectAllFilter) {
+          // If "select all" is active for any column in this slice, include it
+          sliceMatches = true;
           hasMatchingSlice = true;
+        } else {
+          // Extract slice tags from slice data
+          const sliceTags: string[] = [];
+          // Generate single dimension tags
+          slice.sliceLevels.forEach((sliceLevel) => {
+            const value = sliceLevel.levels[0] || "";
+            const tag = generateSliceString({ [sliceLevel.column]: value });
+            sliceTags.push(tag);
+          });
+          // Generate combined tag for multi-dimensional slices
+          if (slice.sliceLevels.length > 1) {
+            const slices: Record<string, string> = {};
+            slice.sliceLevels.forEach((sl) => {
+              slices[sl.column] = sl.levels[0] || "";
+            });
+            const comboTag = generateSliceString(slices);
+            sliceTags.push(comboTag);
+          }
+          // Check if any slice tag matches the filter
+          sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
+          if (sliceMatches) {
+            hasMatchingSlice = true;
+          }
         }
       }
 
