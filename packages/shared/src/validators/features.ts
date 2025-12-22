@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
 import { eventUser } from "./events";
-import { experimentType, banditStageType } from "./experiments";
 import {
   featurePrerequisite,
   namespaceValue,
@@ -85,6 +84,9 @@ const experimentValue = z
   .strict();
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
+
+const experimentType = ["standard", "multi-armed-bandit"] as const;
+const banditStageType = ["explore", "exploit", "paused"] as const;
 
 const experimentRule = baseRule
   .extend({
