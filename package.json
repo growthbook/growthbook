@@ -22,7 +22,7 @@
     "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
     "start:with-datadog": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-datadog",
     "update-stats-deps": ". $(cd packages/stats && poetry env info --path)/bin/activate && (cd packages/stats && poetry install)",
-    "setup": "yarn build:deps & wsrun -p 'stats' -c setup & (cd docs && yarn) & wait",
+    "setup": "yarn build:deps & wsrun -p 'stats' -c setup & wait",
     "prepare": "husky install",
     "plop": "plop",
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
