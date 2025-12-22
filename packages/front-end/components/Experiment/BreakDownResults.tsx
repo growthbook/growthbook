@@ -216,7 +216,7 @@ const BreakDownResults: FC<{
           <div className="users">
             <Collapsible
               trigger={
-                <Link className="d-inline-flex mx-3 align-items-center">
+                <Link className="d-inline-flex mt-2 ml-2 align-items-center">
                   <FaCaretRight className="chevron mr-1" />
                   View dimension breakdown
                 </Link>

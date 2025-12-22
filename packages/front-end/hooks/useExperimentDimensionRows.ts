@@ -26,6 +26,8 @@ import {
   filterMetricsByTags,
   getAllMetricTags,
 } from "./useExperimentTableRows";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { useExperimentResultsFilters } from "./useExperimentResultsFilters";
 
 export interface UseExperimentDimensionRowsParams {
   results: ExperimentReportResultDimension[];
@@ -56,6 +58,13 @@ export interface UseExperimentDimensionRowsReturn {
     rows: ExperimentTableRow[];
   }>;
   allMetricTags: string[];
+  availableMetricTags: string[];
+  availableMetricGroups: Array<{ id: string; name: string }>;
+  availableSliceTags: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
 }
 
 export function useExperimentDimensionRows({
@@ -77,6 +86,16 @@ export function useExperimentDimensionRows({
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
+  const {
+    availableMetricTags,
+    availableMetricGroups,
+    availableSliceTags,
+  } = useExperimentResultsFilters({
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    ssrPolyfills,
+  });
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -289,6 +308,9 @@ export function useExperimentDimensionRows({
   return {
     tables,
     allMetricTags,
+    availableMetricTags,
+    availableMetricGroups,
+    availableSliceTags,
   };
 }
 

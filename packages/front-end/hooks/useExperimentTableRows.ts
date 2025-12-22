@@ -8,6 +8,7 @@ import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   FactMetricInterface,
   FactTableInterface,
+  FactTableColumnType,
 } from "shared/types/fact-table";
 import {
   expandMetricGroups,
@@ -32,6 +33,7 @@ import {
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useExperimentResultsFilters } from "./useExperimentResultsFilters";
 
 export interface UseExperimentTableRowsParams {
   results: ExperimentReportResultDimension;
@@ -69,6 +71,13 @@ export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
   allMetricTags: string[];
   getChildRowCounts: (metricId: string) => { total: number; pinned: number };
+  availableMetricTags: string[];
+  availableMetricGroups: Array<{ id: string; name: string }>;
+  availableSliceTags: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
 }
 
 export function useExperimentTableRows({
@@ -95,6 +104,17 @@ export function useExperimentTableRows({
   enablePinning = true,
   expandedMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
+  const {
+    availableMetricTags,
+    availableMetricGroups,
+    availableSliceTags,
+  } = useExperimentResultsFilters({
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    customMetricSlices,
+    ssrPolyfills,
+  });
   const {
     getExperimentMetricById: _getExperimentMetricById,
     getFactTableById: _getFactTableById,
@@ -375,6 +395,9 @@ export function useExperimentTableRows({
     rows,
     allMetricTags,
     getChildRowCounts,
+    availableMetricTags,
+    availableMetricGroups,
+    availableSliceTags,
   };
 }
 

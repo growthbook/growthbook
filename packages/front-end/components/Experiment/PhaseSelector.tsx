@@ -57,7 +57,7 @@ export default function PhaseSelector({
 
     if (isValueContext) {
       // Collapsed/selected value mode - show tooltip version
-      return (
+    return (
         <Tooltip
           body={
             <>
@@ -95,19 +95,19 @@ export default function PhaseSelector({
     // Dropdown menu mode - show full option version
     return (
       <div className="cursor-pointer">
-        <span className="font-weight-bold">{phaseIndex + 1}: </span>
+          <span className="font-weight-bold">{phaseIndex + 1}: </span>
         <span className="font-weight-bold">{phase.name}</span>
-        <div className="break mt-1" />
-        <span className="date-label mt-1">
-          {phase.lookbackStartDate && isHoldout
-            ? date(phase.lookbackStartDate, "UTC")
-            : date(phase.dateStarted ?? "", "UTC")}{" "}
-          — {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
-        </span>
-        {!isHoldout && (
+          <div className="break mt-1" />
+          <span className="date-label mt-1">
+            {phase.lookbackStartDate && isHoldout
+              ? date(phase.lookbackStartDate, "UTC")
+              : date(phase.dateStarted ?? "", "UTC")}{" "}
+            — {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+          </span>
+          {!isHoldout && (
           <div className="small">{phaseSummary(phase, isBandit)}</div>
-        )}
-      </div>
+          )}
+        </div>
     );
   }
 

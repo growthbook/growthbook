@@ -46,6 +46,7 @@ export default function BaselineChooserColumnLabel({
   dropdownEnabled,
   isHoldout = false,
 }: BaselineChooserColumnLabelProps) {
+  const canChangeBaseline = !!setBaselineRow && dropdownEnabled;
   const { apiCall } = useAuth();
 
   const [postLoading, setPostLoading] = useState(false);
@@ -216,7 +217,7 @@ export default function BaselineChooserColumnLabel({
           >
             {isHoldout ? "Holdout" : baselineVariation.name}
           </OverflowText>
-          {dropdownEnabled && (
+          {canChangeBaseline && (
             <Flex align="center" gap="1">
               <PiCaretDownFill style={{ fontSize: "12px" }} />
               {postLoading && (
@@ -229,7 +230,7 @@ export default function BaselineChooserColumnLabel({
     </Tooltip>
   );
 
-  if (!dropdownEnabled || !setBaselineRow) {
+  if (!canChangeBaseline) {
     return trigger;
   }
 

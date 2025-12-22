@@ -1,5 +1,4 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FactTableColumnType } from "shared/types/fact-table";
 import React, { useMemo, useState } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
@@ -40,16 +39,13 @@ import Callout from "@/ui/Callout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
-import {
-  getAllMetricTags,
-  filterMetricsByTags,
-} from "@/hooks/useExperimentTableRows";
+import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
+import { useExperimentResultsFilters } from "@/hooks/useExperimentResultsFilters";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -59,27 +55,12 @@ export interface Props {
   setDifferenceType: (differenceType: DifferenceType) => void;
   dimension?: string;
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
-  metricTagFilter?: string[];
-  setMetricTagFilter?: (tags: string[]) => void;
-  metricGroupsFilter?: string[];
-  setMetricGroupsFilter?: (groups: string[]) => void;
-  availableMetricGroups?: Array<{ id: string; name: string }>;
-  availableSliceTags?: Array<{
-    id: string;
-    datatypes: Record<string, FactTableColumnType>;
-    isSelectAll?: boolean;
-  }>;
-  sliceTagsFilter?: string[];
-  setSliceTagsFilter?: (tags: string[]) => void;
-  sortBy?: "significance" | "change" | null;
-  setSortBy?: (s: "significance" | "change" | null) => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
-  envs: _envs,
   mutate,
   statsEngine,
   editMetrics,
@@ -89,16 +70,6 @@ export default function AnalysisSettingsSummary({
   setDifferenceType,
   dimension,
   setDimension,
-  metricTagFilter,
-  setMetricTagFilter,
-  metricGroupsFilter,
-  setMetricGroupsFilter,
-  availableMetricGroups = [],
-  availableSliceTags = [],
-  sliceTagsFilter,
-  setSliceTagsFilter,
-  sortBy: _sortBy,
-  setSortBy: _setSortBy,
 }: Props) {
   const {
     getDatasourceById,
@@ -272,7 +243,25 @@ export default function AnalysisSettingsSummary({
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const { allMetricTags, allMetrics, filteredMetrics } = useMemo(() => {
+  const {
+    availableMetricTags,
+    availableMetricGroups,
+    availableSliceTags,
+    metricTagFilter,
+    setMetricTagFilter,
+    metricGroupsFilter,
+    setMetricGroupsFilter,
+    sliceTagsFilter,
+    setSliceTagsFilter,
+  } = useExperimentResultsFilters({
+    experimentId: experiment.id,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+    customMetricSlices: experiment.customMetricSlices,
+  });
+
+  const { allMetrics, filteredMetrics } = useMemo(() => {
     const allMetricsArrays = [
       experiment.goalMetrics ?? [],
       experiment.secondaryMetrics ?? [],
@@ -305,14 +294,6 @@ export default function AnalysisSettingsSummary({
       }
     });
     const allMetrics = Array.from(allMetricsMap.values());
-
-    const allMetricTags = getAllMetricTags(
-      expandedGoals,
-      expandedSecondaries,
-      expandedGuardrails,
-      undefined,
-      getExperimentMetricById,
-    );
 
     const hasGroupFilter = (metricGroupsFilter?.length ?? 0) > 0;
     const groupsToUse = hasGroupFilter
@@ -348,7 +329,6 @@ export default function AnalysisSettingsSummary({
     const filteredMetrics = Array.from(filteredMetricsMap.values());
 
     return {
-      allMetricTags,
       allMetrics,
       filteredMetrics,
     };
@@ -560,7 +540,7 @@ export default function AnalysisSettingsSummary({
     availableSliceTags.length > 0 && hasMetricSlicesFeature;
   const hasAvailableMetricGroups =
     availableMetricGroups.length > 0 && hasMetricGroupsFeature;
-  const hasAvailableTags = allMetricTags.length > 0;
+  const hasAvailableTags = availableMetricTags.length > 0;
 
   const hasAnyAvailableFilter =
     hasAvailableSlices || hasAvailableMetricGroups || hasAvailableTags;
@@ -594,13 +574,14 @@ export default function AnalysisSettingsSummary({
                 <Separator orientation="vertical" ml="5" mr="2" />
               )}
               <ResultsMetricFilter
-                metricTags={allMetricTags}
+                goalMetrics={experiment.goalMetrics}
+                secondaryMetrics={experiment.secondaryMetrics}
+                guardrailMetrics={experiment.guardrailMetrics}
+                customMetricSlices={experiment.customMetricSlices}
                 metricTagFilter={metricTagFilter}
                 setMetricTagFilter={setMetricTagFilter}
-                availableMetricGroups={availableMetricGroups}
                 metricGroupsFilter={metricGroupsFilter}
                 setMetricGroupsFilter={setMetricGroupsFilter}
-                availableSliceTags={availableSliceTags}
                 sliceTagsFilter={sliceTagsFilter}
                 setSliceTagsFilter={setSliceTagsFilter}
                 showMetricFilter={showMetricFilter}

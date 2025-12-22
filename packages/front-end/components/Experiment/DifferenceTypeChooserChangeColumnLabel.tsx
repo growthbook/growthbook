@@ -135,6 +135,7 @@ export default function DifferenceTypeChooserChangeColumnLabel({
   setAnalysisSettings,
   mutate,
 }: DifferenceTypeChooserChangeColumnLabelProps) {
+  const canChangeDifferenceType = !!setDifferenceType;
   const { apiCall } = useAuth();
 
   const [postLoading, setPostLoading] = useState(false);
@@ -224,13 +225,21 @@ export default function DifferenceTypeChooserChangeColumnLabel({
     >
       <Flex align="center">
         {changeTitle}
-        <PiCaretDownFill style={{ fontSize: "12px" }} />
-        {postLoading && (
-          <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+        {canChangeDifferenceType && (
+          <>
+            <PiCaretDownFill style={{ fontSize: "12px" }} />
+            {postLoading && (
+              <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+            )}
+          </>
         )}
       </Flex>
     </Tooltip>
   );
+
+  if (!canChangeDifferenceType) {
+    return trigger;
+  }
 
   return (
     <DropdownMenu
