@@ -53,6 +53,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -89,6 +90,7 @@ export class ReqContextClass {
     dashboards: DashboardModel;
     customHooks: CustomHookModel;
     incrementalRefresh: IncrementalRefreshModel;
+    sqlResultChunks: SqlResultChunkModel;
   };
   private initModels() {
     this.models = {
@@ -115,6 +117,7 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      sqlResultChunks: new SqlResultChunkModel(this),
     };
   }
 

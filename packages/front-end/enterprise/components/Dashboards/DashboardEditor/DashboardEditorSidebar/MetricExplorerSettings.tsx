@@ -58,7 +58,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   useEffect(() => {
     // If there is only one userId type for a Fact Table and no userId type is selected, auto-select for the user
     if (
-      factTable?.userIdTypes?.length === 1 &&
+      factTable?.userIdTypes?.length &&
       block.analysisSettings.userIdType === ""
     ) {
       setBlock({

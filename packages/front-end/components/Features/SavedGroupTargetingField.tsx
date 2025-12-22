@@ -143,10 +143,11 @@ export default function SavedGroupTargetingField({
                     formatOptionLabel={(o, meta) => {
                       if (meta.context !== "value") return o.label;
                       const group = getSavedGroupById(o.value);
+                      if (!group) return o.label;
                       const link =
-                        group?.type === "list"
+                        group.type === "list"
                           ? `/saved-groups/${group.id}`
-                          : "/saved-groups#conditionGroups";
+                          : `/saved-groups?q=${encodeURIComponent(group.groupName)}#conditionGroups`;
                       return (
                         <Link href={link} target="_blank">
                           {o.label} <PiArrowSquareOut />

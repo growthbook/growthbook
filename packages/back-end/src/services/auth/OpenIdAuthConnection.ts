@@ -22,7 +22,7 @@ import {
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
 import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
-import { getSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
+import { _dangerousGetSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
@@ -48,7 +48,7 @@ const passthroughQueryParams = ["hypgen", "hypothesis"];
 
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
 const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
-  const ssoConnection = await getSSOConnectionById(ssoConnectionId);
+  const ssoConnection = await _dangerousGetSSOConnectionById(ssoConnectionId);
   if (ssoConnection) {
     return ssoConnection;
   }

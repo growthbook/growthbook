@@ -171,6 +171,11 @@ export interface ExposureQuery {
   error?: string;
 }
 
+export interface FeatureUsageQuery {
+  id: string;
+  query: string;
+}
+
 export interface UserIdType {
   userIdType: string;
   description?: string;
@@ -249,6 +254,7 @@ export type DataSourceSettings = {
     identityJoins?: IdentityJoinQuery[];
     // @deprecated
     pageviewsQuery?: string;
+    featureUsage?: FeatureUsageQuery[];
   };
   events?: DataSourceEvents;
   default?: {

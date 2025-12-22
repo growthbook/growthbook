@@ -16,7 +16,12 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "shared/validators";
-import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
+import {
+  PiCopySimple,
+  PiPencilSimpleFill,
+  PiPushPinFill,
+  PiTrashSimpleFill,
+} from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import Button from "@/ui/Button";
@@ -26,7 +31,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
-import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
+import SqlExplorerModal, {
+  SqlExplorerModalInitial,
+} from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -36,6 +43,8 @@ import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvid
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
+import Modal from "@/components/Modal";
+import { useAuth } from "@/services/auth";
 import { BLOCK_TYPE_INFO } from "..";
 import {
   useDashboardSnapshot,
@@ -157,9 +166,10 @@ export default function EditSingleBlock({
     getDatasourceById,
     factMetrics,
   } = useDefinitions();
+  const { apiCall } = useAuth();
   const {
     data: savedQueriesData,
-    mutate: mutateQuery,
+    mutate: mutateQueries,
     isLoading,
   } = useApi<{
     status: number;
@@ -174,7 +184,13 @@ export default function EditSingleBlock({
     [metricGroups],
   );
 
-  const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
+  const [sqlExplorerModalProps, setSqlExplorerModalProps] = useState<
+    { initial?: SqlExplorerModalInitial; savedQueryId?: string } | undefined
+  >(undefined);
+  const [
+    showDeleteSavedQueryConfirmation,
+    setShowDeleteSavedQueryConfirmation,
+  ] = useState(false);
   const [selectedMetricIdForPinning, setSelectedMetricIdForPinning] =
     useState<string>("");
 
@@ -513,7 +529,7 @@ export default function EditSingleBlock({
       !savedQueryId
     ) {
       setSqlExplorerType("create");
-      setShowSqlExplorerModal(true);
+      setSqlExplorerModalProps({});
     }
   }, [block?.type, savedQueryId, savedQueryOptions.length, sqlExplorerType]);
 
@@ -567,15 +583,37 @@ export default function EditSingleBlock({
 
   return (
     <>
-      {showSqlExplorerModal && (
+      {savedQuery && showDeleteSavedQueryConfirmation && (
+        <Modal
+          trackingEventModalType=""
+          header={"Delete Saved Query?"}
+          close={() => setShowDeleteSavedQueryConfirmation(false)}
+          open={true}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall(`/saved-queries/${savedQuery.id}`, {
+              method: "DELETE",
+            });
+            if (blockHasFieldOfType(block, "savedQueryId", isString)) {
+              setBlock({ ...block, savedQueryId: "" });
+            }
+            mutateQueries();
+          }}
+          increasedElevation={true}
+        >
+          Are you sure? This action cannot be undone.
+        </Modal>
+      )}
+      {sqlExplorerModalProps && (
         <SqlExplorerModal
           close={() => {
-            setShowSqlExplorerModal(false);
+            setSqlExplorerModalProps(undefined);
           }}
-          mutate={mutateQuery}
-          initial={savedQuery}
+          mutate={mutateQueries}
+          initial={sqlExplorerModalProps.initial}
           projects={projects}
-          id={savedQuery?.id}
+          id={sqlExplorerModalProps.savedQueryId}
           dashboardId={dashboardId}
           onSave={async ({
             savedQueryId,
@@ -615,7 +653,7 @@ export default function EditSingleBlock({
               blockConfig: newBlockConfig,
             });
             setSqlExplorerType("existing");
-            await mutateQuery();
+            await mutateQueries();
             await updateAllSnapshots();
           }}
         />
@@ -1215,10 +1253,10 @@ export default function EditSingleBlock({
                 {sqlExplorerType === "create" ? (
                   <Button
                     variant="soft"
-                    onClick={() => setShowSqlExplorerModal(true)}
+                    onClick={() => setSqlExplorerModalProps({})}
                   >
                     <span className="w-100">
-                      <PiPencilSimpleFill /> Edit query
+                      <PiPencilSimpleFill /> Create query
                     </span>
                   </Button>
                 ) : (
@@ -1228,18 +1266,49 @@ export default function EditSingleBlock({
                       labelClassName="flex-grow-1"
                       containerClassName="mb-0"
                       value={savedQuery?.id || ""}
+                      forceUndefinedValueToNull
                       placeholder="Choose a saved query"
                       label={
                         <Flex justify="between" align="center">
                           <Text weight="bold">Saved Query</Text>
-                          <IconButton
-                            disabled={!block.savedQueryId}
-                            variant="soft"
-                            size="1"
-                            onClick={() => setShowSqlExplorerModal(true)}
-                          >
-                            <PiPencilSimpleFill />
-                          </IconButton>
+                          <Flex align="center" gap="1">
+                            <IconButton
+                              disabled={!savedQuery}
+                              variant="soft"
+                              size="1"
+                              onClick={() =>
+                                setShowDeleteSavedQueryConfirmation(true)
+                              }
+                            >
+                              <PiTrashSimpleFill />
+                            </IconButton>
+                            <IconButton
+                              disabled={!savedQuery}
+                              variant="soft"
+                              size="1"
+                              onClick={() =>
+                                setSqlExplorerModalProps({
+                                  initial: savedQuery,
+                                })
+                              }
+                            >
+                              <PiCopySimple />
+                            </IconButton>
+
+                            <IconButton
+                              disabled={!savedQuery}
+                              variant="soft"
+                              size="1"
+                              onClick={() =>
+                                setSqlExplorerModalProps({
+                                  initial: savedQuery,
+                                  savedQueryId: savedQuery?.id,
+                                })
+                              }
+                            >
+                              <PiPencilSimpleFill />
+                            </IconButton>
+                          </Flex>
                         </Flex>
                       }
                       options={savedQueryOptions}

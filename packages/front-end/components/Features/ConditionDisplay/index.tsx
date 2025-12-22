@@ -18,7 +18,15 @@ import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
-function operatorToText(operator: string, isPrerequisite?: boolean): string {
+function operatorToText({
+  operator,
+  isPrerequisite,
+  hasMultipleSavedGroups,
+}: {
+  operator: string;
+  isPrerequisite?: boolean;
+  hasMultipleSavedGroups?: boolean;
+}): string {
   switch (operator) {
     case "$eq":
     case "$veq":
@@ -55,9 +63,9 @@ function operatorToText(operator: string, isPrerequisite?: boolean): string {
     case "$nin":
       return `is not in the list`;
     case "$inGroup":
-      return `is in the saved group`;
+      return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
-      return `is not in the saved group`;
+      return `is not in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$true":
       return "is";
     case "$false":
@@ -87,7 +95,6 @@ function getValue(
   // Get the groupName from the associated group.id to display a human readable name.
   if ((operator === "$inGroup" || operator === "$notInGroup") && savedGroups) {
     const index = savedGroups.find((i) => i.id === value);
-
     return index?.groupName || "Group was Deleted";
   }
   return value;
@@ -95,14 +102,24 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
-export function MultiValuesDisplay({ values }: { values: string[] }) {
+export function MultiValuesDisplay({
+  values,
+  displayMap,
+}: {
+  values: string[];
+  displayMap?: Record<string, string>;
+}) {
   return (
     <>
       {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
         <Badge
           key={i}
           color="gray"
-          label={<Text style={{ color: "var(--slate-12)" }}>{v}</Text>}
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>
+              {displayMap?.[v] || v}
+            </Text>
+          }
         />
       ))}
       {values.length > MULTI_VALUE_LIMIT && (
@@ -111,7 +128,7 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
             <div>
               {values.slice(MULTI_VALUE_LIMIT).map((v, i) => (
                 <span key={i} className={`${styles.Tooltip} ml-1`}>
-                  {v}
+                  {displayMap?.[v] || v}
                 </span>
               ))}
             </div>
@@ -127,11 +144,21 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
   );
 }
 
-function MultiValueDisplay({ value }: { value: string }) {
+function MultiValueDisplay({
+  value,
+  displayMap,
+  noParensForSingleValue = false,
+}: {
+  value: string;
+  displayMap?: Record<string, string>;
+  noParensForSingleValue?: boolean;
+}) {
   const parts = value
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
+
+  const skipParens = noParensForSingleValue && parts.length <= 1;
 
   if (!parts.length) {
     return (
@@ -142,8 +169,9 @@ function MultiValueDisplay({ value }: { value: string }) {
   }
   return (
     <>
-      <span className="mr-1">(</span>
-      <MultiValuesDisplay values={parts} />)
+      {!skipParens && <span>(</span>}
+      <MultiValuesDisplay values={parts} displayMap={displayMap} />
+      {!skipParens && <span>)</span>}
     </>
   );
 }
@@ -207,15 +235,47 @@ function getConditionParts({
         );
       }
     }
+
+    // For saved groups, hide the "field" element and tweak the operator
+    if (field === "$savedGroups") {
+      fieldEl = null;
+      if (operator === "$in") {
+        operator = "$inGroup";
+      } else if (operator === "$nin") {
+        operator = "$notInGroup";
+      }
+    }
+
+    const savedGroupValueParts =
+      field === "$savedGroups"
+        ? value
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : [];
+    const hasMultipleSavedGroups = savedGroupValueParts.length > 1;
+
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}
         {parentIdEl}
         {fieldEl}
         <span className="mr-1">
-          {operatorToText(operator, renderPrerequisite)}
+          {operatorToText({
+            operator,
+            isPrerequisite: renderPrerequisite,
+            hasMultipleSavedGroups,
+          })}
         </span>
-        {hasMultiValues(operator) ? (
+        {field === "$savedGroups" ? (
+          <MultiValueDisplay
+            value={value}
+            displayMap={Object.fromEntries(
+              (savedGroups || []).map((sg) => [sg.id, sg.groupName]),
+            )}
+            noParensForSingleValue={true}
+          />
+        ) : hasMultiValues(operator) ? (
           <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
           <Badge
