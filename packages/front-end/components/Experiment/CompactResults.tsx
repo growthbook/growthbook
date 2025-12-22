@@ -33,13 +33,13 @@ import {
   SliceLevelsData,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
+import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -247,6 +247,28 @@ const CompactResults: FC<{
     [guardrailMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
 
+  // Calculate pre-filtered metric count (allMetrics) for "No metrics" message
+  const totalMetricsCount = useMemo(() => {
+    const allExpandedIds = [
+      ...expandedGoals,
+      ...expandedSecondaries,
+      ...expandedGuardrails,
+    ];
+    const allMetricsMap = new Map<string, ExperimentMetricInterface>();
+    allExpandedIds.forEach((id) => {
+      const metric = getExperimentMetricById(id);
+      if (metric && !allMetricsMap.has(id)) {
+        allMetricsMap.set(id, metric);
+      }
+    });
+    return allMetricsMap.size;
+  }, [
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+    getExperimentMetricById,
+  ]);
+
   // Track previous sliceTagsFilter to detect when it goes from non-empty to empty
   const prevSliceTagsFilterRef = useRef<string[] | undefined>(sliceTagsFilter);
 
@@ -353,6 +375,7 @@ const CompactResults: FC<{
           pValueCorrection={pValueCorrection}
           differenceType={differenceType}
           setDifferenceType={setDifferenceType}
+          totalMetricsCount={totalMetricsCount}
           renderLabelColumn={getRenderLabelColumn({
             statsEngine,
             hideDetails,
@@ -414,6 +437,7 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             setDifferenceType={setDifferenceType}
+            totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,
@@ -475,6 +499,7 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             setDifferenceType={setDifferenceType}
+            totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,
@@ -753,13 +778,16 @@ export function getRenderLabelColumn({
           >
             {hasSlices && toggleExpandedMetric ? (
               <a
-                className="link-purple"
+                className={!row?.labelOnly ? "link-purple" : "text-muted"}
                 role="button"
-                onClick={() =>
-                  toggleExpandedMetric(metric.id, location || "goal")
+                onClick={
+                  row?.labelOnly
+                    ? undefined
+                    : () => toggleExpandedMetric(metric.id, location || "goal")
                 }
                 style={{
                   textDecoration: "none",
+                  cursor: row?.labelOnly ? "default" : "pointer",
                 }}
               >
                 <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
@@ -770,8 +798,9 @@ export function getRenderLabelColumn({
                         : "Expand metric slices"
                     }
                     tipPosition="top"
+                    shouldDisplay={!row?.labelOnly}
                   >
-                    {isExpanded ? (
+                    {isExpanded || row?.labelOnly ? (
                       <PiCaretCircleDown size={16} />
                     ) : (
                       <PiCaretCircleRight size={16} />

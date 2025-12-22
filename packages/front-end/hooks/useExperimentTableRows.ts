@@ -459,24 +459,36 @@ export function generateRowsForMetric({
     return [];
   }
 
+  // When slice filters are active and metric has slices, make parent row label-only
+  const isLabelOnly =
+    sliceTagsFilter && sliceTagsFilter.length > 0 && numSlices > 0;
+
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
     metric: newMetric,
     metricOverrideFields: overrideFields,
     rowClass: newMetric?.inverse ? "inverse" : "",
-    variations: resultsArray[0].variations.map((v) => {
-      return (
-        v.metrics?.[metricId] || {
+    variations: isLabelOnly
+      ? resultsArray[0].variations.map(() => ({
           users: 0,
           value: 0,
           cr: 0,
           errorMessage: "No data",
-        }
-      );
-    }),
+        }))
+      : resultsArray[0].variations.map((v) => {
+          return (
+            v.metrics?.[metricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
+        }),
     metricSnapshotSettings,
     resultGroup,
     numSlices,
+    labelOnly: isLabelOnly,
   };
 
   const rows: ExperimentTableRow[] = [];

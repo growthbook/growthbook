@@ -318,7 +318,6 @@ export default function ResultsTab({
                   : {}),
               })
             }
-            reportArgs={reportArgs}
             metricTagFilter={metricTagFilter}
             setMetricTagFilter={setMetricTagFilter}
             metricGroupsFilter={metricGroupsFilter}

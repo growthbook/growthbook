@@ -21,7 +21,6 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { startCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
@@ -59,7 +58,6 @@ export interface Props {
   setDifferenceType: (differenceType: DifferenceType) => void;
   dimension?: string;
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
-  reportArgs?: ExperimentSnapshotReportArgs;
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
   metricGroupsFilter?: string[];
@@ -86,7 +84,6 @@ export default function AnalysisSettingsSummary({
   setDifferenceType,
   dimension,
   setDimension,
-  reportArgs,
   metricTagFilter,
   setMetricTagFilter,
   metricGroupsFilter,
@@ -669,7 +666,6 @@ export default function AnalysisSettingsSummary({
 
           <ResultMoreMenu
             experiment={experiment}
-            snapshotId={snapshot?.id || ""}
             datasource={datasource}
             forceRefresh={
               allMetrics.length > 0
@@ -710,7 +706,6 @@ export default function AnalysisSettingsSummary({
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
-            reportArgs={reportArgs}
             queries={
               latest && latest.status !== "error" && latest.queries
                 ? latest.queries

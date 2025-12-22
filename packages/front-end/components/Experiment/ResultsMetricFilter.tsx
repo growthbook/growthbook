@@ -56,16 +56,18 @@ export default function ResultsMetricFilter({
         triggerAsChild={true}
         trigger={
           <Button color="violet" variant="ghost" size="sm" icon={<PiPlus />}>
-            <span>Filters</span>
-            {activeFilterCount > 0 && (
-              <Badge
-                color="indigo"
-                variant="solid"
-                radius="full"
-                label={String(activeFilterCount)}
-                ml="1"
-              />
-            )}
+            <Flex align="center" gap="1">
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <Badge
+                  color="indigo"
+                  variant="solid"
+                  radius="full"
+                  label={String(activeFilterCount)}
+                  style={{ minWidth: 18, height: 18 }}
+                />
+              )}
+            </Flex>
           </Button>
         }
         content={
@@ -73,16 +75,18 @@ export default function ResultsMetricFilter({
             <Box>
               <Flex align="center" justify="between" mb="2">
                 <Heading size="2" weight="medium">
-                  Filters
-                  {activeFilterCount > 0 && (
-                    <Badge
-                      color="indigo"
-                      variant="solid"
-                      radius="full"
-                      label={String(activeFilterCount)}
-                      ml="1"
-                    />
-                  )}
+                  <Flex align="center" gap="1">
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <Badge
+                        color="indigo"
+                        variant="solid"
+                        radius="full"
+                        label={String(activeFilterCount)}
+                        style={{ minWidth: 18, height: 18 }}
+                      />
+                    )}
+                  </Flex>
                 </Heading>
                 {filteringApplied ? (
                   <Link
