@@ -3,8 +3,8 @@ import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
 import { isString } from "shared/util";
-import { blockHasFieldOfType } from "shared/enterprise";
 import {
+  blockHasFieldOfType,
   dashboardInterface,
   DashboardInterface,
   CreateDashboardBlockInterface,
