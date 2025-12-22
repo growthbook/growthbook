@@ -93,8 +93,8 @@ export default function SqlExplorerBlock({
               dataVizConfig={dataVizConfig}
               chartId={
                 blockId
-                  ? `sql-explorer-${blockId}`
-                  : `sql-explorder-${block.title}-${index}`
+                  ? `sql-explorer-${blockId}-${configId}-${index}`
+                  : undefined
               }
             />
           </Box>
