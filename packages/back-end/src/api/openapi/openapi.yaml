@@ -149,6 +149,9 @@ paths:
   /feature-keys:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
+  /stale-features:
+    get:
+      $ref: "./paths/getStaleFeatures.yaml"
   /projects:
     get:
       $ref: "./paths/listProjects.yaml"

@@ -63,14 +63,15 @@ async function run() {
         // Zod validators for request params, querystring, and body
         const requestSchema =
           p[method].requestBody?.["content"]?.["application/json"]?.["schema"];
-        const { querySchema, pathSchema } = getParameterSchemas([
-          ...(p.parameters || []),
-          ...(p[method].parameters || []),
-        ]);
+        const { querySchema, pathSchema, arrayQueryParams } =
+          getParameterSchemas([
+            ...(p.parameters || []),
+            ...(p[method].parameters || []),
+          ]);
         validators.push(
           `export const ${id}Validator = {
   bodySchema: ${generateZodSchema(requestSchema, false)},
-  querySchema: ${generateZodSchema(querySchema)},
+  querySchema: ${generateZodSchema(querySchema, true, arrayQueryParams)},
   paramsSchema: ${generateZodSchema(pathSchema)},
 };`,
         );
@@ -98,7 +99,11 @@ run()
     process.exit(1);
   });
 
-function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
+function generateZodSchema(
+  jsonSchema,
+  coerceStringsToNumbers = true,
+  arrayQueryParams = [],
+) {
   if (!jsonSchema) {
     return `z.never()`;
   }
@@ -106,6 +111,47 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
   let zod = parseSchema(jsonSchema);
 
   if (zod.startsWith("z.object")) {
+    // For array query parameters, wrap with preprocessing to handle both string and array formats
+    // Express parses ?param=value as a string, but ?param=value1&param=value2 as an array
+    if (arrayQueryParams.length > 0) {
+      // Replace array validators for query params with preprocessed versions
+      arrayQueryParams.forEach((paramName) => {
+        // Find the array validator for this parameter and wrap it with preprocessing
+        // Match: "paramName": z.array(...) or "paramName": z.array(...).optional()
+        // Note: This regex assumes simple types inside arrays (like z.string(), z.number())
+        // For complex nested types, manual adjustment may be needed
+        const withOptionalPattern = new RegExp(
+          `"${paramName}":\\s*z\\.array\\(([^)]+)\\)\\.optional\\(\\)`,
+          "g",
+        );
+        const withoutOptionalPattern = new RegExp(
+          `"${paramName}":\\s*z\\.array\\(([^)]+)\\)(?!\\.optional)`,
+          "g",
+        );
+
+        // Replace with .optional() first
+        zod = zod.replace(
+          withOptionalPattern,
+          `"${paramName}": z.preprocess((val) => {
+    if (val === undefined) return undefined;
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") return [val];
+    return val;
+  }, z.array($1).optional())`,
+        );
+
+        // Then replace without .optional()
+        zod = zod.replace(
+          withoutOptionalPattern,
+          `"${paramName}": z.preprocess((val) => {
+    if (val === undefined) return undefined;
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") return [val];
+    return val;
+  }, z.array($1))`,
+        );
+      });
+    }
     zod += ".strict()";
   }
 
@@ -130,11 +176,16 @@ function getParameterSchemas(parameters) {
   const pathProperties = {};
   const requiredQueryParams = [];
   const requiredPathParams = [];
+  const arrayQueryParams = [];
   parameters.forEach((param) => {
     if (param.in === "query") {
       queryProperties[param.name] = param.schema;
       if (param.required) {
         requiredQueryParams.push(param.name);
+      }
+      // Track array query parameters that need preprocessing
+      if (param.schema && param.schema.type === "array") {
+        arrayQueryParams.push(param.name);
       }
     } else if (param.in === "path") {
       pathProperties[param.name] = param.schema;
@@ -161,5 +212,6 @@ function getParameterSchemas(parameters) {
   return {
     querySchema,
     pathSchema,
+    arrayQueryParams,
   };
 }

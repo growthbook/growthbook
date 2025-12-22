@@ -53,6 +53,13 @@ export interface paths {
     /** Get list of feature keys */
     get: operations["getFeatureKeys"];
   };
+  "/stale-features": {
+    /**
+     * Get stale and archived features 
+     * @description Get stale and archived features based on staleness heuristics. Only returns features that are either stale or archived.
+     */
+    get: operations["getStaleFeatures"];
+  };
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
@@ -3808,6 +3815,33 @@ export interface components {
       required: boolean;
       projects?: (string)[];
       values?: string;
+    };
+    StaleFeaturesResponse: ({
+      features: ({
+          /** @description The feature ID */
+          id: string;
+          /** @description The owner/creator of the feature flag */
+          owner: string;
+          /**
+           * Format: date-time 
+           * @description When the feature was created
+           */
+          dateCreated: string;
+          /** @description Whether the feature is considered stale */
+          stale: boolean;
+          /**
+           * @description The reason why the feature is stale (only present if stale is true) 
+           * @enum {string}
+           */
+          reason?: "error" | "no-rules" | "rules-one-sided";
+        })[];
+    }) & {
+      limit: number;
+      offset: number;
+      count: number;
+      total: number;
+      hasMore: boolean;
+      nextOffset: OneOf<[number, null]>;
     };
   };
   responses: {
@@ -7982,6 +8016,74 @@ export interface operations {
       200: {
         content: {
           "application/json": (string)[];
+        };
+      };
+    };
+  };
+  getStaleFeatures: {
+    /**
+     * Get stale and archived features 
+     * @description Get stale and archived features based on staleness heuristics. Only returns features that are either stale or archived.
+     */
+    parameters: {
+        /** @description Filter by project id */
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Optional array of feature IDs to check. If omitted, all features will be checked (filtered by projectId if provided). */
+      query: {
+        projectId?: string;
+        limit?: number;
+        offset?: number;
+        flagIds?: (string)[];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        content: {
+          "application/json": ({
+            features: ({
+                /** @description The feature ID */
+                id: string;
+                /** @description The owner/creator of the feature flag */
+                owner: string;
+                /** @description Whether the feature is archived */
+                archived: boolean;
+                /**
+                 * Format: date-time 
+                 * @description When the feature was created
+                 */
+                dateCreated: string;
+                /**
+                 * Format: date-time 
+                 * @description When the feature was last updated. Features are sorted by this field (oldest first) to prioritize the most stale features.
+                 */
+                dateUpdated: string;
+                /**
+                 * @description The type of the feature value 
+                 * @enum {string}
+                 */
+                valueType: "boolean" | "string" | "number" | "json";
+                /** @description Custom fields associated with the feature */
+                customFields: {
+                  [key: string]: unknown | undefined;
+                };
+                /** @description Map of environment IDs to their effective values. Follows the same structure as the features endpoint for consistency. */
+                environments: {
+                  [key: string]: ({
+                    /** @description The effective value for this environment (stored as string, parse based on valueType). This is the value that should be used when removing the stale flag in this environment. For archived features or disabled environments with non-boolean types, this will be null since we don't know the fallback value in code. */
+                    value: string | null;
+                  }) | undefined;
+                };
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -14187,6 +14289,7 @@ export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
 export type ApiCustomField = z.infer<typeof openApiValidators.apiCustomFieldValidator>;
+export type ApiStaleFeaturesResponse = z.infer<typeof openApiValidators.apiStaleFeaturesResponseValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -14198,6 +14301,7 @@ export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["20
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
+export type GetStaleFeaturesResponse = operations["getStaleFeatures"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
