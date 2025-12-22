@@ -2543,7 +2543,7 @@ export async function postFeatureEvaluate(
   }
   const date = evalDate ? new Date(evalDate) : new Date();
 
-  const groupMap = await getSavedGroupMap(org);
+  const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -2611,7 +2611,7 @@ export async function postFeaturesEvaluate(
     features,
     context,
     attributeValues: attributes,
-    groupMap: await getSavedGroupMap(context.org),
+    groupMap: await getSavedGroupMap(context),
     environments: environments,
     safeRolloutMap,
   });
