@@ -14,15 +14,14 @@ export default function DisplaySettingsPanel({
   dataVizConfig,
   onDataVizConfigChange,
 }: Props) {
-  const chartSupportsDisplaySettings =
-    dataVizConfig.chartType === "bar" ||
-    dataVizConfig.chartType === "line" ||
-    dataVizConfig.chartType === "area" ||
-    dataVizConfig.chartType === "scatter";
-
-  if (!chartSupportsDisplaySettings) {
+  // Only render if displaySettings has configurable properties
+  if (Object.keys(dataVizConfig.displaySettings ?? {}).length === 0) {
     return null;
   }
+
+  // Check if chart type supports anchorToZero (only line and scatter charts)
+  const supportsAnchorToZero =
+    dataVizConfig.chartType === "line" || dataVizConfig.chartType === "scatter";
 
   return (
     <>
@@ -70,22 +69,21 @@ export default function DisplaySettingsPanel({
         >
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
-              <Checkbox
-                label="Anchor chart to zero"
-                value={
-                  !dataVizConfig.displaySettings?.disableAnchorToZero || false
-                }
-                setValue={() => {
-                  onDataVizConfigChange({
-                    ...dataVizConfig,
-                    displaySettings: {
-                      ...dataVizConfig.displaySettings,
-                      disableAnchorToZero:
-                        !dataVizConfig.displaySettings?.disableAnchorToZero,
-                    },
-                  });
-                }}
-              />
+              {supportsAnchorToZero && (
+                <Checkbox
+                  label="Anchor chart to zero"
+                  value={dataVizConfig.displaySettings?.anchorToZero ?? true}
+                  setValue={(anchorToZero) => {
+                    onDataVizConfigChange({
+                      ...dataVizConfig,
+                      displaySettings: {
+                        ...dataVizConfig.displaySettings,
+                        anchorToZero,
+                      },
+                    });
+                  }}
+                />
+              )}
             </Flex>
           </Box>
         </Collapsible>

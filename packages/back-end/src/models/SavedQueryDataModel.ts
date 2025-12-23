@@ -24,6 +24,46 @@ const BaseClass = MakeModelClass({
 });
 
 export class SavedQueryDataModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): SavedQuery {
+    const doc = legacyDoc as SavedQuery;
+
+    // Migrate anchorToZero for line and scatter charts
+    if (doc.dataVizConfig && Array.isArray(doc.dataVizConfig)) {
+      const chartTypesWithAnchorToZero = ["line", "scatter"];
+
+      doc.dataVizConfig = doc.dataVizConfig.map((config) => {
+        const chartType = config.chartType;
+
+        // Only handle line and scatter charts
+        if (!chartTypesWithAnchorToZero.includes(chartType)) {
+          return config;
+        }
+
+        const configWithDisplaySettings = config as typeof config & {
+          displaySettings?: {
+            anchorToZero?: boolean;
+          };
+        };
+        const displaySettings = configWithDisplaySettings.displaySettings;
+
+        // Ensure anchorToZero exists (default to true)
+        if (!displaySettings || !("anchorToZero" in displaySettings)) {
+          return {
+            ...config,
+            displaySettings: {
+              ...(displaySettings || {}),
+              anchorToZero: true,
+            },
+          } as typeof config;
+        }
+
+        return config;
+      });
+    }
+
+    return doc;
+  }
+
   protected canRead(doc: SavedQuery): boolean {
     const { datasource } = this.getForeignRefs(doc);
     return this.context.permissions.canViewSqlExplorerQueries({

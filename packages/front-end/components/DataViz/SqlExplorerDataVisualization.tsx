@@ -140,18 +140,7 @@ export function DataVisualizationDisplay({
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
 }) {
-  type AxisChartConfig = Extract<
-    DataVizConfig,
-    { chartType: "bar" | "line" | "area" | "scatter" }
-  >;
-
-  const axisDisplaySettings: AxisChartConfig["displaySettings"] | undefined =
-    dataVizConfig.chartType === "bar" ||
-    dataVizConfig.chartType === "line" ||
-    dataVizConfig.chartType === "area" ||
-    dataVizConfig.chartType === "scatter"
-      ? (dataVizConfig as Partial<AxisChartConfig>).displaySettings
-      : undefined;
+  const anchorToZero = dataVizConfig.displaySettings?.anchorToZero ?? true;
 
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
@@ -770,7 +759,7 @@ export function DataVisualizationDisplay({
         axisLabel: {
           color: textColor,
         },
-        scale: !!axisDisplaySettings?.disableAnchorToZero,
+        scale: !anchorToZero,
         type:
           xConfig?.type === "date"
             ? "time"
@@ -779,7 +768,7 @@ export function DataVisualizationDisplay({
               : "category",
       },
       yAxis: {
-        scale: !!axisDisplaySettings?.disableAnchorToZero,
+        scale: !anchorToZero,
         name:
           yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
@@ -800,7 +789,7 @@ export function DataVisualizationDisplay({
   }, [
     dataset,
     dataVizConfig.title,
-    axisDisplaySettings?.disableAnchorToZero,
+    anchorToZero,
     textColor,
     dimensionFields.length,
     xConfig?.type,

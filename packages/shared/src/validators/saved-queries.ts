@@ -149,14 +149,7 @@ const baseChartConfig = z.object({
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   filters: z.array(filterConfigurationValidator).optional(),
-});
-
-const withDisplaySettings = z.object({
-  displaySettings: z
-    .object({
-      disableAnchorToZero: z.boolean().optional(), // This prevents the y-axis on a chart from being anchored to 0, which is the default behavior
-    })
-    .optional(),
+  displaySettings: z.object({}).optional(),
 });
 
 const withXAxis = z.object({
@@ -188,27 +181,33 @@ const withFormat = z.object({
 // Chart type definitions using composition
 const barChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("bar") }))
-  .merge(withDisplaySettings)
   .merge(withXAxis)
   .merge(withExtendedDimensions);
 
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
-  .merge(withDisplaySettings)
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorToZero: z.boolean(),
+    }),
+  });
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
-  .merge(withDisplaySettings)
   .merge(withXAxis)
   .merge(withExtendedDimensions);
 
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
-  .merge(withDisplaySettings)
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorToZero: z.boolean(),
+    }),
+  });
 
 const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))
