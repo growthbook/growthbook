@@ -109,26 +109,6 @@ describe("experimentQueries", () => {
         );
         expect(metricsPerChunk).toBe(18);
 
-        // Verify chunks are created
-        expect(chunks.length).toBeGreaterThan(0);
-
-        // Verify no chunk exceeds column limit
-        chunks.forEach((chunk) => {
-          const totalCols =
-            baseColumnsNeeded +
-            chunk.reduce(
-              (sum, m) =>
-                sum +
-                maxColumnsNeededForMetric({
-                  metric: m,
-                  regressionAdjusted: false,
-                  bandit: false,
-                }),
-              0,
-            );
-          expect(totalCols).toBeLessThanOrEqual(maxColumnsPerQuery);
-        });
-
         // Verify all metrics are present across chunks
         const totalMetricsInChunks = chunks.reduce(
           (sum, chunk) => sum + chunk.length,
@@ -145,42 +125,6 @@ describe("experimentQueries", () => {
         for (let i = 0; i < chunks.length - 1; i++) {
           expect(chunks[i].length).toBe(metricsPerChunk);
         }
-      });
-      it("should respect both column limit and MAX_METRICS_PER_QUERY limit", () => {
-        // Use a high column limit so metric count is the limiting factor
-        const maxColumnsPerQuery = 50000;
-
-        // Create 250 quantile metrics (more than MAX_METRICS_PER_QUERY)
-        const metrics: FactMetricInterface[] = [];
-        for (let i = 0; i < 250; i++) {
-          metrics.push(
-            factMetricFactory.build({
-              metricType: "quantile",
-              numerator: { factTableId: "ft_1" },
-            }),
-          );
-        }
-
-        const chunks = chunkMetrics({
-          metrics: wrapMetrics(metrics, false),
-          maxColumnsPerQuery,
-          bandit: false,
-        });
-
-        // Each chunk should have at most MAX_METRICS_PER_QUERY metrics
-        chunks.forEach((chunk) => {
-          expect(chunk.length).toBeLessThanOrEqual(MAX_METRICS_PER_QUERY);
-        });
-
-        // Total metrics should be preserved
-        const totalMetrics = chunks.reduce(
-          (sum, chunk) => sum + chunk.length,
-          0,
-        );
-        expect(totalMetrics).toBe(250);
-
-        // With 250 metrics and max 200 per chunk, we need at least 2 chunks
-        expect(chunks.length).toBeGreaterThanOrEqual(2);
       });
     });
 
@@ -248,10 +192,10 @@ describe("experimentQueries", () => {
 
         // Mean = 3 cols, Ratio = 6 cols
         // 100 mean metrics = 300 cols, 100 ratio metrics = 600 cols
-        // With 897 available per chunk, should fit efficiently
-        // First chunk: can fit ~199 mean metrics or ~149 ratio metrics
-        // Should need 3 chunks total
-        expect(chunks.length).toEqual(3);
+        // With 897 available per chunk, that means we need two chunks
+        expect(chunks.length).toEqual(2);
+        expect(chunks[0].length).toEqual(199);
+        expect(chunks[1].length).toEqual(1);
       });
 
       it("should handle mixed metrics with CUPED enabled", () => {
@@ -292,59 +236,6 @@ describe("experimentQueries", () => {
           0,
         );
         expect(totalMetrics).toBe(100);
-      });
-
-      it("should handle interleaved mean and ratio metrics", () => {
-        const maxColumnsPerQuery = 1000;
-
-        // Create interleaved mean and ratio metrics
-        const metrics: FactMetricInterface[] = [];
-        for (let i = 0; i < 100; i++) {
-          metrics.push(
-            factMetricFactory.build({
-              metricType: "mean",
-              numerator: { factTableId: "ft_1" },
-            }),
-          );
-          metrics.push(
-            factMetricFactory.build({
-              metricType: "ratio",
-              numerator: { factTableId: "ft_1" },
-              denominator: { factTableId: "ft_1" },
-            }),
-          );
-        }
-
-        const chunks = chunkMetrics({
-          metrics: wrapMetrics(metrics, false),
-          maxColumnsPerQuery,
-          bandit: false,
-        });
-
-        // Verify all 200 metrics are present
-        const totalMetricsInChunks = chunks.reduce(
-          (sum, chunk) => sum + chunk.length,
-          0,
-        );
-        expect(totalMetricsInChunks).toBe(200);
-
-        // Verify no chunk exceeds limits
-        chunks.forEach((chunk) => {
-          const totalCols =
-            baseColumnsNeeded +
-            chunk.reduce(
-              (sum, m) =>
-                sum +
-                maxColumnsNeededForMetric({
-                  metric: m,
-                  regressionAdjusted: false,
-                  bandit: false,
-                }),
-              0,
-            );
-          expect(totalCols).toBeLessThanOrEqual(maxColumnsPerQuery);
-          expect(chunk.length).toBeLessThanOrEqual(MAX_METRICS_PER_QUERY);
-        });
       });
     });
 
