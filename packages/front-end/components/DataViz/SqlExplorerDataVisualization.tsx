@@ -140,6 +140,19 @@ export function DataVisualizationDisplay({
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
 }) {
+  type AxisChartConfig = Extract<
+    DataVizConfig,
+    { chartType: "bar" | "line" | "area" | "scatter" }
+  >;
+
+  const axisDisplaySettings: AxisChartConfig["displaySettings"] | undefined =
+    dataVizConfig.chartType === "bar" ||
+    dataVizConfig.chartType === "line" ||
+    dataVizConfig.chartType === "area" ||
+    dataVizConfig.chartType === "scatter"
+      ? (dataVizConfig as Partial<AxisChartConfig>).displaySettings
+      : undefined;
+
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
     return parsed.success;
@@ -757,7 +770,7 @@ export function DataVisualizationDisplay({
         axisLabel: {
           color: textColor,
         },
-        scale: true,
+        scale: !!axisDisplaySettings?.disableAnchorToZero,
         type:
           xConfig?.type === "date"
             ? "time"
@@ -766,7 +779,7 @@ export function DataVisualizationDisplay({
               : "category",
       },
       yAxis: {
-        scale: true,
+        scale: !!axisDisplaySettings?.disableAnchorToZero,
         name:
           yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
@@ -786,16 +799,17 @@ export function DataVisualizationDisplay({
     };
   }, [
     dataset,
-    series,
-    xField,
-    yField,
+    dataVizConfig.title,
+    axisDisplaySettings?.disableAnchorToZero,
+    textColor,
+    dimensionFields.length,
     xConfig?.type,
     xConfig?.dateAggregationUnit,
+    xField,
     yConfig?.aggregation,
-    dimensionFields,
-    dataVizConfig.title,
-    textColor,
     yConfig?.type,
+    yField,
+    series,
   ]);
 
   if (dataVizConfig.chartType === "big-value") {

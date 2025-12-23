@@ -151,6 +151,14 @@ const baseChartConfig = z.object({
   filters: z.array(filterConfigurationValidator).optional(),
 });
 
+const withDisplaySettings = z.object({
+  displaySettings: z
+    .object({
+      disableAnchorToZero: z.boolean().optional(), // This prevents the y-axis on a chart from being anchored to 0, which is the default behavior
+    })
+    .optional(),
+});
+
 const withXAxis = z.object({
   xAxis: xAxisConfigurationValidator,
 });
@@ -180,21 +188,25 @@ const withFormat = z.object({
 // Chart type definitions using composition
 const barChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("bar") }))
+  .merge(withDisplaySettings)
   .merge(withXAxis)
   .merge(withExtendedDimensions);
 
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
+  .merge(withDisplaySettings)
   .merge(withXAxis)
   .merge(withBaseDimensions);
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
+  .merge(withDisplaySettings)
   .merge(withXAxis)
   .merge(withExtendedDimensions);
 
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
+  .merge(withDisplaySettings)
   .merge(withXAxis)
   .merge(withBaseDimensions);
 

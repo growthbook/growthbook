@@ -20,6 +20,7 @@ import {
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizFilterPanel from "./DataVizFilterPanel";
 import DataVizDimensionPanel from "./DataVizDimensionPanel";
+import DisplaySettingsPanel from "./DisplaySettingsPanel";
 
 export function inferFieldType(
   sampleRow: Record<string, unknown>,
@@ -847,6 +848,10 @@ export default function DataVizConfigPanel({
         dataVizConfig={dataVizConfig}
         onDataVizConfigChange={onDataVizConfigChange}
         rows={rows}
+      />
+      <DisplaySettingsPanel
+        dataVizConfig={dataVizConfig}
+        onDataVizConfigChange={onDataVizConfigChange}
       />
     </Flex>
   );
