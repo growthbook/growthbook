@@ -6,22 +6,23 @@ export const N_STAR_VALUES = [
   409600, 819200, 1638400, 3276800, 6553600, 13107200, 26214400, 52428800,
 ];
 
-export const BASE_METRIC_FLOAT_COLS = [
-  "main_sum",
-  "main_sum_squares",
-  "main_cap_value",
-  "denominator_cap_value",
-  "covariate_sum",
-  "covariate_sum_squares",
-  "main_covariate_sum_product",
-  "theta",
-];
+// Base columns
+export const BASE_METRIC_FLOAT_COLS = ["main_sum", "main_sum_squares"];
 
 export const RATIO_METRIC_FLOAT_COLS = [
-  ...BASE_METRIC_FLOAT_COLS,
   "denominator_sum",
   "denominator_sum_squares",
   "main_denominator_sum_product",
+];
+
+// CUPED columns
+export const BASE_METRIC_CUPED_FLOAT_COLS = [
+  "covariate_sum",
+  "covariate_sum_squares",
+  "main_covariate_sum_product",
+];
+
+export const RATIO_METRIC_CUPED_FLOAT_COLS = [
   "denominator_pre_sum",
   "denominator_pre_sum_squares",
   "main_post_denominator_pre_sum_product",
@@ -30,4 +31,21 @@ export const RATIO_METRIC_FLOAT_COLS = [
   "denominator_post_denominator_pre_sum_product",
 ];
 
-export const ALL_NON_QUANTILE_METRIC_FLOAT_COLS = RATIO_METRIC_FLOAT_COLS;
+export const BANDIT_CUPED_FLOAT_COLS = ["theta"];
+
+// Percentile capping columns
+export const BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS = ["main_cap_value"];
+
+export const RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS = [
+  "denominator_cap_value",
+];
+
+export const ALL_NON_QUANTILE_METRIC_FLOAT_COLS = [
+  ...BASE_METRIC_FLOAT_COLS,
+  ...RATIO_METRIC_FLOAT_COLS,
+  ...BASE_METRIC_CUPED_FLOAT_COLS,
+  ...RATIO_METRIC_CUPED_FLOAT_COLS,
+  ...BANDIT_CUPED_FLOAT_COLS,
+  ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+  ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+];

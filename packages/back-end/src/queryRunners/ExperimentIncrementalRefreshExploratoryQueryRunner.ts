@@ -126,6 +126,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     metrics: selectedMetrics.filter((m) => isFactMetric(m)),
     existingMetricSources: existingSources ?? [],
     integration,
+    snapshotSettings,
   });
 
   for (const group of metricSourceGroups) {

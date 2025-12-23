@@ -2,38 +2,135 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isLegacyMetric,
+  isPercentileCappedMetric,
   isRatioMetric,
+  isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
-import { FactMetricInterface, FactMetricType } from "shared/types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
+import cloneDeep from "lodash/cloneDeep";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  BANDIT_CUPED_FLOAT_COLS,
+  BASE_METRIC_CUPED_FLOAT_COLS,
   BASE_METRIC_FLOAT_COLS,
+  BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
+  RATIO_METRIC_CUPED_FLOAT_COLS,
   RATIO_METRIC_FLOAT_COLS,
+  RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
 } from "./constants";
 
-export function maxColumnsNeededForMetricType(metricType: FactMetricType) {
+// Gets all columns besides the speciality quantile columns for all metrics
+export function getNonQuantileFloatColumns({
+  metric,
+  regressionAdjusted,
+  bandit,
+}: {
+  metric: FactMetricInterface;
+  regressionAdjusted: boolean;
+  bandit: boolean;
+}): string[] {
+  const baseCols = (() => {
+    switch (metric.metricType) {
+      case "mean":
+      case "proportion":
+      case "dailyParticipation":
+      case "retention":
+        return BASE_METRIC_FLOAT_COLS;
+      case "ratio":
+        return [...BASE_METRIC_FLOAT_COLS, ...RATIO_METRIC_FLOAT_COLS];
+      case "quantile":
+        return [...BASE_METRIC_FLOAT_COLS, ...RATIO_METRIC_FLOAT_COLS];
+    }
+  })();
+
+  const cupedCols = (() => {
+    if (!regressionAdjusted) {
+      return [];
+    }
+    switch (metric.metricType) {
+      case "mean":
+      case "proportion":
+      case "dailyParticipation":
+      case "retention":
+        return BASE_METRIC_CUPED_FLOAT_COLS;
+      case "ratio":
+        return [
+          ...BASE_METRIC_CUPED_FLOAT_COLS,
+          ...RATIO_METRIC_CUPED_FLOAT_COLS,
+        ];
+      case "quantile":
+        return [
+          ...BASE_METRIC_CUPED_FLOAT_COLS,
+          ...RATIO_METRIC_CUPED_FLOAT_COLS,
+        ];
+    }
+  })();
+
+  const percentileCappingCols = (() => {
+    if (!isPercentileCappedMetric(metric)) {
+      return [];
+    }
+    switch (metric.metricType) {
+      case "mean":
+      case "proportion":
+      case "dailyParticipation":
+      case "retention":
+        return BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS;
+      case "ratio":
+        return [
+          ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+          ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+        ];
+      case "quantile":
+        return [];
+    }
+  })();
+
+  const cols = [...baseCols, ...cupedCols, ...percentileCappingCols];
+
+  if (bandit) {
+    cols.push(...BANDIT_CUPED_FLOAT_COLS);
+  }
+
+  return cols;
+}
+
+export function maxColumnsNeededForMetric({
+  metric,
+  regressionAdjusted,
+  bandit,
+}: {
+  metric: FactMetricInterface;
+  regressionAdjusted: boolean;
+  bandit: boolean;
+}) {
   // id column
   const boilerplateCols = 1;
-  switch (metricType) {
+
+  const floatCols = getNonQuantileFloatColumns({
+    metric,
+    regressionAdjusted,
+    bandit,
+  });
+  switch (metric.metricType) {
     case "mean":
     case "proportion":
     case "dailyParticipation":
     case "retention":
-      return boilerplateCols + BASE_METRIC_FLOAT_COLS.length;
     case "ratio":
-      return boilerplateCols + RATIO_METRIC_FLOAT_COLS.length;
+      return boilerplateCols + floatCols.length;
     case "quantile":
       return (
         boilerplateCols +
-        // needed for event quantiles
-        RATIO_METRIC_FLOAT_COLS.length +
+        floatCols.length +
         // quantile_n and quantile
         2 +
         // quantile_lower and quantile_upper per n_star
@@ -42,11 +139,18 @@ export function maxColumnsNeededForMetricType(metricType: FactMetricType) {
   }
 }
 
-export function chunkMetrics(
-  metrics: FactMetricInterface[],
-  // From integration settings
-  maxColumnsPerQuery: number,
-) {
+export function chunkMetrics({
+  metrics,
+  maxColumnsPerQuery,
+  bandit,
+}: {
+  metrics: {
+    metric: FactMetricInterface;
+    regressionAdjusted: boolean;
+  }[];
+  maxColumnsPerQuery: number;
+  bandit: boolean;
+}): FactMetricInterface[][] {
   // up to 100 dimensions (overkill, but also adds in buffer)
   // + 1 for variation + 2 for users and count
   const baseColumnsNeeded = 103;
@@ -55,8 +159,12 @@ export function chunkMetrics(
 
   let runningCols = baseColumnsNeeded;
   let runningChunk: FactMetricInterface[] = [];
-  metrics.forEach((m) => {
-    const colsNeeded = maxColumnsNeededForMetricType(m.metricType);
+  metrics.forEach(({ metric: m, regressionAdjusted }) => {
+    const colsNeeded = maxColumnsNeededForMetric({
+      metric: m,
+      regressionAdjusted,
+      bandit,
+    });
     const updatedCols = runningCols + colsNeeded;
     if (
       updatedCols > maxColumnsPerQuery ||
@@ -165,10 +273,21 @@ export function getFactMetricGroups(
   const groupArrays: FactMetricInterface[][] = [];
   Object.values(groups).forEach((group) => {
     // Split groups into chunks of MAX_METRICS_PER_QUERY
-    const chunks = chunkMetrics(
-      group,
-      integration.getSourceProperties().maxColumns,
-    );
+    const chunks = chunkMetrics({
+      metrics: group.map((m) => {
+        const metric = cloneDeep(m);
+        // TODO(overrides): refactor overrides to beginning of analysis
+        applyMetricOverrides(metric, settings);
+        return {
+          metric,
+          regressionAdjusted:
+            isRegressionAdjusted(metric) &&
+            settings.regressionAdjustmentEnabled,
+        };
+      }),
+      maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
+      bandit: !!settings.banditSettings,
+    });
     groupArrays.push(...chunks);
   });
 

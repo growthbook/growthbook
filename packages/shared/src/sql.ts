@@ -5,8 +5,6 @@ import { FormatError } from "../types/error";
 
 export const SQL_ROW_LIMIT = 1000;
 
-export const SQL_COL_LIMIT = 1000;
-
 export const MAX_SQL_LENGTH_TO_FORMAT = parseInt(
   process.env.MAX_SQL_LENGTH_TO_FORMAT || "15000",
 );

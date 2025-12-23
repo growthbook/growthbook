@@ -60,7 +60,6 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;

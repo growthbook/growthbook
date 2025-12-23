@@ -20,6 +20,7 @@ import {
   getColumnExpression,
   isCappableMetricType,
   getFactTableTemplateVariables,
+  isPercentileCappedMetric,
   parseSliceMetricId,
 } from "shared/experiments";
 import {
@@ -2714,11 +2715,7 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // Get capping settings and final coalesce statement
-    const isPercentileCapped =
-      metric.cappingSettings.type === "percentile" &&
-      !!metric.cappingSettings.value &&
-      metric.cappingSettings.value < 1 &&
-      isCappableMetricType(metric);
+    const isPercentileCapped = isPercentileCappedMetric(metric);
 
     const numeratorSourceIndex =
       factTablesWithIndices.find(
@@ -3746,18 +3743,9 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // Get capping settings and final coalesce statement
-    const isPercentileCapped =
-      metric.cappingSettings.type === "percentile" &&
-      !!metric.cappingSettings.value &&
-      metric.cappingSettings.value < 1 &&
-      isCappableMetricType(metric);
+    const isPercentileCapped = isPercentileCappedMetric(metric);
 
-    const denominatorIsPercentileCapped =
-      denominator &&
-      denominator.cappingSettings.type === "percentile" &&
-      !!denominator.cappingSettings.value &&
-      denominator.cappingSettings.value < 1 &&
-      isCappableMetricType(denominator);
+    const denominatorIsPercentileCapped = isPercentileCappedMetric(denominator);
 
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",
