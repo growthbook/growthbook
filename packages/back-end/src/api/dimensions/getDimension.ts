@@ -1,10 +1,10 @@
-import { GetDimensionResponse } from "back-end/types/openapi";
+import { GetDimensionResponse } from "shared/types/openapi";
+import { getDimensionValidator } from "shared/validators";
 import {
   findDimensionById,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getDimensionValidator } from "back-end/src/validators/openapi";
 
 export const getDimension = createApiRequestHandler(getDimensionValidator)(
   async (req): Promise<GetDimensionResponse> => {

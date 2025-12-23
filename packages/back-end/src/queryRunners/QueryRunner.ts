@@ -6,7 +6,7 @@ import {
   QueryPointer,
   QueryStatus,
   QueryType,
-} from "back-end/types/query";
+} from "shared/types/query";
 import {
   countRunningQueries,
   createNewQuery,

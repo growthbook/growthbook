@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "next/link";
@@ -33,6 +33,7 @@ import Frame from "@/ui/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
+import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -416,6 +417,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     />
                   </Frame>
                 ) : null}
+
+                <Frame>
+                  <FeatureEvaluationQueries
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
 
                 {d.settings.notebookRunQuery && (
                   <Frame>

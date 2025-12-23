@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";

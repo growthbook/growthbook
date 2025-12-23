@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";

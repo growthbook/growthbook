@@ -3,17 +3,17 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   ExperimentStatus,
   ExperimentType,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";

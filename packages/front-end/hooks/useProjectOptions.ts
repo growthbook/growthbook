@@ -1,4 +1,4 @@
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 // This hook returns list of projects user has permission for along with any projects already associated with a resource (e.g. metric.projects)

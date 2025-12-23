@@ -1,6 +1,8 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isResultsTableItem } from "shared/enterprise";
+import {
+  SqlExplorerBlockInterface,
+  isResultsTableItem,
+} from "shared/enterprise";
 import {
   DataVisualizationDisplay,
   SqlExplorerDataVisualization,

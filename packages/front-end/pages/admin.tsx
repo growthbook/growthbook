@@ -2,7 +2,7 @@ import { FC, useCallback, useEffect, useState } from "react";
 import {
   ExpandedMember,
   OrganizationInterface,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import clsx from "clsx";
 import { Box, useThemeContext } from "@radix-ui/themes";
 import {
@@ -17,7 +17,7 @@ import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
 import { LicenseInterface } from "shared/enterprise";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useForm } from "react-hook-form";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";

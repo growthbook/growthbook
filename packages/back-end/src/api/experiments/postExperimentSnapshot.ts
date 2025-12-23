@@ -1,3 +1,5 @@
+import { postExperimentSnapshotValidator } from "shared/validators";
+import { PostExperimentSnapshotResponse } from "shared/types/openapi";
 import {
   createExperimentSnapshot,
   SNAPSHOT_TIMEOUT,
@@ -6,8 +8,6 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postExperimentSnapshotValidator } from "back-end/src/validators/openapi";
-import { PostExperimentSnapshotResponse } from "back-end/types/openapi";
 
 // TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(

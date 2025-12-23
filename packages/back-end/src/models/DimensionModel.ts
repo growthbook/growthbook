@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { ApiDimension } from "back-end/types/openapi";
-import { DimensionInterface } from "back-end/types/dimension";
+import { ApiDimension } from "shared/types/openapi";
+import { DimensionInterface } from "shared/types/dimension";
 import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";

@@ -11,8 +11,15 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
+import { StatsEngine } from "shared/types/stats";
+import {
+  ExperimentHealthSettings,
+  ExperimentInterface,
+  ExperimentNotification,
+  ExperimentResultStatusData,
+} from "shared/types/experiment";
+import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -22,13 +29,6 @@ import {
   ExperimentSnapshotDocument,
   getLatestSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  ExperimentHealthSettings,
-  ExperimentInterface,
-  ExperimentNotification,
-  ExperimentResultStatusData,
-} from "back-end/types/experiment";
-import { ResourceEvents } from "back-end/types/events/base-types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getConfidenceLevelsForOrg,

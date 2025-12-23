@@ -1,11 +1,12 @@
-import { MetricType } from "back-end/types/metric";
+import { MetricType } from "shared/types/metric";
 import {
   ColumnInterface,
   ColumnRef,
   FactTableInterface,
   CreateFactMetricProps,
   FactMetricInterface,
-} from "back-end/types/fact-table";
+  RowFilter,
+} from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
   ExperimentMetricInterface,
@@ -26,27 +27,31 @@ import {
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
-  existingInlineFilters?: Record<string, string[]>,
-) {
-  const inlineFilters = { ...existingInlineFilters };
+  existingRowFilters?: RowFilter[],
+): RowFilter[] {
+  const rowFilters = [...(existingRowFilters || [])];
   factTable.columns
     .filter(
       (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
     )
     .forEach((c) => {
-      if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
-        inlineFilters[c.column] = [""];
+      if (!rowFilters.some((rf) => rf.column === c.column)) {
+        rowFilters.push({
+          column: c.column,
+          operator: "=",
+          values: [""],
+        });
       }
     });
-  return inlineFilters;
+  return rowFilters;
 }
 
 export function getDefaultFactMetricProps({
@@ -65,7 +70,7 @@ export function getDefaultFactMetricProps({
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
   managedBy?: "" | "api" | "admin";
-}): CreateFactMetricProps {
+}): CreateFactMetricProps & { targetMDE: number } {
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
@@ -75,10 +80,9 @@ export function getDefaultFactMetricProps({
     numerator: existing?.numerator || {
       factTableId: initialFactTable?.id || "",
       column: "$$count",
-      filters: [],
-      inlineFilters: initialFactTable
+      rowFilters: initialFactTable
         ? getInitialInlineFilters(initialFactTable)
-        : {},
+        : [],
     },
     projects: existing?.projects || [],
     denominator: existing?.denominator || null,

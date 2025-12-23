@@ -3,7 +3,7 @@ import {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
-import { DataSourceType } from "back-end/types/datasource";
+import { DataSourceType } from "shared/types/datasource";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
 import {

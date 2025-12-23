@@ -1,8 +1,9 @@
+import { GetFeatureResponse } from "shared/types/openapi";
+import { getFeatureValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { GetFeatureResponse } from "back-end/types/openapi";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getFeature as getFeatureDB } from "back-end/src/models/FeatureModel";
 import {
@@ -10,7 +11,6 @@ import {
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeatureValidator } from "back-end/src/validators/openapi";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   req,

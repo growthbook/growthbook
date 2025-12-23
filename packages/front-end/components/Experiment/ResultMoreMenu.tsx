@@ -2,16 +2,16 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { FaFileDownload, FaPencilAlt, FaPlay } from "react-icons/fa";
 import { BiTable } from "react-icons/bi";
-import { Queries } from "back-end/types/query";
+import { Queries } from "shared/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   ExperimentSnapshotReportArgs,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Button";
