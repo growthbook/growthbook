@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useMemo, useState } from "react";
 import { Text } from "@radix-ui/themes";
 import { getScopedSettings } from "shared/settings";

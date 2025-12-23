@@ -3,8 +3,8 @@ import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
-import { OrganizationSettings } from "back-end/types/organization";
+} from "shared/types/report";
+import { OrganizationSettings } from "shared/types/organization";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { formatTrafficSplit } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";

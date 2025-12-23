@@ -1,7 +1,7 @@
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,
@@ -19,7 +19,7 @@ import {
   NodeHandler,
   recursiveWalk,
 } from "../util";
-import { SDKCapability } from "./index";
+import { SDKCapability } from "./types";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
 const strictFeatureRuleKeys = [

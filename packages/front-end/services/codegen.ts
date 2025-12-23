@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 
 export type TrackingType = "mixpanel" | "ga" | "segment" | "custom";
 

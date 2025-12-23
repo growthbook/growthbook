@@ -1,5 +1,5 @@
-import { CreateFactTableProps } from "back-end/types/fact-table";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { CreateFactTableProps } from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { StatsigMetricSource } from "@/services/importing/statsig/types";
 
 /**

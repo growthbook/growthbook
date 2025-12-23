@@ -1,11 +1,11 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateURLRedirectProps,
   URLRedirectInterface,
   UpdateURLRedirectProps,
-} from "back-end/types/url-redirect";
+} from "shared/types/url-redirect";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 export const postURLRedirect = async (
   req: AuthRequest<

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { useState } from "react";
-import { Variation, VariationWithIndex } from "back-end/types/experiment";
+import { Variation, VariationWithIndex } from "shared/types/experiment";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 export interface Props {

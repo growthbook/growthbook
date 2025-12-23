@@ -13,6 +13,7 @@ import {
   InformationSchemaInterface,
   Column,
 } from "shared/types/integrations";
+import { DataSourceInterface } from "shared/types/datasource";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -35,7 +36,6 @@ import {
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { fetchTableData } from "back-end/src/services/informationSchema";
 import { ReqContext } from "back-end/types/request";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { ApiReqContext } from "back-end/types/api";
 
 /**

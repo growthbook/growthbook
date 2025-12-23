@@ -13,8 +13,6 @@ import { TemplateVariables } from "shared/types/sql";
 import { factTableColumnTypes } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   DataSourceParams,
   DataSourceType,
@@ -26,7 +24,11 @@ import {
   MaterializedColumn,
   MaterializedColumnType,
   GrowthbookClickhouseSettings,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getSourceIntegrationObject,
   getNonSensitiveParams,
@@ -52,7 +54,6 @@ import {
   deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { getMetricsByDatasource } from "back-end/src/models/MetricModel";
 import { deleteInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
 import { deleteInformationSchemaTablesByInformationSchemaId } from "back-end/src/models/InformationSchemaTablesModel";
@@ -74,7 +75,6 @@ import {
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
-import { FactTableColumnType } from "back-end/types/fact-table";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "../models/ExperimentModel";
 

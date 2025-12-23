@@ -1,5 +1,5 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 
 // mutates metric object itself!
 export function applyMetricOverrides(

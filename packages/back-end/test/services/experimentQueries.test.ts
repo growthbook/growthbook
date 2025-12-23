@@ -1,9 +1,9 @@
+import { FactMetricInterface } from "shared/types/fact-table";
 import {
   chunkMetrics,
   maxColumnsNeededForMetricType,
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
 describe("experimentQueries", () => {

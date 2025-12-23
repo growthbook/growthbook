@@ -2,7 +2,7 @@ import React, { FC, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   FeatureUsageQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";

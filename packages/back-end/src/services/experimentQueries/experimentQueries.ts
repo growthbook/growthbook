@@ -5,12 +5,12 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { FactMetricInterface, FactMetricType } from "back-end/types/fact-table";
+import { FactMetricInterface, FactMetricType } from "shared/types/fact-table";
+import { MetricInterface } from "shared/types/metric";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { OrganizationInterface } from "shared/types/organization";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
-import { OrganizationInterface } from "back-end/types/organization";
 import {
   BASE_METRIC_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,

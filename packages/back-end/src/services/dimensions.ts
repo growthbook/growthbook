@@ -3,7 +3,7 @@ import {
   ExperimentDimensionWithSpecifiedSlices,
 } from "shared/types/integrations";
 import { IncrementalRefreshInterface } from "shared/validators";
-import { ExposureQuery } from "back-end/types/datasource";
+import { ExposureQuery } from "shared/types/datasource";
 
 // Gets all Dimensions from the exposure query
 export function getExposureQueryDimensions({

@@ -4,7 +4,7 @@ import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
-} from "back-end/types/metric";
+} from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";

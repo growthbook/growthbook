@@ -44,8 +44,12 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "shared/types/sdk";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
-import { ApiReqContext } from "back-end/types/api";
+import {
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
+} from "shared/types/openapi";
+import { HoldoutInterface } from "shared/validators";
 import {
   AttributeMap,
   ExperimentRefRule,
@@ -58,7 +62,18 @@ import {
   FeatureTestResult,
   ForceRule,
   RolloutRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
+import {
+  Environment,
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "shared/types/organization";
+import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
@@ -71,12 +86,6 @@ import {
   getParsedCondition,
 } from "back-end/src/util/features";
 import { getAllSavedGroups } from "back-end/src/models/SavedGroupModel";
-import {
-  Environment,
-  OrganizationInterface,
-  SDKAttribute,
-  SDKAttributeSchema,
-} from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 import {
   getSDKPayload,
@@ -87,23 +96,11 @@ import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
-  ApiFeatureWithRevisions,
-  ApiFeatureEnvironment,
-  ApiFeatureRule,
-} from "back-end/types/openapi";
-import {
-  ExperimentInterface,
-  ExperimentPhase,
-} from "back-end/types/experiment";
-import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import {
+  SignedImageUrlResponse,
+  SignedUploadUrlResponse,
+  UploadResponse,
+} from "shared/types/upload";
+import {
   uploadFile,
   getSignedImageUrl,
   getSignedUploadUrl,
@@ -11,11 +16,6 @@ import {
   getContextFromReq,
   getOrganizationById,
 } from "back-end/src/services/organizations";
-import {
-  SignedImageUrlResponse,
-  SignedUploadUrlResponse,
-  UploadResponse,
-} from "back-end/types/upload";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
 import { getExperimentByUid } from "back-end/src/models/ExperimentModel";
 import {

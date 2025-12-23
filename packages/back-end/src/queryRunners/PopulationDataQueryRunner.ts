@@ -13,24 +13,24 @@ import {
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
 } from "shared/types/integrations";
-import { ApiReqContext } from "back-end/types/api";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import {
   Queries,
   QueryPointer,
   QueryStatus,
   PopulationDataQuerySettings,
-} from "back-end/types/query";
+} from "shared/types/query";
+import {
+  PopulationDataInterface,
+  PopulationDataMetric,
+} from "shared/types/population-data";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { ApiReqContext } from "back-end/types/api";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
-import {
-  PopulationDataInterface,
-  PopulationDataMetric,
-} from "back-end/types/population-data";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import {
   QueryRunner,
   QueryMap,

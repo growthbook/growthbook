@@ -1,5 +1,8 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import { MetricInterface } from "back-end/types/metric";
+import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
+import cloneDeep from "lodash/cloneDeep";
+import uniqid from "uniqid";
+import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -9,35 +12,32 @@ import {
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
-import cloneDeep from "lodash/cloneDeep";
+} from "shared/types/report";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-} from "back-end/types/datasource";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+} from "shared/types/datasource";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import uniqid from "uniqid";
+} from "shared/types/stats";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { TemplateVariables } from "../types/sql";
 import { stringToBoolean } from "./util";
 import {

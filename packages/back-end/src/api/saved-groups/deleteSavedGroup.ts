@@ -1,10 +1,10 @@
-import { DeleteSavedGroupResponse } from "back-end/types/openapi";
+import { DeleteSavedGroupResponse } from "shared/types/openapi";
+import { deleteSavedGroupValidator } from "shared/validators";
 import {
   deleteSavedGroupById,
   getSavedGroupById,
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteSavedGroupValidator } from "back-end/src/validators/openapi";
 
 export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator,

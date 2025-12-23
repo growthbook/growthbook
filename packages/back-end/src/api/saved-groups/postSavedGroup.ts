@@ -1,12 +1,12 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "back-end/types/openapi";
+import { PostSavedGroupResponse } from "shared/types/openapi";
+import { postSavedGroupValidator } from "shared/validators";
 import {
   createSavedGroup,
   toSavedGroupApiInterface,
   getAllSavedGroups,
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postSavedGroupValidator } from "back-end/src/validators/openapi";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(

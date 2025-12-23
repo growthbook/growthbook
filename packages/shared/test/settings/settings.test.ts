@@ -1,8 +1,8 @@
 import {
   OrganizationInterface,
   OrganizationSettings,
-} from "back-end/types/organization";
-import { ProjectInterface } from "back-end/types/project";
+} from "shared/types/organization";
+import { ProjectInterface } from "shared/types/project";
 import { DEFAULT_STATS_ENGINE } from "../../src/constants";
 import { getScopedSettings } from "../../src/settings";
 import { experiments, metrics } from "./test-objects";

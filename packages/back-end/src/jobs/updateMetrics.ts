@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { OrganizationInterface } from "shared/types/organization";
 import { getOrganizationsWithNorthStars } from "back-end/src/models/OrganizationModel";
 import {
   DEFAULT_METRIC_ANALYSIS_DAYS,
@@ -12,7 +13,6 @@ import {
   getContextForAgendaJobByOrgObject,
   getOrganizationById,
 } from "back-end/src/services/organizations";
-import { OrganizationInterface } from "back-end/types/organization";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
