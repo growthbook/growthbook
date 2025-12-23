@@ -19,7 +19,6 @@ import { isNil, omit } from "lodash";
 import {
   FactTableInterface,
   FactMetricInterface,
-  FactTableInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
