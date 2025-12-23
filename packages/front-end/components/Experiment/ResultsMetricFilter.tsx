@@ -14,36 +14,32 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
-import { useExperimentResultsFilters } from "@/hooks/useExperimentResultsFilters";
 
 export default function ResultsMetricFilter({
-  goalMetrics,
-  secondaryMetrics,
-  guardrailMetrics,
-  customMetricSlices,
+  metricTags = [],
   metricTagFilter = [],
   setMetricTagFilter,
+  availableMetricGroups = [],
   metricGroupsFilter = [],
   setMetricGroupsFilter,
+  availableSliceTags = [],
   sliceTagsFilter = [],
   setSliceTagsFilter,
   showMetricFilter,
   setShowMetricFilter,
   dimension,
 }: {
-  goalMetrics: string[];
-  secondaryMetrics: string[];
-  guardrailMetrics: string[];
-  customMetricSlices?: Array<{
-    slices: Array<{
-      column: string;
-      levels: string[];
-    }>;
-  }>;
+  metricTags?: string[];
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
   metricGroupsFilter?: string[];
   setMetricGroupsFilter?: (groups: string[]) => void;
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
   showMetricFilter: boolean;
@@ -53,17 +49,6 @@ export default function ResultsMetricFilter({
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
-
-  const {
-    availableMetricTags,
-    availableMetricGroups,
-    availableSliceTags,
-  } = useExperimentResultsFilters({
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
-    customMetricSlices,
-  });
 
   const filteringApplied =
     metricTagFilter?.length > 0 ||
@@ -322,7 +307,7 @@ export default function ResultsMetricFilter({
                   containerClassName="w-100"
                   placeholder="Type to search..."
                   value={metricTagFilter || []}
-                  options={availableMetricTags.map((tag) => ({
+                  options={metricTags.map((tag) => ({
                     label: tag,
                     value: tag,
                   }))}

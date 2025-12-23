@@ -23,7 +23,6 @@ import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { ExperimentTab } from "./TabbedPage";
-import { useExperimentResultsFilters } from "@/hooks/useExperimentResultsFilters";
 
 export type AnalysisBarSettings = {
   dimension: string;
@@ -49,8 +48,15 @@ const Results: FC<{
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  metricTagFilter?: string[];
+  metricGroupsFilter?: string[];
+  sliceTagsFilter?: string[];
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
+  sortBy?: "significance" | "change" | null;
+  setSortBy?: (s: "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
   mutateExperiment,
@@ -61,24 +67,16 @@ const Results: FC<{
   statsEngine,
   analysisBarSettings,
   setAnalysisBarSettings,
+  metricTagFilter,
+  metricGroupsFilter,
+  sliceTagsFilter,
   isTabActive = true,
   setTab,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }) => {
-  const {
-    metricTagFilter,
-    metricGroupsFilter,
-    sliceTagsFilter,
-    sortBy,
-    setSortBy,
-    sortDirection,
-    setSortDirection,
-  } = useExperimentResultsFilters({
-    experimentId: experiment.id,
-    goalMetrics: experiment.goalMetrics,
-    secondaryMetrics: experiment.secondaryMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
-    customMetricSlices: experiment.customMetricSlices,
-  });
   const { apiCall } = useAuth();
 
   const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<

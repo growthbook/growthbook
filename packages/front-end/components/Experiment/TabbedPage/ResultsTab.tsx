@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import React, { useState } from "react";
 import {
@@ -41,8 +42,25 @@ export interface Props {
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
+  metricTagFilter: string[];
+  setMetricTagFilter: (tags: string[]) => void;
+  metricGroupsFilter: string[];
+  setMetricGroupsFilter: (groups: string[]) => void;
+  availableMetricGroups: Array<{ id: string; name: string }>;
+  availableMetricTags: string[];
+  availableSliceTags: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
+  sliceTagsFilter: string[];
+  setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  sortBy: "significance" | "change" | null;
+  setSortBy: (s: "significance" | "change" | null) => void;
+  sortDirection: "asc" | "desc" | null;
+  setSortDirection: (d: "asc" | "desc" | null) => void;
 }
 
 export default function ResultsTab({
@@ -55,6 +73,19 @@ export default function ResultsTab({
   isTabActive,
   analysisBarSettings,
   setAnalysisBarSettings,
+  metricTagFilter,
+  setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups,
+  availableMetricTags,
+  availableSliceTags,
+  sliceTagsFilter,
+  setSliceTagsFilter,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: Props) {
   const {
     getDatasourceById,
@@ -260,6 +291,7 @@ export default function ResultsTab({
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
+            envs={envs}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
@@ -293,6 +325,17 @@ export default function ResultsTab({
                   : {}),
               })
             }
+            metricTagFilter={metricTagFilter}
+            setMetricTagFilter={setMetricTagFilter}
+            metricGroupsFilter={metricGroupsFilter}
+            setMetricGroupsFilter={setMetricGroupsFilter}
+            availableMetricGroups={availableMetricGroups}
+            availableMetricTags={availableMetricTags}
+            availableSliceTags={availableSliceTags}
+            sliceTagsFilter={sliceTagsFilter}
+            setSliceTagsFilter={setSliceTagsFilter}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
@@ -362,7 +405,14 @@ export default function ResultsTab({
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}
                   isTabActive={isTabActive}
+                  metricTagFilter={metricTagFilter}
+                  metricGroupsFilter={metricGroupsFilter}
+                  sliceTagsFilter={sliceTagsFilter}
                   setTab={setTab}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortDirection={sortDirection}
+                  setSortDirection={setSortDirection}
                 />
               )}
             </>

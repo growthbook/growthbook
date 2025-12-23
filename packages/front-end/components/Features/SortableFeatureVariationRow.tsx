@@ -122,7 +122,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 backgroundColor: getVariationColor(i, true),
               }}
             />
-            <span style={{ position: "relative", top: 6 }}>{i}</span>
+            <span style={{ position: "relative", top: 6 }}>
+              {i}
+            </span>
           </td>
         )}
         {!hideValueField && (
@@ -251,10 +253,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 </div>
               )}
             {setVariations && !onlySafeToEditVariationMetadata && (
-              <div
-                className="col-auto"
-                style={{ position: "relative", top: 4 }}
-              >
+              <div className="col-auto" style={{ position: "relative", top: 4 }}>
                 <MoreMenu zIndex={1000000}>
                   <Tooltip
                     body="Experiments must have at least two variations"

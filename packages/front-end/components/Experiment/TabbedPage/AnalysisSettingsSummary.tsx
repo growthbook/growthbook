@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FactTableColumnType } from "shared/types/fact-table";
 import React, { useMemo, useState } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
@@ -40,12 +41,12 @@ import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experime
 import Metadata from "@/ui/Metadata";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
-import { useExperimentResultsFilters } from "@/hooks/useExperimentResultsFilters";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -55,12 +56,28 @@ export interface Props {
   setDifferenceType: (differenceType: DifferenceType) => void;
   dimension?: string;
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  metricGroupsFilter?: string[];
+  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricGroups?: Array<{ id: string; name: string }>;
+  availableMetricTags?: string[];
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
+  sortBy?: "significance" | "change" | null;
+  setSortBy?: (s: "significance" | "change" | null) => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
+  envs: _envs,
   mutate,
   statsEngine,
   editMetrics,
@@ -70,6 +87,17 @@ export default function AnalysisSettingsSummary({
   setDifferenceType,
   dimension,
   setDimension,
+  metricTagFilter,
+  setMetricTagFilter,
+  metricGroupsFilter,
+  setMetricGroupsFilter,
+  availableMetricGroups = [],
+  availableMetricTags = [],
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
+  sortBy: _sortBy,
+  setSortBy: _setSortBy,
 }: Props) {
   const {
     getDatasourceById,
@@ -242,24 +270,6 @@ export default function AnalysisSettingsSummary({
   const ds = getDatasourceById(experiment.datasource);
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
-
-  const {
-    availableMetricTags,
-    availableMetricGroups,
-    availableSliceTags,
-    metricTagFilter,
-    setMetricTagFilter,
-    metricGroupsFilter,
-    setMetricGroupsFilter,
-    sliceTagsFilter,
-    setSliceTagsFilter,
-  } = useExperimentResultsFilters({
-    experimentId: experiment.id,
-    goalMetrics: experiment.goalMetrics,
-    secondaryMetrics: experiment.secondaryMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
-    customMetricSlices: experiment.customMetricSlices,
-  });
 
   const { allMetrics, filteredMetrics } = useMemo(() => {
     const allMetricsArrays = [
@@ -574,14 +584,13 @@ export default function AnalysisSettingsSummary({
                 <Separator orientation="vertical" ml="5" mr="2" />
               )}
               <ResultsMetricFilter
-                goalMetrics={experiment.goalMetrics}
-                secondaryMetrics={experiment.secondaryMetrics}
-                guardrailMetrics={experiment.guardrailMetrics}
-                customMetricSlices={experiment.customMetricSlices}
+                metricTags={availableMetricTags}
                 metricTagFilter={metricTagFilter}
                 setMetricTagFilter={setMetricTagFilter}
+                availableMetricGroups={availableMetricGroups}
                 metricGroupsFilter={metricGroupsFilter}
                 setMetricGroupsFilter={setMetricGroupsFilter}
+                availableSliceTags={availableSliceTags}
                 sliceTagsFilter={sliceTagsFilter}
                 setSliceTagsFilter={setSliceTagsFilter}
                 showMetricFilter={showMetricFilter}

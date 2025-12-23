@@ -29,6 +29,10 @@ describe("ResultMoreMenu", () => {
   const mockMutateDefinitions = vi.fn();
   const mockRouterPush = vi.fn();
 
+  const renderWithTheme = (component: React.ReactElement) => {
+    return render(<Theme>{component}</Theme>);
+  };
+
   const defaultDatasource = {
     id: "ds-1",
     name: "Test Datasource",
@@ -73,19 +77,6 @@ describe("ResultMoreMenu", () => {
     // @ts-expect-error - partial mock
     vi.mocked(useDefinitions).mockReturnValue({
       mutateDefinitions: mockMutateDefinitions,
-      getDimensionById: vi.fn((id: string) => ({
-        id,
-        name: "Test Dimension",
-        organization: "",
-        owner: "",
-        datasource: "",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        userIdType: "user_id",
-        sql: "",
-      })),
-      getExperimentMetricById: vi.fn(),
-      ready: true,
     });
 
     // @ts-expect-error - partial mock
@@ -107,16 +98,14 @@ describe("ResultMoreMenu", () => {
         false,
       );
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       const button = screen.getByText("Re-run All Queries");
@@ -128,16 +117,14 @@ describe("ResultMoreMenu", () => {
         false,
       );
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       const button = screen.getByText("Re-run All Queries");
@@ -151,16 +138,14 @@ describe("ResultMoreMenu", () => {
         true,
       );
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       const button = screen.getByText("Full Refresh");
@@ -172,16 +157,14 @@ describe("ResultMoreMenu", () => {
         true,
       );
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       // Get the button by role to avoid confusion with dialog title
@@ -211,17 +194,15 @@ describe("ResultMoreMenu", () => {
         true,
       );
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            forceRefresh={mockForceRefresh}
-            dimension="dimension-1"
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          forceRefresh={mockForceRefresh}
+          dimension="dimension-1"
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       expect(screen.queryByText("Full Refresh")).not.toBeInTheDocument();
@@ -237,16 +218,14 @@ describe("ResultMoreMenu", () => {
         canViewExperimentModal: () => false,
       });
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       expect(screen.queryByText("Re-run All Queries")).not.toBeInTheDocument();
@@ -254,16 +233,14 @@ describe("ResultMoreMenu", () => {
     });
 
     it("hides button when datasource is missing", () => {
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={null}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={null}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       expect(screen.queryByText("Re-run All Queries")).not.toBeInTheDocument();
@@ -271,15 +248,13 @@ describe("ResultMoreMenu", () => {
     });
 
     it("hides button when forceRefresh is missing", () => {
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       expect(screen.queryByText("Re-run All Queries")).not.toBeInTheDocument();
@@ -312,16 +287,14 @@ describe("ResultMoreMenu", () => {
         canViewExperimentModal: () => false,
       });
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={datasourceWithExcludedExperiment}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={datasourceWithExcludedExperiment}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       const button = screen.getByText("Re-enable Incremental Refresh");
@@ -352,16 +325,14 @@ describe("ResultMoreMenu", () => {
         canViewExperimentModal: () => false,
       });
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={datasourceWithExcludedExperiment}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={datasourceWithExcludedExperiment}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       expect(
@@ -374,16 +345,14 @@ describe("ResultMoreMenu", () => {
         true,
       );
 
-      render(
-        <Theme>
-          <ResultMoreMenu
-            experiment={defaultExperiment}
-            datasource={defaultDatasource}
-            forceRefresh={mockForceRefresh}
-            notebookUrl="/notebook"
-            notebookFilename="test"
-          />
-        </Theme>,
+      renderWithTheme(
+        <ResultMoreMenu
+          experiment={defaultExperiment}
+          datasource={defaultDatasource}
+          forceRefresh={mockForceRefresh}
+          notebookUrl="/notebook"
+          notebookFilename="test"
+        />,
       );
 
       expect(

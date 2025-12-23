@@ -8,7 +8,6 @@ import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   FactMetricInterface,
   FactTableInterface,
-  FactTableColumnType,
 } from "shared/types/fact-table";
 import {
   expandMetricGroups,
@@ -33,7 +32,6 @@ import {
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { useExperimentResultsFilters } from "./useExperimentResultsFilters";
 
 export interface UseExperimentTableRowsParams {
   results: ExperimentReportResultDimension;
@@ -71,13 +69,6 @@ export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
   allMetricTags: string[];
   getChildRowCounts: (metricId: string) => { total: number; pinned: number };
-  availableMetricTags: string[];
-  availableMetricGroups: Array<{ id: string; name: string }>;
-  availableSliceTags: Array<{
-    id: string;
-    datatypes: Record<string, FactTableColumnType>;
-    isSelectAll?: boolean;
-  }>;
 }
 
 export function useExperimentTableRows({
@@ -104,17 +95,6 @@ export function useExperimentTableRows({
   enablePinning = true,
   expandedMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
-  const {
-    availableMetricTags,
-    availableMetricGroups,
-    availableSliceTags,
-  } = useExperimentResultsFilters({
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
-    customMetricSlices,
-    ssrPolyfills,
-  });
   const {
     getExperimentMetricById: _getExperimentMetricById,
     getFactTableById: _getFactTableById,
@@ -252,9 +232,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
-            customMetricOrder,
-          )
-        : filteredMetrics;
+              customMetricOrder,
+            )
+          : filteredMetrics;
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -275,9 +255,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
-            customMetricOrder,
-          )
-        : filteredSecondary;
+              customMetricOrder,
+            )
+          : filteredSecondary;
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -298,9 +278,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
-            customMetricOrder,
-          )
-        : filteredGuardrails;
+              customMetricOrder,
+            )
+          : filteredGuardrails;
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -395,9 +375,6 @@ export function useExperimentTableRows({
     rows,
     allMetricTags,
     getChildRowCounts,
-    availableMetricTags,
-    availableMetricGroups,
-    availableSliceTags,
   };
 }
 
@@ -499,15 +476,15 @@ export function generateRowsForMetric({
           errorMessage: "No data",
         }))
       : resultsArray[0].variations.map((v) => {
-          return (
-            v.metrics?.[metricId] || {
-              users: 0,
-              value: 0,
-              cr: 0,
-              errorMessage: "No data",
-            }
-          );
-        }),
+      return (
+        v.metrics?.[metricId] || {
+          users: 0,
+          value: 0,
+          cr: 0,
+          errorMessage: "No data",
+        }
+      );
+    }),
     metricSnapshotSettings,
     resultGroup,
     numSlices,
@@ -556,27 +533,27 @@ export function generateRowsForMetric({
           sliceMatches = true;
           hasMatchingSlice = true;
         } else {
-          // Extract slice tags from slice data
-          const sliceTags: string[] = [];
-          // Generate single dimension tags
-          slice.sliceLevels.forEach((sliceLevel) => {
-            const value = sliceLevel.levels[0] || "";
-            const tag = generateSliceString({ [sliceLevel.column]: value });
-            sliceTags.push(tag);
+        // Extract slice tags from slice data
+        const sliceTags: string[] = [];
+        // Generate single dimension tags
+        slice.sliceLevels.forEach((sliceLevel) => {
+          const value = sliceLevel.levels[0] || "";
+          const tag = generateSliceString({ [sliceLevel.column]: value });
+          sliceTags.push(tag);
+        });
+        // Generate combined tag for multi-dimensional slices
+        if (slice.sliceLevels.length > 1) {
+          const slices: Record<string, string> = {};
+          slice.sliceLevels.forEach((sl) => {
+            slices[sl.column] = sl.levels[0] || "";
           });
-          // Generate combined tag for multi-dimensional slices
-          if (slice.sliceLevels.length > 1) {
-            const slices: Record<string, string> = {};
-            slice.sliceLevels.forEach((sl) => {
-              slices[sl.column] = sl.levels[0] || "";
-            });
-            const comboTag = generateSliceString(slices);
-            sliceTags.push(comboTag);
-          }
-          // Check if any slice tag matches the filter
-          sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
-          if (sliceMatches) {
-            hasMatchingSlice = true;
+          const comboTag = generateSliceString(slices);
+          sliceTags.push(comboTag);
+        }
+        // Check if any slice tag matches the filter
+        sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
+        if (sliceMatches) {
+          hasMatchingSlice = true;
           }
         }
       }
