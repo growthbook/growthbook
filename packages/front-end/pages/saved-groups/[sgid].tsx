@@ -351,7 +351,10 @@ export default function EditSavedGroupPage() {
                       <Heading size="2" mb="0">
                         Features
                       </Heading>
-                      <Badge label={referencingFeatures.length.toString()} />
+                      <Badge
+                        radius="full"
+                        label={referencingFeatures.length.toString()}
+                      />
                     </Flex>
                   }
                   open={true}
@@ -391,7 +394,10 @@ export default function EditSavedGroupPage() {
                       <Heading size="2" mb="0">
                         Experiments
                       </Heading>
-                      <Badge label={referencingExperiments.length.toString()} />
+                      <Badge
+                        radius="full"
+                        label={referencingExperiments.length.toString()}
+                      />
                     </Flex>
                   }
                   open={true}
@@ -434,7 +440,10 @@ export default function EditSavedGroupPage() {
                       <Heading size="2" mb="0">
                         Saved Groups
                       </Heading>
-                      <Badge label={referencingSavedGroups.length.toString()} />
+                      <Badge
+                        radius="full"
+                        label={referencingSavedGroups.length.toString()}
+                      />
                     </Flex>
                   }
                   open={true}
