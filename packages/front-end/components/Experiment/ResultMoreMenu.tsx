@@ -22,6 +22,64 @@ import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experime
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 
+export function canShowRefreshMenuItem({
+  forceRefresh,
+  datasource,
+  canRunExperimentQueries,
+  isExperimentIncludedInIncrementalRefresh,
+  dimension,
+}: {
+  forceRefresh?: () => Promise<void>;
+  datasource?: DataSourceInterfaceWithParams | null;
+  canRunExperimentQueries: boolean;
+  isExperimentIncludedInIncrementalRefresh: boolean;
+  dimension?: string;
+}): boolean {
+  if (!forceRefresh) return false;
+  if (!datasource) return false;
+  if (!canRunExperimentQueries) return false;
+
+  // allowFullRefresh mirrors component logic
+  const allowFullRefresh =
+    !isExperimentIncludedInIncrementalRefresh ||
+    (!dimension && isExperimentIncludedInIncrementalRefresh);
+
+  return allowFullRefresh;
+}
+
+export function isExperimentExcludedFromIncrementalRefresh({
+  datasource,
+  experimentId,
+}: {
+  datasource?: DataSourceInterfaceWithParams | null;
+  experimentId?: string;
+}): boolean {
+  if (!datasource || !experimentId) return false;
+  return (
+    datasource.settings?.pipelineSettings?.mode === "incremental" &&
+    datasource.settings?.pipelineSettings?.excludedExperimentIds?.includes(
+      experimentId,
+    ) === true
+  );
+}
+
+export function canShowReenableIncrementalRefresh({
+  datasource,
+  experimentId,
+  canUpdateDataSourceSettings,
+}: {
+  datasource?: DataSourceInterfaceWithParams | null;
+  experimentId?: string;
+  canUpdateDataSourceSettings: boolean;
+}): boolean {
+  if (!datasource || !experimentId) return false;
+  if (!canUpdateDataSourceSettings) return false;
+  return isExperimentExcludedFromIncrementalRefresh({
+    datasource,
+    experimentId,
+  });
+}
+
 export default function ResultMoreMenu({
   experiment,
   editMetrics,
@@ -74,13 +132,11 @@ export default function ResultMoreMenu({
       )
     : false;
 
-  const isExperimentExcludedFromIncrementalRefresh = experiment
-    ? datasource &&
-      datasource.settings?.pipelineSettings?.mode === "incremental" &&
-      datasource.settings?.pipelineSettings?.excludedExperimentIds?.includes(
-        experiment.id,
-      )
-    : false;
+  const experimentExcludedFromIncrementalRefresh =
+    isExperimentExcludedFromIncrementalRefresh({
+      datasource,
+      experimentId: experiment?.id,
+    });
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
@@ -90,10 +146,6 @@ export default function ResultMoreMenu({
   const rerunAllQueriesText = isExperimentIncludedInIncrementalRefresh
     ? "Full refresh"
     : "Re-run all queries";
-
-  const allowFullRefresh =
-    !isExperimentIncludedInIncrementalRefresh ||
-    (!dimension && isExperimentIncludedInIncrementalRefresh);
 
   const dimensionName = dimension
     ? getDimensionById(dimension)?.name ||
@@ -316,44 +368,55 @@ export default function ResultMoreMenu({
               />
             </DropdownMenuItem>
           )}
-          {forceRefresh &&
-            datasource &&
-            permissionsUtil.canRunExperimentQueries(datasource) &&
-            allowFullRefresh && (
-              <DropdownMenuItem
-                onClick={handleForceRefresh}
-                confirmation={
-                  isExperimentIncludedInIncrementalRefresh
-                    ? {
-                        confirmationTitle: "Full Refresh",
-                        cta: "I understand",
-                        submit: async () => {
-                          if (forceRefresh) {
-                            await forceRefresh();
-                            setDropdownOpen(false);
-                          }
-                        },
-                        getConfirmationContent: async () => (
-                          <>
-                            This experiment has Pipeline Mode enabled.
-                            <br />
-                            <br />
-                            Fully refreshing the experiment will re-scan the
-                            data source from the beginning of the experiment,
-                            instead of scanning only new data.
-                          </>
-                        ),
-                      }
-                    : undefined
-                }
-              >
-                {rerunAllQueriesText}
-              </DropdownMenuItem>
-            )}
-          {datasource &&
-            experiment &&
-            isExperimentExcludedFromIncrementalRefresh &&
-            permissionsUtil.canUpdateDataSourceSettings(datasource) && (
+          {canShowRefreshMenuItem({
+            forceRefresh,
+            datasource,
+            canRunExperimentQueries:
+              (datasource &&
+                permissionsUtil.canRunExperimentQueries(datasource)) ??
+              false,
+            isExperimentIncludedInIncrementalRefresh,
+            dimension,
+          }) && (
+            <DropdownMenuItem
+              onClick={handleForceRefresh}
+              confirmation={
+                isExperimentIncludedInIncrementalRefresh
+                  ? {
+                      confirmationTitle: "Full Refresh",
+                      cta: "I understand",
+                      submit: async () => {
+                        if (forceRefresh) {
+                          await forceRefresh();
+                          setDropdownOpen(false);
+                        }
+                      },
+                      getConfirmationContent: async () => (
+                        <>
+                          This experiment has Pipeline Mode enabled.
+                          <br />
+                          <br />
+                          Fully refreshing the experiment will re-scan the data
+                          source from the beginning of the experiment, instead
+                          of scanning only new data.
+                        </>
+                      ),
+                    }
+                  : undefined
+              }
+            >
+              {rerunAllQueriesText}
+            </DropdownMenuItem>
+          )}
+          {canShowReenableIncrementalRefresh({
+            datasource,
+            experimentId: experiment?.id,
+            canUpdateDataSourceSettings:
+              (datasource &&
+                permissionsUtil.canUpdateDataSourceSettings(datasource)) ??
+              false,
+          }) &&
+            experimentExcludedFromIncrementalRefresh && (
               <DropdownMenuItem onClick={handleReenableIncrementalRefresh}>
                 Re-enable incremental refresh
               </DropdownMenuItem>
