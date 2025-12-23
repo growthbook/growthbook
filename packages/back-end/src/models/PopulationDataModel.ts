@@ -1,5 +1,5 @@
-import { PopulationDataInterface } from "back-end/types/population-data";
-import { populationDataInterfaceValidator } from "back-end/src/routers/population-data/population-data.validators";
+import { PopulationDataInterface } from "shared/types/population-data";
+import { populationDataInterfaceValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

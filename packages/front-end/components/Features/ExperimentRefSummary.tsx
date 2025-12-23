@@ -1,6 +1,6 @@
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
+import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { includeExperimentInPayload } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";

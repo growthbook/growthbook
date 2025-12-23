@@ -1,4 +1,4 @@
-import { CappingType } from "back-end/types/fact-table";
+import { CappingType } from "shared/types/fact-table";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";

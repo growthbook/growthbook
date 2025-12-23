@@ -5,7 +5,7 @@ import {
   RESERVED_ROLE_IDS,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
-import { Role } from "back-end/types/organization";
+import { Role } from "shared/types/organization";
 import router from "next/router";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";

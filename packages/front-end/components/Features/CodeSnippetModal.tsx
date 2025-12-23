@@ -9,7 +9,7 @@ import {
   FaExclamationCircle,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";

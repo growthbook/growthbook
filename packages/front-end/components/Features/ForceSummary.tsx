@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";

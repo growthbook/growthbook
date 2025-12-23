@@ -4,11 +4,11 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,

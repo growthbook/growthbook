@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import React, { CSSProperties } from "react";
-import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
   getVariationDefaultName,

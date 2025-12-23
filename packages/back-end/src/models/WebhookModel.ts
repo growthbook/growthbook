@@ -2,24 +2,17 @@ import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
-import { z } from "zod";
-import { managedByValidator } from "shared/validators";
-import { WebhookInterface } from "shared/types/webhook";
+import {
+  WebhookInterface,
+  UpdateSdkWebhookProps,
+  CreateSdkWebhookProps,
+} from "shared/types/webhook";
+import {
+  updateSdkWebhookValidator,
+  createSdkWebhookValidator,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
-
-const payloadFormatValidator = z.enum([
-  "standard",
-
-  "standard-no-payload",
-  "sdkPayload",
-  "edgeConfig",
-  "edgeConfigUnescaped",
-  "vercelNativeIntegration",
-  "none",
-]);
-
-export type PayloadFormat = z.infer<typeof payloadFormatValidator>;
 
 const webhookSchema = new mongoose.Schema({
   id: {
@@ -150,22 +143,6 @@ export async function setLastSdkWebhookError(
   );
 }
 
-export const updateSdkWebhookValidator = z
-  .object({
-    name: z.string().optional(),
-    endpoint: z.string().optional(),
-    payloadFormat: payloadFormatValidator.optional(),
-    payloadKey: z.string().optional(),
-    sdks: z.array(z.string()).optional(),
-    httpMethod: z
-      .enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"])
-      .optional(),
-    headers: z.string().optional(),
-  })
-  .strict();
-
-export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
-
 export async function updateSdkWebhook(
   context: ReqContext,
   existing: WebhookInterface,
@@ -191,19 +168,6 @@ export async function updateSdkWebhook(
     ...updates,
   };
 }
-
-const createSdkWebhookValidator = z
-  .object({
-    name: z.string(),
-    endpoint: z.string(),
-    payloadFormat: payloadFormatValidator.optional(),
-    payloadKey: z.string().optional(),
-    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
-    headers: z.string(),
-    managedBy: managedByValidator.optional(),
-  })
-  .strict();
-export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
 
 export async function createSdkWebhook(
   context: ReqContext,

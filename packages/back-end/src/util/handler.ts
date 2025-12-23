@@ -1,10 +1,10 @@
 import { Request, RequestHandler } from "express";
 import { z, Schema, ZodNever, output } from "zod";
+import { ApiPaginationFields } from "shared/types/openapi";
+import { UserInterface } from "shared/types/user";
+import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ApiPaginationFields } from "back-end/types/openapi";
-import { UserInterface } from "back-end/types/user";
-import { OrganizationInterface } from "back-end/types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
 type ApiRequest<

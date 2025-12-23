@@ -1,7 +1,7 @@
 import React from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
-import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import { EventWebHookDetailContainer } from "@/components/EventWebHooks/EventWebHookDetail/EventWebHookDetail";
 import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs";
 import useApi from "@/hooks/useApi";

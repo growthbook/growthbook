@@ -15,34 +15,34 @@ import {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
-} from "back-end/types/report";
-import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
-import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
+} from "shared/types/report";
+import { LegacyMetricInterface, MetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "back-end/types/datasource";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
+} from "shared/types/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "back-end/types/feature";
-import { OrganizationInterface } from "back-end/types/organization";
-import { getConfigOrganizationSettings } from "back-end/src/init/config";
+} from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
+import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { getEnvironments } from "back-end/src/services/organizations";
-import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import { getConfigOrganizationSettings } from "back-end/src/init/config";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 

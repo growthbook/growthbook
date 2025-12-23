@@ -23,27 +23,31 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
 } from "shared/types/integrations";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ApiReqContext } from "back-end/types/api";
-import { ExperimentReportResults } from "back-end/types/report";
+import { ExperimentReportResults } from "shared/types/report";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotType,
-} from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
+} from "shared/types/experiment-snapshot";
+import { MetricInterface } from "shared/types/metric";
 import {
   ExperimentQueryMetadata,
   Queries,
   QueryPointer,
   QueryStatus,
-} from "back-end/types/query";
+} from "shared/types/query";
+import { OrganizationInterface } from "shared/types/organization";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { BanditResult } from "shared/types/experiment";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ApiReqContext } from "back-end/types/api";
 import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -52,11 +56,8 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { OrganizationInterface } from "back-end/types/organization";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { BanditResult } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,
@@ -266,16 +267,16 @@ export const startExperimentResultQueries = async (
   // Settings for health query
   const runTrafficQuery =
     snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
-  let dimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] = [];
-  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
-    dimensionsForTraffic = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
-        type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
-  }
+
+  const { eligibleDimensionsWithSlices: dimensionsForTraffic } = exposureQuery
+    ? getExposureQueryEligibleDimensions({
+        exposureQuery,
+        incrementalRefreshModel: null,
+        nVariations: snapshotSettings.variations.length,
+      })
+    : {
+        eligibleDimensionsWithSlices: [],
+      };
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,

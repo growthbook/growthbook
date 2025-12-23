@@ -1,5 +1,5 @@
 import { useState, FC } from "react";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";

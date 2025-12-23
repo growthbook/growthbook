@@ -8,9 +8,9 @@ import {
 } from "@dqbd/tiktoken";
 import { AIModel, AIPromptType, getProviderFromModel } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
+import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
-import { OrganizationInterface } from "back-end/types/organization";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,

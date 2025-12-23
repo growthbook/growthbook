@@ -1,10 +1,10 @@
 import omit from "lodash/omit";
+import { getFeatureRevisionsValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeatureRevisionsValidator } from "back-end/src/validators/openapi";
 
 export const getFeatureRevisions = createApiRequestHandler(
   getFeatureRevisionsValidator,

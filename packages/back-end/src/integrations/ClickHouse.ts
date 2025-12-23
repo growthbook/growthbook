@@ -4,8 +4,8 @@ import {
   FeatureUsageLookback,
   QueryResponse,
 } from "shared/types/integrations";
+import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";

@@ -1,9 +1,11 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  blockHasFieldOfType,
+  isMetricSelector,
+} from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -12,12 +14,11 @@ import {
   PiPencilSimpleFill,
 } from "react-icons/pi";
 import clsx from "clsx";
-import { blockHasFieldOfType, isMetricSelector } from "shared/enterprise";
 import { isNumber, isString, isDefined } from "shared/util";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { SavedQuery } from "shared/validators";
 import {
   expandMetricGroups,
@@ -25,8 +26,8 @@ import {
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,

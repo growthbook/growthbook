@@ -13,7 +13,9 @@ import {
   ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { DiffResult } from "shared/types/events/diff";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -27,7 +29,6 @@ import {
   VisualExperiment,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { FeatureInterface } from "back-end/types/feature";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
@@ -45,7 +46,6 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import { DiffResult } from "back-end/types/events/diff";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -556,6 +556,17 @@ export async function createExperiment({
   return experiment;
 }
 
+export function hasActualChanges(
+  experiment: ExperimentInterface,
+  changes: Partial<ExperimentInterface>,
+) {
+  const changeKeys = Object.keys(changes).filter(
+    (key) => key !== "dateUpdated",
+  ) as Array<keyof ExperimentInterface>;
+
+  return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -567,12 +578,15 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
-  // TODO: are there some changes where we don't want to update the dateUpdated?
+  // If no actual changes, return the experiment as-is
+  if (!hasActualChanges(experiment, changes)) {
+    return experiment;
+  }
+
   const allChanges = {
     ...changes,
+    dateUpdated: new Date(),
   };
-  allChanges.dateUpdated = new Date();
-
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
@@ -588,7 +602,6 @@ export async function updateExperiment({
 
   const updated = { ...experiment, ...allChanges };
 
-  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,

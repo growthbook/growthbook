@@ -1,7 +1,7 @@
 import { FaQuestionCircle } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { ExpandedMember } from "back-end/types/organization";
+import { ExpandedMember } from "shared/types/organization";
 import Switch from "@/ui/Switch";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";

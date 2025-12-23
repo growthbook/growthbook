@@ -1,5 +1,5 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";

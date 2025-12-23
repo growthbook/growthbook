@@ -4,7 +4,7 @@ import {
   JSONSchemaDef,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";

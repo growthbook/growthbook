@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { PiPencilSimpleFill, PiStackBold, PiX } from "react-icons/pi";
 import { Text, IconButton } from "@radix-ui/themes";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";

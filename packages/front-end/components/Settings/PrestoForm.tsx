@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { PrestoConnectionParams } from "back-end/types/integrations/presto";
+import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
 import HostWarning from "./HostWarning";

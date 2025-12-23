@@ -2,8 +2,8 @@ import {
   SDKAttributeType,
   OrganizationInterface,
   SDKAttribute,
-} from "back-end/types/organization";
-import { AttributeMap } from "back-end/types/feature";
+} from "shared/types/organization";
+import { AttributeMap } from "shared/types/feature";
 import {
   GroupMap,
   SavedGroupsValues,
@@ -72,7 +72,7 @@ export function getTypedSavedGroupValues(
 
 export function getSavedGroupValueType(
   group: SavedGroupInterface,
-  organization: OrganizationInterface,
+  organization: Pick<OrganizationInterface, "settings">,
 ): string {
   const attributes = organization.settings?.attributeSchema;
 

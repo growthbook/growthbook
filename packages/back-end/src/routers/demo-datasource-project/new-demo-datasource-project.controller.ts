@@ -8,10 +8,19 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { DataSourceSettings } from "shared/types/datasource";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import { ProjectInterface } from "shared/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import {
+  FactMetricInterface,
+  MetricWindowSettings,
+} from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/types/events/event-types";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { createDataSource } from "back-end/src/models/DataSourceModel";
 import {
   createExperiment,
@@ -19,21 +28,12 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { createSnapshot } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { DataSourceSettings } from "back-end/types/datasource";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
-import { ProjectInterface } from "back-end/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
 import {
   createFactTable,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import {
-  FactMetricInterface,
-  MetricWindowSettings,
-} from "back-end/types/fact-table";
 
 // region Constants for Demo Datasource
 
@@ -101,7 +101,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "value",
-      filters: [],
     },
     windowSettings: EMPTY_WINDOW_SETTINGS,
   },
@@ -112,7 +111,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "$$distinctUsers",
-      filters: [],
     },
     windowSettings: EMPTY_WINDOW_SETTINGS,
   },
@@ -123,7 +121,6 @@ const DEMO_METRICS: Pick<
     numerator: {
       factTableId: "",
       column: "$$distinctUsers",
-      filters: [],
     },
     windowSettings: RETENTION_WINDOW_SETTINGS,
   },
@@ -144,12 +141,10 @@ const DEMO_RATIO_METRIC: Pick<
   numerator: {
     factTableId: "",
     column: "value",
-    filters: [],
   },
   denominator: {
     factTableId: "",
     column: "$$count",
-    filters: [],
   },
   windowSettings: EMPTY_WINDOW_SETTINGS,
 };
