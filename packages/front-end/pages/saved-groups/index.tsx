@@ -8,6 +8,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { isEmpty } from "lodash";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import { useUser } from "@/services/UserContext";
@@ -61,10 +62,12 @@ export const getListOfReferences = (
   experimentsUsingSavedGroups?: Array<
     ExperimentInterface | ExperimentInterfaceStringDates
   >,
+  savedGroupsUsingSavedGroups?: SavedGroupInterface[],
 ) => {
   if (
     isEmpty(featuresUsingSavedGroups) &&
-    isEmpty(experimentsUsingSavedGroups)
+    isEmpty(experimentsUsingSavedGroups) &&
+    isEmpty(savedGroupsUsingSavedGroups)
   ) {
     return null;
   }
@@ -92,6 +95,21 @@ export const getListOfReferences = (
             <div className="d-flex">
               <Link href={`/experiment/${experiment.id}`} className="pt-1 pb-1">
                 {experiment.name}
+              </Link>
+            </div>
+          </li>
+        );
+      })}
+
+      {(savedGroupsUsingSavedGroups || []).map((savedGroup) => {
+        return (
+          <li key={savedGroup.id}>
+            <div className="d-flex">
+              <Link
+                href={`/saved-groups/${savedGroup.id}`}
+                className="pt-1 pb-1"
+              >
+                {savedGroup.groupName}
               </Link>
             </div>
           </li>
@@ -167,12 +185,12 @@ export default function SavedGroupsPage() {
 
   return (
     <div className="p-3 container-fluid pagecontents">
-      <div className="row">
-        <div className="col">
-          <h1>Saved Groups</h1>
-        </div>
-        <div className="col-auto">
-          <a
+      <Flex align="center" justify="between" mb="3">
+        <Heading size="7" as="h1">
+          Saved Groups
+        </Heading>
+        <Box>
+          <Link
             href="#"
             onClick={(e) => {
               e.preventDefault();
@@ -180,12 +198,12 @@ export default function SavedGroupsPage() {
             }}
           >
             View Audit Logs
-          </a>
-        </div>
-      </div>
-      <div>
+          </Link>
+        </Box>
+      </Flex>
+      <Text as="p" mb="3" color="gray">
         Create reusable user groups as targets for feature flags or experiments.
-      </div>
+      </Text>
       <Callout status="info" my="3">
         Learn more about using Condition Groups and ID Lists.{" "}
         <a
@@ -199,9 +217,9 @@ export default function SavedGroupsPage() {
       </Callout>
 
       {error ? (
-        <div className="alert alert-danger">
+        <Callout status="error" mb="3">
           There was an error loading the list of groups.
-        </div>
+        </Callout>
       ) : (
         <>
           <Tabs

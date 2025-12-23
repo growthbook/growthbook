@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ago } from "shared/dates";
 import { SavedGroupInterface } from "shared/types/groups";
 import {
@@ -158,41 +159,22 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                     return (
                       <tr key={s.id}>
                         <td style={{ width: "250px" }}>
-                          {canUpdate(s) ? (
-                            <a
-                              role="button"
-                              onClick={() => setSavedGroupForm(s)}
-                              className="link-purple"
-                              style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
-                                textOverflow: "ellipsis",
-                                overflow: "hidden",
-                                lineHeight: "1.2em",
-                                wordBreak: "break-word",
-                                overflowWrap: "anywhere",
-                                cursor: "pointer",
-                              }}
-                            >
-                              {s.groupName}
-                            </a>
-                          ) : (
-                            <span
-                              style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
-                                textOverflow: "ellipsis",
-                                overflow: "hidden",
-                                lineHeight: "1.2em",
-                                wordBreak: "break-word",
-                                overflowWrap: "anywhere",
-                              }}
-                            >
-                              {s.groupName}
-                            </span>
-                          )}
+                          <Link
+                            href={`/saved-groups/${s.id}`}
+                            className="link-purple"
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                              textOverflow: "ellipsis",
+                              overflow: "hidden",
+                              lineHeight: "1.2em",
+                              wordBreak: "break-word",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {s.groupName}
+                          </Link>
                         </td>
                         <td style={{ width: 400 }}>
                           <TruncatedConditionDisplay
