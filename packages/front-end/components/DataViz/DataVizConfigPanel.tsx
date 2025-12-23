@@ -168,6 +168,7 @@ export default function DataVizConfigPanel({
                     ...dataVizConfig,
                     chartType: "big-value",
                     format: "shortNumber",
+                    displaySettings: {},
                   });
                   return;
                 }
