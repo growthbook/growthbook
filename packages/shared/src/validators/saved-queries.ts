@@ -149,6 +149,7 @@ const baseChartConfig = z.object({
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   filters: z.array(filterConfigurationValidator).optional(),
+  displaySettings: z.object({}).optional(),
 });
 
 const withXAxis = z.object({
@@ -186,7 +187,12 @@ const barChartValidator = baseChartConfig
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorToZero: z.boolean(),
+    }),
+  });
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
@@ -196,7 +202,12 @@ const areaChartValidator = baseChartConfig
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorToZero: z.boolean(),
+    }),
+  });
 
 const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))

@@ -140,6 +140,8 @@ export function DataVisualizationDisplay({
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
 }) {
+  const anchorToZero = dataVizConfig.displaySettings?.anchorToZero ?? true;
+
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
     return parsed.success;
@@ -757,7 +759,7 @@ export function DataVisualizationDisplay({
         axisLabel: {
           color: textColor,
         },
-        scale: true,
+        scale: !anchorToZero,
         type:
           xConfig?.type === "date"
             ? "time"
@@ -766,7 +768,7 @@ export function DataVisualizationDisplay({
               : "category",
       },
       yAxis: {
-        scale: true,
+        scale: !anchorToZero,
         name:
           yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
@@ -786,16 +788,17 @@ export function DataVisualizationDisplay({
     };
   }, [
     dataset,
-    series,
-    xField,
-    yField,
+    dataVizConfig.title,
+    anchorToZero,
+    textColor,
+    dimensionFields.length,
     xConfig?.type,
     xConfig?.dateAggregationUnit,
+    xField,
     yConfig?.aggregation,
-    dimensionFields,
-    dataVizConfig.title,
-    textColor,
     yConfig?.type,
+    yField,
+    series,
   ]);
 
   if (dataVizConfig.chartType === "big-value") {
