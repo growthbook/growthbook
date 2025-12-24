@@ -53,10 +53,20 @@ export default function ExperimentDecisionExplanation({
     return null;
   }
 
-  // fix to get deciding rule
   const getConditionText = (
     condition: DecisionCriteriaInterface["rules"][0]["conditions"][0],
   ) => {
+    const { quantity, connection } = (() => {
+      switch (condition.match) {
+        case "all":
+          return { quantity: "All", connection: "metrics are" };
+        case "any":
+          return { quantity: "At least one", connection: "metric is" };
+        case "none":
+          return { quantity: "No", connection: "metrics are" };
+      }
+    })();
+
     const metricType = (() => {
       switch (condition.metrics) {
         case "goals":
@@ -75,7 +85,7 @@ export default function ExperimentDecisionExplanation({
       }
     })();
 
-    return `${metricType} metrics are statistically significant and ${direction}`;
+    return `${quantity} ${metricType} ${connection} statistically significant and ${direction}`;
   };
 
   // get the variations that have identical deciding rules
@@ -145,12 +155,7 @@ export default function ExperimentDecisionExplanation({
                 <Text size="2" className="text-muted">
                   •
                 </Text>
-                <Text size="2">
-                  {condition.match === "all" && "All "}
-                  {condition.match === "any" && "At least one "}
-                  {condition.match === "none" && "No "}
-                  {getConditionText(condition)}
-                </Text>
+                <Text size="2">{getConditionText(condition)}</Text>
               </Flex>
             ))}
             {!r.decidingRule && (
