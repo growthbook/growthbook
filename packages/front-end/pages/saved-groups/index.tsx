@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/groups";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {
   ExperimentInterface,
@@ -22,109 +22,82 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups?: FeatureInterface[],
   experimentsUsingSavedGroups?: Array<
     ExperimentInterface | ExperimentInterfaceStringDates
   >,
+  savedGroupsUsingSavedGroups?: SavedGroupInterface[],
 ) => {
   return async () => {
     if (
       isEmpty(featuresUsingSavedGroups) &&
-      isEmpty(experimentsUsingSavedGroups)
+      isEmpty(experimentsUsingSavedGroups) &&
+      isEmpty(savedGroupsUsingSavedGroups)
     ) {
       return null;
     }
 
     return (
-      <div>
-        <p className="alert alert-danger">
-          <strong>Whoops!</strong> Before you can delete this saved group, you
-          will need to update the item
-          {(featuresUsingSavedGroups?.length || 0) +
-            (experimentsUsingSavedGroups?.length || 0) >
-            1 && "s"}{" "}
-          listed below by removing any targeting conditions that rely on this
-          saved group.
-        </p>
-        {getListOfReferences(
-          featuresUsingSavedGroups,
-          experimentsUsingSavedGroups,
-        )}
-      </div>
+      <>
+        <Callout status="error" mb="4">
+          <Text as="p" weight="bold" mb="2">
+            Cannot delete saved group
+          </Text>
+          <Text as="p" mb="0">
+            Before you can delete this group, you will need to remove any references to it.
+            Check the following item
+            {(featuresUsingSavedGroups?.length || 0) +
+              (experimentsUsingSavedGroups?.length || 0) +
+              (savedGroupsUsingSavedGroups?.length || 0) >
+              1 && "s"}{" "}
+            below:
+          </Text>
+        </Callout>
+        <SavedGroupReferencesList
+          features={featuresUsingSavedGroups}
+          experiments={experimentsUsingSavedGroups}
+          savedGroups={savedGroupsUsingSavedGroups}
+        />
+      </>
     );
   };
 };
 
-export const getListOfReferences = (
-  featuresUsingSavedGroups?: FeatureInterface[],
-  experimentsUsingSavedGroups?: Array<
-    ExperimentInterface | ExperimentInterfaceStringDates
-  >,
-  savedGroupsUsingSavedGroups?: SavedGroupInterface[],
-) => {
-  if (
-    isEmpty(featuresUsingSavedGroups) &&
-    isEmpty(experimentsUsingSavedGroups) &&
-    isEmpty(savedGroupsUsingSavedGroups)
-  ) {
-    return null;
-  }
-
-  return (
-    <ul
-      className="border rounded bg-light pt-3 pb-3 overflow-auto"
-      style={{ maxHeight: "200px" }}
-    >
-      {(featuresUsingSavedGroups || []).map((feature) => {
-        return (
-          <li key={feature.id}>
-            <div className="d-flex">
-              <Link href={`/features/${feature.id}`} className="pt-1 pb-1">
-                {feature.id}
-              </Link>
-            </div>
-          </li>
-        );
-      })}
-
-      {(experimentsUsingSavedGroups || []).map((experiment) => {
-        return (
-          <li key={experiment.id}>
-            <div className="d-flex">
-              <Link href={`/experiment/${experiment.id}`} className="pt-1 pb-1">
-                {experiment.name}
-              </Link>
-            </div>
-          </li>
-        );
-      })}
-
-      {(savedGroupsUsingSavedGroups || []).map((savedGroup) => {
-        return (
-          <li key={savedGroup.id}>
-            <div className="d-flex">
-              <Link
-                href={`/saved-groups/${savedGroup.id}`}
-                className="pt-1 pb-1"
-              >
-                {savedGroup.groupName}
-              </Link>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
-};
 
 export default function SavedGroupsPage() {
   const router = useRouter();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("conditionGroups");
+  
+  // Initialize activeTab from URL hash, default to conditionGroups
+  const getInitialTab = () => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.slice(1); // Remove the #
+      if (hash === "idLists" || hash === "conditionGroups") {
+        return hash;
+      }
+    }
+    return "conditionGroups";
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  // Sync activeTab with URL hash changes (e.g., browser back/forward)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash === "idLists" || hash === "conditionGroups") {
+        setActiveTab(hash);
+      }
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   const { refreshOrganization } = useUser();
 
@@ -205,15 +178,15 @@ export default function SavedGroupsPage() {
         Create reusable user groups as targets for feature flags or experiments.
       </Text>
       <Callout status="info" my="3">
-        Learn more about using Condition Groups and ID Lists.{" "}
-        <a
+        Learn more about using Condition Groups and ID Lists.
+        <Link
           href="https://docs.growthbook.io/features/targeting#saved-groups"
           target="_blank"
           rel="noreferrer"
-          className="underline"
+          ml="2"
         >
-          View docs <FaExternalLinkAlt />
-        </a>
+          Docs <PiArrowSquareOut />
+        </Link>
       </Callout>
 
       {error ? (

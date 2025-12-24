@@ -3,11 +3,7 @@ import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/groups";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import {
-  PiArrowsDownUp,
-  PiCaretRightFill,
-  PiWarningFill,
-} from "react-icons/pi";
+import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
@@ -20,7 +16,6 @@ import {
 } from "shared/types/experiment";
 import { isEmpty } from "lodash";
 import { Box, Card, Container, Flex, Heading, Text } from "@radix-ui/themes";
-import Collapsible from "react-collapsible";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -47,7 +42,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import Button from "@/ui/Button";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupReferences from "@/components/SavedGroups/SavedGroupReferences";
-import Badge from "@/ui/Badge";
+import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
 
 const NUM_PER_PAGE = 10;
 
@@ -170,8 +165,12 @@ export default function EditSavedGroupPage() {
     referencingSavedGroups.length;
 
   const getConfirmationContent = useMemo(() => {
-    return getSavedGroupMessage(referencingFeatures, referencingExperiments);
-  }, [referencingFeatures, referencingExperiments]);
+    return getSavedGroupMessage(
+      referencingFeatures,
+      referencingExperiments,
+      referencingSavedGroups,
+    );
+  }, [referencingFeatures, referencingExperiments, referencingSavedGroups]);
 
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey,
@@ -288,143 +287,11 @@ export default function EditSavedGroupPage() {
             This saved group is referenced by the following features,
             experiments, and saved groups.
           </Text>
-          <Box>
-            {referencingFeatures.length > 0 && (
-              <Flex
-                gap="2"
-                p="3"
-                mb="4"
-                align="start"
-                className="bg-highlight rounded"
-                direction="column"
-              >
-                <Collapsible
-                  trigger={
-                    <Flex align="center" gap="1">
-                      <PiCaretRightFill className="chevron" />
-                      <Heading size="2" mb="0">
-                        Features
-                      </Heading>
-                      <Badge
-                        radius="full"
-                        label={referencingFeatures.length.toString()}
-                      />
-                    </Flex>
-                  }
-                  open={true}
-                  transitionTime={100}
-                >
-                  <ul
-                    style={{
-                      margin: 0,
-                      paddingLeft: "var(--space-4)",
-                      marginTop: "var(--space-2)",
-                    }}
-                  >
-                    {referencingFeatures.map((feature) => (
-                      <li key={feature.id}>
-                        <Link href={`/features/${feature.id}`} target="_blank">
-                          {feature.id}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Collapsible>
-              </Flex>
-            )}
-            {referencingExperiments.length > 0 && (
-              <Flex
-                gap="2"
-                p="3"
-                mb="4"
-                align="start"
-                className="bg-highlight rounded"
-                direction="column"
-              >
-                <Collapsible
-                  trigger={
-                    <Flex align="center" gap="1">
-                      <PiCaretRightFill className="chevron" />
-                      <Heading size="2" mb="0">
-                        Experiments
-                      </Heading>
-                      <Badge
-                        radius="full"
-                        label={referencingExperiments.length.toString()}
-                      />
-                    </Flex>
-                  }
-                  open={true}
-                  transitionTime={100}
-                >
-                  <ul
-                    style={{
-                      margin: 0,
-                      paddingLeft: "var(--space-4)",
-                      marginTop: "var(--space-2)",
-                    }}
-                  >
-                    {referencingExperiments.map((experiment) => (
-                      <li key={experiment.id}>
-                        <Link
-                          href={`/experiment/${experiment.id}`}
-                          target="_blank"
-                        >
-                          {experiment.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Collapsible>
-              </Flex>
-            )}
-            {referencingSavedGroups.length > 0 && (
-              <Flex
-                gap="2"
-                p="3"
-                mb="4"
-                align="start"
-                className="bg-highlight rounded"
-                direction="column"
-              >
-                <Collapsible
-                  trigger={
-                    <Flex align="center" gap="1">
-                      <PiCaretRightFill className="chevron" />
-                      <Heading size="2" mb="0">
-                        Saved Groups
-                      </Heading>
-                      <Badge
-                        radius="full"
-                        label={referencingSavedGroups.length.toString()}
-                      />
-                    </Flex>
-                  }
-                  open={true}
-                  transitionTime={100}
-                >
-                  <ul
-                    style={{
-                      margin: 0,
-                      paddingLeft: "var(--space-4)",
-                      marginTop: "var(--space-2)",
-                    }}
-                  >
-                    {referencingSavedGroups.map((savedGroup) => (
-                      <li key={savedGroup.id}>
-                        <Link
-                          href={`/saved-groups/${savedGroup.id}`}
-                          target="_blank"
-                        >
-                          {savedGroup.groupName}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Collapsible>
-              </Flex>
-            )}
-          </Box>
+          <SavedGroupReferencesList
+            features={referencingFeatures}
+            experiments={referencingExperiments}
+            savedGroups={referencingSavedGroups}
+          />
         </Modal>
       )}
       <PageHead

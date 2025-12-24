@@ -60,25 +60,36 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   const { features } = useFeaturesList(false);
   const { experiments } = useExperiments();
 
-  // Get a list of feature ids for every saved group
   const referencingFeaturesByGroup = useMemo(
     () =>
       featuresReferencingSavedGroups({
-        savedGroups: filteredConditionGroups,
+        savedGroups: conditionGroups,
         features,
         environments,
       }),
-    [filteredConditionGroups, environments, features],
+    [conditionGroups, environments, features],
   );
 
   const referencingExperimentsByGroup = useMemo(
     () =>
       experimentsReferencingSavedGroups({
-        savedGroups: filteredConditionGroups,
+        savedGroups: conditionGroups,
         experiments,
       }),
-    [filteredConditionGroups, experiments],
+    [conditionGroups, experiments],
   );
+
+  const referencingSavedGroupsByGroup = useMemo(() => {
+    const result: Record<string, SavedGroupInterface[]> = {};
+    filteredConditionGroups.forEach((targetGroup) => {
+      result[targetGroup.id] = conditionGroups.filter((sg) => {
+        if (sg.id === targetGroup.id) return false;
+        if (!sg.condition) return false;
+        return sg.condition.includes(targetGroup.id);
+      });
+    });
+    return result;
+  }, [filteredConditionGroups, conditionGroups]);
 
   const { items, searchInputProps, isFiltered, SortableTH, pagination } =
     useSearch({
@@ -109,11 +120,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
         <div className="flex-1"></div>
         {canCreate ? (
           <div className="col-auto">
-            <Button
-              onClick={async () => {
-                setSavedGroupForm({});
-              }}
-            >
+            <Button onClick={() => setSavedGroupForm({})}>
               Add Condition Group
             </Button>
           </div>
@@ -180,7 +187,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                           <TruncatedConditionDisplay
                             condition={s.condition || ""}
                             savedGroups={[]}
-                            maxLength={100}
                           />
                         </td>
                         <td style={{ minWidth: 200 }}>
@@ -230,10 +236,12 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                                 getConfirmationContent={getSavedGroupMessage(
                                   referencingFeaturesByGroup[s.id],
                                   referencingExperimentsByGroup[s.id],
+                                  referencingSavedGroupsByGroup[s.id],
                                 )}
                                 canDelete={
                                   isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                  isEmpty(referencingExperimentsByGroup[s.id])
+                                  isEmpty(referencingExperimentsByGroup[s.id]) &&
+                                  isEmpty(referencingSavedGroupsByGroup[s.id])
                                 }
                               />
                             ) : null}
