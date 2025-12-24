@@ -1,4 +1,4 @@
-import { Variation } from "back-end/types/experiment";
+import { Variation } from "shared/types/experiment";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { forwardRef } from "react";

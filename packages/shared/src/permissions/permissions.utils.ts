@@ -6,7 +6,7 @@ import {
   Role,
   ProjectMemberRole,
   MemberRoleInfo,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,

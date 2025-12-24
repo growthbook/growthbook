@@ -6,7 +6,7 @@ import {
 } from "shared/experiments";
 import React, { ReactElement } from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import { MdSwapCalls } from "react-icons/md";
 import {
   capitalizeFirstLetter,

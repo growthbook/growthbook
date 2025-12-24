@@ -1,4 +1,4 @@
-import { MetricExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { MetricExplorerBlockInterface } from "shared/enterprise";
 import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";

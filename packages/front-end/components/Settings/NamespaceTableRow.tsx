@@ -1,4 +1,4 @@
-import { Namespaces, NamespaceUsage } from "back-end/types/organization";
+import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
 import { findGaps } from "@/services/features";

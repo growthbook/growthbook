@@ -1,5 +1,5 @@
 import { useState, FC } from "react";
-import { Namespaces, NamespaceUsage } from "back-end/types/organization";
+import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import NamespaceModal from "@/components/Experiment/NamespaceModal";

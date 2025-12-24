@@ -1,5 +1,5 @@
 import { FC, Fragment, useMemo, useState } from "react";
-import { QueryInterface } from "back-end/types/query";
+import { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { SavedQuery } from "shared/validators";
 import useApi from "@/hooks/useApi";

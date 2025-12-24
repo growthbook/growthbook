@@ -8,7 +8,7 @@ import {
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";

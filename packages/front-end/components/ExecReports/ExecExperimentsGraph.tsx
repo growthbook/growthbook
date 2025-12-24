@@ -3,7 +3,7 @@ import { Group } from "@visx/group";
 import { BarRounded, BarStack } from "@visx/shape";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import { ComputedExperimentInterface } from "shared/types/experiment";
 import { green, red, amber, slate } from "@radix-ui/colors";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { localPoint } from "@visx/event";

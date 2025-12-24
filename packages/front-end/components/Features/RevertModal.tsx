@@ -1,6 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";

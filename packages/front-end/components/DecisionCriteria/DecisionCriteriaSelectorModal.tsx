@@ -3,7 +3,7 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";

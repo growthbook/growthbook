@@ -9,31 +9,32 @@ import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
+import {
+  OrganizationInterface,
+  Permission,
+  UserPermissions,
+} from "shared/types/organization";
+import { EventUser } from "shared/types/events/event-types";
+import { TeamInterface } from "shared/types/team";
+import { ProjectInterface } from "shared/types/project";
+import { ExperimentInterface } from "shared/types/experiment";
+import { DataSourceInterface } from "shared/types/datasource";
+import { FeatureInterface } from "shared/types/feature";
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
-  OrganizationInterface,
-  Permission,
-  UserPermissions,
-} from "back-end/types/organization";
-import { EventUser } from "back-end/types/events/event-types";
-import {
   getUserPermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
-import { TeamInterface } from "back-end/types/team";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
-import { ProjectInterface } from "back-end/types/project";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
@@ -49,7 +50,6 @@ import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
-import { FeatureInterface } from "back-end/types/feature";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";

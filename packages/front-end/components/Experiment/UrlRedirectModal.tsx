@@ -1,10 +1,10 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex } from "@radix-ui/themes";

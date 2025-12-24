@@ -1,6 +1,6 @@
-import { GetCodeRefsResponse } from "back-end/types/openapi";
+import { GetCodeRefsResponse } from "shared/types/openapi";
+import { getCodeRefsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getCodeRefsValidator } from "back-end/src/validators/openapi";
 import {
   getAllCodeRefsForFeature,
   toApiInterface,

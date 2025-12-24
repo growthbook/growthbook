@@ -1,8 +1,8 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureInterface, ExperimentRefRule } from "back-end/types/feature";
-
 import { subWeeks } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FeatureInterface, ExperimentRefRule } from "shared/types/feature";
+
 import { isFeatureStale } from "../../src/util";
 
 const genMockExperiment = ({
