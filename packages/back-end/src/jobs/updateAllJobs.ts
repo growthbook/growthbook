@@ -1,7 +1,4 @@
-import {
-  ProxyConnection,
-  SDKConnectionInterface,
-} from "shared/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -10,72 +7,52 @@ import {
   purgeCDNCache,
 } from "back-end/src/util/cdn.util";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD } from "back-end/src/util/secrets";
-import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
+import { queueProxyUpdate } from "./proxyUpdate";
 import {
   fireGlobalSdkWebhooks,
-  fireGlobalSdkWebhooksByPayloadKeys,
-  queueWebhooksBySdkPayloadKeys,
-  queueWebhooksForSdkConnection,
+  queueWebhooksByConnections,
 } from "./sdkWebhooks";
 import { queueLegacySdkWebhooks } from "./webhooks";
 
 export const triggerWebhookJobs = async (
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
-  environments: string[],
+  connections: SDKConnectionInterface[],
   isProxyEnabled: boolean,
   isFeature = true,
 ) => {
-  queueWebhooksBySdkPayloadKeys(context, payloadKeys).catch((e) => {
+  queueWebhooksByConnections(context, connections).catch((e) => {
     logger.error(e, "Error queueing webhooks");
   });
-  fireGlobalSdkWebhooksByPayloadKeys(context, payloadKeys).catch((e) => {
+
+  fireGlobalSdkWebhooks(context, connections).catch((e) => {
     logger.error(e, "Error firing global webhooks");
   });
+
   if (isProxyEnabled) {
-    queueProxyUpdate(context, payloadKeys).catch((e) => {
+    queueProxyUpdate(context, connections).catch((e) => {
       logger.error(e, "Error queueing proxy update");
     });
   }
+
   queueLegacySdkWebhooks(context, payloadKeys, isFeature).catch((e) => {
     logger.error(e, "Error queueing legacy webhooks");
   });
+
+  // Purge by environment
+  const environments = Array.from(
+    new Set(payloadKeys.map((k) => k.environment)),
+  );
   const surrogateKeys = getSurrogateKeysFromEnvironments(context.org.id, [
     ...environments,
   ]);
-  await purgeCDNCache(context.org.id, surrogateKeys);
-};
 
-export const triggerSingleSDKWebhookJobs = async (
-  context: ReqContext,
-  connection: SDKConnectionInterface,
-  otherChanges: Partial<SDKConnectionInterface>,
-  newProxy: ProxyConnection,
-  isUsingProxy: boolean,
-) => {
-  queueWebhooksForSdkConnection(context, connection).catch((e) => {
-    logger.error(e, "Error queueing webhooks");
-  });
-  if (isUsingProxy) {
-    if (IS_CLOUD) {
-      const newConnection = {
-        ...connection,
-        ...otherChanges,
-        proxy: newProxy,
-      } as SDKConnectionInterface;
-
-      queueSingleProxyUpdate(context.org.id, newConnection, IS_CLOUD).catch(
-        (e) => {
-          logger.error(e, "Error queueing single proxy update");
-        },
-      );
+  // If any connections are in a different environment, purge them individually
+  connections.forEach((conn) => {
+    if (!environments.includes(conn.environment)) {
+      surrogateKeys.push(conn.key);
     }
-  }
-
-  fireGlobalSdkWebhooks(context, [connection]).catch((e) => {
-    logger.error(e, "Error firing global webhook");
   });
 
-  await purgeCDNCache(connection.organization, [connection.key]);
+  await purgeCDNCache(context.org.id, surrogateKeys);
 };

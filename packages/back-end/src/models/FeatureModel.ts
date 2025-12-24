@@ -582,10 +582,13 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  await refreshSDKPayloadCache({
     context,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+  });
 
   await logFeatureCreatedEvent(context, feature);
 
@@ -600,10 +603,13 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  await refreshSDKPayloadCache({
     context,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+  });
 
   await logFeatureDeletedEvent(context, feature);
 
@@ -620,20 +626,15 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-  await refreshSDKPayloadCache(
+  await refreshSDKPayloadCache({
     context,
-    getSDKPayloadKeysByDiff(
+    payloadKeys: getSDKPayloadKeysByDiff(
       feature,
       updatedFeature,
       getEnvironmentIdsFromOrg(context.org),
     ),
-    null,
-    undefined,
-    safeRolloutMap,
     skipRefreshForProject,
-  );
+  });
 
   // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)
   if (

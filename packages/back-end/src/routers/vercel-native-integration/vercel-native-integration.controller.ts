@@ -500,7 +500,7 @@ export async function provisionResource(req: Request, res: Response) {
     managedBy,
   });
 
-  const sdkConnection = await createSDKConnection({
+  const sdkConnection = await createSDKConnection(context, {
     organization: org.id,
     name: payload.name,
     languages: ["nextjs"],

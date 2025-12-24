@@ -376,7 +376,7 @@ const onVisualChangesetCreate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  await refreshSDKPayloadCache({ context, payloadKeys });
 };
 
 const onVisualChangesetUpdate = async ({
@@ -404,7 +404,7 @@ const onVisualChangesetUpdate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  await refreshSDKPayloadCache({ context, payloadKeys });
 };
 
 const onVisualChangesetDelete = async ({
@@ -427,7 +427,7 @@ const onVisualChangesetDelete = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  await refreshSDKPayloadCache({ context, payloadKeys });
 };
 
 // when an experiment adds/removes variations, we need to update the analogous
