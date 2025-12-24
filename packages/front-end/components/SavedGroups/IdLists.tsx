@@ -138,9 +138,7 @@ export default function IdLists({ groups, mutate }: Props) {
           <div className="flex-1"></div>
           {canCreate ? (
             <div className="col-auto">
-              <Button onClick={() => setSavedGroupForm({})}>
-                Add ID List
-              </Button>
+              <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
             </div>
           ) : null}
         </div>
@@ -160,7 +158,7 @@ export default function IdLists({ groups, mutate }: Props) {
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </Box>
-        ): null}
+        ) : null}
 
         {filteredIdLists.length > 0 && (
           <>
@@ -255,7 +253,9 @@ export default function IdLists({ groups, mutate }: Props) {
                                   )}
                                   canDelete={
                                     isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                    isEmpty(referencingExperimentsByGroup[s.id]) &&
+                                    isEmpty(
+                                      referencingExperimentsByGroup[s.id],
+                                    ) &&
                                     isEmpty(referencingSavedGroupsByGroup[s.id])
                                   }
                                 />

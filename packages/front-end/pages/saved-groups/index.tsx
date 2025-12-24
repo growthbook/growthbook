@@ -47,8 +47,8 @@ export const getSavedGroupMessage = (
             Cannot delete saved group
           </Text>
           <Text as="p" mb="0">
-            Before you can delete this group, you will need to remove any references to it.
-            Check the following item
+            Before you can delete this group, you will need to remove any
+            references to it. Check the following item
             {(featuresUsingSavedGroups?.length || 0) +
               (experimentsUsingSavedGroups?.length || 0) +
               (savedGroupsUsingSavedGroups?.length || 0) >
@@ -66,13 +66,12 @@ export const getSavedGroupMessage = (
   };
 };
 
-
 export default function SavedGroupsPage() {
   const router = useRouter();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
-  
+
   // Initialize activeTab from URL hash, default to conditionGroups
   const getInitialTab = () => {
     if (typeof window !== "undefined") {
@@ -83,7 +82,7 @@ export default function SavedGroupsPage() {
     }
     return "conditionGroups";
   };
-  
+
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
   // Sync activeTab with URL hash changes (e.g., browser back/forward)

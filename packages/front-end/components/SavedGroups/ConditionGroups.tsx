@@ -240,7 +240,9 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                                 )}
                                 canDelete={
                                   isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                  isEmpty(referencingExperimentsByGroup[s.id]) &&
+                                  isEmpty(
+                                    referencingExperimentsByGroup[s.id],
+                                  ) &&
                                   isEmpty(referencingSavedGroupsByGroup[s.id])
                                 }
                               />
