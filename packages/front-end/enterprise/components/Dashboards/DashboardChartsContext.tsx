@@ -9,7 +9,6 @@ import * as echarts from "echarts/core";
 
 interface DashboardChartsContextValue {
   registerChart: (id: string, instance: echarts.ECharts) => void;
-  unregisterChart: (id: string) => void;
 }
 
 const DashboardChartsContext =
@@ -77,17 +76,6 @@ export function DashboardChartsProvider({
     [connectCharts],
   );
 
-  const unregisterChart = useCallback(
-    (id: string) => {
-      chartsRef.current.delete(id);
-      // Reconnect remaining charts
-      setTimeout(() => {
-        connectCharts();
-      }, 0);
-    },
-    [connectCharts],
-  );
-
   // Cleanup on unmount
   useEffect(() => {
     const groupId = connectedGroupIdRef.current;
@@ -108,7 +96,6 @@ export function DashboardChartsProvider({
     <DashboardChartsContext.Provider
       value={{
         registerChart,
-        unregisterChart,
       }}
     >
       {children}
