@@ -4,6 +4,7 @@ import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupInterface } from "shared/types/groups";
 import { Flex, Text } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -102,32 +103,58 @@ const MULTI_VALUE_LIMIT = 3;
 export function MultiValuesDisplay({
   values,
   displayMap,
+  savedGroupIds,
 }: {
   values: string[];
   displayMap?: Record<string, string>;
+  savedGroupIds?: Set<string>;
 }) {
+  const { getSavedGroupById } = useDefinitions();
+
   return (
     <>
-      {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
-        <Badge
-          key={i}
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {displayMap?.[v] || v}
-            </Text>
-          }
-        />
-      ))}
+      {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => {
+        const isSavedGroup = savedGroupIds?.has(v);
+        const group = isSavedGroup ? getSavedGroupById(v) : null;
+
+        return (
+          <Badge
+            key={i}
+            color="gray"
+            label={
+              isSavedGroup && group ? (
+                <Link
+                  href={`/saved-groups/${group.id}`}
+                  target="_blank"
+                  size="1"
+                  color="violet"
+                >
+                  {displayMap?.[v] || group.groupName} <PiArrowSquareOut />
+                </Link>
+              ) : (
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {displayMap?.[v] || v}
+                </Text>
+              )
+            }
+          />
+        );
+      })}
       {values.length > MULTI_VALUE_LIMIT && (
         <Tooltip
           body={
             <div>
-              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => (
-                <span key={i} className={`${styles.Tooltip} ml-1`}>
-                  {displayMap?.[v] || v}
-                </span>
-              ))}
+              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
+                const isSavedGroup = savedGroupIds?.has(v);
+                const group = isSavedGroup ? getSavedGroupById(v) : null;
+                return (
+                  <span key={i} className={`${styles.Tooltip} ml-1`}>
+                    {isSavedGroup && group
+                      ? group.groupName
+                      : displayMap?.[v] || v}
+                  </span>
+                );
+              })}
             </div>
           }
           usePortal
@@ -145,10 +172,12 @@ function MultiValueDisplay({
   value,
   displayMap,
   noParensForSingleValue = false,
+  savedGroupIds,
 }: {
   value: string;
   displayMap?: Record<string, string>;
   noParensForSingleValue?: boolean;
+  savedGroupIds?: Set<string>;
 }) {
   const parts = value
     .split(",")
@@ -167,7 +196,11 @@ function MultiValueDisplay({
   return (
     <>
       {!skipParens && <span>(</span>}
-      <MultiValuesDisplay values={parts} displayMap={displayMap} />
+      <MultiValuesDisplay
+        values={parts}
+        displayMap={displayMap}
+        savedGroupIds={savedGroupIds}
+      />
       {!skipParens && <span>)</span>}
     </>
   );
@@ -271,18 +304,59 @@ function getConditionParts({
               (savedGroups || []).map((sg) => [sg.id, sg.groupName]),
             )}
             noParensForSingleValue={true}
+            savedGroupIds={
+              new Set(
+                value
+                  .split(",")
+                  .map((v) => v.trim())
+                  .filter(Boolean),
+              )
+            }
           />
         ) : hasMultiValues(operator) ? (
           <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
-          <Badge
-            color="gray"
-            label={
-              <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
-                {getValue(operator, value, savedGroups)}
-              </Text>
-            }
-          />
+          (operator === "$inGroup" || operator === "$notInGroup") &&
+          savedGroups ? (
+            (() => {
+              const group = savedGroups.find((sg) => sg.id === value);
+              return group ? (
+                <Badge
+                  color="gray"
+                  label={
+                    <Link
+                      href={`/saved-groups/${group.id}`}
+                      target="_blank"
+                      size="1"
+                      color="violet"
+                    >
+                      {group.groupName} <PiArrowSquareOut />
+                    </Link>
+                  }
+                />
+              ) : (
+                <Badge
+                  color="gray"
+                  label={
+                    <Text
+                      style={{ color: "var(--slate-12)", whiteSpace: "pre" }}
+                    >
+                      {getValue(operator, value, savedGroups)}
+                    </Text>
+                  }
+                />
+              );
+            })()
+          ) : (
+            <Badge
+              color="gray"
+              label={
+                <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
+                  {getValue(operator, value, savedGroups)}
+                </Text>
+              }
+            />
+          )
         ) : (
           ""
         )}
