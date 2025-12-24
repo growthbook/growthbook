@@ -442,6 +442,24 @@ export function filterUsedSavedGroups(
   );
 }
 
+export function isSDKConnectionAffectedByPayloadKey(
+  connection: SDKConnectionInterface,
+  payloadKey: SDKPayloadKey,
+): boolean {
+  // Environment must match
+  if (connection.environment !== payloadKey.environment) {
+    return false;
+  }
+
+  // If either payload key or connection is global (no project), it matches
+  if (!payloadKey.project || !connection.projects.length) {
+    return true;
+  }
+
+  // Otherwise, the connection must include the project explicitly
+  return connection.projects.includes(payloadKey.project);
+}
+
 export async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
@@ -589,11 +607,8 @@ export async function refreshSDKPayloadCache({
     // If we don't need to update this connection's cache, skip it
     if (
       !sdkConnectionsToUpdate.some((c) => c.key === connection.key) &&
-      !payloadKeys.some(
-        ({ environment, project }) =>
-          connection.environment === environment &&
-          (connection.projects.length === 0 ||
-            connection.projects.includes(project)),
+      !payloadKeys.some((k) =>
+        isSDKConnectionAffectedByPayloadKey(connection, k),
       )
     ) {
       return;
