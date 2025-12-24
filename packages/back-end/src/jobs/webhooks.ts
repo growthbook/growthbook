@@ -7,12 +7,8 @@ import {
 } from "back-end/src/services/organizations";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import {
-  findAllLegacySdkWebhooks,
-  findSdkWebhookByIdAcrossOrgs,
-  setLastSdkWebhookError,
-} from "back-end/src/models/WebhookModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
+import { SdkWebhookModel } from "../models/WebhookModel";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -29,7 +25,8 @@ export default function (ag: Agenda) {
     const webhookId = job.attrs.data?.webhookId;
     if (!webhookId) return;
 
-    const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
+    const webhook =
+      await SdkWebhookModel.dangerousFindSdkWebhookByIdAcrossOrgs(webhookId);
     if (!webhook) return;
 
     const context = await getContextForAgendaJobByOrgId(webhook.organization);
@@ -85,11 +82,11 @@ export default function (ag: Agenda) {
         res.stringBody ||
         "POST returned an invalid status code: " +
           res.responseWithoutBody.status;
-      await setLastSdkWebhookError(webhook, e);
+      await context.models.sdkWebhooks.setLastSdkWebhookError(webhook, e);
       throw new Error(e);
     }
 
-    await setLastSdkWebhookError(webhook, "");
+    await context.models.sdkWebhooks.setLastSdkWebhookError(webhook, "");
   });
 
   agenda.on(
@@ -128,7 +125,7 @@ export async function queueLegacySdkWebhooks(
 ) {
   if (!payloadKeys.length) return;
 
-  const webhooks = await findAllLegacySdkWebhooks(context);
+  const webhooks = await context.models.sdkWebhooks.findAllLegacySdkWebhooks();
 
   for (let i = 0; i < webhooks.length; i++) {
     const webhook = webhooks[i];
