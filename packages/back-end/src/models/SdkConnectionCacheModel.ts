@@ -1,4 +1,4 @@
-import { sdkConnectionCacheValidator } from "back-end/src/validators/sdk-connection-cache";
+import { sdkConnectionCacheValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
