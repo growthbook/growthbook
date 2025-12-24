@@ -3,7 +3,10 @@ import uniqid from "uniqid";
 import md5 from "md5";
 import { WebhookInterface } from "shared/types/webhook";
 import { webhookSchema } from "shared/validators";
-import { getCollection, removeMongooseFields } from "../util/mongo.util";
+import {
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "webhooks";
@@ -11,8 +14,6 @@ const BaseClass = MakeModelClass({
   schema: webhookSchema,
   collectionName: COLLECTION_NAME,
   idPrefix: "wh_",
-  // If true, `id` is globally unique across all orgs
-  // If false (default), the `organization`/`id` combo is unique.
   globallyUniqueIds: true,
   readonlyFields: [],
   additionalIndexes: [

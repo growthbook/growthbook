@@ -14,6 +14,7 @@ import {
   findSDKConnectionsByOrganization,
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
   cancellableFetch,
@@ -25,7 +26,6 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { SdkWebhookModel } from "../models/WebhookModel";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{

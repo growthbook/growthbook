@@ -55,7 +55,7 @@ import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
-import { SdkWebhookModel } from "../models/WebhookModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
