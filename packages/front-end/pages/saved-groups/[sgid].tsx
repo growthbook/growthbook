@@ -111,58 +111,12 @@ export default function EditSavedGroupPage() {
   );
 
   const savedGroupsReferencingTarget = useMemo(() => {
-    if (!savedGroup || !allSavedGroups) return savedGroup ? [savedGroup] : [];
-
-    const targetId = savedGroup.id;
-    const referencingGroups: SavedGroupInterface[] = [];
-
-    function extractSavedGroupIds(obj: unknown): Set<string> {
-      const ids = new Set<string>();
-
-      if (typeof obj !== "object" || obj === null) return ids;
-
-      if (Array.isArray(obj)) {
-        obj.forEach((item) => {
-          extractSavedGroupIds(item).forEach((id) => ids.add(id));
-        });
-        return ids;
-      }
-
-      for (const [key, value] of Object.entries(obj)) {
-        if (key === "$savedGroups") {
-          if (Array.isArray(value)) {
-            value.forEach((id) => {
-              if (typeof id === "string") ids.add(id);
-            });
-          } else if (typeof value === "string") {
-            ids.add(value);
-          }
-        } else if (typeof value === "object" && value !== null) {
-          extractSavedGroupIds(value).forEach((id) => ids.add(id));
-        }
-      }
-
-      return ids;
-    }
-
-    allSavedGroups.forEach((sg) => {
-      if (sg.id === targetId) return;
-
-      const condition = sg.condition;
-      if (!condition || condition === "{}") return;
-
-      try {
-        const parsed = JSON.parse(condition);
-        const savedGroupIds = extractSavedGroupIds(parsed);
-        if (savedGroupIds.has(targetId)) {
-          referencingGroups.push(sg);
-        }
-      } catch (e) {
-        console.error("Error parsing condition", e);
-      }
+    if (!savedGroup || !allSavedGroups) return [];
+    return allSavedGroups.filter((sg) => {
+      if (sg.id === savedGroup.id) return false;
+      if (!sg.condition) return false;
+      return sg.condition.includes(savedGroup.id);
     });
-
-    return referencingGroups;
   }, [savedGroup, allSavedGroups]);
 
   const referencingFeatures = useMemo(() => {
