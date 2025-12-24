@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

@@ -1,7 +1,7 @@
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";

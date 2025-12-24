@@ -505,6 +505,11 @@ const sidebars = {
       },
       items: [
         {
+          type: "doc",
+          id: "lib/quickstart",
+          label: "Quickstart",
+        },
+        {
           type: "category",
           label: "Back-end",
           collapsed: true,

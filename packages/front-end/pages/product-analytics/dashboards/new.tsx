@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
+import { DashboardInterface } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";

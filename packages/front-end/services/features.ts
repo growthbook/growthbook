@@ -6,7 +6,7 @@ import {
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   ExperimentRefRule,
   ExperimentRule,
@@ -17,10 +17,10 @@ import {
   ForceRule,
   RolloutRule,
   ComputedFeatureInterface,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureUsageRecords } from "back-end/types/realtime";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
@@ -31,12 +31,12 @@ import {
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/types/groups";
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { SafeRolloutRule } from "shared/validators";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -952,12 +952,50 @@ export function jsonToConds(
 
   try {
     const parsed = JSON.parse(json);
-    if (parsed["$not"]) return null;
 
     const conds: Condition[] = [];
     let valid = true;
 
+    if (parsed["$not"]) {
+      // Allow $savedGroups as the only key inside $not
+      const notObj = parsed["$not"];
+      if (
+        typeof notObj === "object" &&
+        Object.keys(notObj).length === 1 &&
+        "$savedGroups" in notObj
+      ) {
+        const v = notObj["$savedGroups"];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          conds.push({
+            field: "$savedGroups",
+            operator: "$nin",
+            value: v.join(", "),
+          });
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+
     Object.keys(parsed).forEach((field) => {
+      if (field === "$not") return;
+
+      if (field === "$savedGroups") {
+        const v = parsed[field];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          return conds.push({
+            field,
+            operator: "$in",
+            value: v.join(", "),
+          });
+        } else {
+          valid = false;
+          return;
+        }
+      }
+
       if (attributes && !attributes.has(field)) {
         valid = false;
         return;
@@ -1143,6 +1181,25 @@ export function condToJson(
 ) {
   const obj = {};
   conds.forEach(({ field, operator, value }) => {
+    // Special handling for $savedGroups since it's not a real attribute
+    if (field === "$savedGroups") {
+      const ids = value
+        .split(",")
+        .map((x) => x.trim())
+        .filter((x) => !!x);
+      if (!ids.length) return;
+
+      if (operator === "$nin") {
+        obj["$not"] = obj["$not"] || {};
+        obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"] || [];
+        obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"].concat(ids);
+      } else if (operator === "$in") {
+        obj["$savedGroups"] = obj["$savedGroups"] || [];
+        obj["$savedGroups"] = obj["$savedGroups"].concat(ids);
+      }
+      return;
+    }
+
     obj[field] = obj[field] || {};
     if (operator === "$notRegex") {
       obj[field]["$not"] = { $regex: value };

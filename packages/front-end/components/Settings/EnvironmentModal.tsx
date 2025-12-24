@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";

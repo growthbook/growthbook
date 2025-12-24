@@ -3,9 +3,6 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useContext, useEffect, useMemo, useState } from "react";
-import {
   blockHasFieldOfType,
   isDifferenceType,
   isMetricSelector,
@@ -13,7 +10,8 @@ import {
   BLOCK_CONFIG_ITEM_TYPES,
   pinSources,
 } from "shared/enterprise";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import React, { useContext, useEffect, useMemo, useState } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "shared/validators";
 import {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { MetricInterface } from "back-end/types/metric";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { MetricInterface } from "shared/types/metric";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";

@@ -92,6 +92,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -104,6 +105,7 @@ import {
   FactMetricQuantileData,
   FactMetricPercentileData,
   FactMetricAggregationMetadata,
+  FeatureEvalDiagnosticsQueryResponse,
   UserExperimentExposuresQueryParams,
   UserExperimentExposuresQueryResponse,
   CovariateWindowType,
@@ -113,10 +115,8 @@ import {
   CovariatePhaseStartSettings,
   PipelineIntegration,
 } from "shared/types/integrations";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
-import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { ReqContext } from "back-end/types/request";
-import { MetricInterface, MetricType } from "back-end/types/metric";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
@@ -125,39 +125,41 @@ import {
   DataSourceInterface,
   AutoFactTableSchemas,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "shared/types/experiment-snapshot";
+import {
+  ColumnRef,
+  FactMetricInterface,
+  FactTableInterface,
+  MetricQuantileSettings,
+} from "shared/types/fact-table";
+import type { PopulationDataQuerySettings } from "shared/types/query";
+import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { ReqContext } from "back-end/types/request";
 import {
   MissingDatasourceParamsError,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
-import { DimensionInterface } from "back-end/types/dimension";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import {
-  ExperimentSnapshotSettings,
-  SnapshotBanditSettings,
-  SnapshotSettingsVariation,
-} from "back-end/types/experiment-snapshot";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  ColumnRef,
-  FactMetricInterface,
-  FactTableInterface,
-  MetricQuantileSettings,
-} from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
-import type { PopulationDataQuerySettings } from "back-end/types/query";
 import {
   INCREMENTAL_METRICS_TABLE_PREFIX,
   INCREMENTAL_UNITS_TABLE_PREFIX,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -1705,7 +1707,7 @@ export default abstract class SqlIntegration
         initial.${baseIdType}`;
   }
 
-  private getDimensionColumn(
+  private getDimensionValuePerUnit(
     dimension: UserDimension | ExperimentDimension | null,
     experimentDimensionPrefix?: string,
   ) {
@@ -1877,6 +1879,7 @@ export default abstract class SqlIntegration
       unitDimensions: [],
       experimentDimensions: [],
       activationDimension: null,
+      dateDimension: null,
     };
 
     dimensions.forEach((dimension) => {
@@ -1898,6 +1901,8 @@ export default abstract class SqlIntegration
         processedDimensions.unitDimensions.push(clonedDimension);
       } else if (dimension?.type === "experiment") {
         processedDimensions.experimentDimensions.push(dimension);
+      } else if (dimension?.type === "date") {
+        processedDimensions.dateDimension = dimension;
       }
     });
     return processedDimensions;
@@ -2152,13 +2157,13 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_unit_${d.dimension.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_unit_${d.dimension.id}`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
@@ -2471,7 +2476,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+            , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -2600,6 +2605,31 @@ export default abstract class SqlIntegration
     );
   }
 
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string {
+    const featureKey = this.escapeStringLiteral(params.feature);
+
+    // We only support one feature usage query per data source for now
+    // Always use the first query in the array for now
+    const featureEvalQuery = this.datasource.settings?.queries?.featureUsage
+      ? this.datasource.settings.queries.featureUsage[0].query
+      : "";
+
+    return format(
+      `-- Feature Evaluation Diagnostics Query
+      WITH __featureEvalQuery AS (
+        ${featureEvalQuery}
+      )
+      SELECT * FROM __featureEvalQuery
+      WHERE feature_key = '${featureKey}'
+      ORDER BY timestamp DESC
+      LIMIT ${SQL_ROW_LIMIT}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
   public async runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse> {
@@ -2614,6 +2644,27 @@ export default abstract class SqlIntegration
           timestamp: row.timestamp,
           experiment_id: row.experiment_id,
           variation_id: row.variation_id,
+          ...row,
+        };
+      }),
+      statistics,
+      truncated,
+    };
+  }
+
+  public async runFeatureEvalDiagnosticsQuery(
+    query: string,
+  ): Promise<FeatureEvalDiagnosticsQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
+
+    // Check if SQL_ROW_LIMIT was reached
+    const truncated = rows.length === SQL_ROW_LIMIT;
+
+    return {
+      rows: rows.map((row) => {
+        return {
+          timestamp: row.timestamp,
+          feature_key: row.feature_key,
           ...row,
         };
       }),
@@ -6830,7 +6881,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${experimentDimensions
               .map(
                 (d) => `
-              , ${this.getDimensionColumn(d, "dim_exp_")} AS dim_exp_${d.id}`,
+              , ${this.getDimensionValuePerUnit(d, "dim_exp_")} AS dim_exp_${d.id}`,
               )
               .join("\n")}
           FROM __jointExposures e
@@ -7528,11 +7579,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       percentileTableIndices.add(0);
     }
 
-    const { unitDimensions } = this.processDimensions(
-      params.dimensions,
-      params.settings,
-      params.activationMetric,
-    );
+    // exploratory dimensions
+    const { experimentDimensions, unitDimensions, dateDimension } =
+      this.processDimensions(
+        params.dimensionsForAnalysis,
+        params.settings,
+        params.activationMetric,
+      );
 
     const idTypeObjects = [
       [exposureQuery.userIdType],
@@ -7547,14 +7600,39 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       experimentId: params.settings.experimentId,
     });
 
-    const unitDimensionCols = unitDimensions.map((d) =>
+    const unitDimensionCols = unitDimensions.map((d) => ({
+      // override value with the a MAX statement that will get one
+      // value per unit
+      value: this.getDimensionValuePerUnit(d),
+      alias: this.getDimensionCol(d).alias,
+    }));
+
+    const experimentDimensionCols = experimentDimensions.map((d) =>
       this.getDimensionCol(d),
     );
-    const nonUnitDimensionCols = params.dimensions
-      .filter((d) => d.type !== "user")
-      .map((d) => this.getDimensionCol(d));
+    const precomputedDimensionCols: DimensionColumnData[] =
+      params.dimensionsForPrecomputation.map((d) => {
+        const col = this.getDimensionCol(d);
+        // override value with case when statement for precomputed dimensions
+        const value = this.getDimensionInStatement(
+          col.alias,
+          d.specifiedSlices,
+        );
+        return {
+          value,
+          alias: col.alias,
+        };
+      });
+    const dateDimensionCol = dateDimension
+      ? this.getDimensionCol(dateDimension)
+      : undefined;
 
-    const allDimensionCols = [...unitDimensionCols, ...nonUnitDimensionCols];
+    const nonUnitDimensionCols = [
+      ...experimentDimensionCols,
+      ...(dateDimensionCol ? [dateDimensionCol] : []),
+      ...precomputedDimensionCols,
+    ];
+    const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -7575,20 +7653,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             )})`,
         )
         .join("\n")}
-      ${
+      , __experimentUnits AS (${
         unitDimensions.length > 0
-          ? `
-        , __experimentUnits AS (
-          SELECT
+          ? `SELECT
             e.${baseIdType} AS ${baseIdType}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
-            ${unitDimensions.map((d) => `, ${this.getDimensionColumn(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
-            ${nonUnitDimensionCols
-              .map((d) => {
-                return `, MIN(${d.value}) AS ${d.alias}`;
-              })
-              .join("")}
+            ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
+            ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
           FROM ${params.unitsSourceTableFullName} e
           ${unitDimensions
             .map(
@@ -7601,21 +7673,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .join("\n")}
           GROUP BY
             e.${baseIdType}
-        )
       `
-          : `, __experimentUnits AS (
-        SELECT
+          : `SELECT
           e.${baseIdType} AS ${baseIdType}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
-            ${nonUnitDimensionCols
-              .map((d) => {
-                return `, ${d.value} AS ${d.alias}`;
-              })
-              .join("")}
-        FROM ${params.unitsSourceTableFullName} e
-      )`
-      }
+          ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
+        FROM ${params.unitsSourceTableFullName} e`
+      })
       , __metricDataAggregated AS (
         SELECT
           ${baseIdType}

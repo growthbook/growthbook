@@ -1,10 +1,10 @@
+import { PostFactMetricAnalysisResponse } from "shared/types/openapi";
+import { postFactMetricAnalysisValidator } from "shared/validators";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { PostFactMetricAnalysisResponse } from "back-end/types/openapi";
-import { postFactMetricAnalysisValidator } from "back-end/src/validators/openapi";
 
 export const postFactMetricAnalysis = createApiRequestHandler(
   postFactMetricAnalysisValidator,

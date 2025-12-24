@@ -6,7 +6,7 @@ import {
   DashboardEditLevel,
   DashboardShareLevel,
   DashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
+} from "shared/enterprise";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";

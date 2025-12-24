@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { MysqlConnectionParams } from "back-end/types/integrations/mysql";
+import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 

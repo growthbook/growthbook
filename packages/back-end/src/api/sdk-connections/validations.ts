@@ -9,10 +9,10 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
+import { OrganizationInterface } from "shared/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { OrganizationInterface } from "back-end/types/organization";
 
 const capabilityParams = [
   ["encryption", "encryptPayload"],

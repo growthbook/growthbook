@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";

@@ -3,14 +3,14 @@ import {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";

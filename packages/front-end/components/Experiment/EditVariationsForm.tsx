@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";

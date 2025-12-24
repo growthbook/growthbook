@@ -1,5 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
+import { DashboardInterface } from "shared/enterprise";
+import { FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
 import {
   EnvScopedPermission,
   Environment,
@@ -8,28 +9,27 @@ import {
   ProjectScopedPermission,
   SDKAttribute,
   UserPermissions,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   FactMetricInterface,
   FactTableInterface,
   UpdateFactTableProps,
-} from "back-end/types/fact-table";
-import { ExecReportInterface } from "back-end/types/exec-report";
+} from "shared/types/fact-table";
+import { ExecReportInterface } from "shared/types/exec-report";
 import {
   ExperimentInterface,
   ExperimentTemplateInterface,
   UpdateTemplateProps,
-} from "back-end/types/experiment";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { CustomHookInterface } from "shared/validators";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+} from "shared/types/experiment";
+import { DataSourceInterface } from "shared/types/datasource";
 import { UpdateProps } from "shared/types/base-model";
 import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/groups";
+import { CustomHookInterface } from "../validators/custom-hooks";
+import { HoldoutInterface } from "../validators/holdout";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   status = 403;
@@ -938,6 +938,12 @@ export class Permissions {
   };
 
   public canRunPipelineValidationQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunFeatureDiagnosticsQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");

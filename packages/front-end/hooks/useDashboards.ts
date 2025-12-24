@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
+import { DashboardInterface } from "shared/enterprise";
 import useApi from "./useApi";
 
 export function useAllDashboards() {

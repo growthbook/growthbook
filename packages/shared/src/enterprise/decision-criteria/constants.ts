@@ -1,4 +1,4 @@
-import { DecisionCriteriaData } from "back-end/types/experiment";
+import { DecisionCriteriaData } from "shared/types/experiment";
 
 // Default decision criteria for new users
 export const PRESET_DECISION_CRITERIA: DecisionCriteriaData = {

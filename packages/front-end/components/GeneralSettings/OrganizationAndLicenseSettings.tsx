@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";

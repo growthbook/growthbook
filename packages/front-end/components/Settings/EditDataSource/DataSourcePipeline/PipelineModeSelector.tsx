@@ -1,5 +1,5 @@
 import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
-import type { DataSourceType } from "back-end/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import RadioGroup from "@/ui/RadioGroup";
 import { AppFeatures } from "@/types/app-features";

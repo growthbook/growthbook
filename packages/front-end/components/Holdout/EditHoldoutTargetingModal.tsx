@@ -3,7 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import React from "react";
 import { validateAndFixCondition } from "shared/util";
 import { Text } from "@radix-ui/themes";

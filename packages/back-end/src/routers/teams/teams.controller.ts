@@ -1,7 +1,8 @@
 import type { Response } from "express";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
+import { TeamInterface } from "shared/types/team";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { TeamInterface } from "back-end/types/team";
 import {
   createTeam,
   deleteTeam,
@@ -20,7 +21,6 @@ import {
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { MemberRoleWithProjects } from "back-end/types/organization";
 
 // region POST /teams
 

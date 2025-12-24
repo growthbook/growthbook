@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { PipelineValidationResults } from "shared/enterprise";
-import type { DataSourcePipelineSettings } from "back-end/types/datasource";
+import type { DataSourcePipelineSettings } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 
 type ValidateArgs = {

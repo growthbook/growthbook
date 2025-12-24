@@ -1,6 +1,6 @@
-import { PutProjectResponse } from "back-end/types/openapi";
+import { PutProjectResponse } from "shared/types/openapi";
+import { putProjectValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { putProjectValidator } from "back-end/src/validators/openapi";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export const putProject = createApiRequestHandler(putProjectValidator)(async (

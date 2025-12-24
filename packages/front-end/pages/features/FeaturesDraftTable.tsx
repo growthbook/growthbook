@@ -1,9 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventUserLoggedIn } from "back-end/types/events/event-types";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";

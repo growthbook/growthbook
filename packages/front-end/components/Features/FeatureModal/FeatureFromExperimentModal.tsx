@@ -5,9 +5,9 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { ReactElement, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";

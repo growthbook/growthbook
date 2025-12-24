@@ -10,8 +10,8 @@ import {
   featuresReferencingSavedGroups,
   isIdListSupportedAttribute,
 } from "shared/util";
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isEmpty } from "lodash";
 import { Container, Flex, Text } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -148,20 +148,18 @@ export default function EditSavedGroupPage() {
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error" mt="4">
         An error occurred: {error.message}
-      </div>
+      </Callout>
     );
   }
 
   if (savedGroup.type !== "list") {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error" mt="4">
         This type of Saved Group isn&apos;t supported. Return to your{" "}
-        <Link className="text-error-muted underline" href="/saved-groups">
-          saved groups
-        </Link>
-      </div>
+        <Link href="/saved-groups">saved groups</Link>
+      </Callout>
     );
   }
 
@@ -327,16 +325,13 @@ export default function EditSavedGroupPage() {
         </div>
         <div>{savedGroup.description}</div>
         {!isIdListSupportedAttribute(attr) && (
-          <div className="alert alert-danger">
-            <PiWarningFill style={{ marginTop: "-2px" }} />
+          <Callout status="error" icon={<PiWarningFill />} mt="3">
             The attribute for this saved group has an unsupported datatype. It
             cannot be edited and it may produce unexpected behavior when used in
             SDKs. Try using a{" "}
-            <Link href="/saved-groups#conditionGroups">
-              Condition Group
-            </Link>{" "}
+            <Link href="/saved-groups#conditionGroups">Condition Group</Link>{" "}
             instead
-          </div>
+          </Callout>
         )}
         <hr />
         <LargeSavedGroupPerformanceWarning

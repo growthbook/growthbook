@@ -1,7 +1,7 @@
 import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
-} from "back-end/types/experimentLaunchChecklist";
+} from "shared/types/experimentLaunchChecklist";
 import { useEffect, useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
 import { Box, Heading, Text } from "@radix-ui/themes";

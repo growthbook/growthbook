@@ -10,7 +10,7 @@ import { AreaClosed, LinePath } from "@visx/shape";
 import { curveLinear, curveMonotoneX } from "@visx/curve";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { datetime, getValidDate } from "shared/dates";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
 import { pValueFormatter } from "@/services/experiments";

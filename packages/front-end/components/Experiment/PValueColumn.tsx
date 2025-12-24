@@ -1,8 +1,8 @@
 import clsx from "clsx";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { PValueCorrection } from "back-end/types/stats";
+import { PValueCorrection } from "shared/types/stats";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { GBSuspicious } from "@/components/Icons";

@@ -3,7 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   UserIdType,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { FaPlus } from "react-icons/fa";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";

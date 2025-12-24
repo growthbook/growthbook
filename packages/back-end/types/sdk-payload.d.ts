@@ -6,7 +6,7 @@ export type SDKPayloadContents = {
   features: Record<string, FeatureDefinition>;
   holdouts?: Record<string, FeatureDefinition>;
   experiments: AutoExperiment[];
-  savedGroupsInUse: string[]; // The ids of saved groups to be pulled from Mongo before returning the SDK payload
+  savedGroupsInUse?: string[]; // The ids of saved groups to be pulled from Mongo before returning the SDK payload
 };
 
 interface DOMMutation {

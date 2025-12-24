@@ -1,5 +1,5 @@
-import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { getSRMHealthData } from "shared/health";
 import {
@@ -9,7 +9,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";

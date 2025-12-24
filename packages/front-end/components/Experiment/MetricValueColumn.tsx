@@ -1,4 +1,4 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   CSSProperties,
   DetailedHTMLProps,
@@ -11,7 +11,7 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,

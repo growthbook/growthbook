@@ -3,13 +3,13 @@ import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   ExperimentStatus,
   ExperimentType,
   MetricOverride,
-} from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+} from "shared/types/experiment";
+import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
 import {
@@ -20,7 +20,7 @@ import {
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { SafeRolloutReportResultDimension } from "back-end/src/validators/safe-rollout-snapshot";
+import { SafeRolloutReportResultDimension } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,

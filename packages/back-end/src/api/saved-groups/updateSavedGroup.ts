@@ -1,16 +1,17 @@
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
+import { UpdateSavedGroupResponse } from "shared/types/openapi";
+import { updateSavedGroupValidator } from "shared/validators";
+import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { logger } from "back-end/src/util/logger";
-import { UpdateSavedGroupResponse } from "back-end/types/openapi";
 import {
+  getAllSavedGroups,
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateSavedGroupValidator } from "back-end/src/validators/openapi";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { UpdateSavedGroupProps } from "back-end/types/saved-group";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const updateSavedGroup = createApiRequestHandler(
@@ -65,7 +66,15 @@ export const updateSavedGroup = createApiRequestHandler(
     condition &&
     condition !== savedGroup.condition
   ) {
-    const conditionRes = validateCondition(condition);
+    const allSavedGroups = await getAllSavedGroups(req.organization.id);
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    // Include the updated condition in the groupMap for validation
+    groupMap.set(savedGroup.id, {
+      ...savedGroup,
+      condition,
+    });
+
+    const conditionRes = validateCondition(condition, groupMap);
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
@@ -101,7 +110,7 @@ export const updateSavedGroup = createApiRequestHandler(
     fieldsToUpdate.condition ||
     fieldsToUpdate.projects
   ) {
-    savedGroupUpdated(req.context, savedGroup.id).catch((e) => {
+    savedGroupUpdated(req.context, savedGroup).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on saved group update");
     });
   }

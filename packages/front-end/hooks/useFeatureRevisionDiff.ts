@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import isEqual from "lodash/isEqual";
-import { FeatureRule, FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "../../back-end/types/feature-revision";
+import { FeatureRule, FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
 // Helper
 export const featureToFeatureRevisionDiffInput = (

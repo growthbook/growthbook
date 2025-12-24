@@ -1,4 +1,4 @@
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { InformationSchemaTablesInterface } from "shared/types/integrations";
 import React, { useEffect, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";

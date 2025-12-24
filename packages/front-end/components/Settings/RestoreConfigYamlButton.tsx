@@ -1,16 +1,16 @@
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { load, dump } from "js-yaml";
 import { createPatch } from "diff";
 import { html } from "diff2html";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import {
   MetricCappingSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,

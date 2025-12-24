@@ -1,13 +1,13 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { omit } from "lodash";
 import { ExperimentAggregateUnitsQueryResponseRows } from "shared/types/integrations";
-import { Queries, QueryStatus } from "back-end/types/query";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { Queries, QueryStatus } from "shared/types/query";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotHealth,
   SafeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout-snapshot";
+} from "shared/validators";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getSnapshotSettingsFromSafeRolloutArgs } from "back-end/src/services/safeRolloutSnapshots";
 import {
   analyzeExperimentResults,

@@ -1,5 +1,6 @@
 import fetch, { Response } from "node-fetch";
 import * as Sentry from "@sentry/node";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   backgroundUpdateUsageDataFromServerForTests,
   getUsage,
@@ -10,7 +11,6 @@ import {
   UNLIMITED_USAGE,
 } from "back-end/src/enterprise/billing";
 import * as licenseUtil from "back-end/src/enterprise/licenseUtil";
-import { OrganizationInterface } from "back-end/types/organization";
 
 jest.mock("@sentry/node", () => ({
   ...jest.requireActual("@sentry/node"),

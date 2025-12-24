@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { ExperimentTemplateInterface } from "back-end/types/experiment";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { useTemplates } from "@/hooks/useTemplates";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Link from "@/ui/Link";

@@ -228,6 +228,72 @@
         "./packages/back-end/src/util/http.util.ts",
         "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
       ]
+    },
+    // #region Ensure packages import from shared mostly
+    {
+      "files": ["./packages/front-end/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "**/sdk-{js,react}*"],
+                "message": "front-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/back-end/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*front-end*", "**/sdk-{js,react}*"],
+                "message": "back-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/shared/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*"],
+                "message": "shared cannot import from back-end or front-end."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/sdk-{js,react}/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*", "**/shared*"],
+                "message": "SDK packages cannot import from internal packages."
+              }
+            ]
+          }
+        ]
+      }
     }
+    // #endregion
   ]
 }

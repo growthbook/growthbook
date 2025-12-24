@@ -15,9 +15,9 @@ import {
   MetricAnalysisHistogram,
   MetricAnalysisInterface,
   MetricAnalysisResult,
-} from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { Queries, QueryStatus } from "back-end/types/query";
+} from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { Queries, QueryStatus } from "shared/types/query";
 import { getMetricWithFiltersApplied } from "../services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 

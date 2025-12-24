@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useState } from "react";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";

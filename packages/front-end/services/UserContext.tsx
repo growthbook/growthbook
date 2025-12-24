@@ -1,5 +1,5 @@
-import { ApiKeyInterface } from "back-end/types/apikey";
-import { TeamInterface } from "back-end/types/team";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { TeamInterface } from "shared/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -12,7 +12,7 @@ import {
   UserPermissions,
   GetOrganizationResponse,
   OrganizationUsage,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import type {
   AccountPlan,
   CommercialFeature,

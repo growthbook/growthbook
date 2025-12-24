@@ -8,8 +8,9 @@ import { SafeRolloutStatus } from "shared/validators";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
-} from "back-end/types/safe-rollout";
-import { OrganizationInterface } from "back-end/types/organization";
+} from "shared/types/safe-rollout";
+import { OrganizationInterface } from "shared/types/organization";
+import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
@@ -21,7 +22,6 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { FeatureInterface } from "back-end/types/feature";
 import { determineNextDate } from "back-end/src/services/experiments";
 
 export interface UpdateRampUpScheduleParams {

@@ -1,6 +1,7 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -11,7 +12,6 @@ import {
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
 } from "back-end/src/util/secrets";
-import { OrganizationInterface } from "back-end/types/organization";
 import { getEmailFromUserId } from "back-end/src/models/UserModel";
 import { getInviteUrl } from "./organizations";
 

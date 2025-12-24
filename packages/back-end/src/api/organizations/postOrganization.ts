@@ -1,9 +1,9 @@
-import { PostOrganizationResponse } from "back-end/types/openapi";
+import { PostOrganizationResponse } from "shared/types/openapi";
+import { postOrganizationValidator } from "shared/validators";
 import {
   createApiRequestHandler,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
-import { postOrganizationValidator } from "back-end/src/validators/openapi";
 import {
   createOrganization,
   toOrganizationApiInterface,

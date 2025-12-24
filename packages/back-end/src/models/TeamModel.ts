@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { ManagedBy } from "shared/validators";
-import { TeamInterface } from "back-end/types/team";
+import { TeamInterface } from "shared/types/team";
 import {
   ToInterface,
   getCollection,

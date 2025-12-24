@@ -134,6 +134,10 @@ import { inject, watch } from 'vue'
 import { gbKey } from '../main'
 
 export default {
+  // Inject the GrowthBook instance
+  inject: {
+    gb: { from: gbKey },
+  },
   // Define a variable to store the feature flag result
   data() {
     return {
@@ -141,15 +145,13 @@ export default {
     }
   },
   mounted() {
-    const gb = inject(gbKey) // Inject the GrowthBook instance
-
     // Set the showBanner variable to the feature flag value
-    if (gb) {
-      this.showBanner = gb.isOn('show-banner')
+    if (this.gb) {
+      this.showBanner = this.gb.isOn('show-banner')
 
       // Optional: Watch the feature flag for changes (requires streaming to be enabled)
-      watch(gb, () => {
-        this.showBanner = gb.isOn('show-banner')
+      watch(this.gb, () => {
+        this.showBanner = this.gb.isOn('show-banner')
       })
     }
   }

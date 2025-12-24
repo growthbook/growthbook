@@ -1,6 +1,6 @@
 import React, { FC, useCallback } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import { SlackIntegrationInterface } from "back-end/types/slack-integration";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { SlackIntegrationEditParams } from "@/components/SlackIntegrations/slack-integrations-utils";
 

@@ -1,8 +1,8 @@
 import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentReportVariation } from "back-end/types/report";
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";

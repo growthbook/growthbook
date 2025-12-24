@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
-import { ExposureQuery } from "back-end/types/datasource";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { ExposureQuery } from "shared/types/datasource";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import { Flex, Text } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";

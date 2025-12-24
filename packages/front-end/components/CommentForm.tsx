@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { DiscussionParentType } from "back-end/types/discussion";
+import { DiscussionParentType } from "shared/types/discussion";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "./LoadingOverlay";

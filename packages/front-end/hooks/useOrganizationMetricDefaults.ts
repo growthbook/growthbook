@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from "react";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_METRIC_CAPPING,

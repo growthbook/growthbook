@@ -1,8 +1,8 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "back-end/types/feature-revision";
+} from "shared/types/feature-revision";
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { ago, date } from "shared/dates";

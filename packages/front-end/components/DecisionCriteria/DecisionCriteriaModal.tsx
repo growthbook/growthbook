@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { DecisionCriteriaData } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+import { DecisionCriteriaData } from "shared/enterprise";
 import Modal from "@/components/Modal";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";

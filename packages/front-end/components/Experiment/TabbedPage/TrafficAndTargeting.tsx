@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Tooltip from "@/components/Tooltip/Tooltip";

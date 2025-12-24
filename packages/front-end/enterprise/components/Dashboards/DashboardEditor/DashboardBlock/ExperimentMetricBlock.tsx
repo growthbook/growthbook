@@ -1,10 +1,12 @@
 import React, { useMemo, useEffect } from "react";
 import { v4 as uuid4 } from "uuid";
-import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  ExperimentMetricBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import { groupBy } from "lodash";
-import { blockHasFieldOfType } from "shared/enterprise";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { expandMetricGroups } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";

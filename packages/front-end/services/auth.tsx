@@ -10,7 +10,7 @@ import { useRouter } from "next/router";
 import {
   MemberRoleInfo,
   OrganizationInterface,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,

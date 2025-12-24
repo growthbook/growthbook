@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

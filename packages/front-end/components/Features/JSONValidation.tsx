@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { getValidation } from "shared/util";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";

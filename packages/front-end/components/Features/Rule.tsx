@@ -1,17 +1,16 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
-import { SafeRolloutInterface } from "shared/validators";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {

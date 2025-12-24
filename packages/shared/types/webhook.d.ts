@@ -1,4 +1,4 @@
-import { ManagedBy } from "shared/validators";
+import { ManagedBy, WebhookPayloadFormat } from "shared/validators";
 
 export interface WebhookInterface {
   id: string;
@@ -36,16 +36,8 @@ export type WebhookMethod =
   | "PURGE"
   | "PATCH";
 
-export type WebhookPayloadFormat =
-  | "standard"
-  | "standard-no-payload"
-  | "sdkPayload"
-  | "edgeConfig"
-  | "edgeConfigUnescaped"
-  | "vercelNativeIntegration"
-  | "none";
-
 export type {
   UpdateSdkWebhookProps,
   CreateSdkWebhookProps,
-} from "back-end/src/models/WebhookModel";
+  WebhookPayloadFormat,
+} from "shared/validators";

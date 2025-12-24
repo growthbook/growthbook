@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import pick from "lodash/pick";
-import { SlackIntegrationInterface } from "back-end/types/slack-integration";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import { TagInterface } from "shared/types/tag";
 import {
   SlackIntegrationEditParams,

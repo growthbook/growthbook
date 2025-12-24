@@ -1,12 +1,12 @@
+import { QueryInterface, QueryStatus } from "shared/types/query";
+import { ReqContext } from "back-end/types/request";
 import {
   QueryRunner,
   QueryMap,
   InterfaceWithQueries,
 } from "back-end/src/queryRunners/QueryRunner";
-import { QueryInterface, QueryStatus } from "back-end/types/query";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { updateQuery } from "back-end/src/models/QueryModel";
-import { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/QueryModel");
 

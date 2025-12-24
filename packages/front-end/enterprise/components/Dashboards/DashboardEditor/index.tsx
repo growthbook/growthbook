@@ -13,18 +13,17 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined } from "shared/util";
-import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
-import clsx from "clsx";
-import { withErrorBoundary } from "@sentry/react";
-import { dashboardBlockHasIds, getBlockData } from "shared/enterprise";
-import {
+  dashboardBlockHasIds,
+  getBlockData,
   DashboardEditLevel,
   DashboardInterface,
   DashboardShareLevel,
   DashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
+} from "shared/enterprise";
+import { isDefined } from "shared/util";
+import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import clsx from "clsx";
+import { withErrorBoundary } from "@sentry/react";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,

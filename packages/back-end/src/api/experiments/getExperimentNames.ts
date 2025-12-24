@@ -1,7 +1,7 @@
+import { getExperimentNamesValidator } from "shared/validators";
+import { GetExperimentNamesResponse } from "shared/types/openapi";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getExperimentNamesValidator } from "back-end/src/validators/openapi";
-import { GetExperimentNamesResponse } from "back-end/types/openapi";
 
 export const getExperimentNames = createApiRequestHandler(
   getExperimentNamesValidator,

@@ -2,7 +2,7 @@ import { FilterQuery } from "mongoose";
 import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout-snapshot";
+} from "shared/validators";
 import { updateSafeRolloutTimeSeries } from "back-end/src/services/safeRolloutTimeSeries";
 import {
   getSafeRolloutAnalysisSummary,

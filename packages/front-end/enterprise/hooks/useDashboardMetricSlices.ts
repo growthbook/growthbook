@@ -2,8 +2,8 @@ import React, { useState, useMemo, useCallback } from "react";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+} from "shared/enterprise";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
 import { ExperimentTableRow } from "@/services/experiments";
 

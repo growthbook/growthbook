@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import { ExperimentReportVariationWithIndex } from "shared/types/report";
 import {
   StatsEngine,
   PValueCorrection,
   DifferenceType,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 
 export function useAnalysisResultSummary({

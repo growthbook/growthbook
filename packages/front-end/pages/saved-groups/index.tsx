@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/groups";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { isEmpty } from "lodash";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
@@ -19,6 +20,7 @@ import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups?: FeatureInterface[],
@@ -100,9 +102,11 @@ export const getListOfReferences = (
 };
 
 export default function SavedGroupsPage() {
+  const router = useRouter();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("conditionGroups");
 
   const { refreshOrganization } = useUser();
 
@@ -179,10 +183,10 @@ export default function SavedGroupsPage() {
           </a>
         </div>
       </div>
-      <p>
+      <div>
         Create reusable user groups as targets for feature flags or experiments.
-      </p>
-      <div className="alert alert-info mt-2">
+      </div>
+      <Callout status="info" my="3">
         Learn more about using Condition Groups and ID Lists.{" "}
         <a
           href="https://docs.growthbook.io/features/targeting#saved-groups"
@@ -192,7 +196,7 @@ export default function SavedGroupsPage() {
         >
           View docs <FaExternalLinkAlt />
         </a>
-      </div>
+      </Callout>
 
       {error ? (
         <div className="alert alert-danger">
@@ -200,7 +204,28 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <Tabs defaultValue="conditionGroups">
+          <Tabs
+            value={activeTab}
+            onValueChange={(newTab) => {
+              setActiveTab(newTab);
+              // Clear search query and update hash when switching tabs
+              const searchParams = new URLSearchParams(
+                router.query as Record<string, string>,
+              );
+              if (searchParams.has("q")) {
+                searchParams.delete("q");
+              }
+              router.replace(
+                {
+                  pathname: router.pathname,
+                  query: Object.fromEntries(searchParams),
+                  hash: `#${newTab}`,
+                },
+                undefined,
+                { shallow: true },
+              );
+            }}
+          >
             <TabsList>
               <TabsTrigger value="conditionGroups">
                 Condition Groups

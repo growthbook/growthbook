@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { RowResults } from "@/services/experiments";

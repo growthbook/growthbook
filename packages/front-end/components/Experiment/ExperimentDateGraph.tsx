@@ -12,7 +12,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { date, getValidDate } from "shared/dates";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";

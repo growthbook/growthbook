@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";

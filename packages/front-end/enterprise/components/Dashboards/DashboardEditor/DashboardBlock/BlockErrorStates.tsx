@@ -1,7 +1,7 @@
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+} from "shared/enterprise";
 import { Flex, Text } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";

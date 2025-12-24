@@ -1,4 +1,4 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { StatsigExperiment } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 

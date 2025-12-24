@@ -1,5 +1,5 @@
-import { ExperimentResultStatusData } from "back-end/types/experiment";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { ExperimentResultStatusData } from "shared/types/experiment";
+import { HoldoutInterface } from "shared/validators";
 import Button from "@/ui/Button";
 
 export interface Props {

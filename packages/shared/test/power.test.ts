@@ -1,5 +1,5 @@
-import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
-import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
+import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
 import {
   frequentistVariance,
   powerEstFrequentist,

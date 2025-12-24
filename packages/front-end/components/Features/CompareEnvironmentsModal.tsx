@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { Flex, useThemeContext, Text } from "@radix-ui/themes";

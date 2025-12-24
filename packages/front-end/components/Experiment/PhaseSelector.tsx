@@ -1,5 +1,5 @@
 import { date } from "shared/dates";
-import { ExperimentPhaseStringDates } from "back-end/types/experiment";
+import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";

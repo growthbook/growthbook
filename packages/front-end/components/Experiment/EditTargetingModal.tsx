@@ -3,7 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";

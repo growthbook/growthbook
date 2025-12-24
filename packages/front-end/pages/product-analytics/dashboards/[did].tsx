@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
+  DashboardInterface,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+} from "shared/enterprise";
 import { withErrorBoundary } from "@sentry/nextjs";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";

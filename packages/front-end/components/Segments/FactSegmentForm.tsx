@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
 import Modal from "@/components/Modal";

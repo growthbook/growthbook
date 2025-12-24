@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
-import { PendingMember } from "back-end/types/organization";
+import { PendingMember } from "shared/types/organization";
 import { datetime } from "shared/dates";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import ProjectBadges from "@/components/ProjectBadges";

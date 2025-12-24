@@ -6,9 +6,9 @@ import {
   GlobalPermission,
   OrganizationInterface,
   ProjectScopedPermission,
-} from "back-end/types/organization";
-import { TeamInterface } from "back-end/types/team";
-import { UserInterface } from "back-end/types/user";
+} from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
+import { UserInterface } from "shared/types/user";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;

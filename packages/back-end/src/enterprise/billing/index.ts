@@ -1,13 +1,13 @@
 import * as Sentry from "@sentry/node";
 import { AccountPlan } from "shared/enterprise";
 import {
+  OrganizationInterface,
+  OrganizationUsage,
+} from "shared/types/organization";
+import {
   callLicenseServer,
   LICENSE_SERVER_URL,
 } from "back-end/src/enterprise/licenseUtil";
-import {
-  OrganizationInterface,
-  OrganizationUsage,
-} from "back-end/types/organization";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";

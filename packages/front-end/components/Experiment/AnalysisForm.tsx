@@ -8,7 +8,7 @@ import {
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";

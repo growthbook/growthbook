@@ -19,11 +19,11 @@ import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useExperiments } from "@/hooks/useExperiments";
+import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -79,13 +79,16 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     [filteredConditionGroups, experiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: filteredConditionGroups,
-    localStorageKey: "savedGroupsRuntime",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["groupName^3", "condition^2", "owner"],
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: filteredConditionGroups,
+      localStorageKey: "savedGroupsRuntime",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["groupName^3", "condition^2", "owner"],
+      pageSize: 50,
+      updateSearchQueryOnChange: true,
+    });
 
   if (!conditionGroups) return <LoadingOverlay />;
 
@@ -127,7 +130,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           <div className="row mb-4 align-items-center">
             <div className="col-auto">
               <Field
-                inputGroupClassName="bg-white"
                 prepend={<FaMagnifyingGlass />}
                 placeholder="Search..."
                 type="search"
@@ -135,12 +137,14 @@ export default function ConditionGroups({ groups, mutate }: Props) {
               />
             </div>
           </div>
-          <div className="row mb-3">
+          <div className="row mb-0">
             <div className="col-12">
-              <table className="table gbtable appbox">
+              <table className="table gbtable">
                 <thead>
                   <tr>
-                    <SortableTH field="groupName">Name</SortableTH>
+                    <SortableTH field="groupName" style={{ maxWidth: 200 }}>
+                      Name
+                    </SortableTH>
                     <SortableTH field="condition">Condition</SortableTH>
                     <th>Description</th>
                     <th className="col-2">Projects</th>
@@ -153,14 +157,55 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                   {items.map((s) => {
                     return (
                       <tr key={s.id}>
-                        <td>{s.groupName}</td>
-                        <td>
-                          <ConditionDisplay
+                        <td style={{ width: "250px" }}>
+                          {canUpdate(s) ? (
+                            <a
+                              role="button"
+                              onClick={() => setSavedGroupForm(s)}
+                              className="link-purple"
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                                textOverflow: "ellipsis",
+                                overflow: "hidden",
+                                lineHeight: "1.2em",
+                                wordBreak: "break-word",
+                                overflowWrap: "anywhere",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {s.groupName}
+                            </a>
+                          ) : (
+                            <span
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                                textOverflow: "ellipsis",
+                                overflow: "hidden",
+                                lineHeight: "1.2em",
+                                wordBreak: "break-word",
+                                overflowWrap: "anywhere",
+                              }}
+                            >
+                              {s.groupName}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ width: 400 }}>
+                          <TruncatedConditionDisplay
                             condition={s.condition || ""}
                             savedGroups={[]}
+                            maxLength={100}
                           />
                         </td>
-                        <td>{truncateString(s.description || "", 40)}</td>
+                        <td style={{ minWidth: 200 }}>
+                          <div className="d-flex flex-wrap">
+                            {truncateString(s.description || "", 40)}
+                          </div>
+                        </td>
                         <td>
                           {(s?.projects?.length || 0) > 0 ? (
                             <ProjectBadges
@@ -224,6 +269,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                   )}
                 </tbody>
               </table>
+              {pagination}
             </div>
           </div>
         </>

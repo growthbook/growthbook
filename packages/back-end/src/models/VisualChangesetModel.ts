@@ -8,8 +8,8 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import { ExperimentInterface, Variation } from "back-end/types/experiment";
-import { ApiVisualChangeset } from "back-end/types/openapi";
+import { ExperimentInterface, Variation } from "shared/types/experiment";
+import { ApiVisualChangeset } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";

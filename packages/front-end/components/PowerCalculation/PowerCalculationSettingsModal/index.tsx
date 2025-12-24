@@ -6,8 +6,8 @@ import {
   PartialPowerCalculationParams,
   StatsEngineSettings,
 } from "shared/power";
-import { MetricPriorSettings } from "back-end/types/fact-table";
-import { OrganizationSettings } from "back-end/types/organization";
+import { MetricPriorSettings } from "shared/types/fact-table";
+import { OrganizationSettings } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";

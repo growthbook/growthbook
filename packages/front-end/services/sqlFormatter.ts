@@ -1,4 +1,4 @@
-import { DataSourceType } from "back-end/types/datasource";
+import { DataSourceType } from "shared/types/datasource";
 import { format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 

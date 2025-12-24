@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import track from "@/services/track";
 
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";

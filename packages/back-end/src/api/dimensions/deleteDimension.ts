@@ -1,10 +1,10 @@
-import { DeleteDimensionResponse } from "back-end/types/openapi";
+import { DeleteDimensionResponse } from "shared/types/openapi";
+import { deleteDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   findDimensionById,
   deleteDimensionById,
 } from "back-end/src/models/DimensionModel";
-import { deleteDimensionValidator } from "back-end/src/validators/openapi";
 
 export const deleteDimension = createApiRequestHandler(
   deleteDimensionValidator,

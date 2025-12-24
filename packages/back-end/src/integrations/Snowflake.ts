@@ -5,10 +5,10 @@ import {
   DataType,
   ExternalIdCallback,
 } from "shared/types/integrations";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { QueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
-import { QueryMetadata } from "back-end/types/query";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {

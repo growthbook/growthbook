@@ -9,16 +9,17 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getSelectedColumnDatatype } from "shared/experiments";
+import { PostFactMetricResponse } from "shared/types/openapi";
+import { postFactMetricValidator } from "shared/validators";
 import {
   ColumnRef,
   CreateFactMetricProps,
   FactTableInterface,
-} from "back-end/types/fact-table";
-import { PostFactMetricResponse } from "back-end/types/openapi";
+} from "shared/types/fact-table";
+import { OrganizationInterface } from "shared/types/organization";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postFactMetricValidator } from "back-end/src/validators/openapi";
-import { OrganizationInterface } from "back-end/types/organization";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 export function validateAggregationSpecification({
   column,
@@ -75,15 +76,13 @@ export async function getCreateMetricPropsFromBody(
     ...otherFields
   } = body;
 
-  const cleanedNumerator = {
-    filters: [],
-    inlineFilters: {},
+  const cleanedNumerator = FactMetricModel.migrateColumnRef({
     ...numerator,
     column:
       body.metricType === "proportion" || body.metricType === "retention"
         ? "$$distinctUsers"
         : body.numerator.column || "$$distinctUsers",
-  };
+  });
 
   validateAggregationSpecification({
     errorPrefix: "Numerator misspecified. ",
@@ -152,12 +151,10 @@ export async function getCreateMetricPropsFromBody(
   };
 
   if (denominator) {
-    data.denominator = {
-      filters: [],
-      inlineFilters: {},
+    data.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",
-    };
+    });
     const denominatorFactTable =
       denominator.factTableId === numerator.factTableId
         ? factTable

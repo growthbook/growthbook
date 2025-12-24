@@ -5,7 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { QueryStatus, Queries } from "back-end/types/query";
+import { QueryStatus, Queries } from "shared/types/query";
 import clsx from "clsx";
 import { FaPlay } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";

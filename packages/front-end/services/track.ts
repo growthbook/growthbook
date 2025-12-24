@@ -10,12 +10,12 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentReportInterface } from "back-end/types/report";
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportInterface } from "shared/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { growthbook } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";

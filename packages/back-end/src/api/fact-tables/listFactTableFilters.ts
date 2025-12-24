@@ -1,4 +1,5 @@
-import { ListFactTableFiltersResponse } from "back-end/types/openapi";
+import { ListFactTableFiltersResponse } from "shared/types/openapi";
+import { listFactTableFiltersValidator } from "shared/validators";
 import {
   getFactTable,
   toFactTableFilterApiInterface,
@@ -7,7 +8,6 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listFactTableFiltersValidator } from "back-end/src/validators/openapi";
 
 export const listFactTableFilters = createApiRequestHandler(
   listFactTableFiltersValidator,

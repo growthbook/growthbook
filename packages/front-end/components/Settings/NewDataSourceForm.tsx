@@ -9,7 +9,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";

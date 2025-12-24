@@ -4,13 +4,13 @@ import { upperFirst } from "lodash";
 import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+} from "shared/types/stats";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   ExperimentMetricInterface,
   quantileMetricType,

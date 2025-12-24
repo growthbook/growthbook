@@ -1,12 +1,12 @@
 import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
 import { RequestInit } from "node-fetch";
 import { CustomHookInterface, CustomHookType } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { FeatureInterface } from "back-end/types/feature";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 
 const parseEnvInt = (value: string | undefined, fallback: number) => {
   if (!value) return fallback;

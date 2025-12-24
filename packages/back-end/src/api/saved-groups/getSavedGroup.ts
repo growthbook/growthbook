@@ -1,10 +1,10 @@
-import { GetSavedGroupResponse } from "back-end/types/openapi";
+import { GetSavedGroupResponse } from "shared/types/openapi";
+import { getSavedGroupValidator } from "shared/validators";
 import {
   getSavedGroupById,
   toSavedGroupApiInterface,
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getSavedGroupValidator } from "back-end/src/validators/openapi";
 
 export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
   async (req): Promise<GetSavedGroupResponse> => {

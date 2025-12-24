@@ -3,20 +3,25 @@ import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
 import { isString } from "shared/util";
-import { blockHasFieldOfType, dashboardBlockHasIds } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
+  ApiCreateDashboardBlockInterface,
   apiCreateDashboardBody,
+  ApiDashboardBlockInterface,
   apiDashboardInterface,
   ApiDashboardInterface,
-  ApiGetDashboardsForExperimentRequest,
   ApiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentValidator,
   apiUpdateDashboardBody,
+  blockHasFieldOfType,
+  dashboardBlockHasIds,
   dashboardInterface,
   DashboardInterface,
-} from "back-end/src/enterprise/validators/dashboard";
+  CreateDashboardBlockInterface,
+  DashboardBlockInterface,
+  LegacyDashboardBlockInterface,
+} from "shared/enterprise";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -26,13 +31,7 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import {
-  ApiCreateDashboardBlockInterface,
-  ApiDashboardBlockInterface,
-  CreateDashboardBlockInterface,
-  DashboardBlockInterface,
-  LegacyDashboardBlockInterface,
-} from "../validators/dashboard-block";
+import { ApiRequest } from "back-end/src/util/handler";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -81,7 +80,12 @@ const BaseClass = MakeModelClass({
         validator: apiGetDashboardsForExperimentValidator,
         zodReturnObject: apiGetDashboardsForExperimentReturn,
         reqHandler: async (
-          req: ApiGetDashboardsForExperimentRequest,
+          req: ApiRequest<
+            ApiGetDashboardsForExperimentReturn,
+            typeof apiGetDashboardsForExperimentValidator.paramsSchema,
+            typeof apiGetDashboardsForExperimentValidator.bodySchema,
+            typeof apiGetDashboardsForExperimentValidator.querySchema
+          >,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({
           dashboards: (
             await req.context.models.dashboards.findByExperiment(

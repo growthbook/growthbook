@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
 import { isRoleValid } from "shared/permissions";
+import { Member } from "shared/types/organization";
 import {
   BasicScimGroup,
   ScimError,
@@ -17,7 +18,6 @@ import {
   expandOrgMembers,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
-import { Member } from "back-end/types/organization";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,

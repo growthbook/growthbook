@@ -6,7 +6,7 @@ import {
   PiChartScatter,
 } from "react-icons/pi";
 import { useRouter } from "next/router";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

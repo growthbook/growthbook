@@ -1,5 +1,5 @@
 import { useState, FC, useMemo } from "react";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import { isProjectListValidForProject } from "shared/util";
 import { BsXCircle } from "react-icons/bs";
 import { BiHide, BiShow } from "react-icons/bi";

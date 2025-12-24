@@ -1,4 +1,4 @@
-import { ScheduleRule } from "back-end/types/feature";
+import { ScheduleRule } from "shared/types/feature";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";

@@ -14,10 +14,10 @@ import {
   MetricAnalysisPopulationType,
   MetricAnalysisResult,
   MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+} from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";

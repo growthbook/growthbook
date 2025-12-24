@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import { ExpandedMember } from "back-end/types/organization";
+import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";

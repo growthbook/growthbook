@@ -1,5 +1,5 @@
 import { FC, useState, useCallback, useEffect, useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
 import { PiCameraSlashLight } from "react-icons/pi";

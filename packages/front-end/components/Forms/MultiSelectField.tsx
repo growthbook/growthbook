@@ -110,6 +110,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   onPaste,
   isOptionDisabled,
   noMenu,
+  pattern,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -173,6 +174,10 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             isMulti={true}
             onChange={(selected) => {
               onChange(selected?.map((s) => s.value) ?? []);
+            }}
+            isValidNewOption={(value) => {
+              if (!pattern) return !!value;
+              return new RegExp(pattern).test(value);
             }}
             components={{
               MultiValue: SortableMultiValue,

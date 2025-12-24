@@ -1,11 +1,11 @@
 import React, { FC, Fragment, useState } from "react";
 import { ago } from "shared/dates";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { QueryStatus } from "back-end/types/query";
+import { QueryStatus } from "shared/types/query";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
