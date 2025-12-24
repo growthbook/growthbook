@@ -11,6 +11,40 @@ export const payloadFormatValidator = z.enum([
   "none",
 ]);
 
+export const webhookMethods = [
+  "GET",
+  "PUT",
+  "POST",
+  "DELETE",
+  "PURGE",
+  "PATCH",
+] as const;
+
+export const webhookSchema = z.strictObject({
+  id: z.string(),
+  organization: z.string(),
+  dateCreated: z.date(),
+  dateUpdated: z.date(),
+  name: z.string(),
+  endpoint: z.string(),
+  project: z.string().optional(),
+  environment: z.string().optional(),
+  featuresOnly: z.boolean().optional(),
+  signingKey: z.string(),
+  lastSuccess: z.date().nullable(),
+  error: z.string(),
+  useSdkMode: z.boolean(),
+  sdks: z.array(z.string()),
+  /** @deprecated */
+  created: z.date(),
+  sendPayload: z.boolean().optional(),
+  payloadFormat: payloadFormatValidator.optional(),
+  payloadKey: z.string().optional(),
+  headers: z.string().optional(),
+  httpMethod: z.enum(webhookMethods).optional(),
+  managedBy: managedByValidator.optional(),
+});
+
 export type WebhookPayloadFormat = z.infer<typeof payloadFormatValidator>;
 
 export const updateSdkWebhookValidator = z

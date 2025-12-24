@@ -55,6 +55,7 @@ import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
+import { SdkWebhookModel } from "../models/WebhookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -91,6 +92,7 @@ export class ReqContextClass {
     customHooks: CustomHookModel;
     incrementalRefresh: IncrementalRefreshModel;
     sqlResultChunks: SqlResultChunkModel;
+    sdkWebhooks: SdkWebhookModel;
   };
   private initModels() {
     this.models = {
@@ -118,6 +120,7 @@ export class ReqContextClass {
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
+      sdkWebhooks: new SdkWebhookModel(this),
     };
   }
 
