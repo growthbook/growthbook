@@ -8,9 +8,10 @@ import {
   isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
-import { FaPlusCircle } from "react-icons/fa";
+import { PiPlus } from "react-icons/pi";
 import { SavedGroupInterface, SavedGroupType } from "shared/types/groups";
 import clsx from "clsx";
+import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -24,6 +25,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Link from "@/ui/Link";
 import SelectOwner from "../Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
@@ -186,12 +188,18 @@ const SavedGroupForm: FC<{
           }}
         />
       ) : (
-        <p
-          className="cursor-pointer text-color-primary"
-          onClick={() => setShowDescription(true)}
+        <Link
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+          mb="5"
         >
-          <FaPlusCircle /> Add a description
-        </p>
+          <Flex align="center" gap="1">
+            <PiPlus />
+            <Text weight="medium">Add a description</Text>
+          </Flex>
+        </Link>
       )}
       <MultiSelectField
         label="Projects"

@@ -49,17 +49,13 @@ export default function SavedGroupTargetingDisplay({
                     <Badge key={id} color="gray" label={<Text>{id}</Text>} />
                   );
                 }
-                const link =
-                  group.type === "list"
-                    ? `/saved-groups/${group.id}`
-                    : `/saved-groups?q=${encodeURIComponent(group.groupName)}#conditionGroups`;
                 return (
                   <Badge
                     key={id}
                     color="gray"
                     label={
                       <Link
-                        href={link}
+                        href={`/saved-groups/${group.id}`}
                         title="Manage Saved Group"
                         size="1"
                         target="_blank"
