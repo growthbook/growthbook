@@ -74,6 +74,8 @@ export default function EditHypothesisModal({
               setError(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              setError(responseData.message);
             } else {
               setError("Error getting AI suggestion");
             }

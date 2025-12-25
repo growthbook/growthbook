@@ -135,7 +135,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -358,7 +358,7 @@ export async function postAIExperimentAnalysis(
     releasedVariationName;
 
   const type = "experiment-analysis";
-  const { isDefaultPrompt, prompt } =
+  const { isDefaultPrompt, prompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(type);
 
   const aiResults = await simpleCompletion({
@@ -368,6 +368,7 @@ export async function postAIExperimentAnalysis(
     type,
     isDefaultPrompt,
     temperature: 0.1,
+    overrideModel,
   });
 
   res.status(200).json({
@@ -487,7 +488,7 @@ export async function postSimilarExperiments(
     context,
     input: [newExperimentText],
   });
-  const newEmbedding = newExperimentEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newExperimentEmbeddingResponse[0];
   // Call to calculate cosine similarity between the new experiment and existing experiments: cosineSimilarity
   const similarities = experimentsToSearch
     .map((exp) => {

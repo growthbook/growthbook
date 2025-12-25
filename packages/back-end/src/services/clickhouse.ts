@@ -541,8 +541,8 @@ export async function logCloudAIUsage({
 }: {
   organization: string;
   model: string;
-  numPromptTokensUsed: number;
-  numCompletionTokensUsed: number;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
   type: AIPromptType;
   temperature?: number;
   usedDefaultPrompt: boolean;

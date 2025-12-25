@@ -72,6 +72,8 @@ const StopExperimentForm: FC<{
               throw new Error(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              throw new Error(responseData.message);
             } else {
               throw new Error("Error getting AI suggestion");
             }

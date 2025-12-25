@@ -1,4 +1,4 @@
-import { AIPromptType, AIPromptDefaults } from "shared/ai";
+import { AIPromptType, AI_PROMPT_DEFAULTS } from "shared/ai";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { aiPromptValidator } from "back-end/src/routers/ai/ai.validators";
 
@@ -45,7 +45,15 @@ export class AiPromptModel extends BaseClass {
       type,
     });
     return existing
-      ? { isDefaultPrompt: false, prompt: existing.prompt }
-      : { isDefaultPrompt: true, prompt: AIPromptDefaults[type] };
+      ? {
+          isDefaultPrompt: false,
+          prompt: existing.prompt,
+          overrideModel: existing.overrideModel,
+        }
+      : {
+          isDefaultPrompt: true,
+          prompt: AI_PROMPT_DEFAULTS[type],
+          overrideModel: undefined,
+        };
   };
 }
