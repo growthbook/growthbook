@@ -2,7 +2,6 @@ import { SavedGroupInterface } from "shared/types/groups";
 import { ApiSavedGroup } from "shared/types/openapi";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { savedGroupValidator } from "shared/validators";
-import { migrateSavedGroup } from "back-end/src/util/migrations";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -39,7 +38,30 @@ export class SavedGroupModel extends BaseClass {
   }
 
   protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
-    return migrateSavedGroup(legacyDoc);
+    // Add `type` field to legacy groups
+    const { source, type, ...otherFields } = legacyDoc;
+    const group: SavedGroupInterface = {
+      ...otherFields,
+      type: type || (source === "runtime" ? "condition" : "list"),
+    };
+
+    // Migrate legacy runtime groups to use a condition
+    if (
+      group.type === "condition" &&
+      !group.condition &&
+      source === "runtime" &&
+      group.attributeKey
+    ) {
+      group.condition = JSON.stringify({
+        $groups: {
+          $elemMatch: {
+            $eq: group.attributeKey,
+          },
+        },
+      });
+    }
+
+    return group;
   }
 
   protected async beforeCreate(doc: SavedGroupInterface) {
@@ -55,31 +77,20 @@ export class SavedGroupModel extends BaseClass {
       { $pull: { projects: project } },
     );
   }
-}
 
-export function parseSavedGroupString(list: string) {
-  const values = list
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => !!value);
-
-  return [...new Set(values)];
-}
-
-export function toSavedGroupApiInterface(
-  savedGroup: SavedGroupInterface,
-): ApiSavedGroup {
-  return {
-    id: savedGroup.id,
-    type: savedGroup.type,
-    values: savedGroup.values || [],
-    condition: savedGroup.condition || "",
-    name: savedGroup.groupName,
-    attributeKey: savedGroup.attributeKey || "",
-    dateCreated: savedGroup.dateCreated.toISOString(),
-    dateUpdated: savedGroup.dateUpdated.toISOString(),
-    owner: savedGroup.owner || "",
-    description: savedGroup.description,
-    projects: savedGroup.projects || [],
-  };
+  public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
+    return {
+      id: savedGroup.id,
+      type: savedGroup.type,
+      values: savedGroup.values || [],
+      condition: savedGroup.condition || "",
+      name: savedGroup.groupName,
+      attributeKey: savedGroup.attributeKey || "",
+      dateCreated: savedGroup.dateCreated.toISOString(),
+      dateUpdated: savedGroup.dateUpdated.toISOString(),
+      owner: savedGroup.owner || "",
+      description: savedGroup.description,
+      projects: savedGroup.projects || [],
+    };
+  }
 }

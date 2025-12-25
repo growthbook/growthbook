@@ -1,7 +1,6 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
 import { PostSavedGroupResponse } from "shared/types/openapi";
 import { postSavedGroupValidator } from "shared/validators";
-import { toSavedGroupApiInterface } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
@@ -89,7 +88,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     });
 
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
     };
   },
 );

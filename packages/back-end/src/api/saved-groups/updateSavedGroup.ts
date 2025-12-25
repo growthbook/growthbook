@@ -4,7 +4,6 @@ import { UpdateSavedGroupResponse } from "shared/types/openapi";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { logger } from "back-end/src/util/logger";
-import { toSavedGroupApiInterface } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
@@ -89,7 +88,7 @@ export const updateSavedGroup = createApiRequestHandler(
   // If there are no changes, return early
   if (Object.keys(fieldsToUpdate).length === 0) {
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
     };
   }
 
@@ -110,7 +109,7 @@ export const updateSavedGroup = createApiRequestHandler(
   }
 
   return {
-    savedGroup: toSavedGroupApiInterface({
+    savedGroup: req.context.models.savedGroups.toApiInterface({
       ...savedGroup,
       ...updatedSavedGroup,
     }),

@@ -1,6 +1,5 @@
 import { ListSavedGroupsResponse } from "shared/types/openapi";
 import { listSavedGroupsValidator } from "shared/validators";
-import { toSavedGroupApiInterface } from "back-end/src/models/SavedGroupModel";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -19,7 +18,7 @@ export const listSavedGroups = createApiRequestHandler(
 
   return {
     savedGroups: filtered.map((savedGroup) =>
-      toSavedGroupApiInterface(savedGroup),
+      req.context.models.savedGroups.toApiInterface(savedGroup),
     ),
     ...returnFields,
   };

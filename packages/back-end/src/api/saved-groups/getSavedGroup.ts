@@ -1,6 +1,5 @@
 import { GetSavedGroupResponse } from "shared/types/openapi";
 import { getSavedGroupValidator } from "shared/validators";
-import { toSavedGroupApiInterface } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
@@ -13,7 +12,7 @@ export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
     }
 
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
     };
   },
 );
