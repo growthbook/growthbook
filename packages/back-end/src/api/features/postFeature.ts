@@ -217,7 +217,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     details: auditDetailsCreate(feature),
   });
 
-  const groupMap = await getSavedGroupMap(req.organization);
+  const groupMap = await getSavedGroupMap(req.context);
 
   const experimentMap = await getExperimentMapForFeature(
     req.context,

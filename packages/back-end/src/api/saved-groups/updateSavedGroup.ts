@@ -4,12 +4,6 @@ import { UpdateSavedGroupResponse } from "shared/types/openapi";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { logger } from "back-end/src/util/logger";
-import {
-  getAllSavedGroups,
-  getSavedGroupById,
-  toSavedGroupApiInterface,
-  updateSavedGroupById,
-} from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
@@ -21,7 +15,7 @@ export const updateSavedGroup = createApiRequestHandler(
 
   const { id } = req.params;
 
-  const savedGroup = await getSavedGroupById(id, req.organization.id);
+  const savedGroup = await req.context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
     throw new Error(`Unable to locate the saved-group: ${id}`);
@@ -66,7 +60,7 @@ export const updateSavedGroup = createApiRequestHandler(
     condition &&
     condition !== savedGroup.condition
   ) {
-    const allSavedGroups = await getAllSavedGroups(req.organization.id);
+    const allSavedGroups = await req.context.models.savedGroups.getAll();
     const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
     // Include the updated condition in the groupMap for validation
     groupMap.set(savedGroup.id, {
@@ -94,13 +88,12 @@ export const updateSavedGroup = createApiRequestHandler(
   // If there are no changes, return early
   if (Object.keys(fieldsToUpdate).length === 0) {
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
     };
   }
 
-  const updatedSavedGroup = await updateSavedGroupById(
+  const updatedSavedGroup = await req.context.models.savedGroups.updateById(
     id,
-    req.organization.id,
     fieldsToUpdate,
   );
 
@@ -116,7 +109,7 @@ export const updateSavedGroup = createApiRequestHandler(
   }
 
   return {
-    savedGroup: toSavedGroupApiInterface({
+    savedGroup: req.context.models.savedGroups.toApiInterface({
       ...savedGroup,
       ...updatedSavedGroup,
     }),
