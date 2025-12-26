@@ -1,8 +1,11 @@
 import { Box, Flex } from "@radix-ui/themes";
 import {
-  SqlExplorerBlockInterface,
+  blockHasFieldOfType,
   isResultsTableItem,
+  SqlExplorerBlockInterface,
 } from "shared/enterprise";
+import { isString } from "shared/util";
+import { useMemo } from "react";
 import {
   DataVisualizationDisplay,
   SqlExplorerDataVisualization,
@@ -14,6 +17,14 @@ export default function SqlExplorerBlock({
   block,
   savedQuery,
 }: BlockProps<SqlExplorerBlockInterface>) {
+  // Generate a unique ID for this block's charts
+  const blockId = useMemo(() => {
+    if (blockHasFieldOfType(block, "id", isString) && block.id) {
+      return block.id;
+    }
+    return null;
+  }, [block]);
+
   // Backwards compatibility: Check if using the old dataVizConfigIndex approach
   if (block.dataVizConfigIndex !== undefined) {
     const dataVizConfig = savedQuery.dataVizConfig?.[block.dataVizConfigIndex];
@@ -81,6 +92,9 @@ export default function SqlExplorerBlock({
             <DataVisualizationDisplay
               rows={savedQuery.results.results}
               dataVizConfig={dataVizConfig}
+              chartId={
+                blockId ? `sql-explorer-${blockId}-${configId}` : undefined
+              }
             />
           </Box>
         </Flex>

@@ -10,6 +10,7 @@ import {
   dimensionAxisConfiguration,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
+import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
@@ -136,10 +137,14 @@ function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
 export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
+  chartId,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
+  chartId?: string;
 }) {
+  const chartsContext = useDashboardCharts();
+
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
     return parsed.success;
@@ -849,6 +854,11 @@ export function DataVisualizationDisplay({
           key={JSON.stringify(option)}
           option={option}
           style={{ width: "100%", minHeight: "350px", height: "80%" }}
+          onChartReady={(chart) => {
+            if (chartId && chartsContext && chart) {
+              chartsContext.registerChart(chartId, chart);
+            }
+          }}
         />
       </Flex>
     );
