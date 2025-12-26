@@ -1,32 +1,45 @@
 import { FC } from "react";
-import { FaInfoCircle } from "react-icons/fa";
+import { PiInfo } from "react-icons/pi";
+import { Text } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Badge from "@/ui/Badge";
 
 const OutdatedBadge: FC<{
+  label?: string;
   reasons: string[];
-}> = ({ reasons }) => {
+}> = ({ label, reasons }) => {
   return (
     <Tooltip
       body={
-        reasons.length === 1 ? (
-          reasons[0]
-        ) : reasons.length > 0 ? (
-          <ul className="ml-0 pl-3 mb-0">
-            {reasons.map((reason, i) => (
-              <li key={i}>{reason}</li>
-            ))}
-          </ul>
-        ) : (
-          ""
-        )
+        <div>
+          {label ? (
+            <div className="mb-2">
+              <Text>{label}</Text>
+            </div>
+          ) : null}
+          {reasons.length === 1 && !label ? (
+            reasons[0]
+          ) : reasons.length > 0 ? (
+            <ul className="ml-0 pl-3 mb-0">
+              {reasons.map((reason, i) => (
+                <li key={i}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       }
     >
-      <div
-        className="badge badge-warning d-block py-1"
-        style={{ width: 100, marginBottom: 3 }}
-      >
-        Out of Date <FaInfoCircle />
-      </div>
+      <Badge
+        label={
+          <>
+            Outdated
+            <PiInfo size={14} />
+          </>
+        }
+        variant="solid"
+        color="yellow"
+        radius="full"
+      />
     </Tooltip>
   );
 };

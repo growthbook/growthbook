@@ -603,7 +603,7 @@ const AnalysisForm: FC<{
           allowUndefined={!isBandit}
           disabled={isBandit}
         />
-        {isBandit && (
+        {!isHoldout && (
           <SelectField
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">

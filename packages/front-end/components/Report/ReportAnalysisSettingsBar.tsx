@@ -218,6 +218,7 @@ export default function ReportAnalysisSettingsBar({
                 cancelEndpoint={`/report/${report.id}/cancel`}
                 color="outline-primary"
                 useRadixButton={true}
+                radixVariant="soft"
                 onSubmit={async () => {
                   try {
                     const res = await apiCall<{
