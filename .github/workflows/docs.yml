@@ -40,7 +40,7 @@ jobs:
           cd packages/back-end
           pnpm install
           cd ../../docs
-          pnpm install --ignore-workspace
+          pnpm install
           pnpm gen
 
       - name: Deploy to Vercel
