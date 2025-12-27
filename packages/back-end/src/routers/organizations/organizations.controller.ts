@@ -10,9 +10,24 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
+import { AgreementType } from "shared/validators";
+import { entityTypes } from "shared/constants";
+import { UpdateSdkWebhookProps } from "shared/types/webhook";
+import {
+  GetOrganizationResponse,
+  CreateOrganizationPostBody,
+  Invite,
+  MemberRoleWithProjects,
+  NamespaceUsage,
+  OrganizationInterface,
+  OrganizationSettings,
+  Role,
+  SDKAttribute,
+} from "shared/types/organization";
+import { ExperimentRule, NamespaceValue } from "shared/types/feature";
+import { TeamInterface } from "shared/types/team";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
-  UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
   deleteSdkWebhookById,
   findAllLegacySdkWebhooks,
@@ -45,17 +60,6 @@ import {
 } from "back-end/src/services/datasource";
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
-import {
-  GetOrganizationResponse,
-  CreateOrganizationPostBody,
-  Invite,
-  MemberRoleWithProjects,
-  NamespaceUsage,
-  OrganizationInterface,
-  OrganizationSettings,
-  Role,
-  SDKAttribute,
-} from "back-end/types/organization";
 import {
   auditDetailsUpdate,
   getRecentWatchedAudits,
@@ -95,7 +99,6 @@ import {
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
 import { ConfigFile } from "back-end/src/init/config";
-import { ExperimentRule, NamespaceValue } from "back-end/types/feature";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import {
@@ -128,10 +131,8 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { EntityType } from "back-end/src/types/Audit";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
-import { TeamInterface } from "back-end/types/team";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getLicenseMetaData,
@@ -149,7 +150,6 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
-import { AgreementType } from "back-end/src/validators/agreements";
 import {
   getInstallation,
   setInstallationName,
@@ -271,7 +271,7 @@ export async function getAllHistory(
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
   }
 
@@ -354,7 +354,7 @@ export async function getHistory(
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+      message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
   }
 

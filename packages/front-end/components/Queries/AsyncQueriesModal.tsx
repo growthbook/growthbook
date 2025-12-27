@@ -1,7 +1,7 @@
 import { FC, Fragment, useMemo, useState } from "react";
-import { QueryInterface } from "back-end/types/query";
+import { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";

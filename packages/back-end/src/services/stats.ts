@@ -19,23 +19,27 @@ import {
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
-  ExperimentMetricAnalysis,
-  MultipleExperimentMetricAnalysis,
-} from "back-end/types/stats";
-import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import {
+  AnalysisSettingsForStatsEngine,
+  BanditSettingsForStatsEngine,
+  BusinessMetricTypeForStatsEngine,
+  DataForStatsEngine,
+  ExperimentDataForStatsEngine,
+  ExperimentMetricAnalysis,
+  MetricSettingsForStatsEngine,
+  MultipleExperimentMetricAnalysis,
+  QueryResultsForStatsEngine,
+} from "shared/types/stats";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
   ExperimentReportVariation,
-} from "back-end/types/report";
-import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
-import { promiseAllChunks } from "back-end/src/util/promise";
-import { logger } from "back-end/src/util/logger";
+} from "shared/types/report";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
@@ -45,96 +49,17 @@ import {
   ExperimentSnapshotTrafficDimension,
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
+import { BanditResult } from "shared/types/experiment";
+import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { BanditResult } from "back-end/types/experiment";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
-
-// Keep these interfaces in sync with gbstats
-export interface AnalysisSettingsForStatsEngine {
-  var_names: string[];
-  var_ids: string[];
-  weights: number[];
-  baseline_index: number;
-  dimension: string;
-  stats_engine: string;
-  p_value_corrected: boolean;
-  sequential_testing_enabled: boolean;
-  sequential_tuning_parameter: number;
-  difference_type: string;
-  phase_length_days: number;
-  alpha: number;
-  max_dimensions: number;
-  traffic_percentage: number;
-  num_goal_metrics: number;
-  one_sided_intervals?: boolean;
-}
-
-export interface BanditSettingsForStatsEngine {
-  var_names: string[];
-  var_ids: string[];
-  historical_weights?: {
-    date: Date;
-    weights: number[];
-    total_users: number;
-  }[];
-  current_weights: number[];
-  reweight: boolean;
-  decision_metric: string;
-  bandit_weights_seed: number;
-}
-
-export type BusinessMetricTypeForStatsEngine =
-  | "goal"
-  | "secondary"
-  | "guardrail";
-
-export interface MetricSettingsForStatsEngine {
-  id: string;
-  name: string;
-  inverse: boolean;
-  statistic_type:
-    | "mean"
-    | "ratio"
-    | "ratio_ra"
-    | "mean_ra"
-    | "quantile_event"
-    | "quantile_unit";
-  main_metric_type: "count" | "binomial" | "quantile";
-  denominator_metric_type?: "count" | "binomial" | "quantile";
-  covariate_metric_type?: "count" | "binomial" | "quantile";
-  keep_theta?: boolean;
-  quantile_value?: number;
-  prior_proper?: boolean;
-  prior_mean?: number;
-  prior_stddev?: number;
-  target_mde: number;
-  business_metric_type: BusinessMetricTypeForStatsEngine[];
-}
-
-export interface QueryResultsForStatsEngine {
-  rows:
-    | ExperimentMetricQueryResponseRows
-    | ExperimentFactMetricsQueryResponseRows;
-  metrics: (string | null)[];
-  sql?: string;
-}
-
-export interface DataForStatsEngine {
-  analyses: AnalysisSettingsForStatsEngine[];
-  metrics: Record<string, MetricSettingsForStatsEngine>;
-  query_results: QueryResultsForStatsEngine[];
-  bandit_settings?: BanditSettingsForStatsEngine;
-}
-
-export interface ExperimentDataForStatsEngine {
-  id: string;
-  data: DataForStatsEngine;
-}
 
 export const MAX_DIMENSIONS = 20;
 
@@ -175,6 +100,7 @@ export function getAnalysisSettingsForStatsEngine(
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    post_stratification_enabled: false, //!!settings.postStratificationEnabled,
   };
 
   return analysisData;

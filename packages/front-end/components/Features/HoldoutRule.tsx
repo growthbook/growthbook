@@ -1,9 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef } from "react";
 import Link from "next/link";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { HoldoutInterface } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";

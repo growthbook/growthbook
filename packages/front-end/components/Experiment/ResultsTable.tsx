@@ -15,13 +15,13 @@ import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
-import { ExperimentStatus } from "back-end/types/experiment";
+} from "shared/types/report";
+import { ExperimentStatus } from "shared/types/experiment";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
@@ -29,6 +29,7 @@ import {
 import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
@@ -38,7 +39,6 @@ import {
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -581,7 +581,7 @@ export default function ResultsTable({
                               editMetrics();
                             }}
                           >
-                            <GBEdit />
+                            <PiPencilSimpleFill />
                           </a>
                         </div>
                       ) : null}

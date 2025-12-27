@@ -1,23 +1,20 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Environment } from "back-end/types/organization";
-import { SavedGroupInterface } from "shared/src/types";
-import { TagInterface } from "back-end/types/tag";
-import { ProjectInterface } from "back-end/types/project";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Environment } from "shared/types/organization";
+import { SavedGroupInterface } from "shared/types/groups";
+import { TagInterface } from "shared/types/tag";
+import { ProjectInterface } from "shared/types/project";
 import { cloneDeep, omit } from "lodash";
 import {
   FactMetricInterface,
   FactTableInterface,
   CreateFactMetricProps,
   CreateFactTableProps,
-  FactFilterInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
-import {
-  getNewFiltersForMetricSource,
-  transformStatsigMetricToMetric,
-} from "@/services/importing/statsig/transformers/metricTransformer";
+import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
 import {
   StatsigFeatureGate,
   StatsigDynamicConfig,
@@ -60,7 +57,7 @@ export interface BuildImportedDataOptions {
   skipAttributeMapping?: boolean;
   useBackendProxy?: boolean;
   project?: string;
-  datasource?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   projects?: ProjectInterface[];
   existingAttributeSchema?: Array<{
     property: string;
@@ -99,7 +96,7 @@ export interface RunImportOptions {
   callback: (data: ImportData) => void;
   featuresMap: Map<string, FeatureInterface>;
   project?: string;
-  datasource?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   exposureQueryId?: string;
   categoryEnabled?: {
     environments: boolean;
@@ -751,6 +748,36 @@ export async function buildImportedData(
         // Get available environments
         const availableEnvironments = Array.from(existingEnvironments.keys());
 
+        // Build combined features map for prerequisite lookups
+        // This includes existing GrowthBook features and Statsig features being imported
+        const combinedFeaturesMap = new Map<string, FeatureInterface>(
+          features.map((f) => [f.id, f]),
+        );
+        // Add Statsig feature gates (boolean) and dynamic configs (json) to the map
+        // We create minimal feature objects with just the id and valueType for prerequisite lookups
+        data.featureGates?.forEach((gateImport) => {
+          if (gateImport.featureGate) {
+            const fg = gateImport.featureGate as StatsigFeatureGate;
+            if (!combinedFeaturesMap.has(fg.id)) {
+              combinedFeaturesMap.set(fg.id, {
+                id: fg.id,
+                valueType: "boolean",
+              } as FeatureInterface);
+            }
+          }
+        });
+        data.dynamicConfigs?.forEach((configImport) => {
+          if (configImport.dynamicConfig) {
+            const dc = configImport.dynamicConfig as StatsigDynamicConfig;
+            if (!combinedFeaturesMap.has(dc.id)) {
+              combinedFeaturesMap.set(dc.id, {
+                id: dc.id,
+                valueType: "json",
+              } as FeatureInterface);
+            }
+          }
+        });
+
         // Transform and compare environments
         if (data.environments) {
           for (const envImport of data.environments) {
@@ -896,7 +923,7 @@ export async function buildImportedData(
           for (const gateImport of data.featureGates) {
             if (gateImport.featureGate) {
               try {
-                const transformed = transformStatsigFeatureGateToGB(
+                const transformed = await transformStatsigFeatureGateToGB(
                   gateImport.featureGate,
                   availableEnvironments,
                   existingAttributeSchema,
@@ -905,6 +932,7 @@ export async function buildImportedData(
                   project,
                   skipAttributeMapping,
                   savedGroupIdMap,
+                  combinedFeaturesMap,
                 );
                 gateImport.feature = transformed;
 
@@ -1000,7 +1028,7 @@ export async function buildImportedData(
           for (const configImport of data.dynamicConfigs) {
             if (configImport.dynamicConfig) {
               try {
-                const transformed = transformStatsigFeatureGateToGB(
+                const transformed = await transformStatsigFeatureGateToGB(
                   configImport.dynamicConfig,
                   availableEnvironments,
                   existingAttributeSchema,
@@ -1009,6 +1037,7 @@ export async function buildImportedData(
                   project,
                   skipAttributeMapping,
                   savedGroupIdMap,
+                  combinedFeaturesMap,
                 );
                 configImport.feature = transformed;
 
@@ -1233,23 +1262,14 @@ export async function buildImportedData(
             metricSourceIdMap.set(ft.name, ft.id);
           });
 
-          // Build a mapping from saved filter value to id, keyed by fact table id
-          const savedFilterIdMap = new Map<string, string>();
-          existingFactTables.forEach((ft) => {
-            ft.filters?.forEach((sf) => {
-              savedFilterIdMap.set(`${ft.id}::${sf.value}`, sf.id);
-            });
-          });
-
           for (const metricImport of data.metrics) {
             if (!metricImport.metric) continue;
             try {
               const transformed = await transformStatsigMetricToMetric(
                 metricImport.metric,
                 metricSourceIdMap,
-                savedFilterIdMap,
                 project || "",
-                datasource || "",
+                datasource?.id || "",
               );
               metricImport.transformedMetric =
                 transformed as CreateFactMetricProps;
@@ -1303,10 +1323,6 @@ export async function buildImportedData(
         }
 
         if (data.metricSources) {
-          const statsigMetrics = (data.metrics || [])
-            .map((m) => m?.metric)
-            .filter(Boolean) as StatsigMetric[];
-
           for (const msImport of data.metricSources) {
             if (!msImport.metricSource) continue;
             try {
@@ -1314,25 +1330,8 @@ export async function buildImportedData(
                 (await transformStatsigMetricSourceToFactTable(
                   msImport.metricSource,
                   project || "",
-                  datasource || "",
+                  datasource,
                 )) as FactTableInterface;
-
-              // First add, fitlers from existing metric source (if exists)
-              transformed.filters = transformed.filters || [];
-              const existingFilters = new Set<string>();
-              msImport.existingMetricSource?.filters?.map((f) => {
-                transformed.filters.push(f);
-                existingFilters.add(f.value);
-              });
-
-              // Then, add any filters we are going to insert
-              getNewFiltersForMetricSource(
-                statsigMetrics,
-                msImport.metricSource.name,
-                existingFilters,
-              ).forEach((f) => {
-                transformed.filters.push(f as FactFilterInterface);
-              });
 
               msImport.transformedMetricSource =
                 transformed as CreateFactTableProps;
@@ -1466,16 +1465,11 @@ export async function runImport(options: RunImportOptions) {
   }
 
   const metricSourceIdMap = new Map<string, string>();
-  const savedFilterIdMap = new Map<string, string>();
 
-  // Build mapping from existing fact table names to IDs (and filters to ids)
+  // Build mapping from existing fact table names to IDs
   if (existingFactTables) {
     existingFactTables.forEach((ft: FactTableInterface) => {
       metricSourceIdMap.set(ft.name, ft.id);
-
-      ft.filters?.forEach((sf) => {
-        savedFilterIdMap.set(`${ft.id}::${sf.value}`, sf.id);
-      });
     });
   }
 
@@ -1543,6 +1537,117 @@ export async function runImport(options: RunImportOptions) {
   const PQueue = (await import("p-queue")).default;
   const queue = new PQueue({ concurrency: 6 });
 
+  // Helper to (re)populate the queue with Saved Group (Segment) import jobs.
+  // When retryUnknownOnly is true, only segments whose transformed condition
+  // still contains the "__unknown_group__" placeholder will be processed.
+  // Each segment will only be retried for unknown groups at most once.
+  const repopulateSegmentQueue = (retryUnknownOnly: boolean) => {
+    data.segments?.forEach((segment, index) => {
+      if (
+        !canProcessItem(segment.status) ||
+        !shouldImportItem("segments", index, segment)
+      ) {
+        return;
+      }
+
+      if (retryUnknownOnly) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const segAny = segment as any;
+        if (
+          segAny._unknownGroupsRetried ||
+          !segment.transformedSavedGroup?.condition?.includes(
+            "__unknown_group__",
+          )
+        ) {
+          // Skip segments that either don't have unresolved nested group
+          // references or have already been retried once.
+          return;
+        }
+        segAny._unknownGroupsRetried = true;
+      }
+
+      queue.add(async () => {
+        // Reset status to pending when (re-)running
+        segment.status = "pending";
+        try {
+          const seg = segment.segment as StatsigSavedGroup;
+
+          // Transform Statsig segment to GrowthBook saved group using the
+          // latest savedGroupIdMap (which will be more complete on retries).
+          const savedGroupData = await transformStatsigSegmentToSavedGroup(
+            seg,
+            existingAttributeSchema,
+            apiCall,
+            project,
+            skipAttributeMapping,
+            savedGroupIdMap,
+          );
+
+          // Keep the transformed version on the segment for UI/debugging
+          segment.transformedSavedGroup = savedGroupData;
+
+          // Check if saved group already exists (by groupName)
+          const existingSavedGroup = existingSavedGroupsMap.get(
+            savedGroupData.groupName,
+          );
+          const isUpdate = !!existingSavedGroup;
+
+          let res: { savedGroup: SavedGroupInterface };
+          if (isUpdate) {
+            // Use PUT to update existing saved group, always skipping cycle checks
+            const putRes = await apiCall(
+              `/saved-groups/${existingSavedGroup.id}?skipCycleCheck=1`,
+              {
+                method: "PUT",
+                body: JSON.stringify(savedGroupData),
+              },
+            );
+            // PUT returns { status: 200 } or { savedGroup: ... }, handle both
+            if ((putRes as { savedGroup?: SavedGroupInterface }).savedGroup) {
+              res = putRes as { savedGroup: SavedGroupInterface };
+              // Keep the in-memory map in sync with the latest saved group
+              existingSavedGroupsMap.set(
+                savedGroupData.groupName,
+                res.savedGroup,
+              );
+            } else {
+              // If PUT doesn't return the saved group, fall back to the existing one
+              res = { savedGroup: existingSavedGroup };
+            }
+          } else {
+            // Use POST to create new saved group, always skipping cycle checks
+            res = await apiCall("/saved-groups?skipCycleCheck=1", {
+              method: "POST",
+              body: JSON.stringify(savedGroupData),
+            });
+            // Newly created saved group should be available for subsequent passes
+            existingSavedGroupsMap.set(
+              savedGroupData.groupName,
+              res.savedGroup,
+            );
+          }
+
+          segment.status = "completed";
+          segment.exists = isUpdate;
+          segment.existingSavedGroup = existingSavedGroup;
+          // Clear any previous error message from earlier attempts so the UI
+          // reflects the latest successful import state.
+          segment.error = undefined;
+
+          // Map Statsig segment name to GrowthBook saved group ID
+          savedGroupIdMap.set(seg.id, res.savedGroup.id);
+        } catch (e) {
+          const isUpdate = !!segment.existingSavedGroup;
+          segment.status = "failed";
+          segment.exists = isUpdate;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          segment.error = (e as any)?.message || String(e);
+        }
+        update();
+      });
+    });
+  };
+
   // Import Environments in a single API call
   queue.add(async () => {
     const envsToAdd: Environment[] = [];
@@ -1587,81 +1692,44 @@ export async function runImport(options: RunImportOptions) {
   });
   await queue.onIdle();
 
-  // Import Saved Groups (Segments)
-  data.segments?.forEach((segment, index) => {
-    if (
-      canProcessItem(segment.status) &&
-      shouldImportItem("segments", index, segment)
-    ) {
-      queue.add(async () => {
-        // Reset status to pending when re-running
-        segment.status = "pending";
-        try {
-          const seg = segment.segment as StatsigSavedGroup;
+  // Import Saved Groups (Segments) in two phases:
+  // 1) First pass processes all selected segments.
+  // 2) Second pass only retries those whose transformed condition still
+  //    contains the "__unknown_group__" placeholder (nested segments that
+  //    couldn't be resolved on the first pass).
+  repopulateSegmentQueue(false);
+  await queue.onIdle();
+  repopulateSegmentQueue(true);
+  await queue.onIdle();
 
-          // Transform Statsig segment to GrowthBook saved group
-          const savedGroupData = await transformStatsigSegmentToSavedGroup(
-            seg,
-            existingAttributeSchema,
-            apiCall,
-            project,
-            skipAttributeMapping,
-            savedGroupIdMap,
-          );
-
-          // Check if saved group already exists (by groupName)
-          const existingSavedGroup = existingSavedGroupsMap.get(
-            savedGroupData.groupName,
-          );
-          const isUpdate = !!existingSavedGroup;
-
-          let res: { savedGroup: SavedGroupInterface };
-          if (isUpdate) {
-            // Use PUT to update existing saved group
-            const putRes = await apiCall(
-              `/saved-groups/${existingSavedGroup.id}`,
-              {
-                method: "PUT",
-                body: JSON.stringify(savedGroupData),
-              },
-            );
-            // PUT returns { status: 200 } or { savedGroup: ... }, handle both
-            if (putRes.savedGroup) {
-              res = putRes as { savedGroup: SavedGroupInterface };
-            } else {
-              // If PUT doesn't return the saved group, fetch it or use existing
-              // For now, use the existing one (API may not return the updated object)
-              res = { savedGroup: existingSavedGroup };
-            }
-          } else {
-            // Use POST to create new saved group
-            res = await apiCall("/saved-groups", {
-              method: "POST",
-              body: JSON.stringify(savedGroupData),
-            });
-          }
-
-          segment.status = "completed";
-          segment.exists = isUpdate;
-          segment.segment = res.savedGroup as unknown as StatsigSavedGroup;
-          segment.existingSavedGroup = existingSavedGroup;
-
-          // Map Statsig segment name to GrowthBook saved group ID
-          savedGroupIdMap.set(seg.id, res.savedGroup.id);
-        } catch (e) {
-          const existingSavedGroup = existingSavedGroupsMap.get(
-            (segment.segment as StatsigSavedGroup)?.id || "",
-          );
-          const isUpdate = !!existingSavedGroup;
-          segment.status = "failed";
-          segment.exists = isUpdate;
-          segment.error = e.message;
-        }
-        update();
-      });
+  // Build combined features map for prerequisite lookups
+  // This includes existing GrowthBook features and Statsig features being imported
+  const combinedFeaturesMap = new Map<string, FeatureInterface>(
+    Array.from(featuresMap.entries()),
+  );
+  // Add Statsig feature gates (boolean) and dynamic configs (json) to the map
+  data.featureGates?.forEach((gateImport) => {
+    if (gateImport.featureGate) {
+      const fg = gateImport.featureGate as StatsigFeatureGate;
+      if (!combinedFeaturesMap.has(fg.id)) {
+        combinedFeaturesMap.set(fg.id, {
+          id: fg.id,
+          valueType: "boolean",
+        } as FeatureInterface);
+      }
     }
   });
-  await queue.onIdle();
+  data.dynamicConfigs?.forEach((configImport) => {
+    if (configImport.dynamicConfig) {
+      const dc = configImport.dynamicConfig as StatsigDynamicConfig;
+      if (!combinedFeaturesMap.has(dc.id)) {
+        combinedFeaturesMap.set(dc.id, {
+          id: dc.id,
+          valueType: "json",
+        } as FeatureInterface);
+      }
+    }
+  });
 
   // Import Feature Gates
   data.featureGates?.forEach((featureGate, index) => {
@@ -1684,6 +1752,7 @@ export async function runImport(options: RunImportOptions) {
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
+
           const transformedFeature = await transformStatsigFeatureGateToGB(
             fg,
             availableEnvironments,
@@ -1693,6 +1762,7 @@ export async function runImport(options: RunImportOptions) {
             project,
             skipAttributeMapping,
             savedGroupIdMap,
+            combinedFeaturesMap,
           );
 
           const featureIsUpdate = !!featureGate.existing;
@@ -1740,6 +1810,7 @@ export async function runImport(options: RunImportOptions) {
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
+
           const transformedFeature = await transformStatsigFeatureGateToGB(
             dc,
             availableEnvironments,
@@ -1749,6 +1820,7 @@ export async function runImport(options: RunImportOptions) {
             project,
             skipAttributeMapping,
             savedGroupIdMap,
+            combinedFeaturesMap,
           );
 
           const isUpdate = !!dynamicConfig.existing;
@@ -1807,7 +1879,7 @@ export async function runImport(options: RunImportOptions) {
 
           // Set project and datasource (will be provided by the importer)
           transformedExperiment.project = project || "";
-          transformedExperiment.datasource = datasource || "";
+          transformedExperiment.datasource = datasource?.id || "";
           transformedExperiment.exposureQueryId = exposureQueryId || "";
 
           // Check if experiment already exists (by trackingKey)
@@ -2013,7 +2085,7 @@ export async function runImport(options: RunImportOptions) {
             await transformStatsigMetricSourceToFactTable(
               metricSource,
               project || "",
-              datasource || "",
+              datasource,
             );
 
           const existingMetricSource = metricSourceImport.existingMetricSource;
@@ -2048,32 +2120,6 @@ export async function runImport(options: RunImportOptions) {
           }
           metricSourceIdMap.set(metricSource.name, id);
 
-          // Add any saved filters
-          const metrics = (data.metrics || [])
-            .filter((metricImport, i) => {
-              return (
-                canProcessItem(metricImport.status) &&
-                shouldImportItem("metrics", i, metricImport)
-              );
-            })
-            .map((mi) => mi.metric)
-            .filter(Boolean) as StatsigMetric[];
-          const filtersToAdd = getNewFiltersForMetricSource(
-            metrics,
-            metricSource.name,
-          );
-          for (const filter of filtersToAdd) {
-            if (!filter) continue;
-            const key = `${id}::${filter.value}`;
-            // If filter already exists, skip
-            if (savedFilterIdMap.has(key)) continue;
-            const savedFilterRes = await apiCall(`/fact-tables/${id}/filter`, {
-              method: "POST",
-              body: JSON.stringify(filter),
-            });
-            savedFilterIdMap.set(key, savedFilterRes.filterId);
-          }
-
           metricSourceImport.status = "completed";
           metricSourceImport.exists = isUpdate;
         } catch (e) {
@@ -2105,9 +2151,8 @@ export async function runImport(options: RunImportOptions) {
           const metricPayload = await transformStatsigMetricToMetric(
             metric,
             metricSourceIdMap,
-            savedFilterIdMap,
             project || "",
-            datasource || "",
+            datasource?.id || "",
           );
 
           const existingMetric = metricImport.existingMetric;

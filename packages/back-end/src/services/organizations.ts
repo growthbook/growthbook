@@ -21,21 +21,13 @@ import {
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import { TiktokenModel } from "@dqbd/tiktoken";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { SegmentInterface } from "shared/types/segment";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
-import {
-  createOrganization,
-  findAllOrganizations,
-  findOrganizationById,
-  findOrganizationByInviteKey,
-  findOrganizationsByDomain,
-  updateOrganization,
-} from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+} from "shared/types/fact-table";
 import {
   ExpandedMember,
   ExpandedMemberInfo,
@@ -47,8 +39,23 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
-  ReqContext,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
+import { DimensionInterface } from "shared/types/dimension";
+import { DataSourceInterface } from "shared/types/datasource";
+import { LegacyExperimentPhase } from "shared/types/experiment";
+import { PValueCorrection } from "shared/types/stats";
+import {
+  createOrganization,
+  findAllOrganizations,
+  findOrganizationById,
+  findOrganizationByInviteKey,
+  findOrganizationsByDomain,
+  updateOrganization,
+} from "back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
 import { ConfigFile } from "back-end/src/init/config";
 import {
@@ -61,19 +68,13 @@ import {
   getMetricById,
   updateMetric,
 } from "back-end/src/models/MetricModel";
-import { MetricInterface } from "back-end/types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
-import { DimensionInterface } from "back-end/types/dimension";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { logger } from "back-end/src/util/logger";
-import { SegmentInterface } from "back-end/types/segment";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-import { LegacyExperimentPhase } from "back-end/types/experiment";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUsersByIds } from "back-end/src/models/UserModel";
 import {
@@ -81,7 +82,6 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
-import { PValueCorrection } from "back-end/types/stats";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
@@ -107,7 +107,8 @@ export function validateLoginMethod(
 ) {
   if (
     org.restrictLoginMethod &&
-    req.loginMethod?.id !== org.restrictLoginMethod
+    req.loginMethod?.id !== org.restrictLoginMethod &&
+    !req.superAdmin
   ) {
     throw new Error(
       `Your organization requires you to login with ${
@@ -130,7 +131,8 @@ export function validateLoginMethod(
   // For that, we set `restrictAuthSubPrefix` to "google"
   if (
     org.restrictAuthSubPrefix &&
-    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix) &&
+    !req.superAdmin
   ) {
     throw new Error(
       `Your organization requires you to login with ${org.restrictAuthSubPrefix}`,

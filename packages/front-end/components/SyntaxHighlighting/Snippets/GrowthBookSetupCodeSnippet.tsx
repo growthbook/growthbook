@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import React from "react";

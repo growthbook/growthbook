@@ -4,11 +4,11 @@ import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
-} from "back-end/types/metric";
+} from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,

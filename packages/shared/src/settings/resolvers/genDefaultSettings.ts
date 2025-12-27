@@ -1,4 +1,4 @@
-import { MemberRoleInfo, MetricDefaults } from "back-end/types/organization";
+import { MemberRoleInfo, MetricDefaults } from "shared/types/organization";
 import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,

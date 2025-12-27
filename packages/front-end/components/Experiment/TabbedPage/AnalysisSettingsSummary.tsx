@@ -1,8 +1,8 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
 import React, { useMemo, useState } from "react";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import clsx from "clsx";
 import { Box, Text } from "@radix-ui/themes";
 import {
@@ -14,10 +14,10 @@ import {
   expandAllSliceMetricsInMap,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { ExperimentSnapshotReportArgs } from "back-end/types/report";
+import { ExperimentSnapshotReportArgs } from "shared/types/report";
 import { startCase } from "lodash";
+import { PiPencilSimpleFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { GBEdit } from "@/components/Icons";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { trackSnapshot } from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -136,8 +136,8 @@ export default function AnalysisSettingsSummary({
     }
     // Fallback to using results for total units if health units not available
     let totalUsers = 0;
-    analysis?.results?.[0]?.variations?.forEach((v) => {
-      totalUsers += v.users;
+    analysis?.results?.forEach((result) => {
+      result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
     });
     return totalUsers;
   }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
@@ -296,7 +296,7 @@ export default function AnalysisSettingsSummary({
                     }}
                   >
                     <span className="text-dark">Analysis Settings</span>
-                    <GBEdit className="ml-2" />
+                    <PiPencilSimpleFill className="ml-2" />
                   </Link>
                 </div>
               ) : (

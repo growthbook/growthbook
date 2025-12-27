@@ -1,10 +1,10 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateMetricGroupProps,
   MetricGroupInterface,
-} from "back-end/types/metric-groups";
+} from "shared/types/metric-groups";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { removeMetricFromExperiments } from "back-end/src/models/ExperimentModel";
 

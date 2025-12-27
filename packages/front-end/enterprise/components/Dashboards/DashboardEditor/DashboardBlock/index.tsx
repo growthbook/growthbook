@@ -1,9 +1,11 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  blockHasFieldOfType,
+  isMetricSelector,
+} from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -12,21 +14,20 @@ import {
   PiPencilSimpleFill,
 } from "react-icons/pi";
 import clsx from "clsx";
-import { blockHasFieldOfType, isMetricSelector } from "shared/enterprise";
 import { isNumber, isString, isDefined } from "shared/util";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+} from "shared/types/experiment-snapshot";
+import { SavedQuery } from "shared/validators";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
@@ -332,6 +333,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     experimentResultBlockTypes as readonly string[]
   ).includes(block.type as string);
 
+  function getDefaultValueForTitle(
+    blockType: DashboardBlockInterface["type"],
+  ): string {
+    return blockType === "markdown" ? "" : BLOCK_TYPE_INFO[blockType].name;
+  }
+
   return (
     <Flex
       ref={scrollRef}
@@ -414,7 +421,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         {canEditTitle && editTitle && setBlock ? (
           <Field
             autoFocus
-            defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}
+            defaultValue={block.title || getDefaultValueForTitle(block.type)}
             placeholder="Title"
             onFocus={(e) => {
               e.target.select();
@@ -454,7 +461,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 flexShrink: 1,
               }}
             >
-              {block.title || BLOCK_TYPE_INFO[block.type].name}
+              {block.title || getDefaultValueForTitle(block.type)}
             </h4>
             {canEditTitle && (
               <a

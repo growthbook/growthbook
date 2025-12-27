@@ -1,25 +1,25 @@
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
+import { UpdateProps } from "shared/types/base-model";
+import { isString } from "shared/util";
 import {
+  blockHasFieldOfType,
   dashboardInterface,
   DashboardInterface,
-} from "back-end/src/enterprise/validators/dashboard";
+  CreateDashboardBlockInterface,
+  DashboardBlockInterface,
+  LegacyDashboardBlockInterface,
+} from "shared/enterprise";
 import {
   MakeModelClass,
   ScopedFilterQuery,
-  UpdateProps,
 } from "back-end/src/models/BaseModel";
 import {
   getCollection,
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import {
-  CreateDashboardBlockInterface,
-  DashboardBlockInterface,
-  LegacyDashboardBlockInterface,
-} from "../validators/dashboard-block";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -280,12 +280,50 @@ export class DashboardModel extends BaseClass {
     await this._deleteOne(existing);
     return existing;
   }
+
+  // When duplicating a dashboard, we need to create a new instance of each saved query so changes in
+  // the new dashboard don't affect the existing one
+  protected async beforeCreate(doc: DashboardDocument) {
+    const savedQueryIds = new Set(
+      doc.blocks
+        .filter((block) => blockHasFieldOfType(block, "savedQueryId", isString))
+        .map(({ savedQueryId }) => savedQueryId),
+    );
+    const newIdMapping: Record<string, string> = {};
+    for (const oldId of savedQueryIds) {
+      const existing = await this.context.models.savedQueries.getById(oldId);
+      if (!existing) continue;
+      // Only duplicate the query if it's linked to an existing dashboard (i.e. not being created for this new dashboard)
+      if ((existing.linkedDashboardIds ?? []).some((dashId) => dashId)) {
+        const {
+          id: _i,
+          organization: _o,
+          dateCreated: _c,
+          dateUpdated: _u,
+          linkedDashboardIds: _l,
+          ...toCreate
+        } = existing;
+        const { id } = await this.context.models.savedQueries.create(toCreate);
+        newIdMapping[oldId] = id;
+      }
+    }
+    doc.blocks = doc.blocks.map((block) => {
+      if (!blockHasFieldOfType(block, "savedQueryId", isString)) return block;
+      return {
+        ...block,
+        savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
+      };
+    });
+  }
 }
 
 function getSavedQueryIds(doc: DashboardDocument): Set<string> {
   const queryIdSet = new Set<string>();
   doc.blocks.forEach((block) => {
-    if (block.type === "sql-explorer" && block.savedQueryId) {
+    if (
+      blockHasFieldOfType(block, "savedQueryId", isString) &&
+      block.savedQueryId
+    ) {
       queryIdSet.add(block.savedQueryId);
     }
   });

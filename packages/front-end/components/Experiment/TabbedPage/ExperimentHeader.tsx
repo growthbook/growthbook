@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
@@ -19,8 +19,8 @@ import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+} from "shared/types/report";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";

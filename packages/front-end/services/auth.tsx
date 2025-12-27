@@ -10,11 +10,11 @@ import { useRouter } from "next/router";
 import {
   MemberRoleInfo,
   OrganizationInterface,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
-} from "back-end/types/sso-connection";
+} from "shared/types/sso-connection";
 import * as Sentry from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";

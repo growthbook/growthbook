@@ -1,14 +1,11 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  CustomHookInterface,
-  CustomHookType,
-} from "back-end/src/routers/custom-hooks/custom-hooks.validators";
-import { CreateProps } from "back-end/types/models";
+import { CustomHookInterface, CustomHookType } from "shared/validators";
+import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

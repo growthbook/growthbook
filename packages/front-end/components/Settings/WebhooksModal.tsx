@@ -6,9 +6,9 @@ import {
   WebhookInterface,
   WebhookMethod,
   WebhookPayloadFormat,
-} from "back-end/types/webhook";
+} from "shared/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";

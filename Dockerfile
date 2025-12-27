@@ -20,10 +20,10 @@ ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN apt-get update && \
   apt-get install -y wget gnupg2 build-essential ca-certificates && \
   mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
   apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) && \
+  apt-get install -yqq nodejs && \
   npm install -g pnpm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
@@ -45,6 +45,7 @@ RUN pnpm postinstall
 COPY packages ./packages
 RUN \
   pnpm build \
+  && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
   && rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
@@ -63,10 +64,10 @@ WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
   mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
   apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) && \
+  apt-get install -yqq nodejs && \
   npm install -g pnpm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*

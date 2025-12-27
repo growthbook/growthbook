@@ -2,13 +2,20 @@ import { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   DataVizConfig,
   SavedQuery,
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
+import {
+  InformationSchemaTablesInterface,
+  InformationSchemaInterface,
+  Column,
+} from "shared/types/integrations";
+import { DataSourceInterface } from "shared/types/datasource";
+import { logger } from "back-end/src/util/logger";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -22,19 +29,13 @@ import {
   parsePrompt,
   supportsJSONSchema,
 } from "back-end/src/enterprise/services/openai";
-import {
-  InformationSchemaTablesInterface,
-  InformationSchemaInterface,
-  Column,
-} from "back-end/src/types/Integration";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
   getInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { fetchTableData } from "back-end/src/services/informationSchema";
-import { ReqContext } from "back-end/types/organization";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 /**
@@ -465,6 +466,7 @@ export async function postGenerateSQL(
         );
       }
     } catch (e) {
+      logger.error(e, "Error generating SQL from AI, first part");
       return res.status(400).json({
         status: 400,
         message: "AI did not return a valid SQL query",
@@ -607,6 +609,7 @@ export async function postGenerateSQL(
       });
     }
   } catch (e) {
+    logger.error(e, "Error generating SQL from AI, second part");
     return res.status(400).json({
       status: 400,
       message: "AI did not return a valid SQL query",

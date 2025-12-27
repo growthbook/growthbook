@@ -2,14 +2,14 @@ import React, { useState, useEffect, ReactElement, useCallback } from "react";
 import {
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import {
   FaAngleDown,
   FaAngleRight,
   FaExclamationCircle,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";

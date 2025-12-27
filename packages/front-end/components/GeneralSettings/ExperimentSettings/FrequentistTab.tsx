@@ -1,6 +1,6 @@
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { PValueCorrection } from "back-end/types/stats";
+import { PValueCorrection } from "shared/types/stats";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";

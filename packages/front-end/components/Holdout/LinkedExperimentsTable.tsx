@@ -1,5 +1,5 @@
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { HoldoutInterface } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";

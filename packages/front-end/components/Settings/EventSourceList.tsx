@@ -1,4 +1,4 @@
-import { SchemaFormat } from "back-end/types/datasource";
+import { SchemaFormat } from "shared/types/datasource";
 import React from "react";
 import { FaGear } from "react-icons/fa6";
 import { SiMixpanel } from "react-icons/si";

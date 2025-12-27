@@ -1,4 +1,4 @@
-import { NotificationEventName } from "back-end/src/events/base-types";
+import { NotificationEventName } from "shared/types/events/base-types";
 import React, { ReactNode, useMemo } from "react";
 import {
   PiQuestionLight,
@@ -8,13 +8,13 @@ import {
 import {
   EventWebHookPayloadType,
   EventWebHookMethod,
-} from "back-end/types/event-webhook";
+} from "shared/types/event-webhook";
 import { VscJson } from "react-icons/vsc";
 
 export type {
   EventWebHookPayloadType,
   EventWebHookMethod,
-} from "back-end/types/event-webhook";
+} from "shared/types/event-webhook";
 
 export const eventWebHookPayloadTypes = ["json", "slack", "discord"] as const;
 

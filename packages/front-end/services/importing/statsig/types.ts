@@ -1,14 +1,14 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { TagInterface } from "back-end/types/tag";
-import { Environment } from "back-end/types/organization";
-import { SavedGroupInterface } from "shared/src/types";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { TagInterface } from "shared/types/tag";
+import { Environment } from "shared/types/organization";
+import { SavedGroupInterface } from "shared/types/groups";
 import {
   CreateFactMetricProps,
   CreateFactTableProps,
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 
 // beginregion Import Types
 

@@ -1,12 +1,12 @@
 import express from "express";
 import { z } from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { zodNotificationEventNamesEnum } from "back-end/src/events/base-types";
 import {
+  zodNotificationEventNamesEnum,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-} from "back-end/src/validators/event-webhook";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();

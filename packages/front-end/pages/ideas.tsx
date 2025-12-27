@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";

@@ -1,4 +1,4 @@
-import { SavedGroupTargeting } from "back-end/types/feature";
+import { SavedGroupTargeting } from "shared/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import { PiArrowSquareOut } from "react-icons/pi";
 import React from "react";
@@ -143,12 +143,12 @@ export default function SavedGroupTargetingField({
                     formatOptionLabel={(o, meta) => {
                       if (meta.context !== "value") return o.label;
                       const group = getSavedGroupById(o.value);
-                      const link =
-                        group?.type === "list"
-                          ? `/saved-groups/${group.id}`
-                          : "/saved-groups#conditionGroups";
+                      if (!group) return o.label;
                       return (
-                        <Link href={link} target="_blank">
+                        <Link
+                          href={`/saved-groups/${group.id}`}
+                          target="_blank"
+                        >
                           {o.label} <PiArrowSquareOut />
                         </Link>
                       );

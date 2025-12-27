@@ -1,16 +1,16 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import React, { useMemo, useState } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import uniq from "lodash/uniq";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import {
   getAllMetricIdsFromExperiment,
@@ -86,6 +86,7 @@ export default function ResultsTab({
     metrics,
     metricGroups,
     datasources,
+    getSegmentById,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -113,6 +114,12 @@ export default function ResultsTab({
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
+  );
+
+  const segment = getSegmentById(experiment.segment || "");
+
+  const activationMetric = getExperimentMetricById(
+    experiment.activationMetric || "",
   );
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
@@ -226,6 +233,13 @@ export default function ResultsTab({
                 analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
               }
             />
+            {segment ? <Metadata label="Segment" value={segment.name} /> : null}
+            {activationMetric ? (
+              <Metadata
+                label="Activation Metric"
+                value={activationMetric.name}
+              />
+            ) : null}
           </Flex>
         )}
       </Box>

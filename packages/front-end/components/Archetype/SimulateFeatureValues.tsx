@@ -10,8 +10,8 @@ import React, {
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "back-end/types/archetype";
-import { FeatureTestResult } from "back-end/types/feature";
+} from "shared/types/archetype";
+import { FeatureTestResult } from "shared/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";

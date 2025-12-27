@@ -7,9 +7,8 @@ import {
   truncateString,
 } from "shared/util";
 import Link from "next/link";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { PiInfoFill } from "react-icons/pi";
 import { isEmpty } from "lodash";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -68,32 +67,50 @@ export default function IdLists({ groups, mutate }: Props) {
     useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
-  // Get a list of feature ids for every saved group
+  const conditionGroups = useMemo(
+    () => groups.filter((g) => g.type === "condition"),
+    [groups],
+  );
+
   const referencingFeaturesByGroup = useMemo(
     () =>
       featuresReferencingSavedGroups({
-        savedGroups: filteredIdLists,
+        savedGroups: idLists,
         features,
         environments,
       }),
-    [filteredIdLists, environments, features],
+    [idLists, environments, features],
   );
   const referencingExperimentsByGroup = useMemo(
     () =>
       experimentsReferencingSavedGroups({
-        savedGroups: filteredIdLists,
+        savedGroups: idLists,
         experiments,
       }),
-    [filteredIdLists, experiments],
+    [idLists, experiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: filteredIdLists,
-    localStorageKey: "savedGroups",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
-  });
+  const referencingSavedGroupsByGroup = useMemo(() => {
+    const result: Record<string, SavedGroupInterface[]> = {};
+    filteredIdLists.forEach((targetGroup) => {
+      result[targetGroup.id] = conditionGroups.filter((sg) => {
+        if (!sg.condition) return false;
+        return sg.condition.includes(targetGroup.id);
+      });
+    });
+    return result;
+  }, [filteredIdLists, conditionGroups]);
+
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: filteredIdLists,
+      localStorageKey: "savedGroups",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
+      pageSize: 50,
+      updateSearchQueryOnChange: true,
+    });
 
   if (!idLists) return <LoadingOverlay />;
 
@@ -121,20 +138,14 @@ export default function IdLists({ groups, mutate }: Props) {
           <div className="flex-1"></div>
           {canCreate ? (
             <div className="col-auto">
-              <Button
-                onClick={async () => {
-                  setSavedGroupForm({});
-                }}
-              >
-                Add ID List
-              </Button>
+              <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
             </div>
           ) : null}
         </div>
         <p className="text-gray mb-1">
           Specify a list of values to include for an attribute.
         </p>
-        <p className="text-gray mb-1">
+        <p className="text-gray">
           For example, create a &quot;Beta Testers&quot; group identified by a
           specific set of <code>device_id</code> values.
         </p>
@@ -147,12 +158,7 @@ export default function IdLists({ groups, mutate }: Props) {
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </Box>
-        ) : (
-          <p>
-            <PiInfoFill /> Too many large lists will cause too large of a
-            payload, and your server may not support it.
-          </p>
-        )}
+        ) : null}
 
         {filteredIdLists.length > 0 && (
           <>
@@ -188,7 +194,7 @@ export default function IdLists({ groups, mutate }: Props) {
                         <tr key={s.id}>
                           <td>
                             <Link
-                              className="text-color-primary"
+                              className="link-purple"
                               key={s.id}
                               href={`/saved-groups/${s.id}`}
                             >
@@ -243,10 +249,14 @@ export default function IdLists({ groups, mutate }: Props) {
                                   getConfirmationContent={getSavedGroupMessage(
                                     referencingFeaturesByGroup[s.id],
                                     referencingExperimentsByGroup[s.id],
+                                    referencingSavedGroupsByGroup[s.id],
                                   )}
                                   canDelete={
                                     isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                    isEmpty(referencingExperimentsByGroup[s.id])
+                                    isEmpty(
+                                      referencingExperimentsByGroup[s.id],
+                                    ) &&
+                                    isEmpty(referencingSavedGroupsByGroup[s.id])
                                   }
                                 />
                               ) : null}
@@ -264,6 +274,7 @@ export default function IdLists({ groups, mutate }: Props) {
                     )}
                   </tbody>
                 </table>
+                {pagination}
               </div>
             </div>
           </>

@@ -1,9 +1,9 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "shared/validators";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";

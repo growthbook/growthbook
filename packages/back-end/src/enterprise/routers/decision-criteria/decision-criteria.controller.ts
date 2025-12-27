@@ -1,11 +1,11 @@
 import { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   DecisionCriteriaInterface,
   CreateDecisionCriteriaProps,
   UpdateDecisionCriteriaProps,
-} from "./decision-criteria.validators";
+} from "shared/enterprise";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 /**
  * GET /decision-criteria

@@ -1,12 +1,12 @@
 import express from "express";
 import { z } from "zod";
+import {
+  createSegmentModelValidator,
+  updateSegmentModelValidator,
+} from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSegmentController from "./segment.controller";
-import {
-  createSegmentValidator,
-  updateSegmentValidator,
-} from "./segment.validators";
 
 const router = express.Router();
 
@@ -29,7 +29,7 @@ router.get(
 router.post(
   "/",
   validateRequestMiddleware({
-    body: createSegmentValidator,
+    body: createSegmentModelValidator,
   }),
   segmentController.postSegment,
 );
@@ -42,7 +42,7 @@ router.put(
         id: z.string(),
       })
       .strict(),
-    body: updateSegmentValidator,
+    body: updateSegmentModelValidator,
   }),
   segmentController.putSegment,
 );

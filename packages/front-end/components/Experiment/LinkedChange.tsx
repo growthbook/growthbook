@@ -1,12 +1,12 @@
 import React, { ReactNode } from "react";
 import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureValueType } from "shared/types/feature";
 import Link from "next/link";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
@@ -121,9 +121,9 @@ export default function LinkedChange({
                                 </>
                               }
                             />
-                            <Box>&middot;</Box>
                           </Box>
                         )}
+                      <Box>&middot;</Box>
                       <Box className="text-muted">
                         {(changes?.length || 0) > 0
                           ? joinWithOxfordComma(changes) + " changes"

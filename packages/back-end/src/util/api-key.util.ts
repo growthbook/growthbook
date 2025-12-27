@@ -1,5 +1,5 @@
-import { OrganizationInterface } from "back-end/types/organization";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { OrganizationInterface } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
 
 /**
  * Verifies if the provided API key is for a user in the organization.

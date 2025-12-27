@@ -5,15 +5,18 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { VisualChange } from "shared/types/visual-changeset";
+import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
   ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
-import { VisualChange } from "back-end/types/visual-changeset";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { DiffResult } from "shared/types/events/diff";
+import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -26,7 +29,6 @@ import {
   VisualExperiment,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { FeatureInterface } from "back-end/types/feature";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
@@ -44,11 +46,7 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
-import {
-  DiffResult,
-  getObjectDiff,
-} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
+import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -558,6 +556,17 @@ export async function createExperiment({
   return experiment;
 }
 
+export function hasActualChanges(
+  experiment: ExperimentInterface,
+  changes: Partial<ExperimentInterface>,
+) {
+  const changeKeys = Object.keys(changes).filter(
+    (key) => key !== "dateUpdated",
+  ) as Array<keyof ExperimentInterface>;
+
+  return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -569,12 +578,15 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
-  // TODO: are there some changes where we don't want to update the dateUpdated?
+  // If no actual changes, return the experiment as-is
+  if (!hasActualChanges(experiment, changes)) {
+    return experiment;
+  }
+
   const allChanges = {
     ...changes,
+    dateUpdated: new Date(),
   };
-  allChanges.dateUpdated = new Date();
-
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
@@ -590,7 +602,6 @@ export async function updateExperiment({
 
   const updated = { ...experiment, ...allChanges };
 
-  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
@@ -737,22 +748,35 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
-export async function getExperimentsUsingMetric(
-  context: ReqContext | ApiReqContext,
-  metricId: string,
-  limit?: number,
-): Promise<ExperimentInterface[]> {
+export async function getExperimentsUsingMetric({
+  context,
+  metricId,
+  excludeMetricGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricId: string;
+  excludeMetricGroupIds?: boolean;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  const metricGroups = excludeMetricGroupIds
+    ? undefined
+    : await context.models.metricGroups.findByMetric(metricId);
+
+  const metricGroupIds = metricGroups?.map((g) => g.id);
+  const allIds = metricGroupIds ? [metricId, ...metricGroupIds] : [metricId];
+
   const experiments = await findExperiments(
     context,
     {
       organization: context.org.id,
       $or: [
-        { metrics: metricId },
-        { goalMetrics: metricId },
-        { guardrails: metricId },
-        { guardrailMetrics: metricId },
-        { secondaryMetrics: metricId },
-        { activationMetric: metricId },
+        { metrics: { $in: allIds } },
+        { goalMetrics: { $in: allIds } },
+        { guardrails: { $in: allIds } },
+        { guardrailMetrics: { $in: allIds } },
+        { secondaryMetrics: { $in: allIds } },
+        { activationMetric: { $in: allIds } },
       ],
       archived: {
         $ne: true,

@@ -41,9 +41,9 @@ export default function AccountPlanNotices() {
     </Box>
   );
 
-  let usageMessage: JSX.Element | null = null;
+  let cdnUsageMessage: JSX.Element | null = null;
   if (usage?.cdn.status === "approaching") {
-    usageMessage = (
+    cdnUsageMessage = (
       <>
         {upgradeModal && (
           <div>
@@ -65,7 +65,7 @@ export default function AccountPlanNotices() {
       </>
     );
   } else if (usage?.cdn.status === "over") {
-    usageMessage = (
+    cdnUsageMessage = (
       <>
         {upgradeModal && (
           <div>
@@ -88,6 +88,76 @@ export default function AccountPlanNotices() {
     );
   }
 
+  const managedWarehouseUsageTooltipBody = permissionsUtil.canViewUsage() ? (
+    <Box className={styles["notice-tooltip"]}>
+      Click to upgrade, or go to{" "}
+      <Link href="/settings/usage">Settings &gt; Usage</Link> to learn more
+    </Box>
+  ) : (
+    <Box className={styles["notice-tooltip"]}>
+      Click to upgrade, or visit{" "}
+      <a
+        href="https://docs.growthbook.io/app/managed-warehouse#limits"
+        className="text-decoration-none"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          track("Clicked Read About Managed Warehouse Limits Link in Tooltip");
+        }}
+      >
+        Growthbook Docs &gt; FAQ
+      </a>
+    </Box>
+  );
+
+  let managedWarehouseUsageMessage: JSX.Element | null = null;
+  if (usage?.managedClickhouse?.status === "approaching") {
+    managedWarehouseUsageMessage = (
+      <>
+        {upgradeModal && (
+          <div>
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              source={"managed-warehouse-usage-approaching-topnav-notification"}
+              commercialFeature="unlimited-managed-warehouse-usage"
+            />
+          </div>
+        )}
+        <Tooltip body={managedWarehouseUsageTooltipBody}>
+          <Box className={styles["warning-notification"]}>
+            Approaching Managed Warehouse event limit.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  } else if (usage?.managedClickhouse?.status === "over") {
+    managedWarehouseUsageMessage = (
+      <>
+        {upgradeModal && (
+          <div>
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              source={"managed-warehouse-usage-exceeded-topnav-notification"}
+              commercialFeature="unlimited-managed-warehouse-usage"
+            />
+          </div>
+        )}
+        <Tooltip body={managedWarehouseUsageTooltipBody}>
+          <Box className={styles["error-notification"]}>
+            Managed Warehouse event limit exceeded.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  }
+
+  const usageMessage = cdnUsageMessage || managedWarehouseUsageMessage;
   if (license?.message && (license.message.showAllUsers || canManageBilling)) {
     return (
       <>

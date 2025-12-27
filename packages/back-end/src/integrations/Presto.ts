@@ -1,15 +1,15 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
-import { QueryStatistics } from "back-end/types/query";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import {
   QueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { QueryStatistics } from "shared/types/query";
+import { PrestoConnectionParams } from "shared/types/integrations/presto";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getKerberosHeader } from "../util/kerberos.util";
 import SqlIntegration from "./SqlIntegration";
 

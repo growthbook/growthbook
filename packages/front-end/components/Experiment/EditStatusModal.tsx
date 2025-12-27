@@ -1,10 +1,10 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";

@@ -1,17 +1,17 @@
 import { ago } from "shared/dates";
 import { useCallback, useEffect, useState } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
+  DashboardInterface,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  getBlockData,
+} from "shared/enterprise";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
-import { getBlockData } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
