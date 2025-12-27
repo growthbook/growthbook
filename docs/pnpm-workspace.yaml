@@ -1,0 +1,2 @@
+# Empty workspace file to prevent pnpm from using parent workspace
+packages: []
