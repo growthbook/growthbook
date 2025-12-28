@@ -52,6 +52,11 @@ jobs:
           # Main app
           pnpm install
 
+          # Docs
+          cd docs
+          pnpm install
+          cd ..
+
           # Stats engine
           pip install pipx
           pipx install poetry
