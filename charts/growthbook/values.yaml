@@ -23,7 +23,7 @@ frontend:
     # targetMemoryUtilizationPercentage: 80
   service:
     port: 3000
-  command: [npx, wsrun, -p, front-end, --no-prefix, -c]
+  command: [pnpm, --filter, front-end]
   args:
     - start
   env:
@@ -52,7 +52,7 @@ backend:
     enabled: true
   # For use when providing an existing MongoDB instance
   # mongodbUri:
-  command: [npx, wsrun, -p, back-end, --no-prefix, -c]
+  command: [pnpm, --filter, back-end]
   # To enable tracing/OTEL replace with "start:with-tracing"
   args:
     - start
