@@ -22,7 +22,7 @@
     "start:with-tracing": "pnpm --filter back-end --filter front-end -r --parallel run start:with-tracing",
     "start:with-datadog": "pnpm --filter back-end --filter front-end -r --parallel run start:with-datadog",
     "update-stats-deps": ". $(cd packages/stats && poetry env info --path)/bin/activate && (cd packages/stats && poetry install)",
-    "setup": "pnpm build:deps & pnpm --filter 'stats' -c setup & (cd docs && pnpm install) & wait",
+    "setup": "pnpm build:deps & pnpm --filter stats run setup & (cd docs && pnpm install) & wait",
     "prepare": "husky install",
     "plop": "plop",
     "migrate-encryption-key": "pnpm --filter back-end migrate-encryption-key",

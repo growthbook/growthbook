@@ -55,6 +55,9 @@ jobs:
           # Stats engine
           pip install pipx
           pipx install poetry
+          cd packages/stats
+          poetry install
+          cd ../..
         env:
           CI: true
 
