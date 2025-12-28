@@ -214,6 +214,9 @@ importers:
       date-fns:
         specifier: ^2.15.0
         version: 2.29.3
+      date-fns-tz:
+        specifier: ^1.3.7
+        version: 1.3.7(date-fns@2.29.3)
       dotenv:
         specifier: ^8.2.0
         version: 8.6.0
@@ -600,6 +603,9 @@ importers:
       '@visx/grid':
         specifier: ^2.1.0
         version: 2.1.0(react@18.2.0)
+      '@visx/group':
+        specifier: ^3.12.0
+        version: 3.12.0(react@18.2.0)
       '@visx/legend':
         specifier: ^2.1.0
         version: 2.18.0(react@18.2.0)
@@ -615,6 +621,9 @@ importers:
       '@visx/stats':
         specifier: ^2.1.0
         version: 2.1.0(react@18.2.0)
+      '@visx/text':
+        specifier: ^3.12.0
+        version: 3.12.0(react@18.2.0)
       '@visx/tooltip':
         specifier: ^2.1.0
         version: 2.1.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -633,6 +642,9 @@ importers:
       bootstrap:
         specifier: ^4.5.0
         version: 4.6.0(jquery@3.7.1)(popper.js@1.16.1)
+      classnames:
+        specifier: ^2.5.1
+        version: 2.5.1
       clsx:
         specifier: ^1.1.1
         version: 1.1.1
@@ -645,6 +657,9 @@ importers:
       crypto-js:
         specifier: ^4.2.0
         version: 4.2.0
+      d3-scale:
+        specifier: ^4.0.2
+        version: 4.0.2
       date-fns:
         specifier: ^2.15.0
         version: 2.29.3
@@ -869,6 +884,9 @@ importers:
       typescript:
         specifier: 5.7.3
         version: 5.7.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@22.8.6)(sass@1.94.2)(terser@5.44.1)(yaml@2.8.2)
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.8.6)(jsdom@16.7.0)(sass@1.94.2)(terser@5.44.1)(yaml@2.8.2)
@@ -1072,9 +1090,6 @@ importers:
       openid-client:
         specifier: ^5.1.10
         version: 5.6.5
-      shared:
-        specifier: workspace:*
-        version: 'link:'
       sql-formatter:
         specifier: ^11.0.2
         version: 11.0.2
@@ -6216,6 +6231,9 @@ packages:
   '@types/lodash@4.14.169':
     resolution: {integrity: sha512-DvmZHoHTFJ8zhVYwCLWbQ7uAbYQEk52Ev2/ZiQ7Y7gQGeV9pjBqjnQpECMHfKS1rCYAhMI7LHVxwyZLZinJgdw==}
 
+  '@types/lodash@4.17.21':
+    resolution: {integrity: sha512-FOvQ0YPD5NOfPgMzJihoT+Za5pdkDJWcbpuj1DjaKZIr/gxodQjY/uWEFlTNqW2ugXHUiL8lRQgw63dzKHZdeQ==}
+
   '@types/long@4.0.2':
     resolution: {integrity: sha512-MqTGEo5bj5t157U6fA/BiDynNkn0YknVdh48CMPkTSpFTVmvao5UQmm7uEF6xBEo7qIMAlY/JSleYaE6VOdpaA==}
 
@@ -6535,6 +6553,11 @@ packages:
     peerDependencies:
       react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
 
+  '@visx/group@3.12.0':
+    resolution: {integrity: sha512-Dye8iS1alVXPv7nj/7M37gJe6sSKqJLH7x6sEWAsRQ9clI0kFvjbKcKgF+U3aAVQr0NCohheFV+DtR8trfK/Ag==}
+    peerDependencies:
+      react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
+
   '@visx/legend@2.18.0':
     resolution: {integrity: sha512-x6RfW6NOV+I9bIx45MQlCIxDR89KdA0Y4rPrVFDdq9KSf+DICaIQw97ksGsixxQwEuiRfqGTtM6F/PXCfEx/zQ==}
     peerDependencies:
@@ -6571,6 +6594,11 @@ packages:
     resolution: {integrity: sha512-8vdnzoP75lIkDUHfmshcdn+Ic3K9l+HveGTZBVNu3qCSWLn2/F61HpA6BLRSg/vzxMhNav+hoBkBgRRYe8R7mw==}
     peerDependencies:
       react: ^16.3.0-0 || ^17.0.0-0
+
+  '@visx/text@3.12.0':
+    resolution: {integrity: sha512-0rbDYQlbuKPhBqXkkGYKFec1gQo05YxV45DORzr6hCyaizdJk1G+n9VkuKSHKBy1vVQhBA0W3u/WXd7tiODQPA==}
+    peerDependencies:
+      react: ^16.3.0-0 || ^17.0.0-0 || ^18.0.0-0
 
   '@visx/tooltip@2.1.0':
     resolution: {integrity: sha512-/hzO7t6dpiBV587/QOV3ZANIFbInqix9KZwmnkQnVavybeYAzjhIwijomVa3ywoOHtlGHAtxfOY6mw4hOErnjA==}
@@ -7418,6 +7446,9 @@ packages:
 
   classnames@2.3.2:
     resolution: {integrity: sha512-CSbhY4cFEJRe6/GQzIk5qXZ4Jeg5pcsP7b5peFSDpffpe1cqjASH/n9UTjBwOp6XpMSTwQ8Za2K5V02ueA7Tmw==}
+
+  classnames@2.5.1:
+    resolution: {integrity: sha512-saHYOzhIQs6wy2sVxTM6bUDsQO4F50V9RQ22qBpEdCW+I+/Wmke2HOl6lS6dTpdxVhb88/I6+Hs+438c3lfUow==}
 
   clean-stack@2.2.0:
     resolution: {integrity: sha512-4diC9HaTE+KRAMWhDhrGOECgWZxoevMc5TlkObMqNSsVU62PYzXZ/SMTjzyGAFF1YusgxGcSWTEXBhp0CPwQ1A==}
@@ -19730,7 +19761,7 @@ snapshots:
       - supports-color
       - webpack
 
-  '@sentry/node-core@9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.38.0)':
+  '@sentry/node-core@9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.4.1))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.38.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/context-async-hooks': 1.30.1(@opentelemetry/api@1.9.0)
@@ -19776,7 +19807,7 @@ snapshots:
       '@opentelemetry/semantic-conventions': 1.38.0
       '@prisma/instrumentation': 6.11.1(@opentelemetry/api@1.9.0)
       '@sentry/core': 9.40.0
-      '@sentry/node-core': 9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.38.0)
+      '@sentry/node-core': 9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.4.1))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.38.0)
       '@sentry/opentelemetry': 9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.38.0)
       import-in-the-middle: 1.14.2
       minimatch: 9.0.5
@@ -21391,6 +21422,8 @@ snapshots:
 
   '@types/lodash@4.14.169': {}
 
+  '@types/lodash@4.17.21': {}
+
   '@types/long@4.0.2': {}
 
   '@types/md5@2.3.0':
@@ -21730,7 +21763,7 @@ snapshots:
       '@visx/scale': 2.1.0
       '@visx/shape': 2.1.0(react@18.2.0)
       '@visx/text': 2.1.0(react@18.2.0)
-      classnames: 2.3.2
+      classnames: 2.5.1
       prop-types: 15.8.1
       react: 18.2.0
 
@@ -21757,7 +21790,7 @@ snapshots:
       '@types/d3-shape': 1.3.5
       '@types/react': 18.0.15
       '@visx/group': 2.17.0(react@18.2.0)
-      classnames: 2.3.2
+      classnames: 2.5.1
       d3-shape: 1.3.7
       prop-types: 15.8.1
       react: 18.2.0
@@ -21776,21 +21809,28 @@ snapshots:
       '@visx/point': 2.1.0
       '@visx/scale': 2.1.0
       '@visx/shape': 2.1.0(react@18.2.0)
-      classnames: 2.3.2
+      classnames: 2.5.1
       prop-types: 15.8.1
       react: 18.2.0
 
   '@visx/group@2.1.0(react@18.2.0)':
     dependencies:
       '@types/react': 18.0.15
-      classnames: 2.3.2
+      classnames: 2.5.1
       prop-types: 15.8.1
       react: 18.2.0
 
   '@visx/group@2.17.0(react@18.2.0)':
     dependencies:
       '@types/react': 18.0.15
-      classnames: 2.3.2
+      classnames: 2.5.1
+      prop-types: 15.8.1
+      react: 18.2.0
+
+  '@visx/group@3.12.0(react@18.2.0)':
+    dependencies:
+      '@types/react': 18.0.15
+      classnames: 2.5.1
       prop-types: 15.8.1
       react: 18.2.0
 
@@ -21799,7 +21839,7 @@ snapshots:
       '@types/react': 18.0.15
       '@visx/group': 2.17.0(react@18.2.0)
       '@visx/scale': 2.18.0
-      classnames: 2.3.2
+      classnames: 2.5.1
       prop-types: 15.8.1
       react: 18.2.0
 
@@ -21843,7 +21883,7 @@ snapshots:
       '@visx/curve': 2.1.0
       '@visx/group': 2.1.0(react@18.2.0)
       '@visx/scale': 2.1.0
-      classnames: 2.3.2
+      classnames: 2.5.1
       d3-path: 1.0.9
       d3-shape: 1.3.7
       lodash: 4.17.21
@@ -21856,7 +21896,7 @@ snapshots:
       '@types/react': 18.0.15
       '@visx/group': 2.1.0(react@18.2.0)
       '@visx/scale': 2.1.0
-      classnames: 2.3.2
+      classnames: 2.5.1
       d3-shape: 1.3.7
       prop-types: 15.8.1
       react: 18.2.0
@@ -21865,7 +21905,17 @@ snapshots:
     dependencies:
       '@types/lodash': 4.14.169
       '@types/react': 18.0.15
-      classnames: 2.3.2
+      classnames: 2.5.1
+      lodash: 4.17.21
+      prop-types: 15.8.1
+      react: 18.2.0
+      reduce-css-calc: 1.3.0
+
+  '@visx/text@3.12.0(react@18.2.0)':
+    dependencies:
+      '@types/lodash': 4.17.21
+      '@types/react': 18.0.15
+      classnames: 2.5.1
       lodash: 4.17.21
       prop-types: 15.8.1
       react: 18.2.0
@@ -21875,7 +21925,7 @@ snapshots:
     dependencies:
       '@types/react': 18.0.15
       '@visx/bounds': 2.1.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      classnames: 2.3.2
+      classnames: 2.5.1
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -22902,6 +22952,8 @@ snapshots:
   cjs-module-lexer@1.2.3: {}
 
   classnames@2.3.2: {}
+
+  classnames@2.5.1: {}
 
   clean-stack@2.2.0: {}
 
@@ -28217,7 +28269,7 @@ snapshots:
 
   react-diff-viewer@3.1.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
-      classnames: 2.3.2
+      classnames: 2.5.1
       create-emotion: 10.0.27
       diff: 4.0.2
       emotion: 10.0.27
