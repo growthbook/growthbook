@@ -14,7 +14,9 @@
     "strictPropertyInitialization": true,
     "baseUrl": "./",
     "paths": {
-      "back-end/*": ["./*"]
+      "back-end/*": ["./*"],
+      "shared/*": ["../shared/src/*", "../shared/types/*"],
+      "shared/types/*": ["../shared/types/*"]
     },
     "resolveJsonModule": true,
     "plugins": [{ "transform": "typescript-transform-paths" }],
