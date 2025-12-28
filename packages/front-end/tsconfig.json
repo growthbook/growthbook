@@ -16,9 +16,7 @@
     "jsx": "preserve",
     "baseUrl": "./",
     "paths": {
-      "@/*": ["./*"],
-      "shared/*": ["../shared/src/*", "../shared/types/*"],
-      "shared/types/*": ["../shared/types/*"]
+      "@/*": ["./*"]
     },
     "incremental": true,
     "types": ["vitest/globals", "@testing-library/jest-dom"]

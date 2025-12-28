@@ -8,11 +8,7 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "shared/*": ["./src/*", "./types/*"],
-      "shared/types/*": ["./types/*"]
-    },
+
     "typeRoots": ["node_modules/@types", "../back-end/typings"],
     "strictNullChecks": true,
     "strictBindCallApply": true,
