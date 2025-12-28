@@ -122,6 +122,10 @@ export type FactMetricData = {
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
   capCoalesceDenominatorCovariate: string;
+  uncappedCoalesceMetric: string;
+  uncappedCoalesceDenominator: string;
+  uncappedCoalesceCovariate: string;
+  uncappedCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
   raMetricFirstExposureSettings: CovariateFirstExposureSettings;
   raMetricPhaseStartSettings: CovariatePhaseStartSettings;

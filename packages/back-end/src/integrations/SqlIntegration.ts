@@ -1451,9 +1451,11 @@ export default abstract class SqlIntegration
             main_covariate_sum_product_uncapped:
               parseFloat(row.main_covariate_sum_product_uncapped) || 0,
           }),
-          ...(row.main_post_denominator_pre_sum_product_uncapped !== undefined && {
+          ...(row.main_post_denominator_pre_sum_product_uncapped !==
+            undefined && {
             main_post_denominator_pre_sum_product_uncapped:
-              parseFloat(row.main_post_denominator_pre_sum_product_uncapped) || 0,
+              parseFloat(row.main_post_denominator_pre_sum_product_uncapped) ||
+              0,
           }),
           ...(row.main_pre_denominator_pre_sum_product_uncapped !==
             undefined && {
@@ -2738,6 +2740,18 @@ export default abstract class SqlIntegration
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
+    const uncappedCoalesceMetric = `
+      ${this.ensureFloat(`COALESCE(m${numeratorAlias}.${alias}_value, 0)`)}
+    `;
+    const uncappedCoalesceDenominator = `
+      ${this.ensureFloat(`COALESCE(m${denominatorAlias}.${alias}_denominator, 0)`)}
+    `;
+    const uncappedCoalesceCovariate = `
+      ${this.ensureFloat(`COALESCE(c${numeratorAlias}.${alias}_value, 0)`)}
+    `;
+    const uncappedCoalesceDenominatorCovariate = `
+      ${this.ensureFloat(`COALESCE(c${denominatorAlias}.${alias}_denominator, 0)`)}
+    `;
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
@@ -2790,6 +2804,10 @@ export default abstract class SqlIntegration
       capCoalesceDenominator,
       capCoalesceCovariate,
       capCoalesceDenominatorCovariate,
+      uncappedCoalesceMetric,
+      uncappedCoalesceDenominator,
+      uncappedCoalesceCovariate,
+      uncappedCoalesceDenominatorCovariate,
       minMetricDelay,
       raMetricFirstExposureSettings,
       raMetricPhaseStartSettings,
@@ -3454,8 +3472,8 @@ export default abstract class SqlIntegration
             ${
               data.isPercentileCapped
                 ? `
-                , SUM(COALESCE(m.${data.alias}_value, 0)) AS ${data.alias}_main_sum_uncapped 
-                , SUM(POWER(COALESCE(m.${data.alias}_value, 0), 2)) AS ${data.alias}_main_sum_squares_uncapped
+                , SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_main_sum_uncapped 
+                , SUM(POWER(${data.uncappedCoalesceMetric}, 2)) AS ${data.alias}_main_sum_squares_uncapped
                 , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
                 : ""
             }
@@ -3502,9 +3520,9 @@ export default abstract class SqlIntegration
                 ${
                   data.isPercentileCapped
                     ? `
-                    , SUM(COALESCE(m.${data.alias}_denominator, 0)) AS ${data.alias}_denominator_sum_uncapped 
-                    , SUM(POWER(COALESCE(m.${data.alias}_denominator, 0), 2)) AS ${data.alias}_denominator_sum_squares_uncapped
-                    , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(m.${data.alias}_denominator, 0)) AS ${data.alias}_main_denominator_sum_product_uncapped                    
+                    , SUM(${data.uncappedCoalesceDenominator}) AS ${data.alias}_denominator_sum_uncapped 
+                    , SUM(POWER(${data.uncappedCoalesceDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
+                    , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped                    
                     , MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
                     : ""
                 }
@@ -3517,17 +3535,17 @@ export default abstract class SqlIntegration
                     ? `
                   ${
                     data.isPercentileCapped
-                     ? `
-                      , SUM(COALESCE(c.${data.alias}_value, 0)) AS ${data.alias}_covariate_sum_uncapped 
-                      , SUM(POWER(COALESCE(c.${data.alias}_value, 0), 2)) AS ${data.alias}_covariate_sum_squares_uncapped
-                      , SUM(COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_denominator_pre_sum_uncapped 
-                      , SUM(POWER(COALESCE(c.${data.alias}_denominator, 0), 2)) AS ${data.alias}_denominator_pre_sum_squares_uncapped
-                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(m.${data.alias}_denominator, 0)) AS ${data.alias}_main_denominator_sum_product_uncapped
-                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(c.${data.alias}_value, 0)) AS ${data.alias}_main_covariate_sum_product_uncapped
-                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_main_post_denominator_pre_sum_product_uncapped
-                      , SUM(COALESCE(c.${data.alias}_value, 0) * COALESCE(m.${data.alias}_denominator, 0)) AS ${data.alias}_main_pre_denominator_post_sum_product_uncapped
-                      , SUM(COALESCE(c.${data.alias}_value, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_main_pre_denominator_pre_sum_product_uncapped
-                      , SUM(COALESCE(m.${data.alias}_denominator, 0) * COALESCE(c.${data.alias}_denominator, 0)) AS ${data.alias}_denominator_post_denominator_pre_sum_product_uncapped`
+                      ? `
+                      , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
+                      , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
+                      , SUM(${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum_uncapped 
+                      , SUM(POWER(${data.uncappedCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares_uncapped
+                      , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped
+                      , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product_uncapped
+                      , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product_uncapped
+                      , SUM(${data.uncappedCoalesceCovariate} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product_uncapped
+                      , SUM(${data.uncappedCoalesceCovariate} * ${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product_uncapped
+                      , SUM(${data.uncappedCoalesceDenominator} * ${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product_uncapped`
                       : ""
                   }
                   , SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum
@@ -3552,9 +3570,9 @@ export default abstract class SqlIntegration
                   ${
                     data.isPercentileCapped
                       ? `
-                      , SUM(COALESCE(c.${data.alias}_value, 0)) AS ${data.alias}_covariate_sum_uncapped
-                      , SUM(COALESCE(c.${data.alias}_value, 0) * COALESCE(c.${data.alias}_value, 0)) AS ${data.alias}_covariate_sum_squares_uncapped
-                      , SUM(COALESCE(m.${data.alias}_value, 0) * COALESCE(c.${data.alias}_value, 0)) AS ${data.alias}_main_covariate_sum_product_uncapped
+                      , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
+                      , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
+                      , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product_uncapped
                       `
                       : ""
                   }  
