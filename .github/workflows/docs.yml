@@ -40,9 +40,9 @@ jobs:
       - name: Produce generated files
         run: |
           pnpm install
-          cd packages/back-end
-          pnpm install
-          cd ../../docs
+          # Build shared package which is needed by docs generation scripts
+          pnpm --filter shared build
+          cd docs
           pnpm install
           pnpm gen
 
