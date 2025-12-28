@@ -51,9 +51,9 @@ RiskType = Literal["absolute", "relative"]
 
 @dataclass
 class BayesianTestResult(TestResult):
-    chance_to_win: float
+    chanceToWin: float
     risk: List[float]
-    risk_type: RiskType
+    riskType: RiskType
 
 
 class BayesianABTest(BaseABTest):
@@ -82,13 +82,13 @@ class BayesianABTest(BaseABTest):
         adequately
         """
         return BayesianTestResult(
-            chance_to_win=0.5,
+            chanceToWin=0.5,
             expected=0,
             ci=[0, 0],
             uplift=Uplift(dist="normal", mean=0, stddev=0),
             risk=[0, 0],
-            error_message=error_message,
-            risk_type="relative" if self.relative else "absolute",
+            errorMessage=error_message,
+            riskType="relative" if self.relative else "absolute",
         )
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
@@ -108,7 +108,7 @@ class BayesianABTest(BaseABTest):
                     self.traffic_percentage * self.phase_length_days
                 )
                 return BayesianTestResult(
-                    chance_to_win=result.chance_to_win,
+                    chanceToWin=result.chanceToWin,
                     expected=result.expected * daily_traffic,
                     ci=[result.ci[0] * daily_traffic, result.ci[1] * daily_traffic],
                     uplift=Uplift(
@@ -117,8 +117,8 @@ class BayesianABTest(BaseABTest):
                         stddev=result.uplift.stddev * daily_traffic,
                     ),
                     risk=result.risk,
-                    risk_type=result.risk_type,
-                    error_message=None,
+                    riskType=result.riskType,
+                    errorMessage=None,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -194,7 +194,7 @@ class EffectBayesianABTest(BayesianABTest):
         risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
 
         result = BayesianTestResult(
-            chance_to_win=ctw,
+            chanceToWin=ctw,
             expected=self.mean_diff,
             ci=ci,
             uplift=Uplift(
@@ -203,8 +203,8 @@ class EffectBayesianABTest(BayesianABTest):
                 stddev=self.std_diff,
             ),
             risk=risk,
-            risk_type="relative" if self.relative else "absolute",
-            error_message=None,
+            riskType="relative" if self.relative else "absolute",
+            errorMessage=None,
         )
         if self.scaled:
             result = self.scale_result(result)

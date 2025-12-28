@@ -26,7 +26,7 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 def round_results_dict(result_dict):
     for k, v in result_dict.items():
-        if k in ["error_message", "risk_type"]:
+        if k in ["errorMessage", "riskType"]:
             pass
         elif k == "uplift":
             v = {
@@ -48,10 +48,10 @@ class TestBinom(TestCase):
                 expected=0.04082,
                 ci=[-0.24779, 0.32943],
                 uplift=Uplift(dist="normal", mean=0.04082, stddev=0.14725),
-                chance_to_win=0.60918,
+                chanceToWin=0.60918,
                 risk=[0.0814, 0.04058],
-                risk_type="relative",
-                error_message=None,
+                riskType="relative",
+                errorMessage=None,
             )
         )
         result_rounded_dict = round_results_dict(asdict(result))
@@ -61,7 +61,7 @@ class TestBinom(TestCase):
         result = EffectBayesianABTest(
             [(ProportionStatistic(0, 0), ProportionStatistic(0, 0))]
         ).compute_result()
-        self.assertEqual(result.chance_to_win, 0.5)
+        self.assertEqual(result.chanceToWin, 0.5)
         self.assertEqual(result.expected, 0)
 
 
@@ -77,10 +77,10 @@ class TestNorm(TestCase):
                 expected=0.05,
                 ci=[-0.02, 0.12],
                 uplift=Uplift(dist="normal", mean=0.05, stddev=0.03572),
-                chance_to_win=0.91923,
+                chanceToWin=0.91923,
                 risk=[0.05131, 0.00131],
-                risk_type="relative",
-                error_message=None,
+                riskType="relative",
+                errorMessage=None,
             )
         )
 
@@ -99,10 +99,10 @@ class TestNorm(TestCase):
                 expected=0.05063,
                 ci=[-0.01893, 0.12019],
                 uplift=Uplift(dist="normal", mean=0.05063, stddev=0.03549),
-                chance_to_win=0.92315,
+                chanceToWin=0.92315,
                 risk=[0.05186, 0.00123],
-                risk_type="relative",
-                error_message=None,
+                riskType="relative",
+                errorMessage=None,
             )
         )
 
@@ -113,7 +113,7 @@ class TestNorm(TestCase):
         result = EffectBayesianABTest(
             [(SampleMeanStatistic(0, 0, 0), SampleMeanStatistic(0, 0, 0))]
         ).compute_result()
-        self.assertEqual(result.chance_to_win, 0.5)
+        self.assertEqual(result.chanceToWin, 0.5)
         self.assertEqual(result.expected, 0)
 
 
@@ -249,7 +249,7 @@ class TestGaussianEffectRelativeAbsolutePriors(TestCase):
         rel_res = rel_test.compute_result()
 
         # rescaling keeps CTW pretty close
-        self.assertAlmostEqual(abs_res.chance_to_win, rel_res.chance_to_win, places=2)
+        self.assertAlmostEqual(abs_res.chanceToWin, rel_res.chanceToWin, places=2)
 
 
 if __name__ == "__main__":

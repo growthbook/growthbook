@@ -42,21 +42,21 @@ from gbstats.frequentist.tests import (
 )
 
 from gbstats.models.results import (
+    DimensionResponseIndividual,
     DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BaselineResponse,
+    BayesianVariationResponseIndividual,
+    FrequentistVariationResponseIndividual,
     BayesianVariationResponse,
     FrequentistVariationResponse,
+    VariationResponse,
     BanditResult,
     SingleVariationResult,
     PowerResponse,
-    create_test_result_no_defaults_bayesian,
-    create_test_result_no_defaults_frequentist,
-    BayesianTestResultNoDefaults,
-    FrequentistTestResultNoDefaults,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -566,31 +566,11 @@ def analyze_metric_df(
     num_variations: int,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
-) -> List[DimensionResponse]:
+) -> List[DimensionResponseIndividual]:
 
-    def create_supplemental_result(
-        stats: List[Tuple[TestStatistic, TestStatistic]],
-        total_units: int,
-        analysis: AnalysisSettingsForStatsEngine,
-        metric: MetricSettingsForStatsEngine,
-        post_stratify: bool,
-    ) -> Union[BayesianTestResultNoDefaults, FrequentistTestResultNoDefaults]:
-        test = get_configured_test(
-            stats,
-            total_units,
-            analysis=analysis,
-            metric=metric,
-            post_stratify=post_stratify,
-        )
-        test_result = test.compute_result()
-        return (
-            create_test_result_no_defaults_bayesian(test_result)
-            if isinstance(test_result, BayesianTestResult)
-            else create_test_result_no_defaults_frequentist(test_result)
-        )
-
-    def analyze_dimension(dimensionData: DimensionMetricData) -> DimensionResponse:
-        metric_cuped_adjusted = metric.statistic_type in ["ratio_ra", "mean_ra"]
+    def analyze_dimension(
+        dimensionData: DimensionMetricData,
+    ) -> DimensionResponseIndividual:
         d = dimensionData.data
         variation_data = []
 
@@ -598,46 +578,18 @@ def analyze_metric_df(
         for i in range(1, num_variations):
             control_stats = []
             variation_stats = []
-            control_stats_uncapped = []
-            variation_stats_uncapped = []
-            control_stats_cuped_unadjusted = []
-            variation_stats_cuped_unadjusted = []
             # get one statistic per row (should be one row for non-post-stratified tests)
             for _, row in d.iterrows():
                 stat_control = variation_statistic_from_metric_row(
-                    row, "baseline", metric
+                    row, "baseline", metric, use_uncapped=analysis.use_uncapped_metric
                 )
                 stat_variation = variation_statistic_from_metric_row(
-                    row, f"v{i}", metric
+                    row, f"v{i}", metric, use_uncapped=analysis.use_uncapped_metric
                 )
                 control_stats.append(stat_control)
                 variation_stats.append(stat_variation)
-                if metric_cuped_adjusted:
-                    stat_control_cuped_unadjusted = get_cuped_unadjusted_stat(
-                        stat_control
-                    )
-                    stat_variation_cuped_unadjusted = get_cuped_unadjusted_stat(
-                        stat_variation
-                    )
-                    control_stats_cuped_unadjusted.append(stat_control_cuped_unadjusted)
-                    variation_stats_cuped_unadjusted.append(
-                        stat_variation_cuped_unadjusted
-                    )
-                if metric.capped:
-                    stat_control_uncapped = variation_statistic_from_metric_row(
-                        row, "baseline", metric, use_uncapped=True
-                    )
-                    stat_variation_uncapped = variation_statistic_from_metric_row(
-                        row, f"v{i}", metric, use_uncapped=True
-                    )
-                    control_stats_uncapped.append(stat_control_uncapped)
-                    variation_stats_uncapped.append(stat_variation_uncapped)
 
             stats = list(zip(control_stats, variation_stats))
-            stats_cuped_unadjusted = list(
-                zip(control_stats_cuped_unadjusted, variation_stats_cuped_unadjusted)
-            )
-            stats_uncapped = list(zip(control_stats_uncapped, variation_stats_uncapped))
 
             # TODO(post-stratification): throw error if post-stratify is false and there are 2+ rows?
             post_stratify = (
@@ -652,7 +604,6 @@ def analyze_metric_df(
                 post_stratify=post_stratify,
             )
             res = test.compute_result()
-
             power_response: Optional[PowerResponse] = None
             if decision_making_conditions(metric, analysis):
                 power_response = run_mid_experiment_power(
@@ -669,122 +620,25 @@ def analyze_metric_df(
             base_variation_response = BaselineResponse(
                 **asdict(metric_response),
             )
-
-            if stats_cuped_unadjusted:
-                supplemental_results_cuped_unadjusted = create_supplemental_result(
-                    stats_cuped_unadjusted,
-                    dimensionData.total_units,
-                    analysis,
-                    metric,
-                    post_stratify,
-                )
-            else:
-                supplemental_results_cuped_unadjusted = None
-            if stats_uncapped:
-                supplemental_results_uncapped = create_supplemental_result(
-                    stats_uncapped,
-                    dimensionData.total_units,
-                    analysis,
-                    metric,
-                    post_stratify,
-                )
-            else:
-                supplemental_results_uncapped = None
-            if post_stratify:
-                supplemental_results_unstratified = create_supplemental_result(
-                    stats,
-                    dimensionData.total_units,
-                    analysis,
-                    metric=dataclasses.replace(
-                        metric, post_stratification_enabled=False
-                    ),
-                    post_stratify=False,
-                )
-            else:
-                supplemental_results_unstratified = None
             # Safely build specific response type from base response
             if isinstance(res, BayesianTestResult):
-                supplemental_results_flat_prior = create_supplemental_result(
-                    stats,
-                    dimensionData.total_units,
-                    analysis,
-                    metric=dataclasses.replace(metric, prior_proper=False),
-                    post_stratify=post_stratify,
-                )
-                res_no_defaults = create_test_result_no_defaults_bayesian(res)
-                variation_response = BayesianVariationResponse(
+                variation_response = BayesianVariationResponseIndividual(
                     **asdict(base_variation_response),
-                    **asdict(res_no_defaults),
+                    **asdict(res),
                     power=(
                         power_response
                         if isinstance(power_response, PowerResponse)
-                        else None
-                    ),
-                    supplementalResultsCupedUnadjusted=(
-                        supplemental_results_cuped_unadjusted
-                        if isinstance(
-                            supplemental_results_cuped_unadjusted,
-                            BayesianTestResultNoDefaults,
-                        )
-                        else None
-                    ),
-                    supplementalResultsUncapped=(
-                        supplemental_results_uncapped
-                        if isinstance(
-                            supplemental_results_uncapped, BayesianTestResultNoDefaults
-                        )
-                        else None
-                    ),
-                    supplementalResultsFlatPrior=(
-                        supplemental_results_flat_prior
-                        if isinstance(
-                            supplemental_results_flat_prior,
-                            BayesianTestResultNoDefaults,
-                        )
-                        else None
-                    ),
-                    supplementalResultsUnstratified=(
-                        supplemental_results_unstratified
-                        if isinstance(
-                            supplemental_results_unstratified,
-                            BayesianTestResultNoDefaults,
-                        )
                         else None
                     ),
                 )
                 variation_data.append(variation_response)
             elif isinstance(res, FrequentistTestResult):
-                res_no_defaults = create_test_result_no_defaults_frequentist(res)
-                variation_response = FrequentistVariationResponse(
+                variation_response = FrequentistVariationResponseIndividual(
                     **asdict(base_variation_response),
-                    **asdict(res_no_defaults),
+                    **asdict(res),
                     power=(
                         power_response
                         if isinstance(power_response, PowerResponse)
-                        else None
-                    ),
-                    supplementalResultsCupedUnadjusted=(
-                        supplemental_results_cuped_unadjusted
-                        if isinstance(
-                            supplemental_results_cuped_unadjusted,
-                            FrequentistTestResultNoDefaults,
-                        )
-                        else None
-                    ),
-                    supplementalResultsUncapped=(
-                        supplemental_results_uncapped
-                        if isinstance(
-                            supplemental_results_uncapped,
-                            FrequentistTestResultNoDefaults,
-                        )
-                        else None
-                    ),
-                    supplementalResultsUnstratified=(
-                        supplemental_results_unstratified
-                        if isinstance(
-                            supplemental_results_unstratified,
-                            FrequentistTestResultNoDefaults,
-                        )
                         else None
                     ),
                 )
@@ -819,7 +673,7 @@ def analyze_metric_df(
         baseline_data = get_metric_response(d, stat_a_summed, 0)
         variation_data.insert(analysis.baseline_index, baseline_data)
 
-        return DimensionResponse(
+        return DimensionResponseIndividual(
             dimension=dimensionData.dimension, srm=srm_p, variations=variation_data
         )
 
@@ -1051,20 +905,235 @@ def process_analysis(
     if metric.keep_theta and metric.statistic_type == "mean_ra":
         keep_other = False
 
+    num_variations = len(var_names)
     reduced_metric_data = reduce_dimensionality(
         metric_data=metric_data,
-        num_variations=len(var_names),
+        num_variations=num_variations,
         max=max_dimensions,
         keep_other=keep_other,
         combine_strata=not analysis.post_stratification_enabled,
     )
-
-    result = analyze_metric_df(
-        metric_data=reduced_metric_data,
-        num_variations=len(var_names),
+    result = create_core_and_supplemental_results(
+        reduced_metric_data=reduced_metric_data,
+        num_variations=num_variations,
         metric=metric,
         analysis=analysis,
     )
+    return result
+
+
+def create_core_and_supplemental_results(
+    reduced_metric_data: List[DimensionMetricData],
+    num_variations: int,
+    metric: MetricSettingsForStatsEngine,
+    analysis: AnalysisSettingsForStatsEngine,
+) -> List[DimensionResponse]:
+    core_result = analyze_metric_df(
+        metric_data=reduced_metric_data,
+        num_variations=num_variations,
+        metric=metric,
+        analysis=analysis,
+    )
+
+    cuped_adjusted = metric.statistic_type in ["ratio_ra", "mean_ra"]
+    metric_capped = metric.capped
+    analysis_bayesian = analysis.stats_engine == "bayesian"
+    post_stratify = (
+        analysis.post_stratification_enabled
+        and metric.statistic_type not in ["quantile_event", "quantile_unit"]
+    )
+
+    if cuped_adjusted:
+        metric_cuped_adjusted = dataclasses.replace(
+            metric,
+            statistic_type="mean" if metric.statistic_type == "mean_ra" else "ratio",
+        )
+        result_cuped_adjusted = analyze_metric_df(
+            metric_data=reduced_metric_data,
+            num_variations=num_variations,
+            metric=metric_cuped_adjusted,
+            analysis=analysis,
+        )
+    else:
+        result_cuped_adjusted = None
+    if metric_capped:
+        analysis_uncapped = dataclasses.replace(analysis, use_uncapped_metric=True)
+        result_capped = analyze_metric_df(
+            metric_data=reduced_metric_data,
+            num_variations=num_variations,
+            metric=metric,
+            analysis=analysis_uncapped,
+        )
+    else:
+        result_capped = None
+    if analysis_bayesian:
+        metric_flat_prior = dataclasses.replace(metric, prior_proper=False)
+        result_flat_prior = analyze_metric_df(
+            metric_data=reduced_metric_data,
+            num_variations=num_variations,
+            metric=metric_flat_prior,
+            analysis=analysis,
+        )
+    else:
+        result_flat_prior = None
+    if post_stratify:
+        analysis_unstratified = dataclasses.replace(
+            analysis, post_stratification_enabled=False
+        )
+        result_unstratified = analyze_metric_df(
+            metric_data=reduced_metric_data,
+            num_variations=num_variations,
+            metric=metric,
+            analysis=analysis_unstratified,
+        )
+    else:
+        result_unstratified = None
+
+    num_dimensions = len(reduced_metric_data)
+
+    result = combine_core_and_supplemental_results(
+        num_dimensions,
+        num_variations,
+        core_result,
+        result_cuped_adjusted,
+        result_capped,
+        result_flat_prior,
+        result_unstratified,
+    )
+
+    return result
+
+
+def combine_core_and_supplemental_results(
+    num_dimensions: int,
+    num_variations: int,
+    core_result: List[DimensionResponseIndividual],
+    result_cuped_adjusted: Optional[List[DimensionResponseIndividual]],
+    result_capped: Optional[List[DimensionResponseIndividual]],
+    result_flat_prior: Optional[List[DimensionResponseIndividual]],
+    result_unstratified: Optional[List[DimensionResponseIndividual]],
+) -> List[DimensionResponse]:
+    result = []
+
+    for d in range(num_dimensions):
+        this_dimension_result = core_result[d]
+        this_baseline_result = this_dimension_result.variations[0]
+        variations: list[VariationResponse] = []
+        variations.append(this_baseline_result)
+        for i in range(1, num_variations):
+            core_variation = core_result[d].variations[i]
+            core_variation_is_bayesian = isinstance(
+                core_variation, BayesianVariationResponseIndividual
+            )
+            core_variation_is_frequentist = isinstance(
+                core_variation, FrequentistVariationResponseIndividual
+            )
+
+            if not (core_variation_is_frequentist or core_variation_is_bayesian):
+                continue
+
+            # Create the variation response object first
+            if core_variation_is_bayesian:
+                variation_response = BayesianVariationResponse(
+                    **asdict(core_variation),
+                    supplementalResultsCupedUnadjusted=None,
+                    supplementalResultsUncapped=None,
+                    supplementalResultsFlatPrior=None,
+                    supplementalResultsUnstratified=None,
+                )
+            else:
+                variation_response = FrequentistVariationResponse(
+                    **asdict(core_variation),
+                    supplementalResultsCupedUnadjusted=None,
+                    supplementalResultsUncapped=None,
+                    supplementalResultsUnstratified=None,
+                )
+
+            # Now set the supplemental results
+            if result_cuped_adjusted is not None:
+                cuped_variation = result_cuped_adjusted[d].variations[i]
+                if isinstance(
+                    variation_response, BayesianVariationResponse
+                ) and isinstance(cuped_variation, BayesianVariationResponseIndividual):
+                    variation_response.supplementalResultsCupedUnadjusted = (
+                        cuped_variation
+                    )
+                elif isinstance(
+                    variation_response, FrequentistVariationResponse
+                ) and isinstance(
+                    cuped_variation, FrequentistVariationResponseIndividual
+                ):
+                    variation_response.supplementalResultsCupedUnadjusted = (
+                        cuped_variation
+                    )
+                else:
+                    raise ValueError(
+                        f"Unexpected variation response type: {type(cuped_variation)}"
+                    )
+            if result_capped is not None:
+                uncapped_variation = result_capped[d].variations[i]
+                if isinstance(
+                    variation_response, BayesianVariationResponse
+                ) and isinstance(
+                    uncapped_variation, BayesianVariationResponseIndividual
+                ):
+                    variation_response.supplementalResultsUncapped = uncapped_variation
+                elif isinstance(
+                    variation_response, FrequentistVariationResponse
+                ) and isinstance(
+                    uncapped_variation, FrequentistVariationResponseIndividual
+                ):
+                    variation_response.supplementalResultsUncapped = uncapped_variation
+                else:
+                    raise ValueError(
+                        f"Unexpected variation response type: {type(uncapped_variation)}"
+                    )
+            if result_flat_prior is not None:
+                flat_prior_variation = result_flat_prior[d].variations[i]
+                if isinstance(
+                    variation_response, BayesianVariationResponse
+                ) and isinstance(
+                    flat_prior_variation, BayesianVariationResponseIndividual
+                ):
+                    variation_response.supplementalResultsFlatPrior = (
+                        flat_prior_variation
+                    )
+                else:
+                    raise ValueError(
+                        f"Unexpected variation response type: {type(flat_prior_variation)}"
+                    )
+            if result_unstratified is not None:
+                unstratified_variation = result_unstratified[d].variations[i]
+                if isinstance(
+                    variation_response, BayesianVariationResponse
+                ) and isinstance(
+                    unstratified_variation, BayesianVariationResponseIndividual
+                ):
+                    variation_response.supplementalResultsUnstratified = (
+                        unstratified_variation
+                    )
+                elif isinstance(
+                    variation_response, FrequentistVariationResponse
+                ) and isinstance(
+                    unstratified_variation, FrequentistVariationResponseIndividual
+                ):
+                    variation_response.supplementalResultsUnstratified = (
+                        unstratified_variation
+                    )
+                else:
+                    raise ValueError(
+                        f"Unexpected variation response type: {type(unstratified_variation)}"
+                    )
+
+            variations.append(variation_response)
+
+        result.append(
+            DimensionResponse(
+                dimension=core_result[d].dimension,
+                srm=core_result[d].srm,
+                variations=variations,
+            )
+        )
 
     return result
 

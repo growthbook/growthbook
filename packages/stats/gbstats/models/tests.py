@@ -73,7 +73,7 @@ class TestResult:
     expected: float
     ci: List[float]
     uplift: Uplift
-    error_message: Optional[str]
+    errorMessage: Optional[str]
 
 
 @staticmethod

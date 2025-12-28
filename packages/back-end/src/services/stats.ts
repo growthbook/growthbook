@@ -74,6 +74,7 @@ export interface AnalysisSettingsForStatsEngine {
   num_goal_metrics: number;
   one_sided_intervals?: boolean;
   post_stratification_enabled?: boolean;
+  use_uncapped_metric?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -179,6 +180,7 @@ export function getAnalysisSettingsForStatsEngine(
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
     post_stratification_enabled: !!settings.postStratificationEnabled,
+    use_uncapped_metric: false,
   };
 
   return analysisData;

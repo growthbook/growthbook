@@ -3,8 +3,8 @@ from typing import List, Optional, Tuple, Union
 from pydantic.dataclasses import dataclass
 import pandas as pd
 
-from gbstats.bayesian.tests import RiskType, BayesianTestResult
-from gbstats.frequentist.tests import PValueErrorMessage, FrequentistTestResult
+from gbstats.bayesian.tests import RiskType
+from gbstats.frequentist.tests import PValueErrorMessage
 from gbstats.models.tests import Uplift
 
 
@@ -93,31 +93,38 @@ class FrequentistTestResultNoDefaults(TestResultNoDefaults):
     pValueErrorMessage: Optional[PValueErrorMessage]
 
 
-def create_test_result_no_defaults_bayesian(
-    test_result: BayesianTestResult,
-) -> BayesianTestResultNoDefaults:
-    return BayesianTestResultNoDefaults(
-        expected=test_result.expected,
-        ci=test_result.ci,
-        uplift=test_result.uplift,
-        errorMessage=test_result.error_message,
-        chanceToWin=test_result.chance_to_win,
-        risk=test_result.risk,
-        riskType=test_result.risk_type,
-    )
+@dataclass
+class BayesianVariationResponseIndividual(
+    BayesianTestResultNoDefaults, BaselineResponse
+):
+    power: Optional[PowerResponse]
 
 
-def create_test_result_no_defaults_frequentist(
-    test_result: FrequentistTestResult,
-) -> FrequentistTestResultNoDefaults:
-    return FrequentistTestResultNoDefaults(
-        expected=test_result.expected,
-        ci=test_result.ci,
-        uplift=test_result.uplift,
-        errorMessage=test_result.error_message,
-        pValue=test_result.p_value if test_result.p_value is not None else None,
-        pValueErrorMessage=test_result.p_value_error_message,
-    )
+@dataclass
+class FrequentistVariationResponseIndividual(
+    FrequentistTestResultNoDefaults, BaselineResponse
+):
+    power: Optional[PowerResponse]
+
+
+VariationResponseIndividual = Union[
+    BayesianVariationResponseIndividual,
+    FrequentistVariationResponseIndividual,
+    BaselineResponse,
+]
+
+
+@dataclass
+class DimensionResponseIndividual:
+    dimension: str
+    srm: float
+    variations: List[VariationResponseIndividual]
+
+    def to_df(self) -> pd.DataFrame:
+        df = pd.DataFrame(self.variations)
+        df["dimension"] = self.dimension
+        df["srm"] = self.srm
+        return df
 
 
 @dataclass

@@ -30,6 +30,7 @@ class AnalysisSettingsForStatsEngine:
     num_goal_metrics: int = 1
     one_sided_intervals: bool = False
     post_stratification_enabled: bool = False
+    use_uncapped_metric: bool = False
 
 
 @dataclass

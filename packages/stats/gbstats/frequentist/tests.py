@@ -41,14 +41,14 @@ PValueErrorMessage = Literal[
 # Results
 @dataclass
 class FrequentistTestResult(TestResult):
-    p_value: Optional[float] = None
-    p_value_error_message: Optional[PValueErrorMessage] = None
+    pValue: Optional[float] = None
+    pValueErrorMessage: Optional[PValueErrorMessage] = None
 
 
 @dataclass
 class PValueResult:
-    p_value: Optional[float] = None
-    p_value_error_message: Optional[PValueErrorMessage] = None
+    pValue: Optional[float] = None
+    pValueErrorMessage: Optional[PValueErrorMessage] = None
 
 
 class TTest(BaseABTest):
@@ -107,20 +107,20 @@ class TTest(BaseABTest):
         return FrequentistTestResult(
             expected=0,
             ci=[0, 0],
-            p_value=1,
+            pValue=1,
             uplift=Uplift(
                 dist="normal",
                 mean=0,
                 stddev=0,
             ),
-            error_message=error_message,
-            p_value_error_message=p_value_error_message,
+            errorMessage=error_message,
+            pValueErrorMessage=p_value_error_message,
         )
 
     def compute_p_value(self) -> PValueResult:
         return PValueResult(
-            p_value=self.p_value,
-            p_value_error_message=None,
+            pValue=self.p_value,
+            pValueErrorMessage=None,
         )
 
     @property
@@ -149,14 +149,14 @@ class TTest(BaseABTest):
         result = FrequentistTestResult(
             expected=self.moments_result.point_estimate,
             ci=self.confidence_interval,
-            p_value=p_value_result.p_value,
+            pValue=p_value_result.pValue,
             uplift=Uplift(
                 dist="normal",
                 mean=self.moments_result.point_estimate,
                 stddev=self.moments_result.standard_error,
             ),
-            error_message=None,
-            p_value_error_message=p_value_result.p_value_error_message,
+            errorMessage=None,
+            pValueErrorMessage=p_value_result.pValueErrorMessage,
         )
         if self.scaled:
             result = self.scale_result(result)
@@ -175,14 +175,14 @@ class TTest(BaseABTest):
                 return FrequentistTestResult(
                     expected=result.expected * adjustment,
                     ci=[ci_lower, ci_upper],
-                    p_value=result.p_value,
+                    pValue=result.pValue,
                     uplift=Uplift(
                         dist=result.uplift.dist,
                         mean=result.uplift.mean * adjustment,
                         stddev=result.uplift.stddev * adjustment,
                     ),
-                    error_message=None,
-                    p_value_error_message=result.p_value_error_message,
+                    errorMessage=None,
+                    pValueErrorMessage=result.pValueErrorMessage,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -396,8 +396,8 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         if self.lesser:
             if this_ci_small[ci_index] < 0:
                 return PValueResult(
-                    p_value=min_alpha,
-                    p_value_error_message=None,
+                    pValue=min_alpha,
+                    pValueErrorMessage=None,
                 )
             this_config.alpha = max_alpha
             # bigger alpha => smaller confidence interval;
@@ -406,15 +406,15 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
             ).confidence_interval
             if this_ci_big[ci_index] > 0:
                 return PValueResult(
-                    p_value=max_alpha,
-                    p_value_error_message=None,
+                    pValue=max_alpha,
+                    pValueErrorMessage=None,
                 )
         else:
 
             if this_ci_small[ci_index] > 0:
                 return PValueResult(
-                    p_value=min_alpha,
-                    p_value_error_message=None,
+                    pValue=min_alpha,
+                    pValueErrorMessage=None,
                 )
             this_config.alpha = max_alpha
             # bigger alpha => smaller confidence interval;
@@ -423,8 +423,8 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
             ).confidence_interval
             if this_ci_big[ci_index] < 0:
                 return PValueResult(
-                    p_value=max_alpha,
-                    p_value_error_message=None,
+                    pValue=max_alpha,
+                    pValueErrorMessage=None,
                 )
         iters = 0
         this_alpha = 0.5 * (min_alpha + max_alpha)
@@ -451,13 +451,13 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         converged = abs(diff) < tol and iters != max_iters
         if converged:
             return PValueResult(
-                p_value=this_alpha,
-                p_value_error_message=None,
+                pValue=this_alpha,
+                pValueErrorMessage=None,
             )
         else:
             return PValueResult(
-                p_value=None,
-                p_value_error_message="NUMERICAL_PVALUE_NOT_CONVERGED",
+                pValue=None,
+                pValueErrorMessage="NUMERICAL_PVALUE_NOT_CONVERGED",
             )
 
 
