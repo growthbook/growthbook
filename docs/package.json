@@ -8,7 +8,6 @@
     "start": "docusaurus start --port 3200",
     "gen": "npx -y tsx ./scripts/gen-event-webhook-doc.ts",
     "build": "docusaurus build",
-    "postinstall": "patch-package",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -48,7 +47,6 @@
     "@types/react": "^19.1.4",
     "docusaurus-plugin-llms": "^0.1.4",
     "docusaurus-plugin-module-alias": "^0.0.2",
-    "patch-package": "^8.0.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
@@ -68,5 +66,10 @@
   },
   "engines": {
     "node": ">=18 <22"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch"
+    }
   }
 }

@@ -28,7 +28,7 @@
     "migrate-encryption-key": "pnpm --filter back-end migrate-encryption-key",
     "generate-api-types": "pnpm --filter back-end generate-api-types",
     "ci": "pnpm lint:ci && pnpm run type-check && pnpm run test",
-    "postinstall": "patch-package && if command -v poetry >/dev/null 2>&1; then pnpm update-stats-deps; fi",
+    "postinstall": "if command -v poetry >/dev/null 2>&1; then pnpm update-stats-deps; fi",
     "generate-sdk-report": "pnpm --filter shared generate-sdk-report",
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
@@ -37,7 +37,6 @@
   ],
   "dependencies": {
     "dd-trace": "^5.46.0",
-    "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {
