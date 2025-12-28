@@ -62,7 +62,7 @@ jobs:
         run: |
           # Build required dependencies (sdks/shared package)
           # Also installs docs and sets up stats environment
-          pnpm setup
+          pnpm run setup
         env:
           CI: true
 
