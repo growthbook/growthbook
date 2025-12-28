@@ -18,6 +18,8 @@
     "generate-sdk-report": "node -r @swc-node/register ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md"
   },
   "dependencies": {
+    "@dqbd/tiktoken": "^1.0.21",
+    "@google-cloud/bigquery": "^8.1.1",
     "@growthbook/growthbook": "^1.6.2",
     "@stdlib/stats": "^0.1.1",
     "ajv": "^8.12.0",
@@ -28,6 +30,7 @@
     "lodash": "^4.17.21",
     "node-gyp": "10.3.1",
     "openid-client": "^5.1.10",
+    "shared": "workspace:*",
     "sql-formatter": "^11.0.2",
     "stripe": "^17.4.0",
     "uniqid": "^5.4.0",
