@@ -144,7 +144,9 @@ export function DataVisualizationDisplay({
   chartId?: string;
 }) {
   const anchorYAxisToZero =
-    dataVizConfig.displaySettings?.anchorYAxisToZero ?? true;
+    "displaySettings" in dataVizConfig && dataVizConfig.displaySettings
+      ? (dataVizConfig.displaySettings.anchorYAxisToZero ?? true)
+      : true;
   const chartsContext = useDashboardCharts();
 
   const isConfigValid = useMemo(() => {
