@@ -190,6 +190,9 @@ importers:
       aws-sdk:
         specifier: ^2.696.0
         version: 2.1185.0
+      bluebird:
+        specifier: ^3.7.2
+        version: 3.7.2
       body-parser:
         specifier: ^1.20.4
         version: 1.20.4
@@ -492,9 +495,6 @@ importers:
       '@types/uuid':
         specifier: ^9.0.2
         version: 9.0.2
-      bluebird:
-        specifier: ^3.7.2
-        version: 3.7.2
       chokidar:
         specifier: ^3.5.3
         version: 3.6.0
