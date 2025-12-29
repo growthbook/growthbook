@@ -22,6 +22,19 @@ import DataVizFilterPanel from "./DataVizFilterPanel";
 import DataVizDimensionPanel from "./DataVizDimensionPanel";
 import DisplaySettingsPanel from "./DisplaySettingsPanel";
 
+// Helper function to remove displaySettings from a config object
+function removeDisplaySettings<T extends Partial<DataVizConfig>>(
+  config: T,
+): Omit<T, "displaySettings"> {
+  if ("displaySettings" in config) {
+    const { displaySettings: _displaySettings, ...rest } = config as T & {
+      displaySettings?: { anchorYAxisToZero: boolean };
+    };
+    return rest as Omit<T, "displaySettings">;
+  }
+  return config as Omit<T, "displaySettings">;
+}
+
 export function inferFieldType(
   sampleRow: Record<string, unknown>,
   fieldName: string,
@@ -164,12 +177,17 @@ export default function DataVizConfigPanel({
               setValue={(v) => {
                 if (v === "big-value") {
                   // If graph type is big value - set defaults
-                  onDataVizConfigChange({
+                  const configForBigValue: Partial<DataVizConfig> = {
                     ...dataVizConfig,
                     chartType: "big-value",
                     format: "shortNumber",
-                    displaySettings: {},
-                  });
+                  };
+                  // Remove displaySettings if it exists (big-value doesn't support it)
+                  onDataVizConfigChange(
+                    removeDisplaySettings(
+                      configForBigValue,
+                    ) as Partial<DataVizConfig>,
+                  );
                   return;
                 }
                 // Update chart type and normalize dimensions if needed
@@ -177,14 +195,28 @@ export default function DataVizConfigPanel({
                   ...dataVizConfig,
                   chartType: v as DataVizConfig["chartType"],
                 } as Partial<DataVizConfig>);
-                // If the chart type changes & we don't have displaySettings, set the default
-                if (
-                  ["line", "scatter"].includes(v) &&
-                  !updatedConfig.displaySettings
-                ) {
-                  updatedConfig.displaySettings = {
-                    anchorYAxisToZero: true,
-                  } as DataVizConfig["displaySettings"];
+                // If the chart type changes to line/scatter & we don't have displaySettings, set the default
+                if (["line", "scatter"].includes(v)) {
+                  if (
+                    !("displaySettings" in updatedConfig) ||
+                    !updatedConfig.displaySettings
+                  ) {
+                    onDataVizConfigChange({
+                      ...updatedConfig,
+                      displaySettings: {
+                        anchorYAxisToZero: true,
+                      },
+                    } as Partial<DataVizConfig>);
+                    return;
+                  }
+                } else {
+                  // Remove displaySettings for chart types that don't support it
+                  onDataVizConfigChange(
+                    removeDisplaySettings(
+                      updatedConfig,
+                    ) as Partial<DataVizConfig>,
+                  );
+                  return;
                 }
                 onDataVizConfigChange(updatedConfig);
               }}
