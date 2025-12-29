@@ -46,8 +46,12 @@ export class SavedQueryDataModel extends BaseClass {
         };
         const displaySettings = configWithDisplaySettings.displaySettings;
 
-        // Ensure anchorYAxisToZero exists (default to true)
-        if (!displaySettings || !("anchorYAxisToZero" in displaySettings)) {
+        // Ensure anchorYAxisToZero exists and is a boolean (default to true)
+        const needsMigration =
+          !displaySettings ||
+          typeof displaySettings.anchorYAxisToZero !== "boolean";
+
+        if (needsMigration) {
           return {
             ...config,
             displaySettings: {

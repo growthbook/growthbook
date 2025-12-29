@@ -262,15 +262,15 @@ export default function SqlExplorerModal({
     // and other charts have xAxis as single objects (for API compatibility)
     const normalizedDataVizConfig = dataVizConfig.map((config) => {
       // If the chart type doesn't support displaySettings, remove the displaySettings property
+      // Only line and scatter charts support displaySettings
+      const chartType = config.chartType;
       if (
-        config.chartType &&
-        config.displaySettings &&
-        !["line", "scatter"].includes(config.chartType)
+        chartType &&
+        !["line", "scatter"].includes(chartType) &&
+        "displaySettings" in config
       ) {
-        return {
-          ...config,
-          displaySettings: undefined,
-        } as DataVizConfig;
+        const { displaySettings: _displaySettings, ...rest } = config;
+        return rest as DataVizConfig;
       }
       if (!requiresXAxis(config) || !config.xAxis) {
         return config as DataVizConfig;
