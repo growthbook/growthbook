@@ -53,7 +53,15 @@ RUN \
   && rm -rf packages/shared/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && pnpm install --frozen-lockfile --prod
+  && pnpm install --frozen-lockfile --prod \
+  && pnpm store prune \
+  && find node_modules -name "*.md" -delete \
+  && find node_modules -name "*.ts" ! -name "*.d.ts" -delete \
+  && find node_modules -name "*.map" -delete \
+  && find node_modules -name "CHANGELOG*" -delete \
+  && find node_modules -name "LICENSE*" -delete \
+  && find node_modules -name "README*" -delete \
+  && find node_modules -type d -name "test" -o -name "tests" -o -name "__tests__" | xargs rm -rf 2>/dev/null || true
 RUN pnpm postinstall
 
 
