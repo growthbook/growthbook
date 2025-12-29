@@ -584,7 +584,7 @@ export default function AnalysisSettingsSummary({
                 <Separator orientation="vertical" ml="5" mr="2" />
               )}
               <ResultsMetricFilter
-                metricTags={availableMetricTags}
+                availableMetricTags={availableMetricTags}
                 metricTagFilter={metricTagFilter}
                 setMetricTagFilter={setMetricTagFilter}
                 availableMetricGroups={availableMetricGroups}

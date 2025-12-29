@@ -16,7 +16,7 @@ import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 
 export default function ResultsMetricFilter({
-  metricTags = [],
+  availableMetricTags = [],
   metricTagFilter = [],
   setMetricTagFilter,
   availableMetricGroups = [],
@@ -29,7 +29,7 @@ export default function ResultsMetricFilter({
   setShowMetricFilter,
   dimension,
 }: {
-  metricTags?: string[];
+  availableMetricTags?: string[];
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
   availableMetricGroups?: Array<{ id: string; name: string }>;
@@ -292,31 +292,38 @@ export default function ResultsMetricFilter({
                   />
                 </Flex>
               )}
-              <Flex
-                gap="2"
-                p="3"
-                mb="2"
-                align="center"
-                className="bg-highlight rounded"
-              >
-                <Heading size="2" weight="medium" mb="0" style={{ width: 150 }}>
-                  Tags
-                </Heading>
-                <MultiSelectField
-                  customClassName="multiselect-unfixed"
-                  containerClassName="w-100"
-                  placeholder="Type to search..."
-                  value={metricTagFilter || []}
-                  options={metricTags.map((tag) => ({
-                    label: tag,
-                    value: tag,
-                  }))}
-                  onChange={(v) => {
-                    setMetricTagFilter?.(v);
-                    return;
-                  }}
-                />
-              </Flex>
+              {availableMetricTags.length > 0 && (
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Heading
+                    size="2"
+                    weight="medium"
+                    mb="0"
+                    style={{ width: 150 }}
+                  >
+                    Tags
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    containerClassName="w-100"
+                    placeholder="Type to search..."
+                    value={metricTagFilter || []}
+                    options={availableMetricTags.map((tag) => ({
+                      label: tag,
+                      value: tag,
+                    }))}
+                    onChange={(v) => {
+                      setMetricTagFilter?.(v);
+                      return;
+                    }}
+                  />
+                </Flex>
+              )}
             </Box>
           </Flex>
         }
