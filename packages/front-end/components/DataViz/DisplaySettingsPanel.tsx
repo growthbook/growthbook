@@ -14,14 +14,13 @@ export default function DisplaySettingsPanel({
   dataVizConfig,
   onDataVizConfigChange,
 }: Props) {
-  // Only render if displaySettings has configurable properties
-  if (Object.keys(dataVizConfig.displaySettings ?? {}).length === 0) {
-    return null;
-  }
-
   // Check if chart type supports anchorToZero (only line and scatter charts)
   const supportsAnchorToZero =
     dataVizConfig.chartType === "line" || dataVizConfig.chartType === "scatter";
+
+  if (!supportsAnchorToZero) {
+    return null;
+  }
 
   return (
     <>
@@ -69,21 +68,19 @@ export default function DisplaySettingsPanel({
         >
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
-              {supportsAnchorToZero && (
-                <Checkbox
-                  label="Anchor chart to zero"
-                  value={dataVizConfig.displaySettings?.anchorToZero ?? true}
-                  setValue={(anchorToZero) => {
-                    onDataVizConfigChange({
-                      ...dataVizConfig,
-                      displaySettings: {
-                        ...dataVizConfig.displaySettings,
-                        anchorToZero,
-                      },
-                    });
-                  }}
-                />
-              )}
+              <Checkbox
+                label="Anchor chart to zero"
+                value={dataVizConfig.displaySettings?.anchorToZero ?? true}
+                setValue={(anchorToZero) => {
+                  onDataVizConfigChange({
+                    ...dataVizConfig,
+                    displaySettings: {
+                      ...dataVizConfig.displaySettings,
+                      anchorToZero,
+                    },
+                  });
+                }}
+              />
             </Flex>
           </Box>
         </Collapsible>

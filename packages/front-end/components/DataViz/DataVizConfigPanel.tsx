@@ -177,6 +177,15 @@ export default function DataVizConfigPanel({
                   ...dataVizConfig,
                   chartType: v as DataVizConfig["chartType"],
                 } as Partial<DataVizConfig>);
+                // If the chart type changes & we don't have displaySettings, set the default
+                if (
+                  ["line", "scatter"].includes(v) &&
+                  !updatedConfig.displaySettings
+                ) {
+                  updatedConfig.displaySettings = {
+                    anchorToZero: true,
+                  } as DisplaySettings;
+                }
                 onDataVizConfigChange(updatedConfig);
               }}
             >
