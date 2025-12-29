@@ -64,7 +64,7 @@ jobs:
       - name: Build dependencies
         run: |
           # Build required dependencies (sdks/shared package)
-          # Also installs docs and sets up stats environment
+          # This is required for linting/type checks to work
           pnpm run setup
         env:
           CI: true
