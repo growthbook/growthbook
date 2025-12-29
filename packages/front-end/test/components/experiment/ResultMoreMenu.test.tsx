@@ -14,7 +14,10 @@ const makeDatasource = (
     name: "Test Datasource",
     settings: {
       pipelineSettings: {
+        allowWriting: true,
         mode: "incremental",
+        writeDataset: "test_dataset",
+        unitsTableRetentionHours: 24,
         excludedExperimentIds: [],
         ...(opts.settings?.pipelineSettings || {}),
       },
@@ -90,7 +93,10 @@ describe("ResultMoreMenu gating helpers", () => {
       const ds = makeDatasource({
         settings: {
           pipelineSettings: {
+            allowWriting: true,
             mode: "incremental",
+            writeDataset: "test_dataset",
+            unitsTableRetentionHours: 24,
             excludedExperimentIds: ["exp-1"],
           },
         },
@@ -124,7 +130,10 @@ describe("ResultMoreMenu gating helpers", () => {
       const ds = makeDatasource({
         settings: {
           pipelineSettings: {
+            allowWriting: true,
             mode: "incremental",
+            writeDataset: "test_dataset",
+            unitsTableRetentionHours: 24,
             excludedExperimentIds: ["exp-1"],
           },
         },
@@ -151,7 +160,10 @@ describe("ResultMoreMenu gating helpers", () => {
       const ds = makeDatasource({
         settings: {
           pipelineSettings: {
+            allowWriting: true,
             mode: "incremental",
+            writeDataset: "test_dataset",
+            unitsTableRetentionHours: 24,
             excludedExperimentIds: ["exp-1"],
           },
         },
