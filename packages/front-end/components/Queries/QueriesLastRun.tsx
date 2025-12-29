@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { PiLightning, PiLightningSlash, PiWarningFill } from "react-icons/pi";
 import { ago, datetime, getValidDate } from "shared/dates";
-import { Text, Flex, IconButton, Box } from "@radix-ui/themes";
+import { Text, Flex, IconButton } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partial results
@@ -75,18 +75,7 @@ const QueriesLastRun: FC<{
         </Tooltip>
 
         {(status === "partially-succeeded" || status === "failed") && (
-          <Tooltip
-            body={
-              <>
-                {partiallySucceededString}
-                {onViewQueries && queries && queries.length > 0 && (
-                  <Box mt="2">
-                    <Text color="red">Click to view queries...</Text>
-                  </Box>
-                )}
-              </>
-            }
-          >
+          <Tooltip body={partiallySucceededString}>
             {onViewQueries && queries && queries.length > 0 ? (
               <IconButton
                 variant="ghost"
