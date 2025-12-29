@@ -183,7 +183,7 @@ export default function DataVizConfigPanel({
                   !updatedConfig.displaySettings
                 ) {
                   updatedConfig.displaySettings = {
-                    anchorToZero: true,
+                    anchorYAxisToZero: true,
                   } as DataVizConfig["displaySettings"];
                 }
                 onDataVizConfigChange(updatedConfig);

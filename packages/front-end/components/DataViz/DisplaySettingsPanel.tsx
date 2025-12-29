@@ -14,11 +14,11 @@ export default function DisplaySettingsPanel({
   dataVizConfig,
   onDataVizConfigChange,
 }: Props) {
-  // Check if chart type supports anchorToZero (only line and scatter charts)
-  const supportsAnchorToZero =
+  // Check if chart type supports anchorYAxisToZero (only line and scatter charts)
+  const supportsAnchorYAxisToZero =
     dataVizConfig.chartType === "line" || dataVizConfig.chartType === "scatter";
 
-  if (!supportsAnchorToZero) {
+  if (!supportsAnchorYAxisToZero) {
     return null;
   }
 
@@ -69,14 +69,14 @@ export default function DisplaySettingsPanel({
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
               <Checkbox
-                label="Anchor chart to zero"
-                value={dataVizConfig.displaySettings?.anchorToZero ?? true}
-                setValue={(anchorToZero) => {
+                label="Anchor y-axis to zero"
+                value={dataVizConfig.displaySettings?.anchorYAxisToZero ?? true}
+                setValue={(anchorYAxisToZero) => {
                   onDataVizConfigChange({
                     ...dataVizConfig,
                     displaySettings: {
                       ...dataVizConfig.displaySettings,
-                      anchorToZero,
+                      anchorYAxisToZero,
                     },
                   });
                 }}

@@ -143,7 +143,8 @@ export function DataVisualizationDisplay({
   dataVizConfig: Partial<DataVizConfig>;
   chartId?: string;
 }) {
-  const anchorToZero = dataVizConfig.displaySettings?.anchorToZero ?? true;
+  const anchorYAxisToZero =
+    dataVizConfig.displaySettings?.anchorYAxisToZero ?? true;
   const chartsContext = useDashboardCharts();
 
   const isConfigValid = useMemo(() => {
@@ -763,7 +764,7 @@ export function DataVisualizationDisplay({
         axisLabel: {
           color: textColor,
         },
-        scale: !anchorToZero,
+        scale: !anchorYAxisToZero,
         type:
           xConfig?.type === "date"
             ? "time"
@@ -772,7 +773,7 @@ export function DataVisualizationDisplay({
               : "category",
       },
       yAxis: {
-        scale: !anchorToZero,
+        scale: !anchorYAxisToZero,
         name:
           yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
@@ -793,7 +794,7 @@ export function DataVisualizationDisplay({
   }, [
     dataset,
     dataVizConfig.title,
-    anchorToZero,
+    anchorYAxisToZero,
     textColor,
     dimensionFields.length,
     xConfig?.type,

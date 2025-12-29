@@ -27,32 +27,32 @@ export class SavedQueryDataModel extends BaseClass {
   protected migrate(legacyDoc: unknown): SavedQuery {
     const doc = legacyDoc as SavedQuery;
 
-    // Migrate anchorToZero for line and scatter charts
+    // Migrate anchorYAxisToZero for line and scatter charts
     if (doc.dataVizConfig && Array.isArray(doc.dataVizConfig)) {
-      const chartTypesWithAnchorToZero = ["line", "scatter"];
+      const chartTypesWithAnchorYAxisToZero = ["line", "scatter"];
 
       doc.dataVizConfig = doc.dataVizConfig.map((config) => {
         const chartType = config.chartType;
 
         // Only handle line and scatter charts
-        if (!chartTypesWithAnchorToZero.includes(chartType)) {
+        if (!chartTypesWithAnchorYAxisToZero.includes(chartType)) {
           return config;
         }
 
         const configWithDisplaySettings = config as typeof config & {
           displaySettings?: {
-            anchorToZero?: boolean;
+            anchorYAxisToZero?: boolean;
           };
         };
         const displaySettings = configWithDisplaySettings.displaySettings;
 
-        // Ensure anchorToZero exists (default to true)
-        if (!displaySettings || !("anchorToZero" in displaySettings)) {
+        // Ensure anchorYAxisToZero exists (default to true)
+        if (!displaySettings || !("anchorYAxisToZero" in displaySettings)) {
           return {
             ...config,
             displaySettings: {
               ...(displaySettings || {}),
-              anchorToZero: true,
+              anchorYAxisToZero: true,
             },
           } as typeof config;
         }
