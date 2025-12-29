@@ -169,10 +169,6 @@ export default function TabbedPage({
     "asc" | "desc" | null
   >(`experiment-page__${experiment.id}__sort_direction`, null);
 
-  const setSortDirectionDirect = (direction: "asc" | "desc" | null) => {
-    setSortDirection(direction);
-  };
-
   const setMetricTagFilterWithPriority = (newMetricTagFilter: string[]) => {
     setMetricTagFilter(newMetricTagFilter);
   };
@@ -667,7 +663,7 @@ export default function TabbedPage({
           sortBy={sortBy}
           setSortBy={setSortBy}
           sortDirection={sortDirection}
-          setSortDirection={setSortDirectionDirect}
+          setSortDirection={setSortDirection}
         />
       </div>
       <div

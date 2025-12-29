@@ -663,7 +663,6 @@ function sortMetricsByCustomOrder(
   return [...orderedMetrics, ...unorderedMetrics];
 }
 
-// Filter metrics by their tags (simplified - just an array of tag names)
 export function filterMetricsByTags(
   metrics: ExperimentMetricInterface[],
   tagFilter?: string[],
@@ -673,7 +672,6 @@ export function filterMetricsByTags(
     return metrics.map((m) => m.id);
   }
 
-  // Filter metrics to only those with matching tags
   return metrics
     .filter((metric) => {
       return metric.tags?.some((tag) => tagFilter.includes(tag));

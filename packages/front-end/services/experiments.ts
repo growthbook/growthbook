@@ -1020,10 +1020,7 @@ export function getIsExperimentIncludedInIncrementalRefresh(
   return includedExperimentIds.includes(experimentId);
 }
 
-/**
- * Extracts available metric groups from experiment metrics.
- * Returns an array of metric groups that are referenced in the experiment's metrics.
- */
+// Extracts available metric groups (for result filtering) from experiment metrics
 export function getAvailableMetricGroups({
   goalMetrics,
   secondaryMetrics,
@@ -1050,9 +1047,7 @@ export function getAvailableMetricGroups({
     .filter((g) => g !== null) as Array<{ id: string; name: string }>;
 }
 
-/**
- * Extracts all unique metric tags from expanded experiment metrics.
- */
+// Extracts available metric tags (for result filtering) from expanded experiment metrics
 export function getAvailableMetricTags({
   goalMetrics,
   secondaryMetrics,
@@ -1091,10 +1086,8 @@ export interface AvailableSliceTag {
   isSelectAll?: boolean;
 }
 
-/**
- * Extracts all available slice tags from experiment metrics.
- * Includes both auto slices and custom slices, plus "select all" options for each column.
- */
+// Extracts all available slice tags (for result filtering) from experiment metrics.
+// Includes both auto slices and custom slices, plus "select all" options for each column.
 export function getAvailableSliceTags({
   goalMetrics,
   secondaryMetrics,

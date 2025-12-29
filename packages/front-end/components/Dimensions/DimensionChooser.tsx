@@ -211,7 +211,6 @@ export default function DimensionChooser({
     activationMetric,
   });
 
-  // Helper function to get dimension display name
   const getDimensionDisplayName = (dimValue: string): string => {
     if (!dimValue) return "None";
     return (
@@ -224,7 +223,6 @@ export default function DimensionChooser({
     );
   };
 
-  // Shared onChange handler
   const handleDimensionChange = useCallback(
     (v: string) => {
       if (v === value) return;
@@ -243,13 +241,12 @@ export default function DimensionChooser({
 
         const newSettings: ExperimentSnapshotAnalysisSettings = {
           ...defaultAnalysis.settings,
-          // get other analysis settings from current analysis
           differenceType: analysis?.settings?.differenceType ?? "relative",
           baselineVariationIndex:
             analysis?.settings?.baselineVariationIndex ?? 0,
           dimensions: [v],
         };
-        // Returns success if analysis is updated or already exists
+
         triggerAnalysisUpdate(
           newSettings,
           defaultAnalysis,
@@ -314,7 +311,6 @@ export default function DimensionChooser({
     );
   }
 
-  // Old UI path - using SelectField
   if (!newUi) {
     return (
       <Flex direction="row" gap="2" align="center">
@@ -339,10 +335,8 @@ export default function DimensionChooser({
     );
   }
 
-  // New UI path - using DropdownMenu with Link trigger
   const currentDimensionName = getDimensionDisplayName(value);
 
-  // Flatten dimension options for menu items
   const renderMenuItems = () => {
     const items: React.ReactNode[] = [];
     let hasItems = false;
@@ -378,7 +372,6 @@ export default function DimensionChooser({
       }
     });
 
-    // Add "None" option at the beginning
     if (items.length > 0) {
       items.unshift(
         <DropdownMenuItem
