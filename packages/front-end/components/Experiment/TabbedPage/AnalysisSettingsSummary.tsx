@@ -614,6 +614,7 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
                 autoUpdateEnabled={experiment.autoSnapshots}
                 showAutoUpdateWidget={true}

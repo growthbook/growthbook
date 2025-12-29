@@ -5,14 +5,23 @@ import { Text, Flex, IconButton } from "@radix-ui/themes";
 import { QueryStatus } from "shared/types/query";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-const FAILED_STRING = `View failed queries`;
+const FAILED_STRING = `The most recent update failed. Click to view queries.`;
 const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partial results
                 are displayed below.`;
 
+function abbreviateAgo(date?: Date): string {
+  return ago(date ?? "")
+    .replace("about ", "")
+    .replace("less than a", "<1")
+    .replace(/second(s)?/g, "sec$1")
+    .replace(/minute(s)?/g, "min$1");
+}
+
 const QueriesLastRun: FC<{
   status: QueryStatus;
-  dateCreated: Date | undefined;
+  dateCreated?: Date;
   nextUpdate?: Date;
+  latestQueryDate?: Date;
   autoUpdateEnabled?: boolean;
   failedString?: string;
   partiallySucceededString?: string;
@@ -23,18 +32,19 @@ const QueriesLastRun: FC<{
   status,
   dateCreated,
   nextUpdate,
+  latestQueryDate,
   autoUpdateEnabled,
-  failedString = FAILED_STRING,
+  failedString,
   partiallySucceededString = PARTIALLY_SUCCEEDED_STRING,
   queries,
   onViewQueries,
   showAutoUpdateWidget = true,
 }) => {
-  const abbreviatedAgo = ago(dateCreated ?? "")
-    .replace("about ", "")
-    .replace("less than a", "<1")
-    .replace(/second(s)?/g, "sec$1")
-    .replace(/minute(s)?/g, "min$1");
+  const _failedString =
+    failedString ||
+    (latestQueryDate
+      ? `The most recent update (${abbreviateAgo(latestQueryDate)}) failed. Click to view queries.`
+      : FAILED_STRING);
 
   return (
     <Text weight="medium">
@@ -74,13 +84,15 @@ const QueriesLastRun: FC<{
           }
         >
           <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
-            Updated {abbreviatedAgo}
+            Updated {abbreviateAgo(dateCreated)}
           </Text>
         </Tooltip>
 
         {(status === "partially-succeeded" || status === "failed") && (
           <Tooltip
-            body={status === "failed" ? failedString : partiallySucceededString}
+            body={
+              status === "failed" ? _failedString : partiallySucceededString
+            }
           >
             {onViewQueries && queries && queries.length > 0 ? (
               <IconButton
