@@ -12,7 +12,7 @@
     "doc-gen": "cd docs && pnpm install && pnpm gen",
     "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
     "test": "pnpm -r --workspace-concurrency=1 run test",
-    "dev:apps": "pnpm --filter back-end --filter front-end --filter shared -r run dev",
+    "dev:apps": "pnpm --filter back-end --filter front-end --filter shared -r --parallel run dev",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm dev:apps",
     "dev:back-end": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm --filter back-end run dev",
     "build:deps": "pnpm --filter @growthbook/growthbook --filter @growthbook/growthbook-react --filter shared run build",
