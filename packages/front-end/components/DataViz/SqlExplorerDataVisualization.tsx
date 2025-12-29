@@ -14,6 +14,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
+import { useSeriesDisplaySettings } from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
@@ -140,6 +141,7 @@ export function DataVisualizationDisplay({
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
 }) {
+  const { getSeriesColor } = useSeriesDisplaySettings();
   const anchorToZero = dataVizConfig.displaySettings?.anchorToZero ?? true;
 
   const isConfigValid = useMemo(() => {
@@ -665,6 +667,7 @@ export function DataVisualizationDisplay({
               ? "line"
               : dataVizConfig.chartType,
           ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
+          color: getSeriesColor(xField, 0),
           encode: {
             x: "x",
             y: "y",
@@ -681,14 +684,16 @@ export function DataVisualizationDisplay({
     // Use the first dimension's display setting for stacking
     const shouldStack = dimensionConfigs[0]?.display === "stacked";
 
-    return dimensionCombinations.map((combination) => {
+    return dimensionCombinations.map((combination, index) => {
       const dimensionKey = combination.join(", ");
+
       return {
         name: dimensionKey,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
         stack: shouldStack ? "stack" : undefined,
+        color: getSeriesColor(dimensionKey, index),
         encode: {
           x: "x",
           y: dimensionKey,
@@ -696,12 +701,13 @@ export function DataVisualizationDisplay({
       };
     });
   }, [
-    dataVizConfig.chartType,
-    xField,
-    dimensionFields,
+    dimensionFields.length,
+    generateAllDimensionCombinations,
     dimensionValuesByField,
     dimensionConfigs,
-    generateAllDimensionCombinations,
+    xField,
+    dataVizConfig.chartType,
+    getSeriesColor,
   ]);
 
   const option = useMemo(() => {

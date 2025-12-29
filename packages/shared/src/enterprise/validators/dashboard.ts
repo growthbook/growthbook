@@ -18,6 +18,14 @@ export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
     .strict(),
 ]);
 
+export const displaySettings = z.object({
+  color: z.string(),
+  displayName: z.string().optional(),
+  hidden: z.boolean().optional(),
+});
+
+export type DisplaySettings = z.infer<typeof displaySettings>;
+
 export const dashboardInterface = z
   .object({
     id: z.string(),
@@ -33,6 +41,7 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
+    seriesDisplaySettings: z.map(z.string(), displaySettings).optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
     lastUpdated: z.date().optional(),
