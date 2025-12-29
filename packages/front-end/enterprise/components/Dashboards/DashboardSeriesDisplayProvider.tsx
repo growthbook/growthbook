@@ -1,5 +1,6 @@
 import React, {
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -62,10 +63,32 @@ export default function DashboardSeriesDisplayProvider({
     // TODO: Implement
   };
 
-  const getSeriesColor = (seriesKey: string, index: number): string => {
-    // TOOD: Build this out - currently just returning the color based on the index.
-    return CHART_COLOR_PALETTE[index];
-  };
+  const getSeriesColor = useCallback(
+    (seriesKey: string, index: number): string => {
+      // Check if seriesKey already has a color in localSettings
+      const existingSettings = localSettings.get(seriesKey);
+      if (existingSettings?.color) {
+        return existingSettings.color;
+      }
+
+      // Select a new color using round-robin (index % palette length)
+      const colorIndex = index % CHART_COLOR_PALETTE.length;
+      const selectedColor = CHART_COLOR_PALETTE[colorIndex];
+
+      // Add the new color to localSettings
+      setLocalSettings((prev) => {
+        const next = new Map(prev);
+        next.set(seriesKey, {
+          color: selectedColor,
+          ...existingSettings, // Preserve any existing displayName or hidden settings
+        });
+        return next;
+      });
+
+      return selectedColor;
+    },
+    [localSettings],
+  );
 
   const getSeriesDisplayName = (_seriesKey: string): string | undefined => {
     // TODO: Implement
@@ -87,7 +110,7 @@ export default function DashboardSeriesDisplayProvider({
       getSeriesDisplayName,
       getSeriesHidden,
     }),
-    [localSettings],
+    [localSettings, getSeriesColor],
   );
 
   return (
