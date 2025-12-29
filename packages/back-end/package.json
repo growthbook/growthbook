@@ -110,6 +110,7 @@
     "proxy-agent": "^6.5.0",
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",
+    "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
     "snowflake-sdk": "2.3.1",
     "ssrf-req-filter": "^1.1.1",
@@ -165,7 +166,6 @@
     "minimist": "^1.2.8",
     "mongodb-memory-server": "^9.2.0",
     "rimraf": "^3.0.2",
-    "scim2-parse-filter": "^0.2.8",
     "supertest": "^7.0.0",
     "typescript": "5.7.3"
   },
