@@ -16,7 +16,7 @@ import { ExperimentReportVariation } from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { VisualChange } from "shared/types/visual-changeset";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,

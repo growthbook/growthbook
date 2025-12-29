@@ -6,8 +6,8 @@ import {
   ID_LIST_DATATYPES,
   validateCondition,
 } from "shared/util";
-import { SavedGroupInterface } from "shared/types/groups";
 import {
+  SavedGroupInterface,
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";

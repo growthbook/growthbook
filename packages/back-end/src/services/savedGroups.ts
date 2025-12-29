@@ -1,5 +1,5 @@
 import { includeExperimentInPayload } from "shared/util";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { ReqContext } from "back-end/types/request";
 import {
   getAllPayloadExperiments,

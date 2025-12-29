@@ -7,7 +7,7 @@ import {
   truncateString,
 } from "shared/util";
 import Link from "next/link";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { isEmpty } from "lodash";
 import { Box } from "@radix-ui/themes";

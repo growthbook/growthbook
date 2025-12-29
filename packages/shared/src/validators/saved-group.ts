@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const SAVED_GROUP_TYPES = ["condition", "list"] as const;
+export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
 export const savedGroupValidator = z
   .object({
@@ -8,7 +8,7 @@ export const savedGroupValidator = z
     organization: z.string(),
     groupName: z.string(),
     owner: z.string(),
-    type: z.enum(SAVED_GROUP_TYPES),
+    type: savedGroupTypeValidator,
     source: z.string().optional(),
     condition: z.string().optional(),
     attributeKey: z.string().optional(),
@@ -24,7 +24,7 @@ export const savedGroupValidator = z
 export const postSavedGroupBodyValidator = z.object({
   groupName: z.string(),
   owner: z.string(),
-  type: z.enum(SAVED_GROUP_TYPES),
+  type: savedGroupTypeValidator,
   condition: z.string().optional(),
   attributeKey: z.string().optional(),
   values: z.string().array().optional(),

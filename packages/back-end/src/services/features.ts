@@ -34,7 +34,7 @@ import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
-} from "shared/types/groups";
+} from "shared/types/saved-group";
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";

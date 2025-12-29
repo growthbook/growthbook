@@ -1,6 +1,8 @@
-import { SavedGroupInterface } from "shared/types/groups";
 import { ApiSavedGroup } from "shared/types/openapi";
-import { LegacySavedGroupInterface } from "shared/types/saved-group";
+import {
+  SavedGroupInterface,
+  LegacySavedGroupInterface,
+} from "shared/types/saved-group";
 import { savedGroupValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
@@ -19,7 +21,7 @@ const BaseClass = MakeModelClass({
 
 export class SavedGroupModel extends BaseClass {
   protected canRead(doc: SavedGroupInterface): boolean {
-    return this.context.hasPermission("readData", doc.projects || []);
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
 
   protected canCreate(doc: SavedGroupInterface): boolean {
@@ -37,7 +39,9 @@ export class SavedGroupModel extends BaseClass {
     return this.context.permissions.canDeleteSavedGroup(doc);
   }
 
-  protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
+  public static migrateSavedGroup(
+    legacyDoc: LegacySavedGroupInterface,
+  ): SavedGroupInterface {
     // Add `type` field to legacy groups
     const { source, type, ...otherFields } = legacyDoc;
     const group: SavedGroupInterface = {
@@ -64,10 +68,12 @@ export class SavedGroupModel extends BaseClass {
     return group;
   }
 
+  protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
+    return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  }
+
   protected async beforeCreate(doc: SavedGroupInterface) {
-    if (doc.useEmptyListGroup === undefined) {
-      doc.useEmptyListGroup = true;
-    }
+    doc.useEmptyListGroup = true;
   }
 
   public async removeProject(project: string) {
