@@ -125,6 +125,7 @@ export const sdkLanguages = [
   "edge-fastly",
   "edge-lambda",
   "edge-other",
+  "rust",
   "other",
 ] as const;
 
