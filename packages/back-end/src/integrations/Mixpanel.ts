@@ -281,16 +281,18 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ? ` // Process queued values
         state.queuedEvents.forEach((event) => {
           ${metrics
-            .filter((m) => getDelayWindowHours(m.windowSettings) < 0)
-            .map(
-              (metric, i) => `// Metric - ${metric.name}
+            .map((metric, i) =>
+              getDelayWindowHours(metric.windowSettings) < 0
+                ? `// Metric - ${metric.name}
           if(isMetric${i}(event) && event.time - state.start > ${
             getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000
           }) {
             state.m${i}.push(${this.getMetricValueExpression(metric.column)});
-          }`,
+          }`
+                : "",
             )
             .join("\n")}
+            : ""
         });
         state.queuedEvents = [];`
             : ""
