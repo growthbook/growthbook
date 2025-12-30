@@ -280,7 +280,7 @@ export const deleteProject = async (
 
   // Clean up saved groups
   try {
-    await context.models.savedGroups.removeProject(id);
+    await context.models.savedGroups.removeProjectIdFromAllGroups(id);
   } catch (e) {
     failedToDeleteResources.push("saved groups");
   }

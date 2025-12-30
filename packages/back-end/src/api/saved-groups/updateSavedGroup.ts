@@ -3,9 +3,7 @@ import { validateCondition } from "shared/util";
 import { UpdateSavedGroupResponse } from "shared/types/openapi";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
-import { logger } from "back-end/src/util/logger";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const updateSavedGroup = createApiRequestHandler(
@@ -92,21 +90,10 @@ export const updateSavedGroup = createApiRequestHandler(
     };
   }
 
-  const updatedSavedGroup = await req.context.models.savedGroups.updateById(
-    id,
+  const updatedSavedGroup = await req.context.models.savedGroups.update(
+    savedGroup,
     fieldsToUpdate,
   );
-
-  // If the values, condition, or projects change, we need to invalidate cached feature rules
-  if (
-    fieldsToUpdate.values ||
-    fieldsToUpdate.condition ||
-    fieldsToUpdate.projects
-  ) {
-    savedGroupUpdated(req.context, savedGroup).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on saved group update");
-    });
-  }
 
   return {
     savedGroup: req.context.models.savedGroups.toApiInterface({

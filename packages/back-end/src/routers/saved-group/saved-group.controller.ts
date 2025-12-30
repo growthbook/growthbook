@@ -11,11 +11,9 @@ import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
-import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 
 // region POST /saved-groups
 
@@ -238,11 +236,9 @@ export const postSavedGroupAddItems = async (
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
 
-  const updatedSavedGroup = await context.models.savedGroups.updateById(id, {
+  await context.models.savedGroups.update(savedGroup, {
     values: newValues,
   });
-
-  savedGroupUpdated(context, updatedSavedGroup);
 
   return res.status(200).json({
     status: 200,
@@ -325,11 +321,9 @@ export const postSavedGroupRemoveItems = async (
     org.settings?.savedGroupSizeLimit,
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
-  const updatedSavedGroup = await context.models.savedGroups.updateById(id, {
+  await context.models.savedGroups.update(savedGroup, {
     values: newValues,
   });
-
-  savedGroupUpdated(context, updatedSavedGroup);
 
   return res.status(200).json({
     status: 200,
@@ -454,21 +448,7 @@ export const putSavedGroup = async (
     });
   }
 
-  const updatedSavedGroup = await context.models.savedGroups.updateById(
-    id,
-    fieldsToUpdate,
-  );
-
-  // If the values, condition, or projects change, we need to invalidate cached feature rules
-  if (
-    fieldsToUpdate.condition ||
-    fieldsToUpdate.values ||
-    fieldsToUpdate.projects
-  ) {
-    savedGroupUpdated(context, updatedSavedGroup).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on saved group update");
-    });
-  }
+  await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
 
   return res.status(200).json({
     status: 200,
@@ -531,7 +511,7 @@ export const deleteSavedGroup = async (
     context.permissions.throwPermissionError();
   }
 
-  await context.models.savedGroups.deleteById(id);
+  await context.models.savedGroups.delete(savedGroup);
 
   res.status(200).json({
     status: 200,

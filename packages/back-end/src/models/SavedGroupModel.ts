@@ -4,6 +4,8 @@ import {
   LegacySavedGroupInterface,
 } from "shared/types/saved-group";
 import { savedGroupValidator } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
+import { savedGroupUpdated } from "../services/savedGroups";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -76,11 +78,27 @@ export class SavedGroupModel extends BaseClass {
     doc.useEmptyListGroup = true;
   }
 
-  public async removeProject(project: string) {
+  protected async afterUpdate(
+    _existing: SavedGroupInterface,
+    updates: UpdateProps<SavedGroupInterface>,
+    newDoc: SavedGroupInterface,
+  ) {
+    // If the values, condition, or projects change, we need to invalidate cached feature rules
+    if (updates.values || updates.condition || updates.projects) {
+      savedGroupUpdated(this.context, newDoc).catch((e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on saved group update",
+        );
+      });
+    }
+  }
+
+  public async removeProjectIdFromAllGroups(projectId: string) {
     await this._dangerousGetCollection().updateMany(
-      { organization: this.context.org.id, projects: project },
+      { organization: this.context.org.id, projects: projectId },
       // @ts-expect-error - Mongodb driver types are strict about $pull
-      { $pull: { projects: project } },
+      { $pull: { projects: projectId } },
     );
   }
 
