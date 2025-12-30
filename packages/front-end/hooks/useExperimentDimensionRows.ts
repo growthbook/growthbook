@@ -36,7 +36,7 @@ export interface UseExperimentDimensionRowsParams {
   metricOverrides: MetricOverride[];
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
-  metricGroupsFilter?: string[];
+  metricsFilter?: string[];
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
@@ -67,7 +67,7 @@ export function useExperimentDimensionRows({
   metricOverrides,
   ssrPolyfills,
   metricTagFilter,
-  metricGroupsFilter,
+  metricsFilter,
   sortBy,
   sortDirection,
   customMetricOrder: _customMetricOrder,
@@ -94,10 +94,10 @@ export function useExperimentDimensionRows({
       let filteredSecondaryMetrics = secondaryMetrics;
       let filteredGuardrailMetrics = guardrailMetrics;
 
-      if (metricGroupsFilter && metricGroupsFilter.length > 0) {
+      if (metricsFilter && metricsFilter.length > 0) {
         // Create a set of allowed metric IDs from expanded groups and individual metrics
         const allowedMetricIds = new Set<string>();
-        metricGroupsFilter.forEach((id) => {
+        metricsFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
             if (group) {
@@ -112,17 +112,17 @@ export function useExperimentDimensionRows({
 
         // Filter metrics by group or allowed metric IDs
         filteredGoalMetrics = goalMetrics.filter((id) => {
-          if (metricGroupsFilter.includes(id)) return true;
+          if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
           return false;
         });
         filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
-          if (metricGroupsFilter.includes(id)) return true;
+          if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
           return false;
         });
         filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
-          if (metricGroupsFilter.includes(id)) return true;
+          if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
           return false;
         });
@@ -148,7 +148,7 @@ export function useExperimentDimensionRows({
       ssrPolyfills?.metricGroups,
       secondaryMetrics,
       guardrailMetrics,
-      metricGroupsFilter,
+      metricsFilter,
     ]);
 
   const allMetricTags = useMemo(() => {

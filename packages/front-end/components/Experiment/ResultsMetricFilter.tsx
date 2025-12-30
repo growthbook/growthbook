@@ -2,7 +2,7 @@ import React, { useMemo, useCallback } from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { parseSliceQueryString } from "shared/experiments";
+import { parseSliceQueryString, isMetricGroupId } from "shared/experiments";
 import clsx from "clsx";
 import { FormatOptionLabelMeta } from "react-select";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -14,14 +14,16 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
+import MetricName from "@/components/Metrics/MetricName";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultsMetricFilter({
   availableMetricTags = [],
   metricTagFilter = [],
   setMetricTagFilter,
-  availableMetricGroups = [],
-  metricGroupsFilter = [],
-  setMetricGroupsFilter,
+  availableMetricsFilters = { groups: [], metrics: [] },
+  metricsFilter = [],
+  setMetricsFilter,
   availableSliceTags = [],
   sliceTagsFilter = [],
   setSliceTagsFilter,
@@ -32,9 +34,12 @@ export default function ResultsMetricFilter({
   availableMetricTags?: string[];
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
-  availableMetricGroups?: Array<{ id: string; name: string }>;
-  metricGroupsFilter?: string[];
-  setMetricGroupsFilter?: (groups: string[]) => void;
+  availableMetricsFilters?: {
+    groups: Array<{ id: string; name: string }>;
+    metrics: Array<{ id: string; name: string }>;
+  };
+  metricsFilter?: string[];
+  setMetricsFilter?: (filters: string[]) => void;
   availableSliceTags?: Array<{
     id: string;
     datatypes: Record<string, FactTableColumnType>;
@@ -49,15 +54,16 @@ export default function ResultsMetricFilter({
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
+  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
 
   const filteringApplied =
     metricTagFilter?.length > 0 ||
-    metricGroupsFilter?.length > 0 ||
+    metricsFilter?.length > 0 ||
     sliceTagsFilter?.length > 0;
 
   const activeFilterCount =
     (metricTagFilter?.length || 0) +
-    (metricGroupsFilter?.length || 0) +
+    (metricsFilter?.length || 0) +
     (sliceTagsFilter?.length || 0);
 
   type SliceChunk = {
@@ -206,7 +212,7 @@ export default function ResultsMetricFilter({
                     style={{ top: -4 }}
                     onClick={async () => {
                       setMetricTagFilter?.([]);
-                      setMetricGroupsFilter?.([]);
+                      setMetricsFilter?.([]);
                       setSliceTagsFilter?.([]);
                     }}
                   >
@@ -222,7 +228,7 @@ export default function ResultsMetricFilter({
                   align="center"
                   className="bg-highlight rounded"
                 >
-                  <Box style={{ width: 150 }}>
+                  <Box style={{ width: 80 }}>
                     <Heading size="2" weight="medium" mb="0">
                       {dimension && (sliceTagsFilter?.length || 0) > 0 ? (
                         <Tooltip body="Slice filters are ignored when a unit dimension is set">
@@ -259,7 +265,8 @@ export default function ResultsMetricFilter({
                   />
                 </Flex>
               )}
-              {availableMetricGroups.length > 0 && hasMetricGroupsFeature && (
+              {(availableMetricsFilters.groups.length > 0 ||
+                availableMetricsFilters.metrics.length > 0) && (
                 <Flex
                   gap="2"
                   p="3"
@@ -271,21 +278,71 @@ export default function ResultsMetricFilter({
                     size="2"
                     weight="medium"
                     mb="0"
-                    style={{ width: 150 }}
+                    style={{ width: 80 }}
                   >
-                    Metric groups
+                    Metrics
                   </Heading>
                   <MultiSelectField
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
                     placeholder="Type to search..."
-                    value={metricGroupsFilter || []}
-                    options={availableMetricGroups.map((group) => ({
-                      label: group.name,
-                      value: group.id,
-                    }))}
+                    value={metricsFilter || []}
+                    options={[
+                      ...(hasMetricGroupsFeature &&
+                      availableMetricsFilters.groups.length > 0
+                        ? [
+                            {
+                              label: "Metric Groups",
+                              options: availableMetricsFilters.groups.map(
+                                (group) => ({
+                                  label: group.name,
+                                  value: group.id,
+                                }),
+                              ),
+                            },
+                          ]
+                        : []),
+                      ...(availableMetricsFilters.metrics.length > 0
+                        ? [
+                            {
+                              label: "Metrics",
+                              options: availableMetricsFilters.metrics.map(
+                                (metric) => ({
+                                  label: metric.name,
+                                  value: metric.id,
+                                }),
+                              ),
+                            },
+                          ]
+                        : []),
+                    ]}
+                    formatOptionLabel={(option) => {
+                      const isGroup = isMetricGroupId(option.value);
+                      const metrics = isGroup
+                        ? (() => {
+                            const group = getMetricGroupById(option.value);
+                            if (!group) return undefined;
+                            return group.metrics.map((metricId) => {
+                              const metric = getExperimentMetricById(metricId);
+                              return { metric, joinable: true };
+                            });
+                          })()
+                        : undefined;
+                      return (
+                        <MetricName
+                          id={option.value}
+                          showDescription={false}
+                          isGroup={isGroup}
+                          metrics={metrics}
+                          officialBadgePosition="left"
+                        />
+                      );
+                    }}
+                    formatGroupLabel={(group) => (
+                      <div className="pb-1 pt-2">{group.label}</div>
+                    )}
                     onChange={(v) => {
-                      setMetricGroupsFilter?.(v);
+                      setMetricsFilter?.(v);
                       return;
                     }}
                     sort={false}
@@ -304,7 +361,7 @@ export default function ResultsMetricFilter({
                     size="2"
                     weight="medium"
                     mb="0"
-                    style={{ width: 150 }}
+                    style={{ width: 80 }}
                   >
                     Tags
                   </Heading>
@@ -335,7 +392,7 @@ export default function ResultsMetricFilter({
           className="font-weight-bold"
           onClick={async () => {
             setMetricTagFilter?.([]);
-            setMetricGroupsFilter?.([]);
+            setMetricsFilter?.([]);
             setSliceTagsFilter?.([]);
           }}
         >

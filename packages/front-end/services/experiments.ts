@@ -1020,18 +1020,37 @@ export function getIsExperimentIncludedInIncrementalRefresh(
   return includedExperimentIds.includes(experimentId);
 }
 
-// Extracts available metric groups (for result filtering) from experiment metrics
-export function getAvailableMetricGroups({
+// Extracts available metrics and groups (for result filtering) from experiment metrics
+export function getAvailableMetricsFilters({
   goalMetrics,
   secondaryMetrics,
   guardrailMetrics,
   metricGroups,
+  getExperimentMetricById,
 }: {
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-}): Array<{ id: string; name: string }> {
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+}): {
+  groups: { id: string; name: string }[];
+  metrics: { id: string; name: string }[];
+} {
+  // Get all unique metric IDs (expanded from groups)
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrails = expandMetricGroups(guardrailMetrics, metricGroups);
+  const allExpandedMetricIds = new Set([
+    ...expandedGoals,
+    ...expandedSecondaries,
+    ...expandedGuardrails,
+  ]);
+
+  // Get groups
   const groupIdsMap = new Map<string, boolean>();
   [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach((id) => {
     if (isMetricGroupId(id)) {
@@ -1039,12 +1058,24 @@ export function getAvailableMetricGroups({
     }
   });
   const groupIds = Array.from(groupIdsMap.keys());
-  return groupIds
+  const groups: { id: string; name: string }[] = groupIds
     .map((id) => {
       const group = metricGroups.find((g) => g.id === id);
       return group ? { id: group.id, name: group.name } : null;
     })
-    .filter((g) => g !== null) as Array<{ id: string; name: string }>;
+    .filter((g): g is { id: string; name: string } => g !== null);
+
+  // Get individual metrics (allExpandedMetricIds only contains individual metric IDs, not groups)
+  const metrics: { id: string; name: string }[] = Array.from(
+    allExpandedMetricIds,
+  )
+    .map((id) => {
+      const metric = getExperimentMetricById(id);
+      return metric ? { id: metric.id, name: metric.name } : null;
+    })
+    .filter((m): m is { id: string; name: string } => m !== null);
+
+  return { groups, metrics };
 }
 
 // Extracts available metric tags (for result filtering) from expanded experiment metrics
