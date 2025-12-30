@@ -10,6 +10,7 @@ import {
 import { PiWrench } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
+import { chartTypeSupportsAnchorYAxisToZero } from "shared/src/enterprise/dashboards/utils";
 import { Select, SelectItem } from "@/ui/Select";
 import {
   getXAxisConfig,
@@ -20,7 +21,8 @@ import {
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizFilterPanel from "./DataVizFilterPanel";
 import DataVizDimensionPanel from "./DataVizDimensionPanel";
-import DisplaySettingsPanel from "./DisplaySettingsPanel";
+import DisplaySettingsPanel from "./DisplaySettingsPanel/DisplaySettingsPanel";
+import AnchorYAxisToZeroCheckbox from "./DisplaySettingsPanel/AnchorYAxisToZeroCheckbox";
 
 // Helper function to remove displaySettings from a config object
 function removeDisplaySettings<T extends Partial<DataVizConfig>>(
@@ -196,7 +198,10 @@ export default function DataVizConfigPanel({
                   chartType: v as DataVizConfig["chartType"],
                 } as Partial<DataVizConfig>);
                 // If the chart type changes to line/scatter & we don't have displaySettings, set the default
-                if (["line", "scatter"].includes(v)) {
+                if (
+                  updatedConfig.chartType &&
+                  chartTypeSupportsAnchorYAxisToZero(updatedConfig.chartType)
+                ) {
                   if (
                     !("displaySettings" in updatedConfig) ||
                     !updatedConfig.displaySettings
@@ -891,10 +896,12 @@ export default function DataVizConfigPanel({
         onDataVizConfigChange={onDataVizConfigChange}
         rows={rows}
       />
-      <DisplaySettingsPanel
-        dataVizConfig={dataVizConfig}
-        onDataVizConfigChange={onDataVizConfigChange}
-      />
+      <DisplaySettingsPanel>
+        <AnchorYAxisToZeroCheckbox
+          dataVizConfig={dataVizConfig}
+          onDataVizConfigChange={onDataVizConfigChange}
+        />
+      </DisplaySettingsPanel>
     </Flex>
   );
 }

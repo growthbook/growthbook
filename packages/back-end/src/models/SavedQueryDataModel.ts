@@ -1,5 +1,6 @@
 import { UpdateProps } from "shared/types/base-model";
 import { SavedQuery, savedQueryValidator } from "shared/validators";
+import { chartTypeSupportsAnchorYAxisToZero } from "shared/src/enterprise/dashboards/utils";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -29,13 +30,9 @@ export class SavedQueryDataModel extends BaseClass {
 
     // Migrate anchorYAxisToZero for line and scatter charts
     if (doc.dataVizConfig && Array.isArray(doc.dataVizConfig)) {
-      const chartTypesWithAnchorYAxisToZero = ["line", "scatter"];
-
       doc.dataVizConfig = doc.dataVizConfig.map((config) => {
-        const chartType = config.chartType;
-
-        // Only handle line and scatter charts
-        if (!chartTypesWithAnchorYAxisToZero.includes(chartType)) {
+        if (!chartTypeSupportsAnchorYAxisToZero(config.chartType)) {
+          // If the chart type doesn't support display settings, return the config as is
           return config;
         }
 

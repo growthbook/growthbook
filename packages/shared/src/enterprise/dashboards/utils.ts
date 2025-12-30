@@ -17,6 +17,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
 import { getSnapshotAnalysis } from "../../util";
+import { DataVizConfig } from "../../../validators";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 export const metricSelectors = [
@@ -267,4 +268,10 @@ export function createDashboardBlocksFromTemplate(
   return blockInitialValues.map(({ type, ...initialValues }) =>
     CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups }),
   );
+}
+
+export function chartTypeSupportsAnchorYAxisToZero(
+  chartType: DataVizConfig["chartType"],
+): boolean {
+  return ["line", "scatter"].includes(chartType);
 }

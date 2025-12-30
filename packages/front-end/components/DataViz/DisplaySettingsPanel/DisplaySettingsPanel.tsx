@@ -1,24 +1,16 @@
+import React, { ReactElement } from "react";
 import { Box, Text, Flex } from "@radix-ui/themes";
-import { DataVizConfig } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { PiPalette } from "react-icons/pi";
-import Checkbox from "@/ui/Checkbox";
-
-type Props = {
-  dataVizConfig: Partial<DataVizConfig>;
-  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
-};
 
 export default function DisplaySettingsPanel({
-  dataVizConfig,
-  onDataVizConfigChange,
-}: Props) {
-  // Check if chart type supports anchorYAxisToZero (only line and scatter charts)
-  const supportsAnchorYAxisToZero =
-    dataVizConfig.chartType === "line" || dataVizConfig.chartType === "scatter";
-
-  if (!supportsAnchorYAxisToZero) {
+  children,
+}: {
+  children: ReactElement;
+}) {
+  // If there are no children, don't render the panel
+  if (!React.Children.toArray(children).some((child) => !!child)) {
     return null;
   }
 
@@ -68,19 +60,7 @@ export default function DisplaySettingsPanel({
         >
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
-              <Checkbox
-                label="Anchor y-axis to zero"
-                value={dataVizConfig.displaySettings?.anchorYAxisToZero ?? true}
-                setValue={(anchorYAxisToZero) => {
-                  onDataVizConfigChange({
-                    ...dataVizConfig,
-                    displaySettings: {
-                      ...dataVizConfig.displaySettings,
-                      anchorYAxisToZero,
-                    },
-                  });
-                }}
-              />
+              {children}
             </Flex>
           </Box>
         </Collapsible>
