@@ -403,7 +403,6 @@ const Results: FC<{
           }
           metricTagFilter={metricTagFilter}
           metricsFilter={metricsFilter}
-          sliceTagsFilter={sliceTagsFilter}
           experimentType={experiment.type}
           sortBy={sortBy}
           setSortBy={setSortBy}
