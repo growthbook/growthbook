@@ -16,7 +16,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
 import {
-  getAvailableMetricGroups,
+  getAvailableMetricsFilters,
   getAvailableMetricTags,
   getAvailableSliceTags,
 } from "@/services/experiments";
@@ -153,8 +153,8 @@ export default function TabbedPage({
     `experiment-page__${experiment.id}__metric_tag_filter`,
     [],
   );
-  const [metricGroupsFilter, setMetricGroupsFilter] = useLocalStorage<string[]>(
-    `experiment-page__${experiment.id}__metric_groups_filter`,
+  const [metricsFilter, setMetricsFilter] = useLocalStorage<string[]>(
+    `experiment-page__${experiment.id}__metrics_filter`,
     [],
   );
   const [sliceTagsFilter, setSliceTagsFilter] = useLocalStorage<string[]>(
@@ -221,20 +221,22 @@ export default function TabbedPage({
     factTables,
   } = useDefinitions();
 
-  // Extract metric group IDs from experiment metrics (dedupe using Map)
-  const availableMetricGroups = useMemo(
+  // Extract available metrics and groups for filtering
+  const availableMetricsFilters = useMemo(
     () =>
-      getAvailableMetricGroups({
+      getAvailableMetricsFilters({
         goalMetrics: experiment.goalMetrics,
         secondaryMetrics: experiment.secondaryMetrics,
         guardrailMetrics: experiment.guardrailMetrics,
         metricGroups,
+        getExperimentMetricById,
       }),
     [
       experiment.goalMetrics,
       experiment.secondaryMetrics,
       experiment.guardrailMetrics,
       metricGroups,
+      getExperimentMetricById,
     ],
   );
 
@@ -650,9 +652,9 @@ export default function TabbedPage({
           editTargeting={editTargeting}
           isTabActive={tab === "results"}
           metricTagFilter={metricTagFilter}
-          metricGroupsFilter={metricGroupsFilter}
-          setMetricGroupsFilter={setMetricGroupsFilter}
-          availableMetricGroups={availableMetricGroups}
+          metricsFilter={metricsFilter}
+          setMetricsFilter={setMetricsFilter}
+          availableMetricsFilters={availableMetricsFilters}
           availableMetricTags={availableMetricTags}
           availableSliceTags={availableSliceTags}
           sliceTagsFilter={sliceTagsFilter}

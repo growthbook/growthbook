@@ -44,9 +44,9 @@ export interface Props {
   isTabActive: boolean;
   metricTagFilter: string[];
   setMetricTagFilter: (tags: string[]) => void;
-  metricGroupsFilter: string[];
-  setMetricGroupsFilter: (groups: string[]) => void;
-  availableMetricGroups: Array<{ id: string; name: string }>;
+  metricsFilter: string[];
+  setMetricsFilter: (filters: string[]) => void;
+  availableMetricsFilters: { groups: Array<{ id: string; name: string }>; metrics: Array<{ id: string; name: string }> };
   availableMetricTags: string[];
   availableSliceTags: Array<{
     id: string;
@@ -75,9 +75,9 @@ export default function ResultsTab({
   setAnalysisBarSettings,
   metricTagFilter,
   setMetricTagFilter,
-  metricGroupsFilter,
-  setMetricGroupsFilter,
-  availableMetricGroups,
+  metricsFilter,
+  setMetricsFilter,
+  availableMetricsFilters,
   availableMetricTags,
   availableSliceTags,
   sliceTagsFilter,
@@ -327,9 +327,9 @@ export default function ResultsTab({
             }
             metricTagFilter={metricTagFilter}
             setMetricTagFilter={setMetricTagFilter}
-            metricGroupsFilter={metricGroupsFilter}
-            setMetricGroupsFilter={setMetricGroupsFilter}
-            availableMetricGroups={availableMetricGroups}
+            metricsFilter={metricsFilter}
+            setMetricsFilter={setMetricsFilter}
+            availableMetricsFilters={availableMetricsFilters}
             availableMetricTags={availableMetricTags}
             availableSliceTags={availableSliceTags}
             sliceTagsFilter={sliceTagsFilter}
@@ -406,7 +406,7 @@ export default function ResultsTab({
                   setAnalysisBarSettings={setAnalysisBarSettings}
                   isTabActive={isTabActive}
                   metricTagFilter={metricTagFilter}
-                  metricGroupsFilter={metricGroupsFilter}
+                  metricsFilter={metricsFilter}
                   sliceTagsFilter={sliceTagsFilter}
                   setTab={setTab}
                   sortBy={sortBy}

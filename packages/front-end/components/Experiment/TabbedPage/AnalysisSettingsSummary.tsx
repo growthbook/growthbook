@@ -58,9 +58,9 @@ export interface Props {
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
   metricTagFilter?: string[];
   setMetricTagFilter?: (tags: string[]) => void;
-  metricGroupsFilter?: string[];
-  setMetricGroupsFilter?: (groups: string[]) => void;
-  availableMetricGroups?: Array<{ id: string; name: string }>;
+  metricsFilter?: string[];
+  setMetricsFilter?: (filters: string[]) => void;
+  availableMetricsFilters?: { groups: Array<{ id: string; name: string }>; metrics: Array<{ id: string; name: string }> };
   availableMetricTags?: string[];
   availableSliceTags?: Array<{
     id: string;
@@ -89,9 +89,9 @@ export default function AnalysisSettingsSummary({
   setDimension,
   metricTagFilter,
   setMetricTagFilter,
-  metricGroupsFilter,
-  setMetricGroupsFilter,
-  availableMetricGroups = [],
+  metricsFilter,
+  setMetricsFilter,
+  availableMetricsFilters = { groups: [], metrics: [] },
   availableMetricTags = [],
   availableSliceTags = [],
   sliceTagsFilter,
@@ -305,22 +305,32 @@ export default function AnalysisSettingsSummary({
     });
     const allMetrics = Array.from(allMetricsMap.values());
 
-    const hasGroupFilter = (metricGroupsFilter?.length ?? 0) > 0;
-    const groupsToUse = hasGroupFilter
-      ? metricGroups.filter((g) => metricGroupsFilter!.includes(g.id))
+    const hasFilter = (metricsFilter?.length ?? 0) > 0;
+    const groupsToUse = hasFilter
+      ? metricGroups.filter((g) => metricsFilter!.includes(g.id))
       : metricGroups;
 
-    // Create a set of allowed metric IDs from expanded groups
-    // Note: filtering by individual metric IDs is not supported for standard results
-    const allowedMetricIds = hasGroupFilter
-      ? new Set(groupsToUse.flatMap((g) => g.metrics))
+    // Create a set of allowed metric IDs from expanded groups and individual metrics
+    const allowedMetricIds = hasFilter
+      ? (() => {
+          const allowed = new Set<string>();
+          metricsFilter!.forEach((id) => {
+            const group = metricGroups.find((g) => g.id === id);
+            if (group) {
+              group.metrics.forEach((metricId) => allowed.add(metricId));
+            } else {
+              allowed.add(id);
+            }
+          });
+          return allowed;
+        })()
       : null;
 
     const processMetrics = (metrics: string[]) => {
       let filtered = metrics;
-      if (allowedMetricIds && metricGroupsFilter) {
+      if (allowedMetricIds && metricsFilter) {
         filtered = filtered.filter(
-          (id) => metricGroupsFilter.includes(id) || allowedMetricIds.has(id),
+          (id) => metricsFilter.includes(id) || allowedMetricIds.has(id),
         );
       }
       const expanded = expandMetricGroups(filtered, groupsToUse);
@@ -349,7 +359,7 @@ export default function AnalysisSettingsSummary({
     experiment.secondaryMetrics,
     experiment.guardrailMetrics,
     metricGroups,
-    metricGroupsFilter,
+    metricsFilter,
     metricTagFilter,
     getExperimentMetricById,
   ]);
@@ -544,18 +554,19 @@ export default function AnalysisSettingsSummary({
   // Determine if any filters are currently set
   const hasActiveFilters =
     (metricTagFilter?.length || 0) > 0 ||
-    (metricGroupsFilter?.length || 0) > 0 ||
+    (metricsFilter?.length || 0) > 0 ||
     (sliceTagsFilter?.length || 0) > 0;
 
   // Determine if any filter types are available/enabled
   const hasAvailableSlices =
     availableSliceTags.length > 0 && hasMetricSlicesFeature;
-  const hasAvailableMetricGroups =
-    availableMetricGroups.length > 0 && hasMetricGroupsFeature;
+  const hasAvailableMetrics =
+    availableMetricsFilters.groups.length > 0 ||
+    availableMetricsFilters.metrics.length > 0;
   const hasAvailableTags = availableMetricTags.length > 0;
 
   const hasAnyAvailableFilter =
-    hasAvailableSlices || hasAvailableMetricGroups || hasAvailableTags;
+    hasAvailableSlices || hasAvailableMetrics || hasAvailableTags;
 
   // Render if filters are active OR at least one filter type is available
   const shouldRenderMetricFilter = hasActiveFilters || hasAnyAvailableFilter;
@@ -589,9 +600,9 @@ export default function AnalysisSettingsSummary({
                 availableMetricTags={availableMetricTags}
                 metricTagFilter={metricTagFilter}
                 setMetricTagFilter={setMetricTagFilter}
-                availableMetricGroups={availableMetricGroups}
-                metricGroupsFilter={metricGroupsFilter}
-                setMetricGroupsFilter={setMetricGroupsFilter}
+                availableMetricsFilters={availableMetricsFilters}
+                metricsFilter={metricsFilter}
+                setMetricsFilter={setMetricsFilter}
                 availableSliceTags={availableSliceTags}
                 sliceTagsFilter={sliceTagsFilter}
                 setSliceTagsFilter={setSliceTagsFilter}

@@ -72,7 +72,7 @@ const CompactResults: FC<{
   sequentialTestingEnabled?: boolean;
   differenceType: DifferenceType;
   metricTagFilter?: string[];
-  metricGroupsFilter?: string[];
+  metricsFilter?: string[];
   sliceTagsFilter?: string[];
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
@@ -138,7 +138,7 @@ const CompactResults: FC<{
   sequentialTestingEnabled,
   differenceType,
   metricTagFilter,
-  metricGroupsFilter,
+  metricsFilter,
   sliceTagsFilter,
   isTabActive,
   setTab,
@@ -208,7 +208,7 @@ const CompactResults: FC<{
     customMetricSlices,
     pinnedMetricSlices,
     metricTagFilter,
-    metricGroupsFilter,
+    metricsFilter,
     sliceTagsFilter,
     sortBy,
     sortDirection,

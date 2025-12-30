@@ -48,7 +48,7 @@ export interface UseExperimentTableRowsParams {
     }>;
   }>;
   metricTagFilter?: string[];
-  metricGroupsFilter?: string[];
+  metricsFilter?: string[];
   sliceTagsFilter?: string[];
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
@@ -82,7 +82,7 @@ export function useExperimentTableRows({
   customMetricSlices,
   pinnedMetricSlices,
   metricTagFilter,
-  metricGroupsFilter,
+  metricsFilter,
   sliceTagsFilter,
   sortBy,
   sortDirection,
@@ -122,10 +122,10 @@ export function useExperimentTableRows({
       let filteredSecondaryMetrics = secondaryMetrics;
       let filteredGuardrailMetrics = guardrailMetrics;
 
-      if (metricGroupsFilter && metricGroupsFilter.length > 0) {
+      if (metricsFilter && metricsFilter.length > 0) {
         // Create a set of allowed metric IDs from expanded groups and individual metrics
         const allowedMetricIds = new Set<string>();
-        metricGroupsFilter.forEach((id) => {
+        metricsFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
             if (group) {
@@ -140,17 +140,17 @@ export function useExperimentTableRows({
 
         // Filter metrics by group or allowed metric IDs
         filteredGoalMetrics = goalMetrics.filter((id) => {
-          if (metricGroupsFilter.includes(id)) return true;
+          if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
           return false;
         });
         filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
-          if (metricGroupsFilter.includes(id)) return true;
+          if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
           return false;
         });
         filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
-          if (metricGroupsFilter.includes(id)) return true;
+          if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
           return false;
         });
@@ -176,7 +176,7 @@ export function useExperimentTableRows({
       ssrPolyfills?.metricGroups,
       secondaryMetrics,
       guardrailMetrics,
-      metricGroupsFilter,
+      metricsFilter,
     ]);
 
   const allMetricTags = useMemo(() => {

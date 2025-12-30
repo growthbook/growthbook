@@ -49,7 +49,7 @@ const Results: FC<{
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   metricTagFilter?: string[];
-  metricGroupsFilter?: string[];
+  metricsFilter?: string[];
   sliceTagsFilter?: string[];
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
@@ -68,7 +68,7 @@ const Results: FC<{
   analysisBarSettings,
   setAnalysisBarSettings,
   metricTagFilter,
-  metricGroupsFilter,
+  metricsFilter,
   sliceTagsFilter,
   isTabActive = true,
   setTab,
@@ -402,7 +402,7 @@ const Results: FC<{
             })
           }
           metricTagFilter={metricTagFilter}
-          metricGroupsFilter={metricGroupsFilter}
+          metricsFilter={metricsFilter}
           sliceTagsFilter={sliceTagsFilter}
           experimentType={experiment.type}
           sortBy={sortBy}
@@ -468,7 +468,7 @@ const Results: FC<{
               })
             }
             metricTagFilter={metricTagFilter}
-            metricGroupsFilter={metricGroupsFilter}
+            metricsFilter={metricsFilter}
             sliceTagsFilter={sliceTagsFilter}
             isTabActive={isTabActive}
             setTab={setTab}

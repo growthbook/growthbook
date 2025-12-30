@@ -75,13 +75,7 @@ const BreakDownResults: FC<{
   showErrorsOnQuantileMetrics?: boolean;
   differenceType: DifferenceType;
   metricTagFilter?: string[];
-  setMetricTagFilter?: (tags: string[]) => void;
-  metricGroupsFilter?: string[];
-  setMetricGroupsFilter?: (groups: string[]) => void;
-  availableMetricGroups?: Array<{ id: string; name: string }>;
-  availableSliceTags?: string[];
-  sliceTagsFilter?: string[];
-  setSliceTagsFilter?: (tags: string[]) => void;
+  metricsFilter?: string[];
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
@@ -136,13 +130,7 @@ const BreakDownResults: FC<{
   showErrorsOnQuantileMetrics,
   differenceType,
   metricTagFilter,
-  setMetricTagFilter: _setMetricTagFilter,
-  metricGroupsFilter,
-  setMetricGroupsFilter: _setMetricGroupsFilter,
-  availableMetricGroups: _availableMetricGroups,
-  availableSliceTags: _availableSliceTags = [],
-  sliceTagsFilter: _sliceTagsFilter,
-  setSliceTagsFilter: _setSliceTagsFilter,
+  metricsFilter,
   experimentType,
   ssrPolyfills,
   hideDetails,
@@ -181,7 +169,7 @@ const BreakDownResults: FC<{
     metricOverrides,
     ssrPolyfills,
     metricTagFilter,
-    metricGroupsFilter,
+    metricsFilter,
     sortBy,
     sortDirection,
     customMetricOrder,
