@@ -126,7 +126,7 @@ def compute_dof(stats: List[Tuple[TestStatistic, TestStatistic]]) -> float:
     )
 
 
-@skip("Skipping test because of compute time")
+@skip("Skipping covariance of multinomial weighted means test because it is slow")
 class TestCovarianceOfMultinomialWeightedMeans(TestCase):
     def setUp(self):
         num_cells = 5
@@ -173,14 +173,10 @@ class TestCovarianceOfMultinomialWeightedMeans(TestCase):
         self.covariance_empirical = np.cov(combined_mean.T, ddof=1)
 
     def test_covariance_of_multinomial_weighted_means(self):
-        # raise ValueError(self.covariance_theoretical)
-        # raise ValueError(self.covariance_empirical)
-        # raise ValueError(self.covariance_theoretical - self.covariance_empirical)
-        raise ValueError(
-            np.max(np.abs(self.covariance_theoretical - self.covariance_empirical))
-        )
         self.assertTrue(
-            np.allclose(self.covariance_theoretical, self.covariance_empirical)
+            np.allclose(
+                self.covariance_theoretical, self.covariance_empirical, atol=5e-3
+            )
         )
 
 

@@ -119,16 +119,6 @@ def multinomial_covariance(nu: np.ndarray) -> np.ndarray:
     return np.diag(nu) - np.outer(nu, nu)
 
 
-def multinomial_third_sample_moment(n, nu):
-    """
-    Given n multinomial samples with proportion nu,
-    calculates E(X**3 / n**3).
-    """
-    num = (n - 1) * (n - 2) * nu**3 + 3 * (n - 1) * nu**2 + nu
-    den = n**2
-    return num / den
-
-
 @dataclass
 class MatrixInversionResult:
     """

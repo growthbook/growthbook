@@ -6,75 +6,10 @@ import numpy as np
 from scipy.stats import norm
 import copy
 
-from gbstats.utils import multinomial_covariance, multinomial_third_sample_moment
+from gbstats.utils import multinomial_covariance
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
-
-
-def multinomial_third_noncentral_moments(
-    nu: np.ndarray, index_0: int, index_1: int, index_2: int, n_total: int
-) -> float:
-    """
-    Third moments from multinomial distribution, e.g., E(x[index_0] * x[index_1] * x[index_2])
-    from Quiment 2020 https://arxiv.org/pdf/2006.09059 Equation 3.3
-
-    Args:
-        nu: Array of probabilities that sum to 1
-        index_0, index_1, index_2: Indices for the third moment calculation
-        n_total: Total number of trials
-
-    Returns:
-        The third moment value
-    """
-    coef = n_total * (n_total - 1) * (n_total - 2)
-    coef_one_diff = n_total * (n_total - 1)
-
-    constant = coef * nu[index_0] * nu[index_1] * nu[index_2]
-
-    if index_0 == index_1 and index_0 == index_2:
-        return (
-            constant
-            + 3 * n_total * (n_total - 1) * nu[index_0] ** 2
-            + n_total * nu[index_0]
-        )
-    elif index_0 == index_1 and index_0 != index_2:
-        # case where i == j, but i != l
-        return constant + coef_one_diff * nu[index_0] * nu[index_2]
-    elif index_1 == index_2 and index_0 != index_2:
-        # case where j == l, but i != j
-        return constant + coef_one_diff * nu[index_0] * nu[index_1]
-    elif index_0 == index_2 and index_0 != index_1:
-        return constant + coef_one_diff * nu[index_1] * nu[index_2]
-    else:
-        return constant
-
-
-def third_moments_matrix_slow(n: int, nu: np.ndarray) -> np.ndarray:
-    """
-    Calculate and normalize theoretical third moments matrix for a multinomial distribution.
-
-    Args:
-        n: Array of counts
-
-    Returns:
-        Normalized matrix of third moments
-    """
-    num_cells = len(nu)
-    # Initialize matrix for theoretical moments
-    moments_theoretical_y = np.empty((num_cells, num_cells))
-
-    # Calculate third moments for each cell combination
-    for i in range(num_cells):
-        for j in range(num_cells):
-            moments_theoretical_y[i, j] = multinomial_third_noncentral_moments(
-                nu, i, j, j, n
-            )
-
-    # Normalize by n_total^3
-    nu_mat = moments_theoretical_y / (n**3)
-
-    return nu_mat
 
 
 class TestMultinomial(TestCase):
