@@ -22,6 +22,7 @@ import {
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
 import {
+  PiCaretDown,
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiPushPinFill,
@@ -781,31 +782,37 @@ export function getRenderLabelColumn({
                 className={!row?.labelOnly ? "link-purple" : "text-muted"}
                 role="button"
                 onClick={
-                  row?.labelOnly
+                  row?.labelOnly || sliceTagsFilter?.includes("overall")
                     ? undefined
                     : () => toggleExpandedMetric(metric.id, location || "goal")
                 }
                 style={{
                   textDecoration: "none",
-                  cursor: row?.labelOnly ? "default" : "pointer",
+                  cursor:
+                    row?.labelOnly || sliceTagsFilter?.includes("overall")
+                      ? "default"
+                      : "pointer",
                 }}
               >
                 <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
-                  <Tooltip
-                    body={
-                      isExpanded
-                        ? "Collapse metric slices"
-                        : "Expand metric slices"
-                    }
-                    tipPosition="top"
-                    shouldDisplay={!row?.labelOnly}
-                  >
-                    {isExpanded || row?.labelOnly ? (
-                      <PiCaretCircleDown size={16} />
-                    ) : (
-                      <PiCaretCircleRight size={16} />
-                    )}
-                  </Tooltip>
+                  {row?.labelOnly || sliceTagsFilter?.includes("overall") ? (
+                    <PiCaretDown size={16} />
+                  ) : (
+                    <Tooltip
+                      body={
+                        isExpanded
+                          ? "Collapse metric slices"
+                          : "Expand metric slices"
+                      }
+                      tipPosition="top"
+                    >
+                      {isExpanded ? (
+                        <PiCaretCircleDown size={16} />
+                      ) : (
+                        <PiCaretCircleRight size={16} />
+                      )}
+                    </Tooltip>
+                  )}
                 </div>
                 <span
                   style={{
