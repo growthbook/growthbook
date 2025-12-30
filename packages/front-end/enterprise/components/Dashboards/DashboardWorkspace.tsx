@@ -85,6 +85,16 @@ export default function DashboardWorkspace({
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
+
+  // Manage dashboard state locally for edit mode
+  const [localDashboard, setLocalDashboard] =
+    useState<DashboardInterface>(dashboard);
+
+  // Update local dashboard when prop changes
+  useEffect(() => {
+    setLocalDashboard(dashboard);
+  }, [dashboard]);
+
   const submit: SubmitDashboard<UpdateDashboardArgs> = useMemo(
     () => async (args) => {
       setSaving(true);
@@ -92,7 +102,15 @@ export default function DashboardWorkspace({
       try {
         await submitDashboard({
           ...args,
-          data: { ...dashboard, ...args.data },
+          data: {
+            ...localDashboard,
+            ...args.data,
+            // Include seriesDisplaySettings from local dashboard if not explicitly overridden
+            ...(!("seriesDisplaySettings" in args.data) &&
+            Object.keys(localDashboard.seriesDisplaySettings ?? {}).length > 0
+              ? { seriesDisplaySettings: localDashboard.seriesDisplaySettings }
+              : {}),
+          },
         });
       } catch (e) {
         setSaveError(e.message);
@@ -100,7 +118,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard],
+    [submitDashboard, localDashboard],
   );
 
   const [blocks, setBlocks] = useState<
@@ -239,7 +257,13 @@ export default function DashboardWorkspace({
             await submitDashboard({
               method: "PUT",
               dashboardId: dashboard.id,
-              data,
+              data: {
+                ...data,
+                ...(Object.keys(localDashboard.seriesDisplaySettings ?? {})
+                  .length > 0 && {
+                  seriesDisplaySettings: localDashboard.seriesDisplaySettings,
+                }),
+              },
             });
             close();
           }}
@@ -307,6 +331,7 @@ export default function DashboardWorkspace({
                         "title",
                         "editLevel",
                         "enableAutoUpdates",
+                        "seriesDisplaySettings",
                       ]),
                     });
                     close();

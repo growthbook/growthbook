@@ -18,6 +18,7 @@ import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/ui/PremiumCallout";
+import DashboardSeriesDisplayProvider from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 
 function SingleDashboardPage() {
   const router = useRouter();
@@ -25,12 +26,25 @@ function SingleDashboardPage() {
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
   }>(`/dashboards/${did}`);
-  const dashboard = data?.dashboard;
+  const dashboardFromApi = data?.dashboard;
   const [isEditing, setIsEditing] = useState(false);
   const { hasCommercialFeature, userId } = useUser();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
+
+  // Manage dashboard state locally for view mode
+  const [localDashboard, setLocalDashboard] = useState<
+    DashboardInterface | undefined
+  >(dashboardFromApi);
+
+  // Update local dashboard when API data changes
+  useEffect(() => {
+    setLocalDashboard(dashboardFromApi);
+  }, [dashboardFromApi]);
+
+  // Use the local dashboard for rendering, fallback to dashboardFromApi to avoid race condition
+  const dashboard = localDashboard || dashboardFromApi;
 
   const canUpdateDashboards = permissionsUtil.canCreateAnalyses(
     dashboard?.projects,
@@ -66,6 +80,7 @@ function SingleDashboardPage() {
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
         userId?: string;
+        seriesDisplaySettings?: DashboardInterface["seriesDisplaySettings"];
       };
     }) => {
       const res = (await apiCall(
@@ -80,6 +95,7 @@ function SingleDashboardPage() {
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
+                  seriesDisplaySettings: data.seriesDisplaySettings,
                 }
               : data,
           ),
@@ -159,40 +175,45 @@ function SingleDashboardPage() {
         dashboard={dashboard}
         mutateDefinitions={mutate}
       >
-        {isEditing && dashboard ? (
-          <DashboardWorkspace
-            experiment={null}
-            dashboard={dashboard}
-            submitDashboard={({ method, dashboardId, data }) =>
-              submitDashboard({ method, dashboardId, data })
-            }
-            mutate={mutate}
-            close={() => setIsEditing(false)}
-            isTabActive={true}
-          />
-        ) : (
-          <DashboardEditor
-            isTabActive
-            id={dashboard.id}
-            initialEditLevel={dashboard.editLevel}
-            ownerId={dashboard.userId}
-            initialShareLevel={dashboard.shareLevel}
-            dashboardOwnerId={dashboard.userId}
-            isGeneralDashboard={true}
-            isIncrementalRefreshExperiment={false}
-            isEditing={false}
-            title={dashboard.title}
-            blocks={dashboard.blocks}
-            enableAutoUpdates={dashboard.enableAutoUpdates}
-            setBlock={canEdit ? memoizedSetBlock : undefined}
-            projects={dashboard.projects ? dashboard.projects : []}
-            mutate={mutate}
-            updateSchedule={dashboard.updateSchedule || undefined}
-            nextUpdate={dashboard.nextUpdate}
-            dashboardLastUpdated={dashboard.lastUpdated}
-            setIsEditing={setIsEditing}
-          />
-        )}
+        <DashboardSeriesDisplayProvider
+          dashboard={dashboard}
+          setDashboard={setLocalDashboard}
+        >
+          {isEditing && dashboard ? (
+            <DashboardWorkspace
+              experiment={null}
+              dashboard={dashboard}
+              submitDashboard={({ method, dashboardId, data }) =>
+                submitDashboard({ method, dashboardId, data })
+              }
+              mutate={mutate}
+              close={() => setIsEditing(false)}
+              isTabActive={true}
+            />
+          ) : (
+            <DashboardEditor
+              isTabActive
+              id={dashboard.id}
+              initialEditLevel={dashboard.editLevel}
+              ownerId={dashboard.userId}
+              initialShareLevel={dashboard.shareLevel}
+              dashboardOwnerId={dashboard.userId}
+              isGeneralDashboard={true}
+              isIncrementalRefreshExperiment={false}
+              isEditing={false}
+              title={dashboard.title}
+              blocks={dashboard.blocks}
+              enableAutoUpdates={dashboard.enableAutoUpdates}
+              setBlock={canEdit ? memoizedSetBlock : undefined}
+              projects={dashboard.projects ? dashboard.projects : []}
+              mutate={mutate}
+              updateSchedule={dashboard.updateSchedule || undefined}
+              nextUpdate={dashboard.nextUpdate}
+              dashboardLastUpdated={dashboard.lastUpdated}
+              setIsEditing={setIsEditing}
+            />
+          )}
+        </DashboardSeriesDisplayProvider>
       </DashboardSnapshotProvider>
     </div>
   );
