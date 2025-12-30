@@ -142,14 +142,14 @@ export function maxColumnsNeededForMetric({
 export function chunkMetrics({
   metrics,
   maxColumnsPerQuery,
-  bandit,
+  isBandit,
 }: {
   metrics: {
     metric: FactMetricInterface;
     regressionAdjusted: boolean;
   }[];
   maxColumnsPerQuery: number;
-  bandit: boolean;
+  isBandit: boolean;
 }): FactMetricInterface[][] {
   // up to 100 dimensions (overkill, but also adds in buffer)
   // + 1 for variation + 2 for users and count
@@ -163,7 +163,7 @@ export function chunkMetrics({
     const colsNeeded = maxColumnsNeededForMetric({
       metric: m,
       regressionAdjusted,
-      bandit,
+      isBandit,
     });
     const updatedCols = runningCols + colsNeeded;
     if (
@@ -286,14 +286,17 @@ export function getFactMetricGroups(
         };
       }),
       maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
-      bandit: !!settings.banditSettings,
+      isBandit: !!settings.banditSettings,
     });
     groupArrays.push(...chunks);
   });
 
   // Add unused fact metrics as singles to the group array
+  const groupedMetricIds = new Set(
+    groupArrays.flatMap((group) => group.map((g) => g.id)),
+  );
   factMetrics.forEach((m) => {
-    if (!groupArrays.some((group) => group.some((g) => g.id === m.id))) {
+    if (!groupedMetricIds.has(m.id)) {
       groupArrays.push([m]);
     }
   });

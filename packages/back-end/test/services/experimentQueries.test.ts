@@ -96,7 +96,7 @@ describe("experimentQueries", () => {
         const chunks = chunkMetrics({
           metrics: wrapMetrics(metrics, false),
           maxColumnsPerQuery,
-          bandit: false,
+          isBandit: false,
         });
 
         // Calculate expected metrics per chunk
@@ -155,7 +155,7 @@ describe("experimentQueries", () => {
         const chunks = chunkMetrics({
           metrics: wrapMetrics(metrics, false),
           maxColumnsPerQuery,
-          bandit: false,
+          isBandit: false,
         });
 
         // Verify chunks are created
@@ -221,7 +221,7 @@ describe("experimentQueries", () => {
         const chunks = chunkMetrics({
           metrics: wrapMetrics(metrics, true),
           maxColumnsPerQuery,
-          bandit: false,
+          isBandit: false,
         });
 
         // Mean with CUPED = 6 cols, Ratio with CUPED = 15 cols
@@ -244,7 +244,7 @@ describe("experimentQueries", () => {
         const chunks = chunkMetrics({
           metrics: [],
           maxColumnsPerQuery: 1000,
-          bandit: false,
+          isBandit: false,
         });
         expect(chunks).toEqual([]);
       });
@@ -260,7 +260,7 @@ describe("experimentQueries", () => {
         const chunks = chunkMetrics({
           metrics: wrapMetrics(metrics, false),
           maxColumnsPerQuery: 1000,
-          bandit: false,
+          isBandit: false,
         });
         expect(chunks.length).toBe(1);
         expect(chunks[0].length).toBe(1);
@@ -291,7 +291,7 @@ describe("experimentQueries", () => {
         const chunks = chunkMetrics({
           metrics: wrapMetrics(metrics, false),
           maxColumnsPerQuery,
-          bandit: false,
+          isBandit: false,
         });
 
         // Each metric should be in its own chunk

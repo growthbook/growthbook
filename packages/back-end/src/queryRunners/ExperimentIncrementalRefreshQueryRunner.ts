@@ -168,7 +168,7 @@ export function getIncrementalRefreshMetricSources({
         };
       }),
       maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
-      bandit: !!snapshotSettings.banditSettings,
+      isBandit: !!snapshotSettings.banditSettings,
     });
     chunks.forEach((chunk, i) => {
       const randomId = Math.random().toString(36).substring(2, 15);
