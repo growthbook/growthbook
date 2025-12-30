@@ -60,7 +60,10 @@ export interface Props {
   setMetricTagFilter?: (tags: string[]) => void;
   metricsFilter?: string[];
   setMetricsFilter?: (filters: string[]) => void;
-  availableMetricsFilters?: { groups: Array<{ id: string; name: string }>; metrics: Array<{ id: string; name: string }> };
+  availableMetricsFilters?: {
+    groups: Array<{ id: string; name: string }>;
+    metrics: Array<{ id: string; name: string }>;
+  };
   availableMetricTags?: string[];
   availableSliceTags?: Array<{
     id: string;
@@ -125,7 +128,6 @@ export default function AnalysisSettingsSummary({
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
-  const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
 
   const {
     snapshot,
