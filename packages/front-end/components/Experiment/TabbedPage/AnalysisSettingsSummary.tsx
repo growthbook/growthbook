@@ -310,6 +310,8 @@ export default function AnalysisSettingsSummary({
       ? metricGroups.filter((g) => metricGroupsFilter!.includes(g.id))
       : metricGroups;
 
+    // Create a set of allowed metric IDs from expanded groups
+    // Note: filtering by individual metric IDs is not supported for standard results
     const allowedMetricIds = hasGroupFilter
       ? new Set(groupsToUse.flatMap((g) => g.metrics))
       : null;

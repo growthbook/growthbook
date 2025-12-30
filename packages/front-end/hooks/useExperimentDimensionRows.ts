@@ -11,6 +11,7 @@ import {
   quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  isMetricGroupId,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -94,30 +95,36 @@ export function useExperimentDimensionRows({
       let filteredGuardrailMetrics = guardrailMetrics;
 
       if (metricGroupsFilter && metricGroupsFilter.length > 0) {
-        // Create a set of all metric IDs that belong to the selected groups
+        // Create a set of allowed metric IDs from expanded groups and individual metrics
         const allowedMetricIds = new Set<string>();
-        metricGroupsFilter.forEach((groupId) => {
-          const group = allMetricGroups.find((g) => g.id === groupId);
-          if (group) {
-            group.metrics.forEach((metricId) => allowedMetricIds.add(metricId));
+        metricGroupsFilter.forEach((id) => {
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              group.metrics.forEach((metricId) =>
+                allowedMetricIds.add(metricId),
+              );
+            }
+          } else {
+            allowedMetricIds.add(id);
           }
         });
 
-        // Filter metrics: only include group IDs that are selected, or individual metrics that are in selected groups
+        // Filter metrics by group or allowed metric IDs
         filteredGoalMetrics = goalMetrics.filter((id) => {
-          if (metricGroupsFilter.includes(id)) return true; // Selected group
-          if (!allowedMetricIds.has(id)) return false; // Not in any selected group
-          return true; // Individual metric in a selected group
+          if (metricGroupsFilter.includes(id)) return true;
+          if (allowedMetricIds.has(id)) return true;
+          return false;
         });
         filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
           if (metricGroupsFilter.includes(id)) return true;
-          if (!allowedMetricIds.has(id)) return false;
-          return true;
+          if (allowedMetricIds.has(id)) return true;
+          return false;
         });
         filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
           if (metricGroupsFilter.includes(id)) return true;
-          if (!allowedMetricIds.has(id)) return false;
-          return true;
+          if (allowedMetricIds.has(id)) return true;
+          return false;
         });
       }
 
