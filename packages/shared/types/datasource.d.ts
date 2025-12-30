@@ -139,6 +139,7 @@ export interface DataSourceProperties {
   hasEfficientPercentiles?: boolean;
   hasCountDistinctHLL?: boolean;
   hasIncrementalRefresh?: boolean;
+  maxColumns: number;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {

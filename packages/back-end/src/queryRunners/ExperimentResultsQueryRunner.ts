@@ -3,14 +3,10 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
-  isFactMetric,
-  isLegacyMetric,
-  isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import chunk from "lodash/chunk";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -38,8 +34,6 @@ import {
   QueryPointer,
   QueryStatus,
 } from "shared/types/query";
-import { OrganizationInterface } from "shared/types/organization";
-import { FactMetricInterface } from "shared/types/fact-table";
 import { BanditResult } from "shared/types/experiment";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
@@ -48,6 +42,7 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -65,7 +60,6 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -87,112 +81,6 @@ export type ExperimentResultsQueryParams = {
 export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
-
-export const MAX_METRICS_PER_QUERY = 20;
-
-export function getFactMetricGroup(metric: FactMetricInterface) {
-  // Ratio metrics must have the same numerator and denominator fact table to be grouped
-  if (isRatioMetric(metric)) {
-    if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      // TODO: smarter logic to make fewer groupings work
-      const tableIds = [
-        metric.numerator.factTableId,
-        metric.denominator?.factTableId,
-      ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
-      return tableIds.length >= 2
-        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)`
-        : metric.id;
-    }
-  }
-
-  // Quantile metrics get their own group to prevent slowing down the main query
-  // and because they do not support re-aggregation across pre-computed dimensions
-  if (quantileMetricType(metric)) {
-    return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId}_qtile`
-      : "";
-  }
-  return metric.numerator.factTableId || "";
-}
-
-export interface GroupedMetrics {
-  // Fact metrics grouped together or alone
-  factMetricGroups: FactMetricInterface[][];
-  // Legacy metrics always as singletons
-  legacyMetricSingles: MetricInterface[];
-}
-
-export function getFactMetricGroups(
-  metrics: ExperimentMetricInterface[],
-  settings: ExperimentSnapshotSettings,
-  integration: SourceIntegrationInterface,
-  organization: OrganizationInterface,
-): GroupedMetrics {
-  const legacyMetrics: MetricInterface[] = metrics.filter((m) =>
-    isLegacyMetric(m),
-  );
-  const factMetrics: FactMetricInterface[] = metrics.filter(isFactMetric);
-
-  const defaultReturn: GroupedMetrics = {
-    // by default, put all fact metrics in their own group
-    factMetricGroups: factMetrics.map((m) => [m]),
-    legacyMetricSingles: legacyMetrics,
-  };
-
-  // Combining metrics in a single query is an Enterprise-only feature
-  if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
-    return defaultReturn;
-  }
-
-  // Metrics might have different conversion windows which makes the query complicated
-  // TODO(sql): join together metrics with the same date windows for some added efficiency
-  if (settings.skipPartialData) {
-    return defaultReturn;
-  }
-
-  // Org-level setting (in case the multi-metric query introduces bugs)
-  // TODO(sql): deprecate this setting and hide it for orgs that have not set it
-  if (organization.settings?.disableMultiMetricQueries) {
-    return defaultReturn;
-  }
-
-  // Group fact metrics into efficient groups (primarily if they share a fact table)
-  const groups: Record<string, FactMetricInterface[]> = {};
-  factMetrics.forEach((m) => {
-    // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
-    if (
-      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
-      !integration.getSourceProperties().hasEfficientPercentiles
-    ) {
-      return;
-    }
-
-    const group = getFactMetricGroup(m);
-    if (group) {
-      groups[group] = groups[group] || [];
-      groups[group].push(m);
-    }
-  });
-
-  const groupArrays: FactMetricInterface[][] = [];
-  Object.values(groups).forEach((group) => {
-    // Split groups into chunks of MAX_METRICS_PER_QUERY
-    const chunks = chunk(group, MAX_METRICS_PER_QUERY);
-    groupArrays.push(...chunks);
-  });
-
-  // Add unused fact metrics as singles to the group array
-  factMetrics.forEach((m) => {
-    if (!groupArrays.some((group) => group.includes(m))) {
-      groupArrays.push([m]);
-    }
-  });
-
-  return {
-    factMetricGroups: groupArrays,
-    legacyMetricSingles: legacyMetrics,
-  };
-}
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,

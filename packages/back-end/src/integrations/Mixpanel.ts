@@ -580,6 +580,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       dimensions: true,
       hasSettings: true,
       events: true,
+      maxColumns: 200,
     };
   }
 

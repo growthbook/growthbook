@@ -457,6 +457,15 @@ export function isRegressionAdjusted(
   );
 }
 
+export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "percentile" &&
+    !!metric.cappingSettings.value &&
+    metric.cappingSettings.value < 1 &&
+    isCappableMetricType(metric)
+  );
+}
+
 export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {

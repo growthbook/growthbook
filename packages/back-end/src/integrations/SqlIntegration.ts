@@ -20,6 +20,7 @@ import {
   getColumnExpression,
   isCappableMetricType,
   getFactTableTemplateVariables,
+  isPercentileCappedMetric,
   parseSliceMetricId,
 } from "shared/experiments";
 import {
@@ -160,15 +161,15 @@ import {
   INCREMENTAL_METRICS_TABLE_PREFIX,
   INCREMENTAL_UNITS_TABLE_PREFIX,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import {
+  ALL_NON_QUANTILE_METRIC_FLOAT_COLS,
+  MAX_METRICS_PER_QUERY,
+  N_STAR_VALUES,
+} from "back-end/src/services/experimentQueries/constants";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 export const TEST_QUERY_SQL = "SELECT 1";
-
-const N_STAR_VALUES = [
-  100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200, 102400, 204800,
-  409600, 819200, 1638400, 3276800, 6553600, 13107200, 26214400, 52428800,
-];
 
 const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
   segment: true,
@@ -254,6 +255,7 @@ export default abstract class SqlIntegration
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       hasCountDistinctHLL: this.hasCountDistinctHLL(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
+      maxColumns: 1000,
     };
   }
 
@@ -1263,6 +1265,8 @@ export default abstract class SqlIntegration
       [key: string]: number;
     } = {};
     if (row[`${prefix}quantile`] !== undefined) {
+      quantileData[`${prefix}quantile`] =
+        parseFloat(row[`${prefix}quantile`]) || 0;
       quantileData[`${prefix}quantile_n`] =
         parseFloat(row[`${prefix}quantile_n`]) || 0;
 
@@ -1304,38 +1308,17 @@ export default abstract class SqlIntegration
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows: Record<string, any>[],
   ): ExperimentFactMetricsQueryResponseRows {
-    const floatCols = [
-      "main_sum",
-      "main_sum_squares",
-      "main_cap_value",
-      "denominator_sum",
-      "denominator_sum_squares",
-      "main_denominator_sum_product",
-      "denominator_cap_value",
-      "covariate_sum",
-      "covariate_sum_squares",
-      "denominator_pre_sum",
-      "denominator_pre_sum_squares",
-      "main_covariate_sum_product",
-      "quantile",
-      "theta",
-      "main_post_denominator_pre_sum_product",
-      "main_pre_denominator_post_sum_product",
-      "main_pre_denominator_pre_sum_product",
-      "denominator_post_denominator_pre_sum_product",
-    ];
-
     return rows.map((row) => {
       let metricData: {
         [key: string]: number | string;
       } = {};
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
         const prefix = `m${i}_`;
         // Reached the end
         if (!row[prefix + "id"]) break;
 
         metricData[prefix + "id"] = row[prefix + "id"];
-        floatCols.forEach((col) => {
+        ALL_NON_QUANTILE_METRIC_FLOAT_COLS.forEach((col) => {
           if (row[prefix + col] !== undefined) {
             metricData[prefix + col] = parseFloat(row[prefix + col]) || 0;
           }
@@ -2732,11 +2715,7 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // Get capping settings and final coalesce statement
-    const isPercentileCapped =
-      metric.cappingSettings.type === "percentile" &&
-      !!metric.cappingSettings.value &&
-      metric.cappingSettings.value < 1 &&
-      isCappableMetricType(metric);
+    const isPercentileCapped = isPercentileCappedMetric(metric);
 
     const numeratorSourceIndex =
       factTablesWithIndices.find(
@@ -3736,7 +3715,10 @@ export default abstract class SqlIntegration
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
 
-    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
+    const denominator =
+      denominatorMetrics.length > 0
+        ? denominatorMetrics[denominatorMetrics.length - 1]
+        : undefined;
     // If the denominator is a binomial, it's just acting as a filter
     // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
     // When the denominator is a count, it's a real ratio, dividing two quantities
@@ -3764,18 +3746,11 @@ export default abstract class SqlIntegration
       settings.attributionModel === "experimentDuration";
 
     // Get capping settings and final coalesce statement
-    const isPercentileCapped =
-      metric.cappingSettings.type === "percentile" &&
-      !!metric.cappingSettings.value &&
-      metric.cappingSettings.value < 1 &&
-      isCappableMetricType(metric);
+    const isPercentileCapped = isPercentileCappedMetric(metric);
 
-    const denominatorIsPercentileCapped =
-      denominator &&
-      denominator.cappingSettings.type === "percentile" &&
-      !!denominator.cappingSettings.value &&
-      denominator.cappingSettings.value < 1 &&
-      isCappableMetricType(denominator);
+    const denominatorIsPercentileCapped = denominator
+      ? isPercentileCappedMetric(denominator)
+      : false;
 
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",
@@ -3783,12 +3758,14 @@ export default abstract class SqlIntegration
       capTablePrefix: "cap",
       columnRef: null,
     });
-    const capCoalesceDenominator = this.capCoalesceValue({
-      valueCol: "d.value",
-      metric: denominator,
-      capTablePrefix: "capd",
-      columnRef: null,
-    });
+    const capCoalesceDenominator = denominator
+      ? this.capCoalesceValue({
+          valueCol: "d.value",
+          metric: denominator,
+          capTablePrefix: "capd",
+          columnRef: null,
+        })
+      : "";
     const capCoalesceCovariate = this.capCoalesceValue({
       valueCol: "c.value",
       metric: metric,
@@ -4023,7 +4000,7 @@ export default abstract class SqlIntegration
           : ""
       }
       ${
-        ratioMetric
+        denominator && ratioMetric
           ? `, __userDenominatorAgg AS (
               SELECT
                 d.variation AS variation
@@ -4059,7 +4036,7 @@ export default abstract class SqlIntegration
                 , d.${baseIdType}
             )
             ${
-              denominatorIsPercentileCapped
+              denominator && denominatorIsPercentileCapped
                 ? `
               , __capValueDenominator AS (
                 ${this.percentileCapSelectClause(

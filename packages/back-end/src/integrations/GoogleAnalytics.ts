@@ -374,6 +374,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getSourceProperties(): DataSourceProperties {
     return {
       queryLanguage: "json",
+      maxColumns: 200,
     };
   }
 
