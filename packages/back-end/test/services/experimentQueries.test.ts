@@ -21,7 +21,7 @@ describe("experimentQueries", () => {
           maxColumnsNeededForMetric({
             metric,
             regressionAdjusted: false,
-            bandit: false,
+            isBandit: false,
           }),
         ).toBe(baseExpectedCols);
 
@@ -29,7 +29,7 @@ describe("experimentQueries", () => {
           maxColumnsNeededForMetric({
             metric,
             regressionAdjusted: true,
-            bandit: false,
+            isBandit: false,
           }),
         ).toBe(baseExpectedCols + 3);
 
@@ -37,7 +37,7 @@ describe("experimentQueries", () => {
           maxColumnsNeededForMetric({
             metric,
             regressionAdjusted: true,
-            bandit: true,
+            isBandit: true,
           }),
         ).toBe(baseExpectedCols + 4);
       });
@@ -53,7 +53,7 @@ describe("experimentQueries", () => {
           maxColumnsNeededForMetric({
             metric,
             regressionAdjusted: false,
-            bandit: false,
+            isBandit: false,
           }),
         ).toBe(4);
       });
@@ -79,7 +79,7 @@ describe("experimentQueries", () => {
             numerator: { factTableId: "ft_1" },
           }),
           regressionAdjusted: false,
-          bandit: false,
+          isBandit: false,
         });
 
         // Create 100 quantile metrics
@@ -171,7 +171,7 @@ describe("experimentQueries", () => {
                 maxColumnsNeededForMetric({
                   metric: m,
                   regressionAdjusted: false,
-                  bandit: false,
+                  isBandit: false,
                 }),
               0,
             );
@@ -273,7 +273,7 @@ describe("experimentQueries", () => {
             numerator: { factTableId: "ft_1" },
           }),
           regressionAdjusted: false,
-          bandit: false,
+          isBandit: false,
         });
         // Set max columns so only 1 quantile metric fits per chunk
         const maxColumnsPerQuery = baseColumnsNeeded + quantileColsNeeded + 1;

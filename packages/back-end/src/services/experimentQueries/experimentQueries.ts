@@ -31,11 +31,11 @@ import {
 export function getNonQuantileFloatColumns({
   metric,
   regressionAdjusted,
-  bandit,
+  isBandit,
 }: {
   metric: FactMetricInterface;
   regressionAdjusted: boolean;
-  bandit: boolean;
+  isBandit: boolean;
 }): string[] {
   const baseCols = (() => {
     switch (metric.metricType) {
@@ -96,7 +96,7 @@ export function getNonQuantileFloatColumns({
 
   const cols = [...baseCols, ...cupedCols, ...percentileCappingCols];
 
-  if (bandit) {
+  if (isBandit) {
     cols.push(...BANDIT_CUPED_FLOAT_COLS);
   }
 
@@ -106,11 +106,11 @@ export function getNonQuantileFloatColumns({
 export function maxColumnsNeededForMetric({
   metric,
   regressionAdjusted,
-  bandit,
+  isBandit,
 }: {
   metric: FactMetricInterface;
   regressionAdjusted: boolean;
-  bandit: boolean;
+  isBandit: boolean;
 }) {
   // id column
   const boilerplateCols = 1;
@@ -118,7 +118,7 @@ export function maxColumnsNeededForMetric({
   const floatCols = getNonQuantileFloatColumns({
     metric,
     regressionAdjusted,
-    bandit,
+    isBandit,
   });
   switch (metric.metricType) {
     case "mean":
