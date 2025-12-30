@@ -85,6 +85,11 @@ COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 
+# Copy yarn compatibility shim for users with custom entry points
+COPY bin/yarn ./bin/yarn
+RUN chmod +x ./bin/yarn
+ENV PATH="/usr/local/src/app/bin:${PATH}"
+
 # wildcard used to act as 'copy if exists'
 COPY buildinfo* ./buildinfo
 

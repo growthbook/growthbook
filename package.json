@@ -32,9 +32,6 @@
     "generate-sdk-report": "pnpm --filter shared generate-sdk-report",
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "dependencies": {
     "dd-trace": "^5.46.0"
   },
