@@ -3758,12 +3758,14 @@ export default abstract class SqlIntegration
       capTablePrefix: "cap",
       columnRef: null,
     });
-    const capCoalesceDenominator = this.capCoalesceValue({
-      valueCol: "d.value",
-      metric: denominator,
-      capTablePrefix: "capd",
-      columnRef: null,
-    });
+    const capCoalesceDenominator = denominator
+      ? this.capCoalesceValue({
+          valueCol: "d.value",
+          metric: denominator,
+          capTablePrefix: "capd",
+          columnRef: null,
+        })
+      : "";
     const capCoalesceCovariate = this.capCoalesceValue({
       valueCol: "c.value",
       metric: metric,
@@ -3998,7 +4000,7 @@ export default abstract class SqlIntegration
           : ""
       }
       ${
-        ratioMetric
+        denominator && ratioMetric
           ? `, __userDenominatorAgg AS (
               SELECT
                 d.variation AS variation
@@ -4034,7 +4036,7 @@ export default abstract class SqlIntegration
                 , d.${baseIdType}
             )
             ${
-              denominatorIsPercentileCapped
+              denominator && denominatorIsPercentileCapped
                 ? `
               , __capValueDenominator AS (
                 ${this.percentileCapSelectClause(
