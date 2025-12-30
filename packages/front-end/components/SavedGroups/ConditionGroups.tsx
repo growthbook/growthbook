@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ago } from "shared/dates";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,

@@ -89,6 +89,9 @@ describe("environements API", () => {
         projects: {
           deleteById: deleteByIdMock,
         },
+        savedGroups: {
+          removeProject: jest.fn(),
+        },
       },
     });
 

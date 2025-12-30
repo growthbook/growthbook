@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { GroupMap, SavedGroupInterface } from "shared/types/groups";
+import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { FeatureDefinitionWithProject } from "shared/types/sdk";
 import { FeatureInterface, ScheduleRule } from "shared/types/feature";
 import {

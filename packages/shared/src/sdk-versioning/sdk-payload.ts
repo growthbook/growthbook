@@ -12,7 +12,7 @@ import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
-} from "shared/types/groups";
+} from "shared/types/saved-group";
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
