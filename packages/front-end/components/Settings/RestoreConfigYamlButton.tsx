@@ -272,8 +272,6 @@ export default function RestoreConfigYamlButton({
               if (!json || typeof json !== "object") {
                 throw new Error("Could not parsed yaml file into JSON object");
               }
-
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'object' is not assignable to par... Remove this comment to see the full error message
               setParsed(json);
               parseConfig(json);
             }}

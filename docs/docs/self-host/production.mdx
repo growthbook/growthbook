@@ -27,7 +27,7 @@ If you change the `ENCRYPTION_KEY`, you will need to migrate any existing data s
 
 ```bash
 # If you didn't have an ENCRYPTION_KEY before, leave OLD_KEY blank below
-docker compose run growthbook yarn migrate-encryption-key OLD_KEY
+docker compose run growthbook pnpm migrate-encryption-key OLD_KEY
 ```
 
 ### Data Sources
@@ -138,7 +138,7 @@ Hitting the GrowthBook instance directly from our SDKs can work fine at a small 
 
 The GrowthBook API is instrumented with OpenTelemetry to publish observability metrics, traces, and logs.
 
-To enable, you must change the Docker CMD from the default `yarn start` to `yarn start:with-tracing`.
+To enable, you must change the Docker CMD from the default `pnpm start` to `pnpm start:with-tracing`.
 
 The standard [OTEL\_\* Environment Variables](https://opentelemetry.io/docs/concepts/sdk-configuration/) are supported, such as `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT`.
 

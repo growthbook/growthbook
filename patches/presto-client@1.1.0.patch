@@ -1,7 +1,7 @@
-diff --git a/node_modules/presto-client/lib/presto-client/index.js b/node_modules/presto-client/lib/presto-client/index.js
-index f84c6cf..ab0d5cf 100644
---- a/node_modules/presto-client/lib/presto-client/index.js
-+++ b/node_modules/presto-client/lib/presto-client/index.js
+diff --git a/lib/presto-client/index.js b/lib/presto-client/index.js
+index f84c6cfc92c5ad826b3f096d3505cff31e30017d..ab0d5cf9bef1db1d50c72f9ae1038cb12a5b1f5e 100644
+--- a/lib/presto-client/index.js
++++ b/lib/presto-client/index.js
 @@ -102,12 +102,31 @@ Client.prototype.request = function(opts, callback) {
  
      opts.headers[client.headers.USER_AGENT] = this.userAgent;

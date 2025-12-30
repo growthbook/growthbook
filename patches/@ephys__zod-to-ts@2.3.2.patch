@@ -1,7 +1,7 @@
-diff --git a/node_modules/@ephys/zod-to-ts/dist/utils.js b/node_modules/@ephys/zod-to-ts/dist/utils.js
-index 06fc4a2..6d10224 100644
---- a/node_modules/@ephys/zod-to-ts/dist/utils.js
-+++ b/node_modules/@ephys/zod-to-ts/dist/utils.js
+diff --git a/dist/utils.js b/dist/utils.js
+index 06fc4a2cf44c7c0ecec69d5d5ed6aa952bb70495..6d102241f1e9d098f389b12d9cf23c5a8ba92c9f 100644
+--- a/dist/utils.js
++++ b/dist/utils.js
 @@ -97,7 +97,11 @@ export function addTsDocComment(node, text) {
      }
  }

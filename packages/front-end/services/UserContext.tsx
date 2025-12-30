@@ -30,7 +30,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import * as Sentry from "@sentry/nextjs";
+import {
+  setUser as sentrySetUser,
+  setTag as sentrySetTag,
+} from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
@@ -373,7 +376,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     // Error tracking only enabled on GrowthBook Cloud
     if (isSentryEnabled()) {
-      Sentry.setUser({ email: data.email, id: data.userId });
+      sentrySetUser({ email: data.email, id: data.userId });
     }
   }, [data?.email, data?.userId]);
 
@@ -381,7 +384,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     // Error tracking only enabled on GrowthBook Cloud
     const orgId = currentOrg?.organization?.id;
     if (isSentryEnabled() && orgId) {
-      Sentry.setTag("organization", orgId);
+      sentrySetTag("organization", orgId);
     }
   }, [currentOrg?.organization?.id]);
 

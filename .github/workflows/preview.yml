@@ -7,7 +7,7 @@ on:
     paths:
       - "packages/**"
       - "!**.md"
-      - "yarn.lock"
+      - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
     types: [opened, reopened, closed, synchronize, ready_for_review]
