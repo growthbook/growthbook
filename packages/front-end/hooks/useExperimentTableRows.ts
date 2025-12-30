@@ -461,14 +461,22 @@ export function generateRowsForMetric({
 
   numSlices = sliceData.length;
 
-  // If slice filter is active and metric has no slices, don't show parent row
-  if (sliceTagsFilter && sliceTagsFilter.length > 0 && numSlices === 0) {
+  // If slice filter is active and metric has no slices, don't show parent row (unless "overall" filter is set)
+  if (
+    sliceTagsFilter &&
+    sliceTagsFilter.length > 0 &&
+    numSlices === 0 &&
+    !sliceTagsFilter.includes("overall")
+  ) {
     return [];
   }
 
-  // When slice filters are active and metric has slices, make parent row label-only
+  // When slice filters are active and metric has slices, make parent row label-only (unless "overall" filter is set)
   const isLabelOnly =
-    sliceTagsFilter && sliceTagsFilter.length > 0 && numSlices > 0;
+    sliceTagsFilter &&
+    sliceTagsFilter.length > 0 &&
+    numSlices > 0 &&
+    !sliceTagsFilter.includes("overall");
 
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
@@ -628,7 +636,13 @@ export function generateRowsForMetric({
     });
 
     // If slice filter is active and no slices match, don't show parent row
-    if (sliceTagsFilter && sliceTagsFilter.length > 0 && !hasMatchingSlice) {
+    // Exception: if "overall" is in the filter, show the row anyway
+    if (
+      sliceTagsFilter &&
+      sliceTagsFilter.length > 0 &&
+      !hasMatchingSlice &&
+      !sliceTagsFilter.includes("overall")
+    ) {
       return [];
     }
   }

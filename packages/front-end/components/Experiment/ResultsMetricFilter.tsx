@@ -75,7 +75,7 @@ export default function ResultsMetricFilter({
   };
 
   const sliceOptions = useMemo(() => {
-    return availableSliceTags.map((tag) => {
+    const options = availableSliceTags.map((tag) => {
       // Handle "select all" format: dim:column (no equals sign)
       if (tag.isSelectAll || !tag.id.includes("=")) {
         // Extract column name from dim:column format
@@ -117,6 +117,27 @@ export default function ResultsMetricFilter({
         parsedChunks,
       };
     });
+
+    // Add "overall" option at the top if there are any slices available
+    if (availableSliceTags.length > 0) {
+      return [
+        {
+          value: "overall",
+          parsedChunks: [
+            {
+              column: "Overall",
+              value: null,
+              datatype: "string" as FactTableColumnType,
+              isSelectAll: false,
+              isOther: false,
+            },
+          ],
+        },
+        ...options,
+      ];
+    }
+
+    return options;
   }, [availableSliceTags]);
 
   const formatSliceOptionLabel = useCallback(
@@ -124,6 +145,14 @@ export default function ResultsMetricFilter({
       option: { value: string; parsedChunks: SliceChunk[] },
       meta: FormatOptionLabelMeta<SingleValue>,
     ) => {
+      if (option.value === "overall") {
+        return (
+          <>
+            Overall <span className="text-muted">(Totals)</span>
+          </>
+        );
+      }
+
       // Select all options always have exactly one chunk with isSelectAll=true
       if (option.parsedChunks[0]?.isSelectAll) {
         const chunk = option.parsedChunks[0];
