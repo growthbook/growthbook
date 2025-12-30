@@ -45,6 +45,7 @@ jobs:
           cd docs
           pnpm install
           pnpm gen
+          pnpm gen-sdk-resources
 
       - name: Deploy to Vercel
         if: ${{ github.repository == 'growthbook/growthbook' }}
