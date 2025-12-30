@@ -89,7 +89,7 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   "edge-fastly": "0.1.4",
   "edge-lambda": "0.0.5",
   "edge-other": "0.1.3",
-  rust: "0.0.3",
+  rust: "0.0.4",
   other: "0.0.0",
 };
 
