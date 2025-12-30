@@ -440,19 +440,19 @@ export default {
         experimentation: "All versions",
       },
       {
-        encryption: "≥ v0.0.2",
+        encryption: "≥ v0.0.1",
       },
       {
-        looseUnmarshalling: "≥ v0.0.2",
+        looseUnmarshalling: "≥ v0.0.1",
       },
       {
-        prerequisites: "≥ v0.0.2",
+        prerequisites: "≥ v0.0.1",
       },
       {
-        semverTargeting: "≥ v0.0.2",
+        semverTargeting: "≥ v0.0.1",
       },
       {
-        bucketingV2: "≥ v0.0.2",
+        bucketingV2: "≥ v0.0.1",
       },
     ],
   },
