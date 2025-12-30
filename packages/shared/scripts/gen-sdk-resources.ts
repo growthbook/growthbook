@@ -245,6 +245,15 @@ const baseSDKInfo = {
       {
         looseUnmarshalling: "≥ v0.0.1",
       },
+      {
+        prerequisites: "≥ v0.0.1",
+      },
+      {
+        semverTargeting: "≥ v0.0.1",
+      },
+      {
+        bucketingV2: "≥ v0.0.1",
+      },
     ],
   },
   java: {
