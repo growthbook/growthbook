@@ -293,7 +293,7 @@ export function getFactMetricGroups(
 
   // Add unused fact metrics as singles to the group array
   factMetrics.forEach((m) => {
-    if (!groupArrays.some((group) => group.includes(m))) {
+    if (!groupArrays.some((group) => group.some((g) => g.id === m.id))) {
       groupArrays.push([m]);
     }
   });

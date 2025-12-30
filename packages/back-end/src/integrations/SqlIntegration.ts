@@ -3715,7 +3715,10 @@ export default abstract class SqlIntegration
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
 
-    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
+    const denominator =
+      denominatorMetrics.length > 0
+        ? denominatorMetrics[denominatorMetrics.length - 1]
+        : undefined;
     // If the denominator is a binomial, it's just acting as a filter
     // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
     // When the denominator is a count, it's a real ratio, dividing two quantities
@@ -3745,7 +3748,9 @@ export default abstract class SqlIntegration
     // Get capping settings and final coalesce statement
     const isPercentileCapped = isPercentileCappedMetric(metric);
 
-    const denominatorIsPercentileCapped = isPercentileCappedMetric(denominator);
+    const denominatorIsPercentileCapped = denominator
+      ? isPercentileCappedMetric(denominator)
+      : false;
 
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",
