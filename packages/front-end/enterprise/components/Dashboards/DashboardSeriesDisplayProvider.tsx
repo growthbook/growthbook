@@ -1,16 +1,9 @@
-import React, {
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { DashboardInterface, DisplaySettings } from "shared/enterprise";
+import React, { ReactNode, useCallback, useContext, useMemo } from "react";
+import { DisplaySettings } from "shared/enterprise";
 import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 
 export const DashboardSeriesDisplayContext = React.createContext<{
-  settings: Map<string, DisplaySettings>;
+  settings: Record<string, DisplaySettings>;
   updateSeriesColor: (seriesKey: string, color: string) => void;
   updateSeriesDisplayName: (seriesKey: string, displayName: string) => void;
   updateSeriesHidden: (seriesKey: string, hidden: boolean) => void;
@@ -18,7 +11,7 @@ export const DashboardSeriesDisplayContext = React.createContext<{
   getSeriesDisplayName: (seriesKey: string) => string | undefined;
   getSeriesHidden: (seriesKey: string) => boolean | undefined;
 }>({
-  settings: new Map(),
+  settings: {},
   updateSeriesColor: () => {},
   updateSeriesDisplayName: () => {},
   updateSeriesHidden: () => {},
@@ -28,25 +21,23 @@ export const DashboardSeriesDisplayContext = React.createContext<{
 });
 
 export default function DashboardSeriesDisplayProvider({
-  dashboard,
+  seriesDisplaySettings,
+  setSeriesDisplaySettings,
   children,
 }: {
-  dashboard?: DashboardInterface;
+  seriesDisplaySettings?: Record<string, DisplaySettings>;
+  setSeriesDisplaySettings?: (
+    updater: (
+      prev: Record<string, DisplaySettings>,
+    ) => Record<string, DisplaySettings>,
+  ) => void;
   children: ReactNode;
 }) {
-  // Initialize settings from dashboard
-  const [localSettings, setLocalSettings] = useState<
-    Map<string, DisplaySettings>
-  >(() => dashboard?.seriesDisplaySettings ?? new Map());
-
-  console.log("localSettings", localSettings);
-
-  // Update local settings when dashboard changes
-  useEffect(() => {
-    if (dashboard?.seriesDisplaySettings) {
-      setLocalSettings(dashboard.seriesDisplaySettings);
-    }
-  }, [dashboard?.seriesDisplaySettings]);
+  // Ensure settings is always an object (handle undefined for existing dashboards)
+  const settings = useMemo(
+    () => seriesDisplaySettings ?? {},
+    [seriesDisplaySettings],
+  );
 
   const updateSeriesColor = (_seriesKey: string, _color: string) => {
     // TODO: Implement
@@ -65,8 +56,8 @@ export default function DashboardSeriesDisplayProvider({
 
   const getSeriesColor = useCallback(
     (seriesKey: string, index: number): string => {
-      // Check if seriesKey already has a color in localSettings
-      const existingSettings = localSettings.get(seriesKey);
+      // Check if seriesKey already has a color in dashboard settings
+      const existingSettings = settings[seriesKey];
       if (existingSettings?.color) {
         return existingSettings.color;
       }
@@ -75,19 +66,21 @@ export default function DashboardSeriesDisplayProvider({
       const colorIndex = index % CHART_COLOR_PALETTE.length;
       const selectedColor = CHART_COLOR_PALETTE[colorIndex];
 
-      // Add the new color to localSettings
-      setLocalSettings((prev) => {
-        const next = new Map(prev);
-        next.set(seriesKey, {
-          color: selectedColor,
-          ...existingSettings, // Preserve any existing displayName or hidden settings
+      // Update seriesDisplaySettings state directly (if setter is available)
+      if (setSeriesDisplaySettings) {
+        setSeriesDisplaySettings((prev) => {
+          const next = { ...(prev ?? {}) };
+          next[seriesKey] = {
+            ...existingSettings, // Preserve any existing displayName or hidden settings
+            color: selectedColor, // Override with new color
+          };
+          return next;
         });
-        return next;
-      });
+      }
 
       return selectedColor;
     },
-    [localSettings],
+    [settings, setSeriesDisplaySettings],
   );
 
   const getSeriesDisplayName = (_seriesKey: string): string | undefined => {
@@ -102,7 +95,7 @@ export default function DashboardSeriesDisplayProvider({
 
   const value = useMemo(
     () => ({
-      settings: localSettings,
+      settings,
       updateSeriesColor,
       updateSeriesDisplayName,
       updateSeriesHidden,
@@ -110,7 +103,7 @@ export default function DashboardSeriesDisplayProvider({
       getSeriesDisplayName,
       getSeriesHidden,
     }),
-    [localSettings, getSeriesColor],
+    [settings, getSeriesColor],
   );
 
   return (

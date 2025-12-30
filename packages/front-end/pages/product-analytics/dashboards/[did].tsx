@@ -162,7 +162,12 @@ function SingleDashboardPage() {
         dashboard={dashboard}
         mutateDefinitions={mutate}
       >
-        <DashboardSeriesDisplayProvider dashboard={dashboard}>
+        <DashboardSeriesDisplayProvider
+          seriesDisplaySettings={dashboard.seriesDisplaySettings ?? {}}
+          setSeriesDisplaySettings={() => {
+            // No-op for view mode - settings are read-only
+          }}
+        >
           {isEditing && dashboard ? (
             <DashboardWorkspace
               experiment={null}

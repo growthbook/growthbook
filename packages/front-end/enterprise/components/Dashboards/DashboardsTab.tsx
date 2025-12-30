@@ -32,6 +32,7 @@ import Callout from "@/ui/Callout";
 import { createTemporaryDashboard } from "@/pages/product-analytics/dashboards/new";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
+import DashboardSeriesDisplayProvider from "./DashboardSeriesDisplayProvider";
 import DashboardModal from "./DashboardModal";
 import DashboardWorkspace from "./DashboardWorkspace";
 import DashboardViewQueriesButton from "./DashboardEditor/DashboardViewQueriesButton";
@@ -48,6 +49,7 @@ export type CreateDashboardArgs = {
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects?: string[];
+    seriesDisplaySettings?: DashboardInterface["seriesDisplaySettings"];
   };
 };
 export type UpdateDashboardArgs = {
@@ -62,6 +64,7 @@ export type UpdateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     projects?: string[];
+    seriesDisplaySettings?: DashboardInterface["seriesDisplaySettings"];
   }>;
 };
 export type SubmitDashboard<
@@ -200,6 +203,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 userId: data.userId,
+                seriesDisplaySettings: data.seriesDisplaySettings,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -208,6 +212,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 experimentId: experiment.id,
+                seriesDisplaySettings: data.seriesDisplaySettings,
               },
         ),
       });
@@ -262,410 +267,420 @@ function DashboardsTab({
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      {canEdit && isEditing && dashboard ? (
-        <DashboardWorkspace
-          experiment={experiment}
-          dashboard={dashboard}
-          submitDashboard={submitDashboard}
-          mutate={mutateDashboards}
-          close={() => {
-            setIsEditing(false);
-            setDashboardFirstSave(false);
-            if (dashboardId === "new") {
-              setDashboardId(dashboard.id === "new" ? "" : dashboard.id);
-            }
-          }}
-          isTabActive={isTabActive}
-          dashboardFirstSave={dashboardFirstSave}
-        />
-      ) : (
-        <div>
-          {showUpgradeModal && (
-            <UpgradeModal
-              close={() => setShowUpgradeModal(false)}
-              source="experiment-dashboards-tab"
-              commercialFeature="dashboards"
-            />
-          )}
-          {showCreateModal && (
-            <DashboardModal
-              mode="create"
-              close={() => setShowCreateModal(false)}
-              submit={async (data) => {
-                await submitDashboard({ method: "POST", data });
-                setIsEditing(true);
-              }}
-            />
-          )}
-          {dashboard && showEditModal && (
-            <DashboardModal
-              mode="edit"
-              close={() => setShowEditModal(false)}
-              initial={{
-                editLevel: dashboard.editLevel,
-                shareLevel: dashboard.shareLevel || "published",
-                enableAutoUpdates: dashboard.enableAutoUpdates,
-                updateSchedule: dashboard.updateSchedule || undefined,
-                title: dashboard.title,
-                projects: dashboard.projects || [],
-                userId: dashboard.userId,
-              }}
-              submit={async (data) => {
-                await submitDashboard({
-                  method: "PUT",
-                  dashboardId: dashboard.id,
-                  data,
-                });
-              }}
-            />
-          )}
-          {dashboard && showDuplicateModal && (
-            <DashboardModal
-              mode="duplicate"
-              close={() => setShowDuplicateModal(false)}
-              initial={{
-                editLevel: dashboard.editLevel,
-                shareLevel: dashboard.shareLevel || "published",
-                enableAutoUpdates: dashboard.enableAutoUpdates,
-                updateSchedule: dashboard.updateSchedule || undefined,
-                title: `Copy of ${dashboard.title}`,
-                projects: dashboard.projects || [],
-                userId: dashboard.userId,
-              }}
-              submit={async (data) => {
-                await submitDashboard({
-                  method: "POST",
-                  data: {
-                    ...data,
-                    blocks: blocks.map(getBlockData),
-                  },
-                });
-                setIsEditing(true);
-              }}
-            />
-          )}
-          <div className="position-relative">
-            {dashboards.length === 0 ? (
-              <Flex
-                direction="column"
-                align="center"
-                justify="center"
-                px="80px"
-                pt="60px"
-                pb="70px"
-                className="appbox"
-                gap="5"
-              >
-                <Flex direction="column">
-                  <Heading weight="medium" align="center">
-                    Build a Custom Dashboard
-                  </Heading>
-                  <Text align="center">
-                    Create a tailored view of your experiment. Highlight key
-                    insights, add context, and share a clear story with your
-                    team.
-                  </Text>
-                </Flex>
-                <Flex align="center" justify="center">
-                  <Button
-                    size="sm"
-                    onClick={createOrPromptUpgrade}
-                    disabled={!canCreate}
-                  >
-                    Create Dashboard{" "}
-                    <PaidFeatureBadge commercialFeature="dashboards" />
-                  </Button>
-                </Flex>
-              </Flex>
-            ) : (
-              <>
-                <Flex align="center" justify="between" mb="1">
-                  <Flex gap="1" align="center">
-                    {dashboards.length > 0 && !showDashboardView ? (
-                      <Flex gap="4" align="center">
-                        <Select
-                          style={{
-                            minWidth: "200px",
-                          }}
-                          value={dashboardId}
-                          setValue={(value) => {
-                            if (value === "__create__") {
-                              createOrPromptUpgrade();
-                              return;
-                            }
-                            setDashboardId(value);
-                          }}
-                        >
-                          {defaultDashboard && (
-                            <>
-                              <SelectItem value={defaultDashboard.id}>
-                                <OverflowText maxWidth={400}>
-                                  {defaultDashboard.title}
-                                </OverflowText>
-                              </SelectItem>
-                              <SelectSeparator />
-                            </>
-                          )}
-                          {dashboards.map((dash) =>
-                            dash.id === defaultDashboard?.id ? null : (
-                              <SelectItem key={dash.id} value={dash.id}>
-                                <OverflowText maxWidth={400}>
-                                  {dash.title}
-                                </OverflowText>
-                              </SelectItem>
-                            ),
-                          )}
-                          {canCreate && (
-                            <>
-                              {dashboards.length > 0 && <SelectSeparator />}
-                              <SelectItem value="__create__">
-                                <Flex align="center">
-                                  <PiPlus className="rt-SelectItemIndicator" />
-                                  <Text weight="regular">
-                                    Create new dashboard
-                                  </Text>
-                                </Flex>
-                              </SelectItem>
-                            </>
-                          )}
-                        </Select>
-                        <PaidFeatureBadge commercialFeature="dashboards" />
-                      </Flex>
-                    ) : (
-                      <></>
-                    )}
+      <DashboardSeriesDisplayProvider
+        seriesDisplaySettings={dashboard?.seriesDisplaySettings ?? {}}
+        setSeriesDisplaySettings={() => {
+          // No-op for view mode - settings are read-only
+        }}
+      >
+        {canEdit && isEditing && dashboard ? (
+          <DashboardWorkspace
+            experiment={experiment}
+            dashboard={dashboard}
+            submitDashboard={submitDashboard}
+            mutate={mutateDashboards}
+            close={() => {
+              setIsEditing(false);
+              setDashboardFirstSave(false);
+              if (dashboardId === "new") {
+                setDashboardId(dashboard.id === "new" ? "" : dashboard.id);
+              }
+            }}
+            isTabActive={isTabActive}
+            dashboardFirstSave={dashboardFirstSave}
+          />
+        ) : (
+          <div>
+            {showUpgradeModal && (
+              <UpgradeModal
+                close={() => setShowUpgradeModal(false)}
+                source="experiment-dashboards-tab"
+                commercialFeature="dashboards"
+              />
+            )}
+            {showCreateModal && (
+              <DashboardModal
+                mode="create"
+                close={() => setShowCreateModal(false)}
+                submit={async (data) => {
+                  await submitDashboard({ method: "POST", data });
+                  setIsEditing(true);
+                }}
+              />
+            )}
+            {dashboard && showEditModal && (
+              <DashboardModal
+                mode="edit"
+                close={() => setShowEditModal(false)}
+                initial={{
+                  editLevel: dashboard.editLevel,
+                  shareLevel: dashboard.shareLevel || "published",
+                  enableAutoUpdates: dashboard.enableAutoUpdates,
+                  updateSchedule: dashboard.updateSchedule || undefined,
+                  title: dashboard.title,
+                  projects: dashboard.projects || [],
+                  userId: dashboard.userId,
+                }}
+                submit={async (data) => {
+                  await submitDashboard({
+                    method: "PUT",
+                    dashboardId: dashboard.id,
+                    data,
+                  });
+                }}
+              />
+            )}
+            {dashboard && showDuplicateModal && (
+              <DashboardModal
+                mode="duplicate"
+                close={() => setShowDuplicateModal(false)}
+                initial={{
+                  editLevel: dashboard.editLevel,
+                  shareLevel: dashboard.shareLevel || "published",
+                  enableAutoUpdates: dashboard.enableAutoUpdates,
+                  updateSchedule: dashboard.updateSchedule || undefined,
+                  title: `Copy of ${dashboard.title}`,
+                  projects: dashboard.projects || [],
+                  userId: dashboard.userId,
+                }}
+                submit={async (data) => {
+                  await submitDashboard({
+                    method: "POST",
+                    data: {
+                      ...data,
+                      blocks: blocks.map(getBlockData),
+                    },
+                  });
+                  setIsEditing(true);
+                }}
+              />
+            )}
+            <div className="position-relative">
+              {dashboards.length === 0 ? (
+                <Flex
+                  direction="column"
+                  align="center"
+                  justify="center"
+                  px="80px"
+                  pt="60px"
+                  pb="70px"
+                  className="appbox"
+                  gap="5"
+                >
+                  <Flex direction="column">
+                    <Heading weight="medium" align="center">
+                      Build a Custom Dashboard
+                    </Heading>
+                    <Text align="center">
+                      Create a tailored view of your experiment. Highlight key
+                      insights, add context, and share a clear story with your
+                      team.
+                    </Text>
                   </Flex>
-                  {dashboard && !showDashboardView ? (
-                    <Flex gap="4" align="center">
-                      <Tooltip
-                        state={copySuccess}
-                        ignoreMouseEvents
-                        delay={0}
-                        tipPosition="left"
-                        body="URL copied to clipboard"
-                        innerClassName="px-2 py-1"
-                      >
-                        <MoreMenu>
-                          {canEdit && (
-                            <>
-                              <EditButton
-                                useIcon={false}
+                  <Flex align="center" justify="center">
+                    <Button
+                      size="sm"
+                      onClick={createOrPromptUpgrade}
+                      disabled={!canCreate}
+                    >
+                      Create Dashboard{" "}
+                      <PaidFeatureBadge commercialFeature="dashboards" />
+                    </Button>
+                  </Flex>
+                </Flex>
+              ) : (
+                <>
+                  <Flex align="center" justify="between" mb="1">
+                    <Flex gap="1" align="center">
+                      {dashboards.length > 0 && !showDashboardView ? (
+                        <Flex gap="4" align="center">
+                          <Select
+                            style={{
+                              minWidth: "200px",
+                            }}
+                            value={dashboardId}
+                            setValue={(value) => {
+                              if (value === "__create__") {
+                                createOrPromptUpgrade();
+                                return;
+                              }
+                              setDashboardId(value);
+                            }}
+                          >
+                            {defaultDashboard && (
+                              <>
+                                <SelectItem value={defaultDashboard.id}>
+                                  <OverflowText maxWidth={400}>
+                                    {defaultDashboard.title}
+                                  </OverflowText>
+                                </SelectItem>
+                                <SelectSeparator />
+                              </>
+                            )}
+                            {dashboards.map((dash) =>
+                              dash.id === defaultDashboard?.id ? null : (
+                                <SelectItem key={dash.id} value={dash.id}>
+                                  <OverflowText maxWidth={400}>
+                                    {dash.title}
+                                  </OverflowText>
+                                </SelectItem>
+                              ),
+                            )}
+                            {canCreate && (
+                              <>
+                                {dashboards.length > 0 && <SelectSeparator />}
+                                <SelectItem value="__create__">
+                                  <Flex align="center">
+                                    <PiPlus className="rt-SelectItemIndicator" />
+                                    <Text weight="regular">
+                                      Create new dashboard
+                                    </Text>
+                                  </Flex>
+                                </SelectItem>
+                              </>
+                            )}
+                          </Select>
+                          <PaidFeatureBadge commercialFeature="dashboards" />
+                        </Flex>
+                      ) : (
+                        <></>
+                      )}
+                    </Flex>
+                    {dashboard && !showDashboardView ? (
+                      <Flex gap="4" align="center">
+                        <Tooltip
+                          state={copySuccess}
+                          ignoreMouseEvents
+                          delay={0}
+                          tipPosition="left"
+                          body="URL copied to clipboard"
+                          innerClassName="px-2 py-1"
+                        >
+                          <MoreMenu>
+                            {canEdit && (
+                              <>
+                                <EditButton
+                                  useIcon={false}
+                                  className="dropdown-item"
+                                  onClick={() => {
+                                    setIsEditing(true);
+                                  }}
+                                />
+                                <Button
+                                  className="dropdown-item"
+                                  onClick={() => setShowEditModal(true)}
+                                >
+                                  <Text weight="regular">
+                                    Edit Dashboard Settings
+                                  </Text>
+                                </Button>
+                                {mutateExperiment && canUpdateExperiment && (
+                                  <Tooltip
+                                    body={
+                                      dashboard.shareLevel !== "published"
+                                        ? "Only published dashboards can be set as the default view"
+                                        : experiment.defaultDashboardId ===
+                                            dashboard.id
+                                          ? "Remove this dashboard as the default view for the experiment"
+                                          : "Set this dashboard as the default view for the experiment"
+                                    }
+                                  >
+                                    <Button
+                                      className="dropdown-item"
+                                      disabled={
+                                        dashboard.shareLevel !== "published"
+                                      }
+                                      onClick={async () => {
+                                        await apiCall(
+                                          `/experiment/${experiment.id}`,
+                                          {
+                                            method: "POST",
+                                            body: JSON.stringify({
+                                              defaultDashboardId:
+                                                experiment.defaultDashboardId ===
+                                                dashboard.id
+                                                  ? ""
+                                                  : dashboard.id,
+                                            }),
+                                          },
+                                        );
+                                        mutateExperiment();
+                                      }}
+                                    >
+                                      <Text weight="regular">
+                                        {experiment.defaultDashboardId ===
+                                        dashboard.id
+                                          ? "Remove as Default View"
+                                          : "Set as Default View"}
+                                      </Text>
+                                    </Button>
+                                  </Tooltip>
+                                )}
+
+                                <Container px="5">
+                                  <DropdownMenuSeparator />
+                                </Container>
+                              </>
+                            )}
+                            {canEdit && (
+                              <Tooltip
+                                body={autoUpdateDisabledMessage}
+                                shouldDisplay={updateSchedule?.type === "never"}
+                              >
+                                <Button
+                                  className="dropdown-item"
+                                  disabled={updateSchedule?.type === "never"}
+                                  onClick={() =>
+                                    submitDashboard({
+                                      method: "PUT",
+                                      dashboardId,
+                                      data: {
+                                        enableAutoUpdates:
+                                          !dashboard.enableAutoUpdates,
+                                      },
+                                    })
+                                  }
+                                >
+                                  <Text weight="regular">{`${
+                                    dashboard.enableAutoUpdates
+                                      ? "Disable"
+                                      : "Enable"
+                                  } Auto-update`}</Text>
+                                </Button>
+                              </Tooltip>
+                            )}
+                            <DashboardViewQueriesButton
+                              className="dropdown-item text-capitalize"
+                              weight="regular"
+                              size="2"
+                            />
+                            <Container px="5">
+                              <DropdownMenuSeparator />
+                            </Container>
+                            {copySupported && (
+                              <Button
                                 className="dropdown-item"
+                                onClick={() => {
+                                  const url = window.location.href.replace(
+                                    /[?#].*/,
+                                    `#dashboards/${dashboardId}`,
+                                  );
+                                  performCopy(url);
+                                }}
+                              >
+                                <Text weight="regular">Share</Text>
+                              </Button>
+                            )}
+                            {canCreate && (
+                              <Button
+                                className="dropdown-item"
+                                onClick={() => setShowDuplicateModal(true)}
+                              >
+                                <Flex align="center" gap="2">
+                                  <Text weight="regular">Duplicate</Text>
+                                  <PaidFeatureBadge commercialFeature="dashboards" />
+                                </Flex>
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <>
+                                <DeleteButton
+                                  displayName="Dashboard"
+                                  className="dropdown-item text-danger"
+                                  useIcon={false}
+                                  text="Delete"
+                                  title="Delete Dashboard"
+                                  onClick={async () => {
+                                    await apiCall(
+                                      `/dashboards/${dashboard.id}`,
+                                      {
+                                        method: "DELETE",
+                                      },
+                                    );
+                                    mutateDashboards();
+                                    setDashboardId("");
+                                  }}
+                                />
+                              </>
+                            )}
+                          </MoreMenu>
+                        </Tooltip>
+                      </Flex>
+                    ) : null}
+                  </Flex>
+                  {dashboard ? (
+                    <>
+                      {dashboard.blocks.length === 0 ? (
+                        <Flex
+                          direction="column"
+                          align="center"
+                          justify="center"
+                          px="80px"
+                          pt="60px"
+                          pb="70px"
+                          className="appbox"
+                          gap="5"
+                        >
+                          {canEdit ? (
+                            <>
+                              <Flex direction="column">
+                                <Heading weight="medium" align="center">
+                                  Build a Custom Dashboard
+                                </Heading>
+                                <Text align="center">
+                                  Choose a block type to get started. Rearrange
+                                  blocks to tell a story with experiment data.
+                                </Text>
+                              </Flex>
+                              <Button
                                 onClick={() => {
                                   setIsEditing(true);
                                 }}
-                              />
-                              <Button
-                                className="dropdown-item"
-                                onClick={() => setShowEditModal(true)}
                               >
-                                <Text weight="regular">
-                                  Edit Dashboard Settings
-                                </Text>
+                                Edit
                               </Button>
-                              {mutateExperiment && canUpdateExperiment && (
-                                <Tooltip
-                                  body={
-                                    dashboard.shareLevel !== "published"
-                                      ? "Only published dashboards can be set as the default view"
-                                      : experiment.defaultDashboardId ===
-                                          dashboard.id
-                                        ? "Remove this dashboard as the default view for the experiment"
-                                        : "Set this dashboard as the default view for the experiment"
-                                  }
-                                >
-                                  <Button
-                                    className="dropdown-item"
-                                    disabled={
-                                      dashboard.shareLevel !== "published"
-                                    }
-                                    onClick={async () => {
-                                      await apiCall(
-                                        `/experiment/${experiment.id}`,
-                                        {
-                                          method: "POST",
-                                          body: JSON.stringify({
-                                            defaultDashboardId:
-                                              experiment.defaultDashboardId ===
-                                              dashboard.id
-                                                ? ""
-                                                : dashboard.id,
-                                          }),
-                                        },
-                                      );
-                                      mutateExperiment();
-                                    }}
-                                  >
-                                    <Text weight="regular">
-                                      {experiment.defaultDashboardId ===
-                                      dashboard.id
-                                        ? "Remove as Default View"
-                                        : "Set as Default View"}
-                                    </Text>
-                                  </Button>
-                                </Tooltip>
-                              )}
-
-                              <Container px="5">
-                                <DropdownMenuSeparator />
-                              </Container>
                             </>
+                          ) : (
+                            // TODO: empty state without permissions
+                            <Heading weight="medium" align="center">
+                              This Dashboard is empty
+                            </Heading>
                           )}
-                          {canEdit && (
-                            <Tooltip
-                              body={autoUpdateDisabledMessage}
-                              shouldDisplay={updateSchedule?.type === "never"}
-                            >
-                              <Button
-                                className="dropdown-item"
-                                disabled={updateSchedule?.type === "never"}
-                                onClick={() =>
-                                  submitDashboard({
-                                    method: "PUT",
-                                    dashboardId,
-                                    data: {
-                                      enableAutoUpdates:
-                                        !dashboard.enableAutoUpdates,
-                                    },
-                                  })
-                                }
-                              >
-                                <Text weight="regular">{`${
-                                  dashboard.enableAutoUpdates
-                                    ? "Disable"
-                                    : "Enable"
-                                } Auto-update`}</Text>
-                              </Button>
-                            </Tooltip>
-                          )}
-                          <DashboardViewQueriesButton
-                            className="dropdown-item text-capitalize"
-                            weight="regular"
-                            size="2"
-                          />
-                          <Container px="5">
-                            <DropdownMenuSeparator />
-                          </Container>
-                          {copySupported && (
-                            <Button
-                              className="dropdown-item"
-                              onClick={() => {
-                                const url = window.location.href.replace(
-                                  /[?#].*/,
-                                  `#dashboards/${dashboardId}`,
-                                );
-                                performCopy(url);
-                              }}
-                            >
-                              <Text weight="regular">Share</Text>
-                            </Button>
-                          )}
-                          {canCreate && (
-                            <Button
-                              className="dropdown-item"
-                              onClick={() => setShowDuplicateModal(true)}
-                            >
-                              <Flex align="center" gap="2">
-                                <Text weight="regular">Duplicate</Text>
-                                <PaidFeatureBadge commercialFeature="dashboards" />
-                              </Flex>
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <>
-                              <DeleteButton
-                                displayName="Dashboard"
-                                className="dropdown-item text-danger"
-                                useIcon={false}
-                                text="Delete"
-                                title="Delete Dashboard"
-                                onClick={async () => {
-                                  await apiCall(`/dashboards/${dashboard.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  mutateDashboards();
-                                  setDashboardId("");
-                                }}
-                              />
-                            </>
-                          )}
-                        </MoreMenu>
-                      </Tooltip>
-                    </Flex>
+                        </Flex>
+                      ) : (
+                        <DashboardEditor
+                          isTabActive={isTabActive}
+                          id={dashboard.id}
+                          title={dashboard.title}
+                          initialEditLevel={dashboard.editLevel}
+                          ownerId={dashboard.userId}
+                          initialShareLevel={dashboard.shareLevel}
+                          dashboardOwnerId={dashboard.userId}
+                          blocks={blocks}
+                          projects={
+                            experiment.project ? [experiment.project] : []
+                          }
+                          isEditing={false}
+                          updateSchedule={dashboard.updateSchedule}
+                          enableAutoUpdates={dashboard.enableAutoUpdates}
+                          nextUpdate={experiment.nextSnapshotAttempt}
+                          isGeneralDashboard={false}
+                          isIncrementalRefreshExperiment={
+                            isIncrementalRefreshExperiment
+                          }
+                          setBlock={canEdit ? memoizedSetBlock : undefined}
+                          mutate={mutateDashboards}
+                          switchToExperimentView={switchToExperimentView}
+                        />
+                      )}
+                    </>
                   ) : null}
-                </Flex>
-                {dashboard ? (
-                  <>
-                    {dashboard.blocks.length === 0 ? (
-                      <Flex
-                        direction="column"
-                        align="center"
-                        justify="center"
-                        px="80px"
-                        pt="60px"
-                        pb="70px"
-                        className="appbox"
-                        gap="5"
-                      >
-                        {canEdit ? (
-                          <>
-                            <Flex direction="column">
-                              <Heading weight="medium" align="center">
-                                Build a Custom Dashboard
-                              </Heading>
-                              <Text align="center">
-                                Choose a block type to get started. Rearrange
-                                blocks to tell a story with experiment data.
-                              </Text>
-                            </Flex>
-                            <Button
-                              onClick={() => {
-                                setIsEditing(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                          </>
-                        ) : (
-                          // TODO: empty state without permissions
-                          <Heading weight="medium" align="center">
-                            This Dashboard is empty
-                          </Heading>
-                        )}
-                      </Flex>
-                    ) : (
-                      <DashboardEditor
-                        isTabActive={isTabActive}
-                        id={dashboard.id}
-                        title={dashboard.title}
-                        initialEditLevel={dashboard.editLevel}
-                        ownerId={dashboard.userId}
-                        initialShareLevel={dashboard.shareLevel}
-                        dashboardOwnerId={dashboard.userId}
-                        blocks={blocks}
-                        projects={
-                          experiment.project ? [experiment.project] : []
-                        }
-                        isEditing={false}
-                        updateSchedule={dashboard.updateSchedule}
-                        enableAutoUpdates={dashboard.enableAutoUpdates}
-                        nextUpdate={experiment.nextSnapshotAttempt}
-                        isGeneralDashboard={false}
-                        isIncrementalRefreshExperiment={
-                          isIncrementalRefreshExperiment
-                        }
-                        setBlock={canEdit ? memoizedSetBlock : undefined}
-                        mutate={mutateDashboards}
-                        switchToExperimentView={switchToExperimentView}
-                      />
-                    )}
-                  </>
-                ) : null}
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </DashboardSeriesDisplayProvider>
     </DashboardSnapshotProvider>
   );
 }

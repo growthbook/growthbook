@@ -7,6 +7,7 @@ import {
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
   getBlockData,
+  DisplaySettings,
 } from "shared/enterprise";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
@@ -33,6 +34,7 @@ import DashboardEditor, {
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import DashboardModal from "./DashboardModal";
+import DashboardSeriesDisplayProvider from "./DashboardSeriesDisplayProvider";
 
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
@@ -85,6 +87,15 @@ export default function DashboardWorkspace({
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
+  const [seriesDisplaySettings, setSeriesDisplaySettings] = useState<
+    Record<string, DisplaySettings>
+  >(dashboard.seriesDisplaySettings ?? {});
+
+  // Update seriesDisplaySettings when dashboard prop changes
+  useEffect(() => {
+    setSeriesDisplaySettings(dashboard.seriesDisplaySettings ?? {});
+  }, [dashboard.seriesDisplaySettings]);
+
   const submit: SubmitDashboard<UpdateDashboardArgs> = useMemo(
     () => async (args) => {
       setSaving(true);
@@ -92,7 +103,17 @@ export default function DashboardWorkspace({
       try {
         await submitDashboard({
           ...args,
-          data: { ...dashboard, ...args.data },
+          data: {
+            ...dashboard,
+            ...args.data,
+            // Include seriesDisplaySettings from args.data if explicitly provided (e.g., for undo),
+            // otherwise include from local state if it has values
+            ...("seriesDisplaySettings" in args.data
+              ? { seriesDisplaySettings: args.data.seriesDisplaySettings }
+              : Object.keys(seriesDisplaySettings).length > 0
+                ? { seriesDisplaySettings }
+                : {}),
+          },
         });
       } catch (e) {
         setSaveError(e.message);
@@ -100,7 +121,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard],
+    [submitDashboard, dashboard, seriesDisplaySettings],
   );
 
   const [blocks, setBlocks] = useState<
@@ -229,7 +250,10 @@ export default function DashboardWorkspace({
   };
 
   return (
-    <>
+    <DashboardSeriesDisplayProvider
+      seriesDisplaySettings={seriesDisplaySettings}
+      setSeriesDisplaySettings={setSeriesDisplaySettings}
+    >
       {showSaveModal && (
         <DashboardModal
           mode="edit"
@@ -239,7 +263,12 @@ export default function DashboardWorkspace({
             await submitDashboard({
               method: "PUT",
               dashboardId: dashboard.id,
-              data,
+              data: {
+                ...data,
+                ...(Object.keys(seriesDisplaySettings).length > 0 && {
+                  seriesDisplaySettings,
+                }),
+              },
             });
             close();
           }}
@@ -307,6 +336,7 @@ export default function DashboardWorkspace({
                         "title",
                         "editLevel",
                         "enableAutoUpdates",
+                        "seriesDisplaySettings",
                       ]),
                     });
                     close();
@@ -505,6 +535,6 @@ export default function DashboardWorkspace({
           </Flex>
         </Flex>
       </Container>
-    </>
+    </DashboardSeriesDisplayProvider>
   );
 }

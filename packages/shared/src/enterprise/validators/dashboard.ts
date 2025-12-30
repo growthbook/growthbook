@@ -41,7 +41,7 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
-    seriesDisplaySettings: z.map(z.string(), displaySettings).optional(),
+    seriesDisplaySettings: z.record(z.string(), displaySettings).optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
     lastUpdated: z.date().optional(),
