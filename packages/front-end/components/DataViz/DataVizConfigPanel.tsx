@@ -10,7 +10,10 @@ import {
 import { PiWrench } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { chartTypeSupportsAnchorYAxisToZero } from "shared/src/enterprise/dashboards/utils";
+import {
+  chartTypeSupportsAnchorYAxisToZero,
+  chartTypeHasDisplaySettings,
+} from "shared/enterprise";
 import { Select, SelectItem } from "@/ui/Select";
 import {
   getXAxisConfig,
@@ -896,12 +899,14 @@ export default function DataVizConfigPanel({
         onDataVizConfigChange={onDataVizConfigChange}
         rows={rows}
       />
-      <DisplaySettingsPanel>
-        <AnchorYAxisToZeroCheckbox
-          dataVizConfig={dataVizConfig}
-          onDataVizConfigChange={onDataVizConfigChange}
-        />
-      </DisplaySettingsPanel>
+      {chartTypeHasDisplaySettings(dataVizConfig.chartType) && (
+        <DisplaySettingsPanel>
+          <AnchorYAxisToZeroCheckbox
+            dataVizConfig={dataVizConfig}
+            onDataVizConfigChange={onDataVizConfigChange}
+          />
+        </DisplaySettingsPanel>
+      )}
     </Flex>
   );
 }

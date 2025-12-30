@@ -1,5 +1,5 @@
 import { DataVizConfig, LineChart, ScatterChart } from "shared/validators";
-import { chartTypeSupportsAnchorYAxisToZero } from "shared/src/enterprise/dashboards/utils";
+import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 
 export default function AnchorYAxisToZeroCheckbox({

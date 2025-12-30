@@ -1,6 +1,6 @@
 import { UpdateProps } from "shared/types/base-model";
 import { SavedQuery, savedQueryValidator } from "shared/validators";
-import { chartTypeSupportsAnchorYAxisToZero } from "shared/src/enterprise/dashboards/utils";
+import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

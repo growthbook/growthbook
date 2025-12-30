@@ -1,4 +1,4 @@
-import React, { ReactElement } from "react";
+import React, { ReactNode } from "react";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
@@ -7,13 +7,8 @@ import { PiPalette } from "react-icons/pi";
 export default function DisplaySettingsPanel({
   children,
 }: {
-  children: ReactElement;
+  children: ReactNode;
 }) {
-  // If there are no children, don't render the panel
-  if (!React.Children.toArray(children).some((child) => !!child)) {
-    return null;
-  }
-
   return (
     <>
       <Flex

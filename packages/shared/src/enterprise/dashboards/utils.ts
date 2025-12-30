@@ -275,3 +275,14 @@ export function chartTypeSupportsAnchorYAxisToZero(
 ): boolean {
   return ["line", "scatter"].includes(chartType);
 }
+
+export function chartTypeHasDisplaySettings(
+  chartType: DataVizConfig["chartType"] | undefined,
+): boolean {
+  if (!chartType) {
+    return false;
+  }
+  // Check if the chart type supports any display settings
+  // As more display settings are added, add their checks here
+  return chartTypeSupportsAnchorYAxisToZero(chartType);
+}
