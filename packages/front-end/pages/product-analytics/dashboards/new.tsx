@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import { DashboardInterface } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -6,6 +6,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import DashboardSeriesDisplayProvider from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 import {
   SubmitDashboard,
   UpdateDashboardArgs,
@@ -48,6 +49,15 @@ export default function NewDashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardInterface>(() =>
     createTemporaryDashboard(userId, project),
   );
+
+  const [localDashboard, setLocalDashboard] = useState<
+    DashboardInterface | undefined
+  >(dashboard);
+
+  // Sync localDashboard with dashboard when it changes
+  useEffect(() => {
+    setLocalDashboard(dashboard);
+  }, [dashboard]);
 
   const handleSubmitDashboard: SubmitDashboard<UpdateDashboardArgs> =
     useCallback(
@@ -128,15 +138,20 @@ export default function NewDashboardPage() {
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      <DashboardWorkspace
-        isTabActive={true}
-        experiment={null}
-        dashboard={dashboard}
-        mutate={mutateDashboards}
-        submitDashboard={handleSubmitDashboard}
-        close={handleClose}
-        dashboardFirstSave={true}
-      />
+      <DashboardSeriesDisplayProvider
+        dashboard={localDashboard}
+        setDashboard={setLocalDashboard}
+      >
+        <DashboardWorkspace
+          isTabActive={true}
+          experiment={null}
+          dashboard={dashboard}
+          mutate={mutateDashboards}
+          submitDashboard={handleSubmitDashboard}
+          close={handleClose}
+          dashboardFirstSave={true}
+        />
+      </DashboardSeriesDisplayProvider>
     </DashboardSnapshotProvider>
   );
 }

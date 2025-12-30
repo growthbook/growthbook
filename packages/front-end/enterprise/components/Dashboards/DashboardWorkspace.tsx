@@ -7,7 +7,6 @@ import {
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
   getBlockData,
-  DisplaySettings,
 } from "shared/enterprise";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
@@ -34,7 +33,6 @@ import DashboardEditor, {
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import DashboardModal from "./DashboardModal";
-import DashboardSeriesDisplayProvider from "./DashboardSeriesDisplayProvider";
 
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
@@ -87,14 +85,15 @@ export default function DashboardWorkspace({
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
-  const [seriesDisplaySettings, setSeriesDisplaySettings] = useState<
-    Record<string, DisplaySettings>
-  >(dashboard.seriesDisplaySettings ?? {});
 
-  // Update seriesDisplaySettings when dashboard prop changes
+  // Manage dashboard state locally for edit mode
+  const [localDashboard, setLocalDashboard] =
+    useState<DashboardInterface>(dashboard);
+
+  // Update local dashboard when prop changes
   useEffect(() => {
-    setSeriesDisplaySettings(dashboard.seriesDisplaySettings ?? {});
-  }, [dashboard.seriesDisplaySettings]);
+    setLocalDashboard(dashboard);
+  }, [dashboard]);
 
   const submit: SubmitDashboard<UpdateDashboardArgs> = useMemo(
     () => async (args) => {
@@ -104,15 +103,13 @@ export default function DashboardWorkspace({
         await submitDashboard({
           ...args,
           data: {
-            ...dashboard,
+            ...localDashboard,
             ...args.data,
-            // Include seriesDisplaySettings from args.data if explicitly provided (e.g., for undo),
-            // otherwise include from local state if it has values
-            ...("seriesDisplaySettings" in args.data
-              ? { seriesDisplaySettings: args.data.seriesDisplaySettings }
-              : Object.keys(seriesDisplaySettings).length > 0
-                ? { seriesDisplaySettings }
-                : {}),
+            // Include seriesDisplaySettings from local dashboard if not explicitly overridden
+            ...(!("seriesDisplaySettings" in args.data) &&
+            Object.keys(localDashboard.seriesDisplaySettings ?? {}).length > 0
+              ? { seriesDisplaySettings: localDashboard.seriesDisplaySettings }
+              : {}),
           },
         });
       } catch (e) {
@@ -121,7 +118,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard, seriesDisplaySettings],
+    [submitDashboard, localDashboard],
   );
 
   const [blocks, setBlocks] = useState<
@@ -250,10 +247,7 @@ export default function DashboardWorkspace({
   };
 
   return (
-    <DashboardSeriesDisplayProvider
-      seriesDisplaySettings={seriesDisplaySettings}
-      setSeriesDisplaySettings={setSeriesDisplaySettings}
-    >
+    <>
       {showSaveModal && (
         <DashboardModal
           mode="edit"
@@ -265,8 +259,9 @@ export default function DashboardWorkspace({
               dashboardId: dashboard.id,
               data: {
                 ...data,
-                ...(Object.keys(seriesDisplaySettings).length > 0 && {
-                  seriesDisplaySettings,
+                ...(Object.keys(localDashboard.seriesDisplaySettings ?? {})
+                  .length > 0 && {
+                  seriesDisplaySettings: localDashboard.seriesDisplaySettings,
                 }),
               },
             });
@@ -535,6 +530,6 @@ export default function DashboardWorkspace({
           </Flex>
         </Flex>
       </Container>
-    </DashboardSeriesDisplayProvider>
+    </>
   );
 }

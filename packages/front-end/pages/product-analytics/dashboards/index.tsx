@@ -28,6 +28,7 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
+import DashboardSeriesDisplayProvider from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 import { DocLink } from "@/components/DocLink";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -95,6 +96,10 @@ export default function DashboardsPage() {
 
   const dashboard = filteredDashboards.find((d) => d.id === dashboardId);
 
+  const [localDashboard, setLocalDashboard] = useState<
+    DashboardInterface | undefined
+  >(dashboard);
+
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
@@ -152,17 +157,22 @@ export default function DashboardsPage() {
   return (
     <>
       {isEditing && dashboard && (
-        <DashboardWorkspace
-          experiment={null}
-          dashboard={dashboard}
-          submitDashboard={submitDashboard}
-          mutate={mutateDashboards}
-          close={() => {
-            setSaving(true);
-            router.push(`/product-analytics/dashboards/${dashboard.id}`);
-          }}
-          isTabActive={true}
-        />
+        <DashboardSeriesDisplayProvider
+          dashboard={localDashboard}
+          setDashboard={setLocalDashboard}
+        >
+          <DashboardWorkspace
+            experiment={null}
+            dashboard={dashboard}
+            submitDashboard={submitDashboard}
+            mutate={mutateDashboards}
+            close={() => {
+              setSaving(true);
+              router.push(`/product-analytics/dashboards/${dashboard.id}`);
+            }}
+            isTabActive={true}
+          />
+        </DashboardSeriesDisplayProvider>
       )}
       {showEditModal && (
         <DashboardModal

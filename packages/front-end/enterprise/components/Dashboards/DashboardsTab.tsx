@@ -144,10 +144,23 @@ function DashboardsTab({
     DashboardInterface | undefined
   >(undefined);
   const [dashboardFirstSave, setDashboardFirstSave] = useState(false);
-  const dashboard =
+  const dashboardFromList =
     dashboardId === "new"
       ? temporaryDashboard
       : dashboards.find((d) => d.id === dashboardId);
+
+  // Manage dashboard state locally for view mode
+  const [localDashboard, setLocalDashboard] = useState<
+    DashboardInterface | undefined
+  >(dashboardFromList);
+
+  // Update local dashboard when the dashboard from list changes
+  useEffect(() => {
+    setLocalDashboard(dashboardFromList);
+  }, [dashboardFromList]);
+
+  // Use the local dashboard for rendering
+  const dashboard = localDashboard;
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -268,10 +281,8 @@ function DashboardsTab({
       mutateDefinitions={mutateDashboards}
     >
       <DashboardSeriesDisplayProvider
-        seriesDisplaySettings={dashboard?.seriesDisplaySettings ?? {}}
-        setSeriesDisplaySettings={() => {
-          // No-op for view mode - settings are read-only
-        }}
+        dashboard={dashboard}
+        setDashboard={setLocalDashboard}
       >
         {canEdit && isEditing && dashboard ? (
           <DashboardWorkspace

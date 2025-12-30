@@ -1,56 +1,86 @@
-import React, { ReactNode, useCallback, useContext, useMemo } from "react";
-import { DisplaySettings } from "shared/enterprise";
+import React, {
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { DashboardInterface, DisplaySettings } from "shared/enterprise";
 import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 
 export const DashboardSeriesDisplayContext = React.createContext<{
   settings: Record<string, DisplaySettings>;
   updateSeriesColor: (seriesKey: string, color: string) => void;
-  updateSeriesDisplayName: (seriesKey: string, displayName: string) => void;
-  updateSeriesHidden: (seriesKey: string, hidden: boolean) => void;
   getSeriesColor: (seriesKey: string, index: number) => string;
-  getSeriesDisplayName: (seriesKey: string) => string | undefined;
-  getSeriesHidden: (seriesKey: string) => boolean | undefined;
 }>({
   settings: {},
   updateSeriesColor: () => {},
-  updateSeriesDisplayName: () => {},
-  updateSeriesHidden: () => {},
   getSeriesColor: () => "",
-  getSeriesDisplayName: () => undefined,
-  getSeriesHidden: () => undefined,
 });
 
 export default function DashboardSeriesDisplayProvider({
-  seriesDisplaySettings,
-  setSeriesDisplaySettings,
+  dashboard,
+  setDashboard,
   children,
 }: {
-  seriesDisplaySettings?: Record<string, DisplaySettings>;
-  setSeriesDisplaySettings?: (
+  dashboard: DashboardInterface | undefined;
+  setDashboard: (
     updater: (
-      prev: Record<string, DisplaySettings>,
-    ) => Record<string, DisplaySettings>,
+      prev: DashboardInterface | undefined,
+    ) => DashboardInterface | undefined,
   ) => void;
   children: ReactNode;
 }) {
   // Ensure settings is always an object (handle undefined for existing dashboards)
   const settings = useMemo(
-    () => seriesDisplaySettings ?? {},
-    [seriesDisplaySettings],
+    () => dashboard?.seriesDisplaySettings ?? {},
+    [dashboard?.seriesDisplaySettings],
   );
 
+  // Track color assignments during render to avoid race conditions
+  // Updates are applied in useEffect after render to avoid warnings
+  const pendingUpdatesRef = useRef<
+    Map<string, { color: string; existingSettings?: DisplaySettings }>
+  >(new Map());
+
+  // Apply pending color updates after render
+  useEffect(() => {
+    if (pendingUpdatesRef.current.size === 0 || !dashboard) {
+      return;
+    }
+
+    const updates = new Map(pendingUpdatesRef.current);
+    pendingUpdatesRef.current.clear();
+
+    setDashboard((prevDashboard) => {
+      if (!prevDashboard) return prevDashboard;
+
+      const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
+      const next = { ...currentSettings };
+      let hasChanges = false;
+
+      updates.forEach(({ color, existingSettings }, seriesKey) => {
+        // Only update if color doesn't already exist (atomic check)
+        if (!next[seriesKey]?.color) {
+          next[seriesKey] = {
+            ...(existingSettings ?? {}),
+            color,
+          };
+          hasChanges = true;
+        }
+      });
+
+      if (!hasChanges) return prevDashboard;
+
+      return {
+        ...prevDashboard,
+        seriesDisplaySettings: next,
+      };
+    });
+  }, [dashboard, setDashboard]);
+
   const updateSeriesColor = (_seriesKey: string, _color: string) => {
-    // TODO: Implement
-  };
-
-  const updateSeriesDisplayName = (
-    _seriesKey: string,
-    _displayName: string,
-  ) => {
-    // TODO: Implement
-  };
-
-  const updateSeriesHidden = (_seriesKey: string, _hidden: boolean) => {
     // TODO: Implement
   };
 
@@ -62,46 +92,32 @@ export default function DashboardSeriesDisplayProvider({
         return existingSettings.color;
       }
 
+      // Check if we've already assigned a color during this render cycle
+      const pendingUpdate = pendingUpdatesRef.current.get(seriesKey);
+      if (pendingUpdate?.color) {
+        return pendingUpdate.color;
+      }
+
       // Select a new color using round-robin (index % palette length)
       const colorIndex = index % CHART_COLOR_PALETTE.length;
       const selectedColor = CHART_COLOR_PALETTE[colorIndex];
 
-      // Update seriesDisplaySettings state directly (if setter is available)
-      if (setSeriesDisplaySettings) {
-        setSeriesDisplaySettings((prev) => {
-          const next = { ...(prev ?? {}) };
-          next[seriesKey] = {
-            ...existingSettings, // Preserve any existing displayName or hidden settings
-            color: selectedColor, // Override with new color
-          };
-          return next;
-        });
-      }
+      // Track this assignment to apply after render (prevents race conditions)
+      pendingUpdatesRef.current.set(seriesKey, {
+        color: selectedColor,
+        existingSettings,
+      });
 
       return selectedColor;
     },
-    [settings, setSeriesDisplaySettings],
+    [settings],
   );
-
-  const getSeriesDisplayName = (_seriesKey: string): string | undefined => {
-    // TODO: Implement
-    return undefined;
-  };
-
-  const getSeriesHidden = (_seriesKey: string): boolean | undefined => {
-    // TODO: Implement
-    return undefined;
-  };
 
   const value = useMemo(
     () => ({
       settings,
       updateSeriesColor,
-      updateSeriesDisplayName,
-      updateSeriesHidden,
       getSeriesColor,
-      getSeriesDisplayName,
-      getSeriesHidden,
     }),
     [settings, getSeriesColor],
   );

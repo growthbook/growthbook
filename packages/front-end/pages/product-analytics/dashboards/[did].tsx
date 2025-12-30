@@ -26,12 +26,25 @@ function SingleDashboardPage() {
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
   }>(`/dashboards/${did}`);
-  const dashboard = data?.dashboard;
+  const dashboardFromApi = data?.dashboard;
   const [isEditing, setIsEditing] = useState(false);
   const { hasCommercialFeature, userId } = useUser();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
+
+  // Manage dashboard state locally for view mode
+  const [localDashboard, setLocalDashboard] = useState<
+    DashboardInterface | undefined
+  >(dashboardFromApi);
+
+  // Update local dashboard when API data changes
+  useEffect(() => {
+    setLocalDashboard(dashboardFromApi);
+  }, [dashboardFromApi]);
+
+  // Use the local dashboard for rendering, fallback to dashboardFromApi to avoid race condition
+  const dashboard = localDashboard || dashboardFromApi;
 
   const canUpdateDashboards = permissionsUtil.canCreateAnalyses(
     dashboard?.projects,
@@ -163,10 +176,8 @@ function SingleDashboardPage() {
         mutateDefinitions={mutate}
       >
         <DashboardSeriesDisplayProvider
-          seriesDisplaySettings={dashboard.seriesDisplaySettings ?? {}}
-          setSeriesDisplaySettings={() => {
-            // No-op for view mode - settings are read-only
-          }}
+          dashboard={dashboard}
+          setDashboard={setLocalDashboard}
         >
           {isEditing && dashboard ? (
             <DashboardWorkspace
