@@ -41,6 +41,7 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
+import WelcomeModal from "@/components/GetStarted/WelcomeModal";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -339,6 +340,7 @@ export default function TabbedPage({
 
   return (
     <>
+      <WelcomeModal experiment={experiment} />
       {auditModal && (
         <Modal
           trackingEventModalType=""
