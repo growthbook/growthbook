@@ -95,3 +95,21 @@ export async function deleteWatchedByEntity({
     },
   );
 }
+
+export async function deleteWatchedByEntityForAllUsers({
+  organization,
+  type,
+  item,
+}: Omit<UpdateWatchOptions, "userId">): Promise<UpdateResult> {
+  return await WatchModel.updateMany(
+    {
+      organization: organization,
+      [type]: item,
+    },
+    {
+      $pull: {
+        [type]: item,
+      },
+    },
+  );
+}
