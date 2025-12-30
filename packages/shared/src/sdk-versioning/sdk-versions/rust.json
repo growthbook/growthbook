@@ -1,0 +1,14 @@
+{
+  "versions": [
+    {
+      "version": "0.0.2",
+      "capabilities": [
+        "encryption",
+        "looseUnmarshalling",
+        "prerequisites",
+        "semverTargeting",
+        "bucketingV2"
+      ]
+    }
+  ]
+}

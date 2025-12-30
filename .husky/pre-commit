@@ -39,6 +39,7 @@ fi
 sdkchanged=$(git status --porcelain | grep '^[MADRC]' | grep -E "shared/src/sdk-versioning|shared/scripts/gen-sdk-resources.ts" || true)
 if [ -n "$sdkchanged" ]; then
   echo "#### sdk-versioning or gen-sdk-resources.ts changed, running gen-sdk-resources"
+  yarn workspace shared build
   yarn workspace shared gen-sdk-resources-for-docs
   git add docs
 fi

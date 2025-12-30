@@ -239,21 +239,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      {
-        encryption: "≥ v0.0.1",
-      },
-      {
-        looseUnmarshalling: "≥ v0.0.1",
-      },
-      {
-        prerequisites: "≥ v0.0.1",
-      },
-      {
-        semverTargeting: "≥ v0.0.1",
-      },
-      {
-        bucketingV2: "≥ v0.0.1",
-      },
+      ...defineSDKCapabilityVersion(
+        "rust",
+        getSDKCapabilities("rust", getLatestSDKVersion("rust")),
+      ),
     ],
   },
   java: {
