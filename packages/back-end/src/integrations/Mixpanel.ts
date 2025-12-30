@@ -292,7 +292,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 : "",
             )
             .join("\n")}
-            : ""
         });
         state.queuedEvents = [];`
             : ""
