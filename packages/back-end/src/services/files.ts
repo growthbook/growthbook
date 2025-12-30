@@ -202,7 +202,7 @@ export async function getSignedUploadUrl(
       },
       Expires: expiresInMinutes * 60, // Convert to seconds
       Conditions: [
-        ["content-length-range", 0, 5242880], // Max 5MB file size
+        // ["content-length-range", 0, 5242880], // Max 5MB file size
         ["eq", "$Content-Type", contentType], // Enforce exact content-type match
         ["eq", "$key", filePath], // Enforce exact key match
       ],
@@ -230,7 +230,9 @@ export async function getSignedUploadUrl(
     const bucket = storage.bucket(GCS_BUCKET_NAME);
     const file = bucket.file(filePath);
 
+    // GCS will reject uploads if the Content-Type header doesn't match exactly
     const [signedUrl] = await file.getSignedUrl({
+      version: "v4",
       action: "write",
       expires: Date.now() + expiresInMinutes * 60 * 1000,
       contentType,
