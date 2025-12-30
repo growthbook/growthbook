@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 

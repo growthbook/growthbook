@@ -1,12 +1,12 @@
 import { useRouter } from "next/router";
 import React, { useMemo, useState } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";

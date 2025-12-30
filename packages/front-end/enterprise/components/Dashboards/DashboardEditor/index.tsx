@@ -13,18 +13,17 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined } from "shared/util";
-import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
-import clsx from "clsx";
-import { withErrorBoundary } from "@sentry/react";
-import { dashboardBlockHasIds, getBlockData } from "shared/enterprise";
-import {
+  dashboardBlockHasIds,
+  getBlockData,
   DashboardEditLevel,
   DashboardInterface,
   DashboardShareLevel,
   DashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
+} from "shared/enterprise";
+import { isDefined } from "shared/util";
+import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import clsx from "clsx";
+import { withErrorBoundary } from "@sentry/react";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
@@ -44,6 +43,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DashboardModal from "../DashboardModal";
 import DashboardShareModal from "../DashboardShareModal";
+import { DashboardChartsProvider } from "../DashboardChartsContext";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
@@ -399,7 +399,7 @@ function DashboardEditor({
   };
 
   return (
-    <div>
+    <DashboardChartsProvider>
       {editDashboard && (
         <DashboardModal
           mode="edit"
@@ -695,7 +695,7 @@ function DashboardEditor({
           {isEditing && <div style={{ height: 350 }} />}
         </div>
       </div>
-    </div>
+    </DashboardChartsProvider>
   );
 }
 

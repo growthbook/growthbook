@@ -1,7 +1,9 @@
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
+import { UpdateSavedGroupResponse } from "shared/types/openapi";
+import { updateSavedGroupValidator } from "shared/validators";
+import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { logger } from "back-end/src/util/logger";
-import { UpdateSavedGroupResponse } from "back-end/types/openapi";
 import {
   getAllSavedGroups,
   getSavedGroupById,
@@ -9,9 +11,7 @@ import {
   updateSavedGroupById,
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateSavedGroupValidator } from "back-end/src/validators/openapi";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { UpdateSavedGroupProps } from "back-end/types/saved-group";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const updateSavedGroup = createApiRequestHandler(

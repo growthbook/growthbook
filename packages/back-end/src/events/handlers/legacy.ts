@@ -1,7 +1,7 @@
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "back-end/types/events/notification-events";
+} from "shared/types/events/notification-events";
 
 export const getLegacyMessageForNotificationEvent = (
   event: NotificationEvent,

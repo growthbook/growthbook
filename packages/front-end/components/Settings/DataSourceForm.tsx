@@ -5,7 +5,7 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/components/Button";

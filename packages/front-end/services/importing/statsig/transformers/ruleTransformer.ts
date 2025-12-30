@@ -1,5 +1,5 @@
 import { ConditionInterface } from "@growthbook/growthbook-react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { StatsigCondition } from "@/services/importing/statsig/types";
 import { mapStatsigAttributeToGB } from "./attributeMapper";

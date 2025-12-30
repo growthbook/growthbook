@@ -4,6 +4,14 @@ import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
 import { SegmentInterface } from "shared/types/segment";
 import {
+  DataSourceInterface,
+  DataSourceInterfaceWithParams,
+} from "shared/types/datasource";
+import { MetricInterface } from "shared/types/metric";
+import { DimensionInterface } from "shared/types/dimension";
+import { OrganizationSettings } from "shared/types/organization";
+import { encryptParams } from "back-end/src/services/datasource";
+import {
   EMAIL_ENABLED,
   ENVIRONMENT,
   IS_CLOUD,
@@ -13,14 +21,6 @@ import {
   EMAIL_HOST_USER,
   EMAIL_PORT,
 } from "back-end/src/util/secrets";
-import {
-  DataSourceInterface,
-  DataSourceInterfaceWithParams,
-} from "back-end/types/datasource";
-import { MetricInterface } from "back-end/types/metric";
-import { DimensionInterface } from "back-end/types/dimension";
-import { encryptParams } from "back-end/src/services/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 import {
   upgradeMetricDoc,

@@ -22,14 +22,14 @@ export const segmentValidator = z
   })
   .strict();
 
-export const createSegmentValidator = segmentValidator.omit({
+export const createSegmentModelValidator = segmentValidator.omit({
   id: true,
   organization: true,
   dateCreated: true,
   dateUpdated: true,
 });
 
-export const updateSegmentValidator = segmentValidator.omit({
+export const updateSegmentModelValidator = segmentValidator.omit({
   id: true,
   organization: true,
   dateCreated: true,

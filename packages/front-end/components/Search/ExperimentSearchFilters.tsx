@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
   BaseSearchFiltersProps,

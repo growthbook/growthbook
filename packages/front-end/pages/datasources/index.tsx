@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";

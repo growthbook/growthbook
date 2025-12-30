@@ -55,14 +55,21 @@ import {
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
   SafeRolloutInterface,
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
+  SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { MetricPriorSettings } from "back-end/types/fact-table";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { promiseAllChunks } from "back-end/src/util/promise";
-import { Context } from "back-end/src/models/BaseModel";
+import {
+  ApiExperiment,
+  ApiExperimentMetric,
+  ApiExperimentResults,
+  ApiMetric,
+} from "shared/types/openapi";
+import { MetricPriorSettings } from "shared/types/fact-table";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -74,7 +81,44 @@ import {
   SnapshotVariation,
   SnapshotBanditSettings,
   DimensionForSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
+import {
+  Condition,
+  MetricInterface,
+  MetricStats,
+  Operator,
+} from "shared/types/metric";
+import {
+  Changeset,
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  ExperimentPhase,
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+  LinkedFeatureState,
+} from "shared/types/experiment";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "shared/types/organization";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
+import {
+  ExperimentReportAnalysisSettings,
+  MetricSnapshotSettings,
+} from "shared/types/report";
+import {
+  StatsEngine,
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "shared/types/stats";
+import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
+import { ProjectInterface } from "shared/types/project";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { ExperimentQueryMetadata } from "shared/types/query";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { Context } from "back-end/src/models/BaseModel";
 import {
   getMetricById,
   getMetricMap,
@@ -89,50 +133,14 @@ import {
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  Condition,
-  MetricInterface,
-  MetricStats,
-  Operator,
-} from "back-end/types/metric";
-import {
-  Changeset,
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-  ExperimentPhase,
-  LinkedFeatureEnvState,
-  LinkedFeatureInfo,
-  LinkedFeatureState,
-} from "back-end/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
   APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
-import {
-  ExperimentUpdateSchedule,
-  OrganizationInterface,
-} from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { DataSourceInterface, ExposureQuery } from "back-end/types/datasource";
-import {
-  ApiExperiment,
-  ApiExperimentMetric,
-  ApiExperimentResults,
-  ApiMetric,
-} from "back-end/types/openapi";
-import {
-  ExperimentReportAnalysisSettings,
-  MetricSnapshotSettings,
-} from "back-end/types/report";
-import {
-  postExperimentValidator,
-  postMetricValidator,
-  putMetricValidator,
-  updateExperimentValidator,
-} from "back-end/src/validators/openapi";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -140,21 +148,11 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import {
-  StatsEngine,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
-} from "back-end/types/stats";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
-import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
 import { ApiReqContext } from "back-end/types/api";
-import { ProjectInterface } from "back-end/types/project";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { ExperimentQueryMetadata } from "back-end/types/query";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -3506,7 +3504,7 @@ export async function computeResultsStatus({
 
           if (resultsStatus.clearSignalResultsStatus === "won") {
             metricStatus.superStatSigStatus = "won";
-          } else if (resultsStatus.resultsStatus === "lost") {
+          } else if (resultsStatus.clearSignalResultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
           if (!variationStatus.goalMetrics) {

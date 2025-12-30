@@ -329,6 +329,21 @@ export default function ConditionInput(props: Props) {
                       onChange={handleListChange}
                       name="value"
                       containerClassName="col-sm-12 col-md mb-2"
+                      formatOptionLabel={(o, meta) => {
+                        if (meta.context !== "value" || !o.value)
+                          return o.label;
+                        const group = getSavedGroupById(o.value);
+                        if (!group) return o.label;
+                        return (
+                          <Link
+                            href={`/saved-groups/${group.id}`}
+                            target="_blank"
+                            style={{ position: "relative", zIndex: 1000 }}
+                          >
+                            {o.label} <PiArrowSquareOut />
+                          </Link>
+                        );
+                      }}
                       required
                     />
                     {(conds.length > 1 || !props.require) && (
@@ -567,13 +582,10 @@ export default function ConditionInput(props: Props) {
                         if (meta.context !== "value" || !o.value)
                           return o.label;
                         const group = getSavedGroupById(o.value);
-                        const link =
-                          group?.type === "list"
-                            ? `/saved-groups/${group.id}`
-                            : "/saved-groups#conditionGroups";
+                        if (!group) return o.label;
                         return (
                           <Link
-                            href={link}
+                            href={`/saved-groups/${group.id}`}
                             target="_blank"
                             style={{ position: "relative", zIndex: 1000 }}
                           >

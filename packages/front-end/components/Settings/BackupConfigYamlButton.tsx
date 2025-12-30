@@ -1,6 +1,6 @@
 import { dump } from "js-yaml";
 import { useMemo } from "react";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaDownload } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useConfigJson } from "@/services/config";
