@@ -1,10 +1,11 @@
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { getSRMHealthData } from "shared/health";
+} from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { getSRMHealthData, getSRMValue } from "shared/health";
 import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
@@ -19,21 +20,28 @@ import { IssueValue } from "./IssueTags";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
+  snapshot: ExperimentSnapshotInterface;
   phase: ExperimentPhaseStringDates;
   onNotify: (issue: IssueValue) => void;
 }
 
-export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
+export default function BanditSRMCard({
+  experiment,
+  snapshot,
+  phase,
+  onNotify,
+}: Props) {
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
-  const srm = currentEvent?.banditResult?.srm;
+
+  const srm = getSRMValue("multi-armed-bandit", snapshot);
   const users = experiment.variations.map(
     (_, i) =>
-      currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0
+      currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((sum, u) => sum + (u ?? 0), 0) ?? 0;
 
@@ -48,7 +56,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [srm, srmThreshold, experiment.variations.length, totalUsers]
+    [srm, srmThreshold, experiment.variations.length, totalUsers],
   );
 
   useEffect(() => {

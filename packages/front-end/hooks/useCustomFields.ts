@@ -1,4 +1,4 @@
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export function useCustomFields() {
@@ -9,14 +9,14 @@ export function useCustomFields() {
 export function filterCustomFieldsForSectionAndProject(
   customFields: CustomField[] | undefined,
   section: CustomFieldSection,
-  project: string | undefined
+  project: string | undefined,
 ) {
   // for the moment, an experiment is in none/all projects, project scoped custom fields will not be available to it.
   // if (!project) {
   //   return customFields;
   // }
   const filteredCustomFields = customFields?.filter(
-    (v) => v.section === section
+    (v) => v.section === section,
   );
   if (!filteredCustomFields || filteredCustomFields.length === 0 || !project) {
     return filteredCustomFields;

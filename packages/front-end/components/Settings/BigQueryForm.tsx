@@ -1,5 +1,5 @@
 import { ChangeEventHandler, FC, useState } from "react";
-import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -32,7 +32,7 @@ const BigQueryForm: FC<{
             client_email: params.clientEmail,
             private_key: params.privateKey,
           }),
-        }
+        },
       );
       if (!datasets.length) {
         setTestConnectionResults({

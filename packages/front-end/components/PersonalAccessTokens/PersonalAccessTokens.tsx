@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
 import Link from "next/link";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
@@ -94,7 +94,7 @@ export const PersonalAccessTokensContainer = () => {
       }
       return res.key.key;
     },
-    [apiCall]
+    [apiCall],
   );
 
   const onDelete = useCallback(
@@ -109,7 +109,7 @@ export const PersonalAccessTokensContainer = () => {
       });
       mutate();
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
   );
 
   return (

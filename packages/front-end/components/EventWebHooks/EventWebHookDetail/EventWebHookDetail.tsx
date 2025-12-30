@@ -1,4 +1,4 @@
-import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import React, { FC, useRef, useCallback, useState } from "react";
 import pick from "lodash/pick";
 import { FaPencilAlt } from "react-icons/fa";
@@ -228,7 +228,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           )}
         </div>
 
-        {payloadType === "raw" && (
+        {["raw", "json"].includes(payloadType) && (
           <div className="ml-2 d-flex align-items-center">
             <div className="text-main">
               <b>Secret:</b>
@@ -378,9 +378,9 @@ export const EventWebHookDetailContainer = ({
                 "environments",
                 "method",
                 "headers",
-              ])
+              ]),
             ),
-          }
+          },
         );
 
         if (response.error) {
@@ -394,7 +394,7 @@ export const EventWebHookDetailContainer = ({
         handleUpdateError("Unknown error");
       }
     },
-    [mutateEventWebHook, apiCall, eventWebHookId]
+    [mutateEventWebHook, apiCall, eventWebHookId],
   );
 
   const handleDelete = useCallback(async () => {

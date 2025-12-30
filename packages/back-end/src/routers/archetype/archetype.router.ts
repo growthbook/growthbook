@@ -1,5 +1,5 @@
 import express from "express";
-import z from "zod";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawArchetypeController from "./archetype.controller";
@@ -11,13 +11,13 @@ const ArchetypeController = wrapController(rawArchetypeController);
 router.get(
   "/",
   validateRequestMiddleware({}),
-  ArchetypeController.getArchetype
+  ArchetypeController.getArchetype,
 );
 
 router.get(
   "/eval/:id/:version",
   validateRequestMiddleware({}),
-  ArchetypeController.getArchetypeAndEval
+  ArchetypeController.getArchetypeAndEval,
 );
 
 router.post(
@@ -31,7 +31,7 @@ router.post(
       projects: z.array(z.string()).optional(),
     }),
   }),
-  ArchetypeController.postArchetype
+  ArchetypeController.postArchetype,
 );
 
 router.put(
@@ -50,7 +50,7 @@ router.put(
       projects: z.array(z.string()).optional(),
     }),
   }),
-  ArchetypeController.putArchetype
+  ArchetypeController.putArchetype,
 );
 
 router.delete(
@@ -62,7 +62,7 @@ router.delete(
       })
       .strict(),
   }),
-  ArchetypeController.deleteArchetype
+  ArchetypeController.deleteArchetype,
 );
 
 export { router as ArchetypeRouter };

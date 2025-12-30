@@ -52,7 +52,7 @@ export default function ResultsVariationsFilter({
       setShowVariations(sv);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterVariations]
+    [filterVariations],
   );
 
   const filteringApplied =

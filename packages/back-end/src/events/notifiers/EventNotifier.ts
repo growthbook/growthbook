@@ -1,8 +1,8 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
+import { EventInterface } from "shared/types/events/event";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { webHooksEventHandler } from "back-end/src/events/handlers/webhooks/webHooksEventHandler";
 import { slackEventHandler } from "back-end/src/events/handlers/slack/slackEventHandler";
-import { EventInterface } from "back-end/types/event";
 import { getEvent } from "back-end/src/models/EventModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { Context } from "back-end/src/models/BaseModel";
@@ -24,20 +24,23 @@ export interface NotificationEventHandler {
 export class EventNotifier implements Notifier {
   private readonly eventId: string;
 
-  constructor(eventId: string, private agenda: Agenda = getAgendaInstance()) {
+  constructor(
+    eventId: string,
+    private agenda: Agenda = getAgendaInstance(),
+  ) {
     this.eventId = eventId;
 
     if (jobDefined) return;
 
     this.agenda.define<EventNotificationData>(
       "eventCreated",
-      EventNotifier.jobHandler
+      EventNotifier.jobHandler,
     );
     jobDefined = true;
   }
 
   private static async jobHandler(
-    job: Job<EventNotificationData>
+    job: Job<EventNotificationData>,
   ): Promise<void> {
     const { eventId } = job.attrs.data;
 

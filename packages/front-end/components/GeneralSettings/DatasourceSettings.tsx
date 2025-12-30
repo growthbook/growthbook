@@ -5,7 +5,7 @@ import React from "react";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 
 export default function DatasourceSettings() {
   const form = useFormContext();

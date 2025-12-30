@@ -23,7 +23,8 @@ properties:
             - "null"
         weights:
           type: array
-          items: number
+          items:
+            type: number
         variations:
           type: array
           items:

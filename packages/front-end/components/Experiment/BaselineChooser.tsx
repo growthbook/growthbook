@@ -1,4 +1,4 @@
-import { Variation, VariationWithIndex } from "back-end/types/experiment";
+import { Variation, VariationWithIndex } from "shared/types/experiment";
 import clsx from "clsx";
 import { useCallback, useEffect, useState } from "react";
 import { FaCheck } from "react-icons/fa";
@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -15,13 +15,12 @@ import { analysisUpdate } from "./DifferenceTypeChooser";
 
 export interface Props {
   variations: Variation[];
-  setVariationFilter: (variationFilter: number[]) => void;
   baselineRow: number;
   setBaselineRow: (baselineRow: number) => void;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
   setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   mutate: () => void;
   dropdownEnabled: boolean;
@@ -29,7 +28,6 @@ export interface Props {
 
 export default function BaselineChooser({
   variations,
-  setVariationFilter,
   baselineRow,
   setBaselineRow,
   snapshot,
@@ -149,7 +147,6 @@ export default function BaselineChooser({
             setDesiredBaselineRow(variation.index);
             if (!snapshot) {
               setBaselineRow(variation.index);
-              setVariationFilter([]);
               return;
             }
             if (!analysis) return;
@@ -163,11 +160,10 @@ export default function BaselineChooser({
               analysis,
               snapshot,
               apiCall,
-              setPostLoading
+              setPostLoading,
             ).then((status) => {
               if (status === "success") {
                 setBaselineRow(variation.index);
-                setVariationFilter([]);
                 setAnalysisSettings(newSettings);
                 track("Experiment Analysis: switch baseline", {
                   baseline: variation.index,

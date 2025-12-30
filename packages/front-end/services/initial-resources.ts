@@ -5,18 +5,18 @@ import {
   CreateFactMetricProps,
   CreateFactTableProps,
   FactTableInterface,
-} from "back-end/types/fact-table";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 import { getTablePrefix } from "@/services/datasources";
 
 function generateColumns(
-  cols: Record<string, Partial<ColumnInterface>>
+  cols: Record<string, Partial<ColumnInterface>>,
 ): CreateColumnProps[] {
   return Object.entries(cols).map(([name, data]) => ({
     column: name,
@@ -57,45 +57,28 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
       // Events
       {
         factTable: {
-          name: "Clickhouse Events",
+          // Give it a known id so we can reference it easily
+          id: "ch_events",
+          name: "Events",
           description: "",
-          sql: `SELECT
-  timestamp,
-  user_id,
-  device_id,
-  session_id,
-  page_id,
-  properties_json,
-  context_json,
-  event_name,
-  geo_country,
-  geo_city,
-  geo_lat,
-  geo_lon,
-  ua_device_type,
-  ua_browser,
-  ua_os,
-  utm_source,
-  utm_medium,
-  utm_campaign,
-  url_path
-FROM events
-WHERE
-  event_name <> 'Experiment Viewed'
-  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          sql: `SELECT * FROM events
+WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          // Mark the fact table as Official and block editing/deleting in the UI
+          managedBy: "api",
           columns: generateColumns({
             timestamp: { datatype: "date" },
             user_id: { datatype: "string" },
             device_id: { datatype: "string" },
-            session_id: { datatype: "string" },
-            page_id: { datatype: "string" },
-            properties_json: { datatype: "string" },
-            context_json: { datatype: "string" },
+            properties: { datatype: "json" },
+            attributes: { datatype: "json" },
             event_name: { datatype: "string", alwaysInlineFilter: true },
+            client_key: { datatype: "string" },
+            environment: { datatype: "string" },
+            sdk_language: { datatype: "string" },
+            sdk_version: { datatype: "string" },
+            event_uuid: { datatype: "string" },
+            ip: { datatype: "string" },
             geo_country: { datatype: "string" },
-            geo_city: { datatype: "string" },
-            geo_lat: { datatype: "number" },
-            geo_lon: { datatype: "number" },
             ua_device_type: { datatype: "string" },
             ua_browser: { datatype: "string" },
             ua_os: { datatype: "string" },
@@ -115,10 +98,13 @@ WHERE
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Page View"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Page View"],
+                },
+              ],
             },
           },
           {
@@ -127,10 +113,13 @@ WHERE
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Session Start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Session Start"],
+                },
+              ],
             },
           },
           {
@@ -139,82 +128,34 @@ WHERE
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Page View"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Page View"],
+                },
+              ],
             },
             denominator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["Session Start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["Session Start"],
+                },
+              ],
             },
           },
         ],
-      },
-      // Page Views
-      {
-        factTable: {
-          name: "Clickhouse Page Views",
-          description: "",
-          sql: `SELECT
-  timestamp,
-  user_id,
-  device_id,
-  session_id,
-  page_id,
-  url_path,
-  properties_json,
-  context_json,
-  geo_country,
-  geo_city,
-  geo_lat,
-  geo_lon,
-  ua_device_type,
-  ua_browser,
-  ua_os,
-  utm_source,
-  utm_medium,
-  utm_campaign
-FROM events
-WHERE
-  event_name = 'Page View'
-  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
-          columns: generateColumns({
-            timestamp: { datatype: "date" },
-            user_id: { datatype: "string" },
-            device_id: { datatype: "string" },
-            session_id: { datatype: "string" },
-            page_id: { datatype: "string" },
-            url_path: { datatype: "string", alwaysInlineFilter: true },
-            properties_json: { datatype: "string" },
-            context_json: { datatype: "string" },
-            geo_country: { datatype: "string" },
-            geo_city: { datatype: "string" },
-            geo_lat: { datatype: "number" },
-            geo_lon: { datatype: "number" },
-            ua_device_type: { datatype: "string" },
-            ua_browser: { datatype: "string" },
-            ua_os: { datatype: "string" },
-            utm_source: { datatype: "string" },
-            utm_medium: { datatype: "string" },
-            utm_campaign: { datatype: "string" },
-          }),
-          userIdTypes: ["user_id", "device_id"],
-          eventName: "",
-        },
-        filters: [],
-        metrics: [],
       },
     ],
   };
 }
 
 function getSegmentResources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   const params = datasource.params;
   const tablePrefix = getTablePrefix(params);
@@ -294,7 +235,6 @@ WHERE
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
             },
           },
         ],
@@ -304,7 +244,7 @@ WHERE
 }
 
 function getRudderstackResources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   const params = datasource.params;
   const tablePrefix = getTablePrefix(params);
@@ -380,7 +320,6 @@ WHERE
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
             },
           },
         ],
@@ -390,13 +329,13 @@ WHERE
 }
 
 function getAmplitudeResources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   const tablePrefix = getTablePrefix(datasource.params);
   const projectId = datasource.settings.schemaOptions?.projectId || `*`;
 
   const anonymous_attr = datasource.settings.userIdTypes?.find((t) =>
-    ["anonymous_id", "amplitude_id"].includes(t.userIdType)
+    ["anonymous_id", "amplitude_id"].includes(t.userIdType),
   )?.userIdType;
 
   return {
@@ -441,7 +380,7 @@ WHERE
 }
 
 function getGA4Resources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   if (datasource.type !== "bigquery") {
     return { factTables: [] };
@@ -487,8 +426,8 @@ function getGA4Resources(
     (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'engagement_time_msec')/1000 as engagement_time
   FROM
     \`${params.defaultProject || "my_project"}\`.\`${
-            params.defaultDataset || "my_dataset"
-          }\`.\`events_*\`
+      params.defaultDataset || "my_dataset"
+    }\`.\`events_*\`
   WHERE
     ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
     (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
@@ -542,10 +481,13 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["page_view"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["page_view"],
+                },
+              ],
             },
           },
           {
@@ -554,10 +496,13 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["session_start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["session_start"],
+                },
+              ],
             },
           },
           {
@@ -566,18 +511,24 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["page_view"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["page_view"],
+                },
+              ],
             },
             denominator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["session_start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["session_start"],
+                },
+              ],
             },
           },
           {
@@ -588,7 +539,12 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$distinctUsers",
-              filters: ["Engaged Session"],
+              rowFilters: [
+                {
+                  operator: "saved_filter",
+                  values: ["Engaged Session"],
+                },
+              ],
             },
           },
           {
@@ -598,7 +554,6 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "engagement_time",
-              filters: [],
             },
           },
           {
@@ -608,15 +563,17 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "engagement_time",
-              filters: [],
             },
             denominator: {
               factTableId: "",
               column: "$$count",
-              filters: [],
-              inlineFilters: {
-                event_name: ["session_start"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["session_start"],
+                },
+              ],
             },
           },
           {
@@ -625,10 +582,13 @@ function getGA4Resources(
             numerator: {
               factTableId: "",
               column: "$$distinctUsers",
-              filters: [],
-              inlineFilters: {
-                event_name: ["form_submit"],
-              },
+              rowFilters: [
+                {
+                  column: "event_name",
+                  operator: "=",
+                  values: ["form_submit"],
+                },
+              ],
             },
           },
         ],
@@ -651,8 +611,8 @@ function getGA4Resources(
     CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id
   FROM
     \`${params.defaultProject || "my_project"}\`.\`${
-            params.defaultDataset || "my_dataset"
-          }\`.\`events_*\`
+      params.defaultDataset || "my_dataset"
+    }\`.\`events_*\`
   WHERE
     ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
     (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
@@ -765,7 +725,7 @@ export async function createInitialResources({
         {
           method: "POST",
           body: JSON.stringify(factTableBody),
-        }
+        },
       );
       const factTableId = res.factTable.id;
       success++;
@@ -782,7 +742,7 @@ export async function createInitialResources({
             {
               method: "POST",
               body: JSON.stringify(filterBody),
-            }
+            },
           );
           filterMap[filter.name] = res.filterId;
           success++;
@@ -798,23 +758,47 @@ export async function createInitialResources({
       for (const metric of metrics) {
         try {
           // Replace filter names with filter ids
-          if (metric.numerator?.filters?.length) {
-            metric.numerator.filters = metric.numerator.filters.map(
-              (name) => filterMap[name]
+          if (metric.numerator?.rowFilters?.length) {
+            metric.numerator.rowFilters = metric.numerator.rowFilters.map(
+              (rf) => {
+                if (
+                  rf.operator === "saved_filter" &&
+                  rf.values &&
+                  rf.values[0]
+                ) {
+                  const filterId = filterMap[rf.values[0]];
+                  if (!filterId) {
+                    throw new Error("Required filters not created");
+                  }
+                  return {
+                    ...rf,
+                    values: filterId ? [filterId] : [],
+                  };
+                }
+                return rf;
+              },
             );
-            // If some filters are missing, skip this metric
-            if (metric.numerator.filters.some((f) => !f)) {
-              throw new Error("Required filters not created");
-            }
           }
-          if (metric.denominator?.filters?.length) {
-            metric.denominator.filters = metric.denominator.filters.map(
-              (name) => filterMap[name]
+          if (metric.denominator?.rowFilters?.length) {
+            metric.denominator.rowFilters = metric.denominator.rowFilters.map(
+              (rf) => {
+                if (
+                  rf.operator === "saved_filter" &&
+                  rf.values &&
+                  rf.values[0]
+                ) {
+                  const filterId = filterMap[rf.values[0]];
+                  if (!filterId) {
+                    throw new Error("Required filters not created");
+                  }
+                  return {
+                    ...rf,
+                    values: filterId ? [filterId] : [],
+                  };
+                }
+                return rf;
+              },
             );
-            // If some filters are missing, skip this metric
-            if (metric.denominator.filters.some((f) => !f)) {
-              throw new Error("Required filters not created");
-            }
           }
 
           // Inject factTableId into numerator and denominator

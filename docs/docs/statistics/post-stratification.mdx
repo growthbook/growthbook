@@ -1,0 +1,592 @@
+---
+title: Post-stratification Technical Details
+description: Technical details of post-stratification
+sidebar_label: Post-stratification Technical
+slug: post-stratification
+unlisted: true
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+# Technical post-stratification details
+
+Here we document the technical details behind GrowthBook regression adjustment and post-stratification. This approach permits estimation of absolute and relative effects, and unadjusted and CUPED inference, for binomial, count, and ratio metrics.
+
+Throughout the document we describe CUPED estimation for ratio metrics, and then discuss simpler cases (e.g., non-adjusted estimates, count metrics).
+
+We assume data are available in each cell, i.e., either the number of cells is not too big, or we have already aggregated some cells together.
+
+For each case there are 4 steps.
+
+1. In [Regression](##regression) we describe how to construct regression estimates of the treatment effect and control mean for each cell (i.e. dimension level).
+2. In [First Stage](##first-stage) we describe how to construct cell-specific estimates of absolute treatment effects and control means using cell-specific summary statistics.
+3. In [Second Stage](##second-stage) we describe how to combine estimates across cells to estimate population effects and population control means.
+4. Finally, in [Third Stage](##third-stage) we transform the combined estimates into estimates of lift, ratio parameters, etc.
+
+## Regression
+
+Below we describe regression models for each cell, or dimension level. The regression output will be used in [the next section](##cell-moments) to construct the joint sampling distribution of effect estimates and control means within a stratification cell.
+
+We do this for ratio metrics, and discuss along the way the simpler case of count metrics.
+
+- Define $m_{i1}$ ($d_{i1}$) as the numerator (denominator) outcome for the $i^{\text{th}}$ user, $i=1,2,..., N$
+- Define $x_{im}$ ($x_{id}$) as the pre-exposure numerator (denominator) variable for the $i^{\text{th}}$ user.
+- Define $w_{i}$ as the binary treatment assignment for the $i^{\text{th}}$ user.
+- Define the covariate vector $\textbf{x}_{i} = \left(1, w_{i}, x_{im}, x_{id}\right)$.
+- Define the $N \times 4$ design matrix $\tilde{\textbf{X}}$ whose $i^{\text{th}}$ row equals $\textbf{x}_{i}$.
+- Define the $2N \times 8$ design matrix $\textbf{X} = \textbf{I}_{2}\otimes \tilde{\textbf{X}}$.
+- Define the $2N$ length vector $\boldsymbol{Y} = \left\{m_{11}, d_{11},m_{21}, d_{21},..., m_{N1}, d_{N1}\right\}$.
+- Define the regression coefficients as $\boldsymbol{\gamma}$.
+
+Our model is of the form $$\textbf{Y} = \textbf{X}\boldsymbol{\gamma} + \textbf{E}.$$
+
+The least squares solution for the $8 \times 1$ vector of regression coefficients $\boldsymbol{\gamma}$ is
+
+$$
+\hat{\boldsymbol{\gamma}} = \left(\textbf{X}^{\top}\textbf{X} \right)^{-1}\textbf{X}^{\top}\textbf{Y}.
+$$
+
+- Define $\tilde{\boldsymbol{E}}$ as the $N \times 2$ matrix of residuals, whose first column corresponds to the residuals for the numerator and the second column is the residuals for the denominator.
+- Define the $2\times 2$ covariance of $\textbf{E}$ as $\boldsymbol{\Psi}$.
+
+The covariance of $\hat{\boldsymbol{\gamma}}$ is
+
+$$
+\boldsymbol{\Sigma}_{\boldsymbol{\gamma}} = \text{Cov}\left(\hat{\boldsymbol{\gamma}} \right) = \boldsymbol{\Psi}\otimes \left(\textbf{X}^{\top}\textbf{X} \right)^{-1}.
+$$
+
+By Lyapunov's central limit theorem,
+
+$$
+\hat{\boldsymbol{\gamma}} \stackrel{}{\sim} \mathcal{N}\left(\boldsymbol{\gamma}, \boldsymbol{\Sigma}_{\boldsymbol{\gamma}} \right).
+$$
+
+## Cell moments
+
+In this section we describe how to use the regression output from [the previous section](##regression) to construct the joint sampling distribution of effect estimates and control means within a stratification cell.
+
+In the $k^{\text{th}}$ cell, our inferential focus is the vector $\boldsymbol{\alpha}_{k}$, which has four elements:
+
+- numerator absolute effect estimate for the $k^{\text{th}}$ cell
+- numerator control mean for the $k^{\text{th}}$ cell
+- denominator absolute effect estimate for the $k^{\text{th}}$ cell
+- denominator control mean for the $k^{\text{th}}$ cell
+
+Now that we have our summary statistics in the form of a multivariate CLT, we linearly transform them to create our estimates of numerator and denominator effects and control means.
+
+- Define $\bar{x}_{m}$ ($\bar{x}_{d}$) as the sample mean pre-exposure numerator (denominator) variable.
+- Define $\mu_{xm}$ and $\mu_{xd}$ as their population counterparts.
+- Define the $4\times 8$ contrast matrix $\textbf{A}_{k, reg}$ where
+
+$$
+\begin{align}
+\textbf{A}_{k, reg} =
+\begin{pmatrix}
+1 & 0 & \bar{x}_{m} & \bar{x}_{d} & 0 & 0 & 0 & 0\\
+0 & 1 & 0 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 1 & 0 & \bar{x}_{m} & \bar{x}_{d}\\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0
+\end{pmatrix}.
+\end{align}
+$$
+
+We estimate $\boldsymbol{\alpha}_{k}$ with $\boldsymbol{\hat{\alpha}}_{k} = \textbf{A}_{k, reg}\hat{\boldsymbol{\gamma}}_{k}$.
+
+We now calculate the covariance of $\boldsymbol{\hat{\alpha}}_{k}$, denoted as $\boldsymbol{\Sigma}_{k}$.
+Many readers may want to skip to the next section, [Combining cell estimates](#combining-cell-estimates), where we describe how to combine estimates across cells to estimate population absolute effects and control means.
+One subtlety is that $\textbf{A}_{k, reg}$ has random components which must be accounted for.
+For inference within a cell, we condition upon the sample size for that cell.
+We deal with the assignment randomness in the next section.
+Technically, each of the covariances and expectations below are conditional upon $n_{k}$, but we suppress this notation for clarity.
+Below we describe how to calculate row means and covariances between individual rows of $\textbf{A}_{k, reg}$.
+
+The first moment of $\textbf{A}_{k, reg}$ is
+
+$$
+\begin{align}
+E\left[\textbf{A}_{k, reg}\right]
+&=
+E\left[
+\begin{pmatrix}
+1 & 0 & \bar{x}_{m} & \bar{x}_{d} & 0 & 0 & 0 & 0\\
+0 & 1 & 0 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 1 & 0 & \bar{x}_{m} & \bar{x}_{d}\\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0
+\end{pmatrix}
+\right]
+\\&=
+\begin{pmatrix}
+1 & 0 & \mu_{xm} & \mu_{xd} & 0 & 0 & 0 & 0\\
+0 & 1 & 0 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 1 & 0 & \mu_{xm} & \mu_{xd}\\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0
+\end{pmatrix}.
+\end{align}
+$$
+
+We also need the covariance between individual rows of $\textbf{A}_{k, reg}$.
+
+Note that there is nothing random in the second and fourth rows of $\textbf{A}_{k, reg}$, so the covariance of any vectors with these terms is 0.
+
+There are only 4 cases we need to consider, and we start with the covariance of the first row of $\textbf{A}_{k, reg}$ with itself.
+
+$$
+\begin{align*}
+Cov\left(\textbf{A}_{k, reg}[1, ], \textbf{A}_{k, reg}[1, ]\right) &=
+E\left[
+\begin{pmatrix}
+1 & 0 & \bar{x}_{m} & \bar{x}_{d} & 0 & 0 & 0 & 0
+\end{pmatrix}
+\begin{pmatrix}
+1\\
+0\\
+\bar{x}_{m} \\
+\bar{x}_{d} \\
+0\\
+0\\
+0 \\
+0\\
+\end{pmatrix}
+\right]
+\\&-
+E\left[
+\begin{pmatrix}
+1 & 0 & \bar{x}_{m} & \bar{x}_{d} & 0 & 0 & 0 & 0
+\end{pmatrix}
+\right]
+E\left[
+\begin{pmatrix}
+1\\
+0\\
+\bar{x}_{m} \\
+\bar{x}_{d} \\
+0\\
+0\\
+0 \\
+0\\
+\end{pmatrix}
+\right]
+\\&=
+\begin{pmatrix}
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & \sigma_{xm}^{2}/n & \sigma_{xmd}/n & 0 & 0 & 0 & 0\\
+  0 & 0 & \sigma_{xmd}/n & \sigma_{xd}^{2}/n & 0 & 0 & 0 & 0\\
+    0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+    0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0
+\end{pmatrix}.
+\end{align*}
+$$
+
+Using a similar argument for the (3, 3) case:
+
+$$
+\begin{align*}
+Cov\left(\textbf{A}_{k, reg}[3, ], \textbf{A}_{k, reg}[3, ]\right) &=
+\\&=
+\begin{pmatrix}
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+    0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+    0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & \sigma_{xm}^{2}/n & \sigma_{xmd}/n\\
+  0 & 0 &0 & 0 & 0 & 0 & \sigma_{xmd}/n & \sigma_{xd}^{2}/n
+\end{pmatrix}.
+\end{align*}
+$$
+
+For the (1, 3) case:
+
+$$
+\begin{align*}
+Cov\left(\textbf{A}_{k, reg}[1, ], \textbf{A}_{k, reg}[3, ]\right) &=
+E\left[
+\begin{pmatrix}
+1 & 0 & \bar{x}_{m} & \bar{x}_{d} & 0 & 0 & 0 & 0
+\end{pmatrix}
+\begin{pmatrix}
+0\\
+0\\
+0\\
+0\\
+1 \\
+0\\
+\bar{x}_{m} \\
+\bar{x}_{d}
+\end{pmatrix}
+\right]
+\\&-
+E\left[
+\begin{pmatrix}
+1 & 0 & \bar{x}_{m} & \bar{x}_{d} & 0 & 0 & 0 & 0
+\end{pmatrix}
+\right]
+E\left[
+\begin{pmatrix}
+0\\
+0\\
+0\\
+0\\
+1 \\
+0\\
+\bar{x}_{m} \\
+\bar{x}_{d}
+\end{pmatrix}
+\right]
+\\&=
+\begin{pmatrix}
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+    0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+  0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+    0 & 0 & \sigma_{xm}^{2}/n & \sigma_{xmd}/n & 0 & 0 & 0 & 0\\
+  0 & 0 & \sigma_{xmd}/n & \sigma_{xd}^{2}/n & 0 & 0 & 0 & 0
+\end{pmatrix}
+\end{align*}
+$$
+
+For the (3, 1) case:
+
+$$
+\begin{align*}
+Cov\left(\textbf{A}_{k, reg}[3, ], \textbf{A}_{k, reg}[1, ]\right) =
+Cov\left(\textbf{A}_{k, reg}[1, ], \textbf{A}_{k, reg}[3, ]\right)'
+\end{align*}
+$$
+
+Define $\boldsymbol{\mu}_{k, reg}$ as the mean of $\textbf{A}_{k, reg}$.
+
+$$
+\begin{align*}
+\text{Cov}\left(\hat{\alpha}_{k}\right) &= \text{Cov}\left(\textbf{A}_{k, reg}\hat{\gamma}_{k}\right)
+\\&= E\left[\text{Cov}\left(\textbf{A}_{k, reg}\hat{\gamma}_{k}\right)|\textbf{A}_{k, reg}\right] +
+\text{Cov}\left[E\left(\textbf{A}_{k, reg}\hat{\gamma}_{k}\right)|\textbf{A}_{k, reg}\right]
+\\&= E\left[\textbf{A}_{k, reg}\text{Cov}\left(\hat{\gamma}_{k}\right)\textbf{A}_{k, reg}^{\top}\right] +
+\text{Cov}\left[\textbf{A}_{k, reg}\gamma_{k}\right]
+\end{align*}
+$$
+
+The first term has $(i,j)^{\text{th}}$ element equal to
+
+$$
+\begin{align*}
+E\left[\textbf{A}_{k, reg}\text{Cov}\left(\hat{\boldsymbol{\gamma}}_{k}\right)\textbf{A}_{k, reg}^{\top}\right][i,j] &= E\left[\textbf{A}_{k, reg}[i, ]\text{Cov}\left(\hat{\boldsymbol{\gamma}}_{k}\right)\textbf{A}_{k, reg}[j, ]^{\top}\right]
+\\&= E\left[
+\text{trace}\left(\textbf{A}_{k, reg}[i, ]\text{Cov}\left(\hat{\boldsymbol{\gamma}}_{k}\right)\textbf{A}_{k, reg}[j, ]^{\top}\right)
+\right]
+\\&= E\left[
+\text{trace}\left(\text{Cov}\left(\hat{\boldsymbol{\gamma}}_{k}\right)\textbf{A}_{k, reg}[j, ]^{\top}\textbf{A}_{k, reg}[i, ]\right)
+\right]
+\\&=
+\text{trace}\left(\text{Cov}\left(\hat{\boldsymbol{\gamma}}_{k}\right)
+E\left[
+\textbf{A}_{k, reg}[j, ]^{\top}\textbf{A}_{k, reg}[i, ]\right)
+\right]
+\end{align*}
+$$
+
+A similar argument exists for the second term.
+
+Therefore,
+
+$$
+\begin{align*}
+\boldsymbol{\Sigma}_{k}[i, j] &=
+\text{Cov}\left(\boldsymbol{\hat{\alpha}}_{k}\right)[i, j] &=
+\text{trace}\left(\text{Cov}\left(\hat{\boldsymbol{\gamma}}_{k}\right)
+E\left[
+\textbf{A}_{k, reg}[j, ]\textbf{A}_{k, reg}[i, ]^{\top}\right)
+\right]
++\text{trace}\left(
+\boldsymbol{\gamma}_{k}
+\boldsymbol{\gamma}_{k}^{\top}
+\text{Cov}\left[
+\textbf{A}_{k, reg}[j, ]\textbf{A}_{k, reg}[i, ]^{\top}
+\right] \right)
+\end{align*}
+$$
+
+In practice, we substitute $\boldsymbol{\gamma}_{k}$ for $\hat{\boldsymbol{\gamma}}_{k}$.
+
+## Combining cell estimates
+
+In this section we describe how to combine estimates across cells to estimate population absolute effects and control means.
+This algorithm can be used for count or ratio metrics, unadjusted or adjusted (e.g., CUPED), and absolute or relative inference.
+
+Define the population (sample) proportion for the $k^{\text{th}}$ strata cell as $\nu_{k}$ ($\hat{\nu}_{k})$.
+
+Under stratified sampling, the $\nu_{k}$ are deterministic, and we could define $\hat{\boldsymbol{\alpha}} = \sum_{k=1}^{K}\nu_{k}\hat{\boldsymbol{\alpha}}_{k}$ and $\hat{\boldsymbol{\Sigma}} = \sum_{k=1}^{K}\nu_{k}^{2}n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k}$. However, we do not conduct stratified sampling in GrowthBook. Under simple random sampling the $\hat{\nu}_{k}$ are multinomial random variables, and we could define $\hat{\boldsymbol{\alpha}} = \sum_{k=1}^{K}\hat{\nu}_{k}\hat{\boldsymbol{\alpha}}_{k}$.
+Our point estimate is the expected value of $\sum_{k=1}^{K}\hat{\nu_{k}}\hat{\boldsymbol{\alpha}}_{k}$, which is
+
+$$
+\begin{align*}
+E\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}} \right) &= E_{\hat{\boldsymbol{\nu}}}\left(E_{\hat{\boldsymbol{\alpha}}}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}}|\hat{\boldsymbol{\nu}} \right)\right)
+\\&= \boldsymbol{\alpha}_{M}E_{\hat{\boldsymbol{\nu}}}\left( \hat{\boldsymbol{\nu}} \right)
+\\&= \boldsymbol{\alpha}_{M}\boldsymbol{\nu}.
+\end{align*}
+$$
+
+Below we derive its covariance.
+Define the collection of $\hat{\nu}_{k}$ as $\hat{\boldsymbol{\nu}}$.
+The naive covariance is $\hat{\boldsymbol{\Sigma}} = \sum_{k=1}^{K}\hat{\nu}_{k}^{2}n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k}$.
+Alternatively, we can use Equation 15 in ([Xie and Aurriset 2016](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)) to define
+$\hat{\boldsymbol{\Sigma}} = \sum_{k=1}^{K}\hat{\nu}_{k}^{2}n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k}\left(1 + \frac{1-\hat{\nu}_{k}}{n_{k}}\right)$.
+Both approaches assume the population cell proportions $p_{k}$ are known.
+
+For GrowthBook experiments, the $\hat{\nu}_{k}$ are random variables, and this assumption is not met. There is dependence between the $n_{k}$ (or equivalently, between the $\hat{p}_{k}$) that is not accounted for when estimating the variance.
+
+We derive the covariance using results from linear models.
+Recall that if $\textbf{A}$ is a matrix and $\textbf{Z}$ is a random vector with mean $\boldsymbol{\mu}$ and covariance $\boldsymbol{\Psi}$ then $E\left(\textbf{Z}^{\top} \textbf{A}\textbf{Z}\right) = \boldsymbol{\alpha}^{\top} \textbf{A}\boldsymbol{\alpha} + \text{tr}\left( \textbf{A}\boldsymbol{\Psi}\right).$
+
+- Define the $4 \times K$ matrix $\boldsymbol{\alpha}_{M}$ as the matrix whose $k^{\text{th}}$ row is $\boldsymbol{\alpha}_{k}$.
+- Define the $4 \times K$ matrix $\hat{\boldsymbol{\alpha}}_{M}$ as the matrix whose $k^{\text{th}}$ row is $\hat{\boldsymbol{\alpha}}_{k}$.
+- Define $\textbf{D}_{i,j}$ as the diagonal matrix whose nonzero elements are $\left\{\boldsymbol{\Sigma}_{1}[i, j], \boldsymbol{\Sigma}_{2}[i, j], ..., \boldsymbol{\Sigma}_{K}[i, j] \right\}$.
+- Define $\boldsymbol{\Sigma}_{\nu}$ as the $K \times K$ covariance of $\hat{\boldsymbol{\nu}}$.
+- Define $\textbf{D}_{\hat{\boldsymbol{\nu}}}$ as a diagonal matrix whose nonzero elements are $\hat{\boldsymbol{\nu}}$.
+- Define the $K \times K$ covariance of $(\hat{\boldsymbol{\alpha}}[i], \hat{\boldsymbol{\alpha}}[j])$ given $\hat{\boldsymbol{\nu}}$ as $\boldsymbol{\Sigma}_{i, j}$. In words, this is the covariance across dimensions between different components of $\boldsymbol{\alpha}$.
+
+To get the covariance we need the following:
+
+$$
+\begin{align*}
+E\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\hat{\boldsymbol{\alpha}}_{M}^{\top} \right) &=
+E_{\hat{\boldsymbol{\nu}}}\left(E_{\hat{\boldsymbol{\alpha}}}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\hat{\boldsymbol{\alpha}}_{M}^{\top}|\hat{\boldsymbol{\nu}} \right)\right)
+\\&=
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\boldsymbol{\alpha}_{M}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\boldsymbol{\alpha}_{M}^{\top}
+\right)
+\\&+ n^{-1}
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\begin{pmatrix}
+\text{tr}\left\{\textbf{D}_{1,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  &  & \\
+\text{tr}\left\{\textbf{D}_{2,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{2,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  & \\
+\text{tr}\left\{\textbf{D}_{3,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{3,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{
+\boldsymbol{\Sigma}_{3
+,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \\
+\text{tr}\left\{\textbf{D}_{4,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
+,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
+,4}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\}
+\end{pmatrix}
+\right)
+\\&=
+\boldsymbol{\alpha}_{M}\left(\boldsymbol{\nu}\boldsymbol{\nu}^{\top} + \boldsymbol{\Sigma}_{\boldsymbol{\nu}} \right) \boldsymbol{\alpha}_{M}^{\top}
+\\&+ n^{-1}
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\begin{pmatrix}
+\text{tr}\left\{\textbf{D}_{1,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  &  & \\
+\text{tr}\left\{\textbf{D}_{2,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{2,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  & \\
+\text{tr}\left\{\textbf{D}_{3,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{3,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{
+\boldsymbol{\Sigma}_{3
+,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \\
+\text{tr}\left\{\textbf{D}_{4,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
+,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
+,4}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\}
+\end{pmatrix}
+\right)
+\end{align*}
+$$
+
+Note that $\boldsymbol{\alpha}_{M}\left(\boldsymbol{\nu}\boldsymbol{\nu}^{\top}\right) \boldsymbol{\alpha}_{M}^{\top}$ is the mean squared, so the covariance is
+
+$$
+\begin{align*}
+\boldsymbol{\Sigma} &=
+\boldsymbol{\alpha}_{M}\left(\boldsymbol{\Sigma}_{\boldsymbol{\nu}} \right) \boldsymbol{\alpha}_{M}^{\top}
+\\&+ n^{-1}
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\begin{pmatrix}
+\text{tr}\left\{\textbf{D}_{1,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  &  & \\
+\text{tr}\left\{\textbf{D}_{2,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{2,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  & \\
+\text{tr}\left\{\textbf{D}_{3,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{3,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{
+\boldsymbol{\Sigma}_{3
+,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \\
+\text{tr}\left\{\textbf{D}_{4,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
+,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
+,4}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\}
+\end{pmatrix}
+\right)
+\end{align*}
+$$
+
+The expectations in the equation above can be evaluated using Equation 3.3 in ([Quimet 2020](https://arxiv.org/abs/2006.09059)).
+
+By the central limit theorem and independence across dimensions conditional upon the sample sizes,
+
+$$
+\begin{equation}
+\hat{\boldsymbol{\alpha}}
+| \textbf{n}
+=\begin{pmatrix}
+\hat{\boldsymbol{\alpha}}_{1}|n_{1}\\
+\hat{\boldsymbol{\alpha}}_{2}|n_{2} \\
+...\\
+\hat{\boldsymbol{\alpha}}_{K}|n_{K}
+\end{pmatrix}
+\stackrel{}{\sim}\mathcal{N}\left(\boldsymbol{\alpha}=\begin{pmatrix}
+\boldsymbol{\alpha}_{1}\\
+\boldsymbol{\alpha}_{2} \\
+...\\
+\boldsymbol{\alpha}_{K}
+\end{pmatrix},\boldsymbol{\Sigma}=\begin{pmatrix}
+\boldsymbol{\Sigma}_{1} & \textbf{0} & ... & \textbf{0}\\
+\textbf{0} & \boldsymbol{\Sigma}_{2} & ... & \textbf{0}\\
+\vdots & \vdots & \ddots & \vdots \\
+\textbf{0} & \textbf{0} & ... & \boldsymbol{\Sigma}_{K}
+\end{pmatrix} \right).
+\end{equation}
+$$
+
+Return $\hat{\boldsymbol{\alpha}} = \sum_{k=1}^{K}\hat{\nu}_{k}\hat{\boldsymbol{\alpha}}_{k}$ and $\boldsymbol{\Sigma}$, as defined in Equation 4.
+
+## Delta method
+
+To recapitulate, we now have an estimate of the joint sampling distribution of the vector $\boldsymbol{\alpha}$, which has four elements:
+
+- numerator absolute effect estimate
+- numerator control mean
+- denominator absolute effect estimate
+- denominator control mean.
+
+To estimate lift (relative effects), we use the delta method.
+
+### Delta method for ratio metrics
+
+By the central limit theorem
+
+$$
+\begin{equation}
+\hat{\boldsymbol{\alpha}}
+=\begin{pmatrix}
+\hat{\boldsymbol{\alpha}}_{1}\\
+\hat{\boldsymbol{\alpha}}_{2} \\
+\hat{\boldsymbol{\alpha}}_{3} \\
+\hat{\boldsymbol{\alpha}}_{4}
+\end{pmatrix}\stackrel{}{\sim}\mathcal{N}\left(\boldsymbol{\alpha}=\begin{pmatrix}
+\boldsymbol{\alpha}_{1}\\
+\boldsymbol{\alpha}_{2} \\
+\boldsymbol{\alpha}_{3} \\
+\boldsymbol{\alpha}_{4}
+\end{pmatrix},\boldsymbol{\Sigma}\right)
+\end{equation}
+$$
+
+Define $$g_{abs}(\boldsymbol{\alpha}) =  \frac{\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2]}{\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]} - \frac{\boldsymbol{\alpha}[1]}{\boldsymbol{\alpha}[3]}$$.
+Define
+
+$$
+\begin{align*}
+g_{rel}(\boldsymbol{\alpha}) &=  \frac{
+    \frac{\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2]}{\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]} - \frac{\boldsymbol{\alpha}[1]}{\boldsymbol{\alpha}[3]}}{\boldsymbol{\alpha}[1] / \boldsymbol{\alpha}[3]}
+ \\&= \frac{\frac{\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2]}{\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]}}{\boldsymbol{\alpha}[1] / \boldsymbol{\alpha}[3]} - 1
+  \\&= \frac{\boldsymbol{\alpha}[3]\left(\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2]\right)}{\boldsymbol{\alpha}[1]\left(\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]\right)}- 1
+  \\&=\frac{g_{rel, N}}{g_{rel, D}} - 1.
+\end{align*}
+$$
+
+Define $g \in \left\{g_{abs}, g_{rel} \right\}$.  
+Define the vector of partials of length $4$ $\boldsymbol{\nabla} = \frac{\partial g}{\partial \boldsymbol{\alpha}}$.
+If $g = g_{abs}$ then set $\boldsymbol{\nabla}$ equal to $\boldsymbol{\nabla}_{abs}$, where
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}_{abs}[1] &= \frac{1}{\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]}- \frac{1}{\boldsymbol{\alpha}[3]}\\
+\boldsymbol{\nabla}_{abs}[2] &= \frac{1}{\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]}\\
+\boldsymbol{\nabla}_{abs}[3] &= \frac{-\left(\left[\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2]\right]\right)}{
+  \left(\left[\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]\right]\right)^{2}
+  } + \frac{\boldsymbol{\alpha}[1]}{\boldsymbol{\alpha}[3]^{2}}\\
+\boldsymbol{\nabla}_{abs}[4] &=
+\frac{-\left(\left[\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2]\right]\right)}{
+  \left(\left[\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]\right]\right)^{2}
+  }
+\end{align*}
+$$
+
+If $g = g_{rel}$ then define $\boldsymbol{\nabla}$ equal to $\boldsymbol{\nabla}_{rel}$, where
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}_{rel}[1] &= \frac{\boldsymbol{\alpha}[3]g_{rel, D} - (\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4])g_{rel, N}}
+{g_{rel, D}^{2}}\\
+\boldsymbol{\nabla}_{rel}[2] &= \frac{\boldsymbol{\alpha}[3]}{g_{rel, D}}\\
+\boldsymbol{\nabla}_{rel}[3] &= \frac{(\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2])g_{rel, D} - \boldsymbol{\alpha}[1] g_{rel, N}}
+{g_{rel, D}^{2}}\\
+\boldsymbol{\nabla}_{rel}[4] &=
+\frac{-\boldsymbol{\alpha}[3]\left(\boldsymbol{\alpha}[1] + \boldsymbol{\alpha}[2]\right)}{
+  \boldsymbol{\alpha}[1]\left(\boldsymbol{\alpha}[3] + \boldsymbol{\alpha}[4]\right)^{2}
+  }
+\end{align*}
+$$
+
+By the delta method,  
+$$\hat{\Delta}_{r} = g(\hat{\boldsymbol{\alpha}}) \stackrel{}{\sim}\mathcal{N}\left(\Delta_{r} = g\left(\alpha\right), \boldsymbol{\nabla}^{\top}\boldsymbol{\Sigma}\boldsymbol{\nabla}\right)$$.
+
+In summary, the steps for the algorithm are:
+
+1. Compute the point estimate $\hat{\Delta} = g(\hat{\boldsymbol{\alpha}})$.
+2. Compute the estimated variance $\hat{v} = \boldsymbol{\nabla}^{\top}\boldsymbol{\Sigma}\boldsymbol{\nabla}$.
+3. Return $(\hat{\Delta}, \hat{v})$.
+
+### Delta method for count metrics
+
+Define $\hat{\boldsymbol{\alpha}}$ as the $2\times 1$ vector with the control sample mean and the numerator effect estimate.
+Define $\hat{\boldsymbol{\Sigma}}$ as the $2 \times 2$ covariance of $\hat{\boldsymbol{\alpha}}$.
+By the central limit theorem
+
+$$
+\begin{equation}
+\hat{\boldsymbol{\alpha}}
+=\begin{pmatrix}
+\hat{\boldsymbol{\alpha}}_{1}\\
+\hat{\boldsymbol{\alpha}}_{2}
+\end{pmatrix}\stackrel{}{\sim}\mathcal{N}\left(\boldsymbol{\alpha}=\begin{pmatrix}
+\boldsymbol{\alpha}_{1}\\
+\boldsymbol{\alpha}_{2}
+\end{pmatrix},\boldsymbol{\Sigma}\right)
+\end{equation}
+$$
+
+Define $$g_{abs}(\boldsymbol{\alpha}) =  \boldsymbol{\alpha}[2]$$.
+
+Define $$g_{rel}(\boldsymbol{\alpha}) =  \frac{\boldsymbol{\alpha}[2]}{\boldsymbol{\alpha}[1]}.$$
+
+Define $g \in \left\{g_{abs}, g_{rel} \right\}$.
+
+Define the vector of partials of length $2$ $\boldsymbol{\nabla} = \frac{\partial g}{\partial \boldsymbol{\alpha}}$.
+
+If $g = g_{abs}$ then set $\boldsymbol{\nabla}$ equal to $\boldsymbol{\nabla}_{abs}$, where
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}_{abs}[1] &= 0\\
+\boldsymbol{\nabla}_{abs}[2] &= 1.
+\end{align*}
+$$
+
+If $g = g_{rel}$ then define $\boldsymbol{\nabla}$ equal to $\boldsymbol{\nabla}_{rel}$, where
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}_{rel}[1] &= \frac{-\boldsymbol{\alpha}[2]}
+{\boldsymbol{\alpha}[1]^{2}}\\
+\boldsymbol{\nabla}_{rel}[2] &= \frac{1}{\boldsymbol{\alpha}[1]}\\
+\end{align*}
+$$
+
+By the delta method,  
+$$\hat{\Delta} = g(\hat{\boldsymbol{\alpha}}) \stackrel{}{\sim}\mathcal{N}\left(\Delta_{r} = g\left(\alpha\right), \boldsymbol{\nabla}^{\top}\boldsymbol{\Sigma}\boldsymbol{\nabla}\right)$$.
+
+In summary, the steps for the algorithm are:
+
+1. Compute the point estimate $\hat{\Delta} = g(\hat{\boldsymbol{\alpha}})$.
+2. Compute the estimated variance $\hat{v} = \boldsymbol{\nabla}^{\top}\boldsymbol{\Sigma}\boldsymbol{\nabla}$.
+3. Return $(\hat{\Delta}, \hat{v})$.

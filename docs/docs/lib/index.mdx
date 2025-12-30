@@ -1,30 +1,259 @@
 ---
-title: GrowthBook SDKs
-description: Learn about GrowthBook's supported SDKs
+title: GrowthBookSDKs - Feature Flags & Experimentation
+description: Choose the right GrowthBook SDK for your application. Support for JavaScript, React, Python, Node.js, mobile, and edge platforms. Get started with feature flags and experiments in minutes.
 sidebar_label: SDKs
+keywords:
+  - feature flags
+  - A/B testing
+  - SDK
+  - JavaScript SDK
+  - React SDK
+  - Python SDK
+  - Node.js SDK
+  - mobile SDK
+  - edge computing
+  - experimentation platform
 ---
 
-# SDKs
+import { Code, CodeLogos } from '@site/src/components/Icons'
+import ButtonCard from '@site/src/components/ButtonCard'
 
-We offer official SDKs for many popular languages and frameworks:
+# SDK Overview
 
-- [Javascript/Typescript](/lib/js)
-- [React](/lib/react)
-- [Vue](/lib/vue)
-- [HTML Script Tag](/lib/script-tag)
-- [Node.js](/lib/node)
-- [PHP](/lib/php)
-- [Ruby](/lib/ruby)
-- [Python](/lib/python)
-- [Go](/lib/go)
-- [Java](/lib/java)
-- [C#](/lib/csharp)
-- [Elixir](/lib/elixir)
-- [Kotlin (Android)](/lib/kotlin)
-- [Swift](/lib/swift)
-- [Flutter](/lib/flutter)
-- [React Native](/lib/react-native)
+GrowthBook SDKs are lightweight libraries that let you use feature flags and run experiments in your application. They handle feature evaluation and assignment logic.
 
-There is also a guide if you want to [build your own](/lib/build-your-own).
+## What SDKs Do
 
-It's not required to use any of these libraries. The only requirement is that you track in your datasource when users are put into an experiment and which variation they received.
+The SDK has two main responsibilities:
+
+1. **Fetch features from the API**: The SDK downloads your feature definitions from GrowthBook and caches them for fast access.
+
+2. **Evaluate features**: Using attributes you provide (like user ID, country, or subscription plan), the SDK evaluates your targeting rules and returns the appropriate feature values. This evaluation happens wherever the SDK runs—in the browser, on your server, or at the edge.
+
+## Running Experiments
+
+To measure experiment results, the SDK needs to log which variation was assigned. This is done through a tracking callback—a function you provide that sends assignment data via your event tracking system (like Segment, Mixpanel, or GA4).
+
+Without a tracking callback, the SDK will still assign variations and your features will work, but you won't be able to analyze experiment results in GrowthBook.
+
+All SDKs use the same assignment logic, so the same attributes always produce the same variation regardless of which SDK you use. Each SDK has documentation on setting up tracking callbacks, and many offer [pre-built integrations](/lib/js#plugins) with popular analytics tools.
+
+## Choosing the Right SDK
+
+The main differences between SDK types are where they run and what problems they solve best.
+
+### Client-Side SDKs
+
+**Where they run:** In the browser or mobile device
+
+**Best for:** UI changes, visual experiments, and frontend feature flags
+
+**Trade-offs:**
+
+- Easy integration with frontend frameworks
+- Feature rules are visible to users (see [remote evaluation](/lib/js#remote-evaluation) if you need to keep rules private)
+- Can show a brief flicker while experiments load asynchronously (see our recommended anti-flicker techniques)
+
+**Common use cases:** Rolling out a new dashboard design, testing button colors, showing features based on user plan
+
+**SDKs:** [JavaScript](/lib/js), [React](/lib/react), [Vue](/lib/vue), [Swift](/lib/swift), [Kotlin](/lib/kotlin), [Flutter](/lib/flutter), [React Native](/lib/react-native)
+
+### Server-Side SDKs
+
+**Where they run:** On your backend infrastructure
+
+**Best for:** Backend logic, API responses, or when you need to keep targeting rules private
+
+**Trade-offs:**
+
+- Keeps feature logic and rules private
+- No visual flicker
+- Requires infrastructure to run (not just a script tag)
+- Need to pass evaluation results to the frontend if UI changes are required
+- May need to extract attributes from cookies, headers, or tokens
+
+**Common use cases:** Testing a new recommendation algorithm, rolling out API changes, experimenting with pricing tiers, ML model rollouts
+
+**SDKs:** [Node.js](/lib/node), [Python](/lib/python), [Ruby](/lib/ruby), [PHP](/lib/php), [Java](/lib/java), [Go](/lib/go), [C#](/lib/csharp), [Elixir](/lib/elixir)
+
+### Edge SDKs
+
+**Where they run:** On edge platforms/CDNs (Cloudflare Workers, Fastly Compute, Lambda@Edge)
+
+**Best for:** Eliminating flicker for visual experiments or doing redirects before your application server handles the request
+
+**Trade-offs:**
+
+- Eliminates flicker for visual experiments and redirects
+- Can inject feature data into HTML for the frontend to use
+- More complex setup and integration
+- Resource constraints (CPU/memory limits)
+
+**Common use cases:** A/B testing landing pages without flicker, geo-based redirects, paywall experiments
+
+**SDKs:** [Cloudflare Workers](/lib/edge/cloudflare), [Fastly Compute](/lib/edge/fastly), [Lambda@Edge](/lib/edge/lambda)
+
+:::tip Not sure which to choose?
+**Most users start with a client-side SDK**. They're the easiest to implement and work great for UI changes and experiments.
+:::
+
+## Getting Started
+
+Choose your SDK below to see installation and setup instructions:
+
+### Client-Side
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/script-tag"
+    title="HTML Script Tag"
+    description="Drop-in script for any website or low-code platform"
+    icon={<Code />}
+  />
+  <ButtonCard
+    to="/lib/js"
+    title="Javascript"
+    description="Vanilla JS and TypeScript projects"
+    icon={<CodeLogos name="js" />}
+  />
+  <ButtonCard
+    to="/lib/react"
+    title="React"
+    description="React hooks and providers with SSR support"
+    icon={<CodeLogos name="react" />}
+  />
+  <ButtonCard
+    to="https://github.com/growthbook/examples/tree/main/next-js"
+    title="Next.js"
+    description="App/Pages router examples (with support for SSR)"
+    icon={<CodeLogos name="nextjs" />}
+  />
+  <ButtonCard
+    to="/lib/vue"
+    title="Vue"
+    description="Vue 3 with composables and Nuxt support"
+    icon={<CodeLogos name="vue" />}
+  />
+</div>
+
+### Mobile
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/kotlin"
+    title="Kotlin (Android)"
+    description="Native Android development"
+    icon={<CodeLogos name="kotlin" />}
+  />
+  <ButtonCard
+    to="/lib/flutter"
+    title="Flutter"
+    description="Cross-platform mobile apps"
+    icon={<CodeLogos name="flutter" />}
+  />
+  <ButtonCard
+    to="/lib/swift"
+    title="Swift (iOS)"
+    description="Native iOS development"
+    icon={<CodeLogos name="swift" />}
+  />
+  <ButtonCard
+    to="/lib/react-native"
+    title="React Native"
+    description="Cross-platform React Native apps"
+    icon={<CodeLogos name="react" />}
+  />
+</div>
+
+### Server-Side
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/node"
+    title="Node.js"
+    description="Express, Fastify, and Node.js servers"
+    icon={<CodeLogos name="node" />}
+  />
+  <ButtonCard
+    to="/lib/php"
+    title="PHP"
+    description="Laravel, Symfony, and PHP applications"
+    icon={<CodeLogos name="php" />}
+  />
+  <ButtonCard
+    to="/lib/ruby"
+    title="Ruby"
+    description="Rails and Ruby applications"
+    icon={<CodeLogos name="ruby" />}
+  />
+  <ButtonCard
+    to="/lib/python"
+    title="Python"
+    description="Flask, Django, FastAPI, and async support"
+    icon={<CodeLogos name="python" />}
+  />
+  <ButtonCard
+    to="/lib/java"
+    title="Java"
+    description="Spring Boot and Java applications"
+    icon={<CodeLogos name="java" />}
+  />
+  <ButtonCard
+    to="/lib/csharp"
+    title="C#"
+    description=".NET Core and ASP.NET applications"
+    icon={<CodeLogos name="csharp" />}
+  />
+  <ButtonCard
+    to="/lib/go"
+    title="Go"
+    description="High-performance Go services"
+    icon={<CodeLogos name="go" />}
+  />
+  <ButtonCard
+    to="/lib/elixir"
+    title="Elixir"
+    description="Phoenix and Elixir applications"
+    icon={<CodeLogos name="elixir" />}
+  />
+  <ButtonCard
+    to="/lib/rust"
+    title="Rust"
+    description="Actix, Axum, Rocket, and more"
+    icon={<CodeLogos name="rust" />}
+  />
+  <ButtonCard
+    to="/lib/nextjs"
+    title="Vercel"
+    description="Vercel Flags SDK with Edge Config"
+    icon={<CodeLogos name="vercel" />}
+  />
+</div>
+
+### Edge
+
+<div className="button-card-grid">
+  <ButtonCard
+    to="/lib/edge/cloudflare"
+    title="Cloudflare Workers"
+    description="Low-latency edge computing on Cloudflare's network"
+    icon={<CodeLogos name="edgeCloudflare" />}
+  />
+  <ButtonCard
+    to="/lib/edge/fastly"
+    title="Fastly Compute"
+    description="WebAssembly-powered edge computing"
+    icon={<CodeLogos name="edgeFastly" />}
+  />
+  <ButtonCard
+    to="/lib/edge/lambda"
+    title="Lambda@Edge"
+    description="AWS Lambda at CloudFront edge locations"
+    icon={<CodeLogos name="edgeLambda" />}
+  />
+</div>
+
+---
+
+🛠️ **Want to build your own SDK?**  
+Follow our [guide to integrate GrowthBook into any platform](/lib/build-your-own).

@@ -1,15 +1,15 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -20,8 +20,12 @@ import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
 
 export interface Props {
@@ -68,6 +72,11 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
+            styles={{
+              contentText: {
+                wordBreak: "break-all",
+              },
+            }}
           />
         </div>
       )}
@@ -92,20 +101,15 @@ export default function DraftModal({
 
   const revision = revisions.find((r) => r.version === version);
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
+  const envIds = environments.map((e) => e.id);
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(
-      liveRevision,
-      baseRevision,
-      revision,
-      environments.map((e) => e.id),
-      {}
-    );
-  }, [revision, baseRevision, liveRevision]);
+    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
+  }, [revision, baseRevision, liveRevision, envIds]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -116,46 +120,28 @@ export default function DraftModal({
   });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experimentData.map((e) => e.experiment.id))
+    new Set(experimentData.map((e) => e.experiment.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
-  const resultDiffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
-
-    if (!mergeResult) return diffs;
-    if (!mergeResult.success) return diffs;
-
-    const result = mergeResult.result;
-
-    if (result.defaultValue !== undefined) {
-      diffs.push({
-        title: "Default Value",
-        a: feature.defaultValue,
-        b: result.defaultValue,
-      });
-    }
-    if (result.rules) {
-      environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(liveRules, null, 2),
-            b: JSON.stringify(result.rules[env.id], null, 2),
-          });
+  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const resultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: mergeResult?.success
+      ? {
+          // Use current values as fallback when merge result doesn't have changes
+          defaultValue:
+            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
+          rules: mergeResult.result.rules ?? currentRevisionData.rules,
         }
-      });
-    }
-
-    return diffs;
-  }, [mergeResult]);
+      : currentRevisionData,
+  });
 
   if (!revision || !mergeResult) return null;
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
-    getAffectedRevisionEnvs(feature, revision, environments)
+    getAffectedRevisionEnvs(feature, revision, environments),
   );
 
   const hasChanges = mergeResultHasChanges(mergeResult);
@@ -195,7 +181,7 @@ export default function DraftModal({
                       publishExperimentIds: Array.from(selectedExperiments),
                       comment,
                     }),
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();

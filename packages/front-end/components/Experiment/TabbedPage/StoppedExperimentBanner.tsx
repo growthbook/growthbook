@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FaClock, FaPencilAlt } from "react-icons/fa";
 import {
   experimentHasLinkedChanges,
@@ -30,8 +30,10 @@ export default function StoppedExperimentBanner({
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    linkedFeatures.map((f) => f.feature)
+    linkedFeatures.map((f) => f.feature),
   );
+
+  const isHoldout = experiment.type === "holdout";
 
   if (experiment.status !== "stopped") return null;
 
@@ -41,8 +43,8 @@ export default function StoppedExperimentBanner({
     (result === "lost"
       ? experiment.variations[0]?.name
       : result === "won"
-      ? experiment.variations[experiment.winner || 1]?.name
-      : "") || "";
+        ? experiment.variations[experiment.winner || 1]?.name
+        : "") || "";
 
   const releasedVariation =
     experiment.variations.find((v) => v.id === experiment.releasedVariationId)
@@ -55,7 +57,9 @@ export default function StoppedExperimentBanner({
         style={{ background: "var( --alert-premium-background-gradient-2)" }}
       >
         <div className="mr-2">
-          <h3 className="mb-0">Experiment Stopped</h3>
+          <h3 className="mb-0">
+            {isHoldout ? "Holdout Stopped" : "Experiment Stopped"}
+          </h3>
         </div>
         {experiment.results && (
           <ResultsIndicator results={experiment.results} />
@@ -63,7 +67,8 @@ export default function StoppedExperimentBanner({
         <div className="flex-1"></div>
         {releasedVariation &&
           experimentHasLinkedChanges(experiment) &&
-          hasLiveLinkedChanges && (
+          hasLiveLinkedChanges &&
+          !isHoldout && (
             <div className="ml-3">
               {(result === "won" || result === "lost") &&
               winningVariation !== releasedVariation ? (
@@ -84,7 +89,7 @@ export default function StoppedExperimentBanner({
               was rolled out to 100%
             </div>
           )}
-        {editResult && (
+        {editResult && !isHoldout && (
           <div>
             <a
               href="#"
@@ -100,7 +105,7 @@ export default function StoppedExperimentBanner({
         )}
       </div>
 
-      {hasLiveLinkedChanges && (
+      {hasLiveLinkedChanges && !isHoldout && (
         <div className="alert alert-warning m-3">
           <div className="d-flex align-items-center">
             <div>

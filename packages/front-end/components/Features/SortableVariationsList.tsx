@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Variation } from "back-end/types/experiment";
+import { Variation } from "shared/types/experiment";
 import { SortableVariation } from "./SortableFeatureVariationRow";
 
 const SortableVariationsList: FC<{
@@ -34,7 +34,7 @@ const SortableVariationsList: FC<{
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   function getVariationIndex(id: string) {

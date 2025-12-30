@@ -1,5 +1,8 @@
 type: object
 properties:
+  datasourceId:
+    type: string
+    description: Can only be set if existing experiment does not have a datasource
   assignmentQueryId:
     type: string
   trackingKey:
@@ -7,6 +10,11 @@ properties:
   name:
     type: string
     description: Name of the experiment
+  type:
+    type: string
+    enum:
+      - "standard"
+      - "multi-armed-bandit"
   project:
     type: string
     description: Project ID which the experiment belongs to
@@ -32,6 +40,15 @@ properties:
     type: array
     items:
       type: string
+  activationMetric:
+    type: string
+    description: Users must convert on this metric before being included
+  segmentId:
+    type: string
+    description: Only users in this segment will be included
+  queryFilter:
+    type: string
+    description: WHERE clause to add to the default experiment query
   owner:
     type: string
     description: Email of the person who owns this experiment
@@ -162,6 +179,19 @@ properties:
               type: boolean
         targetingCondition:
           type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: "Feature ID"
+              condition:
+                type: string
         reason:
           type: string
         condition:
@@ -191,3 +221,59 @@ properties:
   regressionAdjustmentEnabled:
     type: boolean
     description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+  sequentialTestingEnabled:
+    type: boolean
+    description: Only applicable to frequentist analyses
+  sequentialTestingTuningParameter:
+    type: number
+  shareLevel:
+    type: string
+    enum:
+      - "public"
+      - "organization"
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  customFields:
+    type: object
+    additionalProperties:
+      type: string
+  pinnedMetricSlices:
+    type: array
+    items:
+      type: string
+    description: "Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)"
+  customMetricSlices:
+    type: array
+    items:
+      type: object
+      properties:
+        slices:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+              levels:
+                type: array
+                items:
+                  type: string
+            required:
+              - column
+              - levels
+
+      required:
+        - slices
+    description: "Custom slices that apply to ALL applicable metrics in the experiment"

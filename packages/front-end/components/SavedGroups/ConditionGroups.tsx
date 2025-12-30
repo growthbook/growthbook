@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ago } from "shared/dates";
-import { SavedGroupInterface } from "shared/src/types";
+import { SavedGroupInterface } from "shared/types/groups";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
@@ -15,15 +16,15 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useExperiments } from "@/hooks/useExperiments";
+import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -32,10 +33,8 @@ export interface Props {
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const { project } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
@@ -54,40 +53,54 @@ export default function ConditionGroups({ groups, mutate }: Props) {
 
   const filteredConditionGroups = project
     ? conditionGroups.filter((group) =>
-        isProjectListValidForProject(group.projects, project)
+        isProjectListValidForProject(group.projects, project),
       )
     : conditionGroups;
 
   const { features } = useFeaturesList(false);
   const { experiments } = useExperiments();
 
-  // Get a list of feature ids for every saved group
   const referencingFeaturesByGroup = useMemo(
     () =>
       featuresReferencingSavedGroups({
-        savedGroups: filteredConditionGroups,
+        savedGroups: conditionGroups,
         features,
         environments,
       }),
-    [filteredConditionGroups, environments, features]
+    [conditionGroups, environments, features],
   );
 
   const referencingExperimentsByGroup = useMemo(
     () =>
       experimentsReferencingSavedGroups({
-        savedGroups: filteredConditionGroups,
+        savedGroups: conditionGroups,
         experiments,
       }),
-    [filteredConditionGroups, experiments]
+    [conditionGroups, experiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: filteredConditionGroups,
-    localStorageKey: "savedGroupsRuntime",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["groupName^3", "condition^2", "owner"],
-  });
+  const referencingSavedGroupsByGroup = useMemo(() => {
+    const result: Record<string, SavedGroupInterface[]> = {};
+    filteredConditionGroups.forEach((targetGroup) => {
+      result[targetGroup.id] = conditionGroups.filter((sg) => {
+        if (sg.id === targetGroup.id) return false;
+        if (!sg.condition) return false;
+        return sg.condition.includes(targetGroup.id);
+      });
+    });
+    return result;
+  }, [filteredConditionGroups, conditionGroups]);
+
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: filteredConditionGroups,
+      localStorageKey: "savedGroupsRuntime",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["groupName^3", "condition^2", "owner"],
+      pageSize: 50,
+      updateSearchQueryOnChange: true,
+    });
 
   if (!conditionGroups) return <LoadingOverlay />;
 
@@ -107,11 +120,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
         <div className="flex-1"></div>
         {canCreate ? (
           <div className="col-auto">
-            <Button
-              onClick={async () => {
-                setSavedGroupForm({});
-              }}
-            >
+            <Button onClick={() => setSavedGroupForm({})}>
               Add Condition Group
             </Button>
           </div>
@@ -129,7 +138,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           <div className="row mb-4 align-items-center">
             <div className="col-auto">
               <Field
-                inputGroupClassName="bg-white"
                 prepend={<FaMagnifyingGlass />}
                 placeholder="Search..."
                 type="search"
@@ -137,12 +145,14 @@ export default function ConditionGroups({ groups, mutate }: Props) {
               />
             </div>
           </div>
-          <div className="row mb-3">
+          <div className="row mb-0">
             <div className="col-12">
               <table className="table gbtable">
                 <thead>
                   <tr>
-                    <SortableTH field="groupName">Name</SortableTH>
+                    <SortableTH field="groupName" style={{ maxWidth: 200 }}>
+                      Name
+                    </SortableTH>
                     <SortableTH field="condition">Condition</SortableTH>
                     <th>Description</th>
                     <th className="col-2">Projects</th>
@@ -155,14 +165,35 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                   {items.map((s) => {
                     return (
                       <tr key={s.id}>
-                        <td>{s.groupName}</td>
-                        <td>
-                          <ConditionDisplay
+                        <td style={{ width: "250px" }}>
+                          <Link
+                            href={`/saved-groups/${s.id}`}
+                            className="link-purple"
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                              textOverflow: "ellipsis",
+                              overflow: "hidden",
+                              lineHeight: "1.2em",
+                              wordBreak: "break-word",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {s.groupName}
+                          </Link>
+                        </td>
+                        <td style={{ width: 400 }}>
+                          <TruncatedConditionDisplay
                             condition={s.condition || ""}
                             savedGroups={[]}
                           />
                         </td>
-                        <td>{truncateString(s.description || "", 40)}</td>
+                        <td style={{ minWidth: 200 }}>
+                          <div className="d-flex flex-wrap">
+                            {truncateString(s.description || "", 40)}
+                          </div>
+                        </td>
                         <td>
                           {(s?.projects?.length || 0) > 0 ? (
                             <ProjectBadges
@@ -204,11 +235,15 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                                 }}
                                 getConfirmationContent={getSavedGroupMessage(
                                   referencingFeaturesByGroup[s.id],
-                                  referencingExperimentsByGroup[s.id]
+                                  referencingExperimentsByGroup[s.id],
+                                  referencingSavedGroupsByGroup[s.id],
                                 )}
                                 canDelete={
                                   isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                  isEmpty(referencingExperimentsByGroup[s.id])
+                                  isEmpty(
+                                    referencingExperimentsByGroup[s.id],
+                                  ) &&
+                                  isEmpty(referencingSavedGroupsByGroup[s.id])
                                 }
                               />
                             ) : null}
@@ -226,6 +261,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                   )}
                 </tbody>
               </table>
+              {pagination}
             </div>
           </div>
         </>

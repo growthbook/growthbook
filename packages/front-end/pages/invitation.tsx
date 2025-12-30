@@ -11,7 +11,7 @@ const InvitationPage = (): React.ReactElement => {
   // Extract the invitation key from the querystring
   const key = useMemo(
     () => (window.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/) || [])[2],
-    []
+    [],
   );
 
   // This page is before the user is part of an org, so need to manually fire a page load event
@@ -44,7 +44,7 @@ const InvitationPage = (): React.ReactElement => {
     } else {
       throw new Error(
         res.message ||
-          "There was an error accepting the invite. Please go back to your email and click the invite link again."
+          "There was an error accepting the invite. Please go back to your email and click the invite link again.",
       );
     }
   }, [apiCall]);

@@ -1,4 +1,4 @@
-import { EventUser as EventUserType } from "back-end/src/events/event-types";
+import { EventUser as EventUserType } from "shared/types/events/event-types";
 import Avatar from "./Avatar";
 
 export interface Props {

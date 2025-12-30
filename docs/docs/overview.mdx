@@ -11,7 +11,7 @@ import ButtonCard from '@site/src/components/ButtonCard'
 
 GrowthBook is a modular platform. You can use it for either Feature Flags, Experiment Analysis, or both.
 
-[**Feature Flags**](/app/features) you create in the GrowthBook UI are published to our API as a JSON file. Pass this JSON into our SDKs and use the feature flags throughout your code. If a feature is running as part of an A/B test, we'll fire a tracking callback in the SDK so you can record that event in your data warehouse or analytics platform for later analysis.
+[**Feature Flags**](/app/features) you create in the GrowthBook UI are published to our API as a JSON file. Pass this JSON into our SDKs and use the feature flags throughout your code. If a feature is running as part of an experiment, we'll fire a tracking callback in the SDK so you can record that event in your data warehouse or analytics platform for later analysis.
 
 [**Experiment Analysis**](/app/experiment-configuration) queries your data warehouse for raw experiment data and runs it through our stats engine to produce a report. No raw user-level events or PII are ever sent to GrowthBook. We only get back aggregate info instead (sums, sums of squares, etc.).
 
@@ -30,7 +30,7 @@ GrowthBook supports 4 types of features:
 - **Boolean (on/off)**
 - **Number**
 - **String**
-- **JSON**
+- **JSON** (with JSON Schema validation)
 
 Using features in your code is easy. Here's an example from our Javascript SDK:
 
@@ -50,7 +50,9 @@ You can also change the value of a feature with **Override Rules**. The followin
 
 - **Forced Value** - Choose a subset of users based on targeting attributes and assign them all the same value
 - **Percentage Rollout** - Use random sampling to roll out a new feature value to a percent of users
-- **A/B Experiment** - Run a controlled A/B test between 2 or more feature values
+- **Safe Rollout** - Gradually ramp up traffic while monitoring guardrail metrics and automatically roll back if things go wrong
+- **Experiment** - Run a controlled hypothesis test between 2 or more feature values
+- **Multi-Arm Bandit** - Dynamically allocate traffic to different feature values based on performance
 
 All features for an environment are packaged together into a single JSON file. All you need to do is pass this into our [SDKs](/lib) along with [user targeting attributes](/features/targeting).
 
@@ -58,18 +60,34 @@ Read more about [features here](/app/features).
 
 ## Experiment Analysis
 
-GrowthBook needs to connect to your [Data Source](/warehouses) in order to query experiment results. We support all of the popular SQL data warehouses in addition to Mixpanel and Google Analytics. GrowthBook is extremely flexible and can support almost any schema structure with a little bit of configuration.
+GrowthBook needs to connect to your [SQL Data Warehouse](/warehouses) in order to query experiment results. GrowthBook is extremely flexible and can support almost any schema structure with a little bit of configuration.
 
 ![Data warehouses supported by GrowthBook](/images/GrowthBook-supported-DB-766.png)
 
-Once connected to a data source, you need to build a re-usable library of [Metrics](/app/metrics). Metrics are what your experiments are trying to improve. Metrics are defined via SQL (if your data source supports it) or a simple query builder. The following types are supported:
+Once connected to a data source, you need to define [Fact Tables and Metrics](/app/metrics). Fact Tables are SQL queries that select raw data from your warehouse. Metrics are built on top of these Fact Tables and define what you want to measure in your experiments. For example, you might have an **Orders** fact table that selects one row per order, and then metrics for **Average Order Value**, **Total Revenue**, and **Number of Orders**.
 
-- **binomial** - simple yes/no conversion metrics (e.g. `started trial`, `bounce rate`, `purchased`)
-- **count** - when the number or magnitude of conversions matters (e.g. `downloads per user`, `points earned`)
-- **revenue** - the amount of revenue earned (e.g. `revenue per user`, `average order value`)
-- **duration** - the time it takes to do something (e.g. `page load time`, `time on site`)
+GrowthBook supports many types of metrics:
 
-Once these are metrics are set up, you can import experiments and start analyzing the results. GrowthBook uses a [Bayesian statistics engine](/statistics/overview) to determine the probability that a variation is better than the control, as well as how much better it is and how risky it is to stop the experiment now.
+- **Proportion** - A simple conversion rate (e.g. `signed up`, `purchased`).
+- **Mean** - The average value across experiment units (e.g. `revenue`, `page views`). Supports several different aggregation types: sum, count, max, and count distinct.
+- **Ratio** - A ratio of two values (e.g. `pages per session`, `revenue per order`).
+- **Quantile** - The value at a specific percentile (e.g. `P99 Latency`).
+- **Retention** - The percentage of experiment units who return after a delay (e.g. `day 7 retention`).
+- **Funnel** - The percentage of experiment units who complete a series of steps (e.g. `signup funnel conversion`). _coming soon_
+
+Once you create a library of metrics, you can reuse them across multiple experiments.
+
+GrowthBook has an extremely powerful and highly configurable statistics engine for analyzing experiment results. Below are some of the key features and options:
+
+- **Frequentist or Bayesian** - Choose the statistical framework that best fits your needs
+- **Sequential Testing** - Always-valid p-values that allow you to safely peek at results as often as you like
+- **CUPED** - Use pre-experiment data to reduce variance and improve sensitivity
+- **Sample Ratio Mismatch (SRM)** - Automatically detect when experiment traffic is not being properly split between variations
+- **Multiple Comparison Corrections** - Control for either false positive rate (Holm-Bonferroni) or false discovery rate (Benjamini-Hochberg)
+- **Different Baselines** - Choose any variation as the baseline for comparison, not just control
+- **Custom Priors** - For Bayesian stats, set custom prior distributions for each metric
+- **Power Calculator** - Estimate the required runtime based on historical data before launching your experiment
+- **Difference Types** - View metric differences as either relative lift, absolute lift, or scaled impact
 
 ![Results Table](/images/results-table.png)
 
@@ -85,7 +103,7 @@ There are typically three reasons that teams use GrowthBook.
 
 In this use case, companies use Feature Flags and our SDKs to run experiments in their applications. Then they use our Experiment Analysis to look at the results and decide on a winner.
 
-This is best for companies that are either just starting with experimentation or want to completely switch away from their current way of doing things.
+This is best for companies that want an all-in-one solution and seamless developer experience.
 
 ### 2. Feature Flags Only
 
@@ -101,32 +119,27 @@ This is best for companies that already have a robust process for running experi
 
 ## Next Steps
 
-<div className="row is-multiline">
-    <div className="col col--4">
+<div className="button-card-grid">
       <ButtonCard
         to={'/quick-start'}
         title="Quick Start Guide"
         description="Learn how to get started with GrowthBook"
-        style={{ height: '100%' }}
+        icon={<svg viewBox="0 0 256 256" fill="currentColor"><path d="M184,112a8,8,0,0,1-8,8H112a8,8,0,0,1,0-16h64A8,8,0,0,1,184,112Zm-8,24H112a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm48-88V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM48,208H72V48H48Zm160,0V48H88V208H208Z"></path></svg>}
         color="default"
-      ></ButtonCard>
+      />
+   
+      <ButtonCard
+          to={'/self-host'}
+          title="Self-Host"
+          description="Learn about running GrowthBook on your own infrastructure"
+          icon={<svg viewBox="0 0 256 256" fill="currentColor"><path d="M208,136H48a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,64H48V152H208v48Zm0-160H48A16,16,0,0,0,32,56v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40Zm0,64H48V56H208v48ZM192,80a12,12,0,1,1-12-12A12,12,0,0,1,192,80Zm0,96a12,12,0,1,1-12-12A12,12,0,0,1,192,176Z"></path></svg>}
+      />
+   
+      <ButtonCard
+          to={'/lib'}
+          title="SDK Docs"
+          description="Learn about the GrowthBook SDKs"
+          icon={<svg viewBox="0 0 256 256" fill="currentColor"><path d="M223.68,66.15,135.68,18h0a15.88,15.88,0,0,0-15.36,0l-88,48.17a16,16,0,0,0-8.32,14v95.64a16,16,0,0,0,8.32,14l88,48.17a15.88,15.88,0,0,0,15.36,0l88-48.17a16,16,0,0,0,8.32-14V80.18A16,16,0,0,0,223.68,66.15ZM128,32h0l80.34,44L128,120,47.66,76ZM40,90l80,43.78v85.79L40,175.82Zm96,129.57V133.82L216,90v85.78Z"></path></svg>}
+          color="default"
+      />
     </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/self-host'}
-            title="Self-Host"
-            description="Learn about running GrowthBook on your own infrastructure"
-            style={{ height: '100%' }}
-        ></ButtonCard>
-    </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/lib'}
-            title="SDK Docs"
-            description="Learn about the GrowthBook SDKs"
-            style={{ height: '100%' }}
-            color="default"
-        ></ButtonCard>
-    </div>
-
-</div>

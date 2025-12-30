@@ -72,8 +72,14 @@ tags:
   - name: data-sources
     x-displayName: Data Sources
     description: How GrowthBook connects and queries your data
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: metrics
-    x-displayName: Metrics
+    x-displayName: Metrics (legacy)
     description: Metrics used as goals and guardrails for experiments
   - name: experiments
     x-displayName: Experiments
@@ -102,18 +108,24 @@ tags:
   - name: members
     x-displayName: Members
     description: Members are users who have been invited to an organization.
-  - name: fact-tables
-    x-displayName: Fact Tables
-    description: Fact Tables describe the shape of your data warehouse tables
-  - name: fact-metrics
-    x-displayName: Fact Metrics
-    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: code-references
     x-displayName: Code References
     description: Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: queries
+    x-displayName: Queries
+    description: Retrieve queries used in experiments to calculate results.
+  - name: settings
+    x-displayName: Settings
+    description: Get the organization settings.
+  - name: custom-fields
+    x-displayName: Custom Fields
+    description: Custom fields for the organization.
+  - name: attributes
+    x-displayName: Attributes
+    description: Used when targeting feature flags and experiments.
 paths:
   /features:
     get:
@@ -129,6 +141,11 @@ paths:
       $ref: "./paths/deleteFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
+  /features/{id}/revert:
+    $ref: "./paths/revertFeature.yaml"
+  /features/{id}/revisions:
+    get:
+      $ref: "./paths/getFeatureRevisions.yaml"
   /feature-keys:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
@@ -145,13 +162,29 @@ paths:
     delete:
       $ref: "./paths/deleteProject.yaml"
   /dimensions:
-    $ref: "./paths/listDimensions.yaml"
+    get:
+      $ref: "./paths/listDimensions.yaml"
+    post:
+      $ref: "./paths/postDimension.yaml"
   /dimensions/{id}:
-    $ref: "./paths/getDimension.yaml"
+    get:
+      $ref: "./paths/getDimension.yaml"
+    post:
+      $ref: "./paths/updateDimension.yaml"
+    delete:
+      $ref: "./paths/deleteDimension.yaml"
   /segments:
-    $ref: "./paths/listSegments.yaml"
+    get:
+      $ref: "./paths/listSegments.yaml"
+    post:
+      $ref: "./paths/postSegment.yaml"
   /segments/{id}:
-    $ref: "./paths/getSegment.yaml"
+    get:
+      $ref: "./paths/getSegment.yaml"
+    post:
+      $ref: "./paths/updateSegment.yaml"
+    delete:
+      $ref: "./paths/deleteSegment.yaml"
   /sdk-connections:
     get:
       $ref: "./paths/listSdkConnections.yaml"
@@ -176,6 +209,9 @@ paths:
       $ref: "./paths/listExperiments.yaml"
     post:
       $ref: "./paths/postExperiment.yaml"
+  /experiment-names:
+    get:
+      $ref: "./paths/getExperimentNames.yaml"
   /experiments/{id}:
     get:
       $ref: "./paths/getExperiment.yaml"
@@ -307,12 +343,28 @@ paths:
       $ref: "./paths/updateFactMetric.yaml"
     delete:
       $ref: "./paths/deleteFactMetric.yaml"
+  /fact-metrics/{id}/analysis:
+    $ref: "./paths/postFactMetricAnalysis.yaml"
   /bulk-import/facts:
     post:
       $ref: "./paths/postBulkImportFacts.yaml"
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+    get:
+      $ref: "./paths/listCodeRefs.yaml"
+  /code-refs/{id}:
+    get:
+      $ref: "./paths/getCodeRefs.yaml"
+  /queries/{id}:
+    get:
+      $ref: "./paths/getQuery.yaml"
+  /settings:
+    get:
+      $ref: "./paths/getSettings.yaml"
+  /custom-fields:
+    get:
+      $ref: "./paths/getCustomFields.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

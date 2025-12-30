@@ -21,7 +21,7 @@ export default function EmptyPowerCalculation({
           </button>
         </div>
       </div>
-      <div className="row card gsbox mb-3">
+      <div className="appbox mb-3">
         <div className="text-center m-5">
           <div className="card-title mb-1">
             <h3>Calculate Experiment Power</h3>

@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { ProjectMemberRole } from "back-end/types/organization";
-import cloneDeep from "lodash/cloneDeep";
+import { ProjectMemberRole } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -98,12 +97,12 @@ export default function ProjectRolesSelector({
                 if (!newProject) return;
 
                 const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
-                newProjectRoles.push(
-                  cloneDeep({
-                    project: newProject,
-                    ...defaultRole,
-                  }) as ProjectMemberRole
-                );
+                newProjectRoles.push({
+                  project: newProject,
+                  role: defaultRole.role,
+                  limitAccessByEnvironment: false,
+                  environments: [],
+                });
                 setProjectRoles(newProjectRoles);
                 setNewProject("");
               }}

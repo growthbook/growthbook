@@ -1,10 +1,10 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React from "react";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
@@ -12,14 +12,14 @@ interface LargeSavedGroupSupport {
 }
 
 export function useLargeSavedGroupSupport(
-  project?: string
+  project?: string,
 ): LargeSavedGroupSupport {
   const { hasCommercialFeature } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   let connections = sdkConnectionData?.connections || [];
   connections = connections.filter(
     (conn) =>
-      conn.projects.length === 0 || conn.projects.includes(project || "")
+      conn.projects.length === 0 || conn.projects.includes(project || ""),
   );
   const unsupportedConnections: SDKConnectionInterface[] = [];
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");

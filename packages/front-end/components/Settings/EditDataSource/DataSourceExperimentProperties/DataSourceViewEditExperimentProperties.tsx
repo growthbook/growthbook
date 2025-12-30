@@ -3,20 +3,18 @@ import { FaPencilAlt } from "react-icons/fa";
 import {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { DataSourceEditExperimentEventPropertiesModal } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceViewEditExperimentPropertiesProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperimentPropertiesProps> = ({
-  onSave,
-  onCancel,
-  dataSource,
-  canEdit = true,
-}) => {
+export const DataSourceViewEditExperimentProperties: FC<
+  DataSourceViewEditExperimentPropertiesProps
+> = ({ onSave, onCancel, dataSource, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
 
   const permissionsUtil = usePermissionsUtil();
@@ -37,7 +35,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
       copy.settings.events = eventProperties;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {

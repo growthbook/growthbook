@@ -3,6 +3,8 @@ description: Importing and analyzing experiments created outside of GrowthBook
 slug: /app/importing-experiments
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Importing External Experiments
 
 GrowthBook can analyze experiments that are run on another service or platform so long as they exist in your linked Data Source. To do this, we create a dedicated experiment in GrowthBook that links to your data warehouse via the experiment metadata.
@@ -15,11 +17,9 @@ Once your datasource is set up, you can import an experiment by clicking select 
 
 When you choose to Import an Existing Experiment, we scan all of the experiment assignment queries for a datasource and present any experiments we have found in those experiment assignment queries.
 
-<img
-  src="/images/import-experiment-modal.png"
-  alt="Experiment Import Modal"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Experiment Import Modal](/images/import-experiment-modal.png)
+</MaxWidthImage>
 
 We scan the experiment assignment queries for any experiment metadata that we can use to create an experiment in GrowthBook. This metadata includes the experiment name, the variations and their splits, and the start date of the experiment. You can choose to Import an experiment, and you will be prompted to confirm this metadata.
 

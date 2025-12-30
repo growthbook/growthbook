@@ -13,7 +13,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
+import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { FaGripHorizontal, FaTimes } from "react-icons/fa";
 import { CSS } from "@dnd-kit/utilities";
 import { forwardRef, useState } from "react";
@@ -41,14 +41,14 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
       handle,
       ...props
     },
-    ref
+    ref,
   ) => {
     const [showDeleteBtn, setShowDeleteBtn] = useState(false);
     return (
       <div
         ref={ref}
         {...props}
-        className="d-flex align-items-center justify-content-between border rounded ml-3 px-3 py-2 my-1 shadow-sm bg-white"
+        className="d-flex align-items-center justify-content-between border rounded ml-3 px-3 py-2 my-1 shadow-sm"
         onMouseEnter={() => setShowDeleteBtn(true)}
         onMouseLeave={() => setShowDeleteBtn(false)}
       >
@@ -85,23 +85,18 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
         </button>
       </div>
     );
-  }
+  },
 );
 
 function SortableChecklistItem(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.item.task });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.item.task });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: active?.id === props.item.task ? 0.3 : 1,
+    backgroundColor: "var(--color-surface)",
   };
 
   return (
@@ -125,7 +120,7 @@ export default function SortableExperimentChecklist({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   function getTaskIndex(task: string) {
@@ -136,7 +131,7 @@ export default function SortableExperimentChecklist({
   }
 
   return (
-    <div className="py-3 pr-3 border bg-light rounded">
+    <div className="py-3 pr-3 border rounded">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -151,7 +146,7 @@ export default function SortableExperimentChecklist({
             const newRules = arrayMove(
               experimentLaunchChecklist,
               oldIndex,
-              newIndex
+              newIndex,
             );
             setExperimentLaunchChecklist(newRules);
           }

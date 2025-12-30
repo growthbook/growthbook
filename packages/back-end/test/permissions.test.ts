@@ -1,14 +1,11 @@
-import { Permissions } from "shared/permissions";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "back-end/src/util/organization.util";
-import { OrganizationInterface } from "back-end/types/organization";
-import { TeamInterface } from "back-end/types/team";
-import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
+import { Permissions, roleToPermissionMap } from "shared/permissions";
+import { OrganizationInterface } from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
+import { FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
+import { DataSourceInterface } from "shared/types/datasource";
 import { SUPERADMIN_DEFAULT_ROLE } from "back-end/src/util/secrets";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -40,7 +37,7 @@ describe("Build base user permissions", () => {
   // Basic user permissions - no project-level permissions or teams
   it("should throw error if user isn't in the org", async () => {
     expect(async () =>
-      getUserPermissions({ id: "base_user_not_in_org" }, testOrg, [])
+      getUserPermissions({ id: "base_user_not_in_org" }, testOrg, []),
     ).rejects.toThrow("User is not a member of this organization");
   });
 
@@ -49,8 +46,8 @@ describe("Build base user permissions", () => {
       getUserPermissions(
         { id: "base_user_not_in_org", superAdmin: true },
         testOrg,
-        []
-      )
+        [],
+      ),
     ).toEqual({
       global: {
         environments: [],
@@ -68,7 +65,7 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "collaborator" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -87,7 +84,7 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "noaccess" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -103,7 +100,7 @@ describe("Build base user permissions", () => {
     const userPermissions = getUserPermissions(
       { id: "base_user_123" },
       testOrg,
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -122,7 +119,7 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "collaborator" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -141,7 +138,7 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "engineer" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -160,7 +157,7 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "analyst" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -179,7 +176,7 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "experimenter" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -198,7 +195,7 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "admin" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -232,7 +229,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -264,7 +261,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -290,7 +287,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
@@ -322,7 +319,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -366,7 +363,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -404,7 +401,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -445,7 +442,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -512,7 +509,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -566,7 +563,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -612,7 +609,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -658,7 +655,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -715,7 +712,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -784,7 +781,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -838,7 +835,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -881,7 +878,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -924,7 +921,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -969,7 +966,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1026,7 +1023,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1082,7 +1079,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1145,7 +1142,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1208,7 +1205,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1264,7 +1261,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1330,7 +1327,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([]);
@@ -1353,7 +1350,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([]);
@@ -1377,7 +1374,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([
@@ -1429,7 +1426,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([
@@ -1497,7 +1494,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([
@@ -1531,7 +1528,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([
@@ -1559,7 +1556,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([]);
@@ -1584,7 +1581,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([]);
@@ -1614,7 +1611,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([
@@ -1654,7 +1651,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([]);
@@ -1726,7 +1723,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -1747,7 +1744,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -1768,7 +1765,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -1789,7 +1786,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(
-      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(false);
   });
 
@@ -1815,7 +1812,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(
-      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(true);
   });
 });
@@ -1865,7 +1862,10 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     });
 
     expect(
-      permissions.canUpdateAttribute({ projects: ["ABC123"] }, { projects: [] })
+      permissions.canUpdateAttribute(
+        { projects: ["ABC123"] },
+        { projects: [] },
+      ),
     ).toEqual(false);
   });
 
@@ -1880,7 +1880,10 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     });
 
     expect(
-      permissions.canUpdateAttribute({ projects: ["ABC123"] }, { projects: [] })
+      permissions.canUpdateAttribute(
+        { projects: ["ABC123"] },
+        { projects: [] },
+      ),
     ).toEqual(true);
   });
 
@@ -1908,8 +1911,8 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     expect(
       permissions.canUpdateAttribute(
         { projects: ["ABC123"] },
-        { projects: ["ABC123", "DEF456"] }
-      )
+        { projects: ["ABC123", "DEF456"] },
+      ),
     ).toEqual(true);
   });
 });
@@ -1979,7 +1982,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -2000,7 +2003,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -2021,7 +2024,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -2042,7 +2045,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(
-      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(false);
   });
 
@@ -2068,7 +2071,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(
-      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(true);
   });
 });
@@ -2132,7 +2135,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
 
     expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
     expect(permissions.canCreateSegment({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -2227,13 +2230,13 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
 
     expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
     expect(
-      permissions.canUpdateSegment({ projects: ["ABC123"] }, { projects: [] })
+      permissions.canUpdateSegment({ projects: ["ABC123"] }, { projects: [] }),
     ).toEqual(false);
     expect(
       permissions.canUpdateSegment(
         { projects: ["ABC123"] },
-        { projects: ["ABC123", "DEF456"] }
-      )
+        { projects: ["ABC123", "DEF456"] },
+      ),
     ).toEqual(true);
   });
 
@@ -2328,7 +2331,7 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
 
     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
     expect(permissions.canDeleteSegment({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -3099,7 +3102,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "" }, { project: "abc123" })
+      permissions.canUpdateIdea({ project: "" }, { project: "abc123" }),
     ).toEqual(false);
   });
 
@@ -3114,7 +3117,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "" }, { project: "abc123" })
+      permissions.canUpdateIdea({ project: "" }, { project: "abc123" }),
     ).toEqual(true);
   });
 
@@ -3129,7 +3132,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "abc123" }, { project: "" })
+      permissions.canUpdateIdea({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3150,7 +3153,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "abc123" }, { project: "" })
+      permissions.canUpdateIdea({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3176,7 +3179,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "abc123" }, { project: "def456" })
+      permissions.canUpdateIdea({ project: "abc123" }, { project: "def456" }),
     ).toEqual(true);
   });
 });
@@ -3420,7 +3423,7 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
     });
 
     expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3441,7 +3444,7 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
     });
 
     expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -3485,7 +3488,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
+      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" }),
     ).toEqual(false);
   });
 
@@ -3500,7 +3503,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
+      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" }),
     ).toEqual(true);
   });
 
@@ -3515,7 +3518,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
+      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3536,7 +3539,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
+      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3564,8 +3567,8 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     expect(
       permissions.canUpdateExperiment(
         { project: "abc123" },
-        { project: "def456" }
-      )
+        { project: "def456" },
+      ),
     ).toEqual(true);
   });
 });
@@ -3635,7 +3638,7 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
     });
 
     expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3656,7 +3659,7 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
     });
 
     expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -3752,7 +3755,7 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3786,7 +3789,7 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3808,7 +3811,7 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
 
     expect(
       // its false since the user doesn't have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
     ).toEqual(false);
   });
 
@@ -3835,7 +3838,37 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
 
     expect(
       // its true since the user DOES have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
+    ).toEqual(true);
+  });
+
+  it("canCreateMetric should block creation if the user isn't an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateMetric({ projects: ["abc123"], managedBy: "admin" }),
+    ).toEqual(false);
+  });
+
+  it("canCreateMetric should allow creation if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateMetric({ projects: ["abc123"], managedBy: "admin" }),
     ).toEqual(true);
   });
 });
@@ -4038,6 +4071,50 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
 
     expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
   });
+
+  it("canUpdateMetric should allow updates if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "admin",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: [],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(true);
+  });
+
+  it("canUpdateMetric should not allow updates if the user is an experimenter and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "admin",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: [],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
 });
 
 describe("PermissionsUtilClass.canDeleteMetric check", () => {
@@ -4131,7 +4208,7 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4165,7 +4242,7 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4187,7 +4264,7 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
 
     expect(
       // its false since the user doesn't have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
     ).toEqual(false);
   });
 
@@ -4214,7 +4291,37 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
 
     expect(
       // its true since the user DOES have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
+    ).toEqual(true);
+  });
+
+  it("canDeleteMetric should not allow deletion if the user is an experimenter and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canDeleteMetric({ projects: ["abc123"], managedBy: "admin" }),
+    ).toEqual(false);
+  });
+
+  it("canDeleteMetric should allow deletion if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canDeleteMetric({ projects: ["abc123"], managedBy: "admin" }),
     ).toEqual(true);
   });
 });
@@ -4284,7 +4391,7 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -4305,7 +4412,7 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4326,7 +4433,7 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -4370,7 +4477,10 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     });
 
     expect(
-      permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
+      permissions.canUpdateFactTable(
+        { projects: [] },
+        { projects: ["abc123"] },
+      ),
     ).toEqual(true);
   });
 
@@ -4385,7 +4495,10 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     });
 
     expect(
-      permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
+      permissions.canUpdateFactTable(
+        { projects: [] },
+        { projects: ["abc123"] },
+      ),
     ).toEqual(false);
   });
 
@@ -4406,7 +4519,10 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     });
 
     expect(
-      permissions.canUpdateFactTable({ projects: ["abc123"] }, { projects: [] })
+      permissions.canUpdateFactTable(
+        { projects: ["abc123"] },
+        { projects: [] },
+      ),
     ).toEqual(false);
   });
 
@@ -4434,8 +4550,8 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     expect(
       permissions.canUpdateFactTable(
         { projects: ["abc123"] },
-        { projects: ["abc123", "def456"] }
-      )
+        { projects: ["abc123", "def456"] },
+      ),
     ).toEqual(true);
   });
 });
@@ -4505,7 +4621,7 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -4526,7 +4642,7 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4547,7 +4663,7 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -4680,7 +4796,7 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     });
 
     expect(permissions.canAddComment(["abc123", "def123", "hij123"])).toEqual(
-      true
+      true,
     );
   });
   it("canAddComment returns false for user with global noaccess role on experiment in 'def123'", () => {
@@ -4700,7 +4816,7 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     });
 
     expect(permissions.canAddComment(["abc123", "def123", "hij123"])).toEqual(
-      false
+      false,
     );
   });
   // This is a test specific to the putUpload endpoint - the user needs to have addComment permission either globally, or in atleast 1 project in order to be able to upload images
@@ -5037,7 +5153,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     });
 
     expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5058,7 +5174,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     });
 
     expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
-      false
+      false,
     );
   });
 
@@ -5147,7 +5263,7 @@ describe("PermissionsUtilClass.canCreateVisualChange", () => {
     });
 
     expect(permissions.canCreateVisualChange({ project: "ABC123" })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5249,7 +5365,7 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
     });
 
     expect(
-      permissions.canCreateDataSource({ projects: [], type: undefined })
+      permissions.canCreateDataSource({ projects: [], type: undefined }),
     ).toEqual(true);
   });
 
@@ -5264,25 +5380,7 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
     });
 
     expect(
-      permissions.canCreateDataSource({ projects: [], type: undefined })
-    ).toEqual(false);
-  });
-
-  it("User with admin role unable to create growthbook_clickhouse source", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("admin", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
-
-    expect(
-      permissions.canCreateDataSource({
-        projects: [],
-        type: "growthbook_clickhouse",
-      })
+      permissions.canCreateDataSource({ projects: [], type: undefined }),
     ).toEqual(false);
   });
 });
@@ -5326,7 +5424,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
     });
 
     expect(
-      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined }),
     ).toEqual(true);
   });
 
@@ -5341,7 +5439,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
     });
 
     expect(
-      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined }),
     ).toEqual(false);
   });
 
@@ -5359,7 +5457,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
       permissions.canUpdateDataSourceParams({
         projects: [],
         type: "growthbook_clickhouse",
-      })
+      }),
     ).toEqual(false);
   });
 });
@@ -5403,7 +5501,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5418,7 +5516,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -5433,7 +5531,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5448,7 +5546,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5469,7 +5567,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(
-      permissions.canUpdateDataSourceSettings({ projects: ["abc123"] })
+      permissions.canUpdateDataSourceSettings({ projects: ["abc123"] }),
     ).toEqual(true);
   });
 
@@ -5490,7 +5588,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -5513,7 +5611,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     expect(
       permissions.canUpdateDataSourceSettings({
         projects: ["abc123", "def123"],
-      })
+      }),
     ).toEqual(false);
   });
 });
@@ -5796,7 +5894,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
     });
 
     expect(permissions.canManageFeatureDrafts({ project: "abc123" })).toEqual(
-      true
+      true,
     );
   });
 
@@ -6045,7 +6143,7 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
     });
 
     expect(permissions.canUpdateFeature({}, { project: "abc123" })).toEqual(
-      true
+      true,
     );
   });
 
@@ -6066,7 +6164,7 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
     });
 
     expect(
-      permissions.canUpdateFeature({ project: "ABC123" }, { project: "" })
+      permissions.canUpdateFeature({ project: "ABC123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -6092,7 +6190,10 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
     });
 
     expect(
-      permissions.canUpdateFeature({ project: "ABC123" }, { project: "DEF456" })
+      permissions.canUpdateFeature(
+        { project: "ABC123" },
+        { project: "DEF456" },
+      ),
     ).toEqual(true);
   });
 });

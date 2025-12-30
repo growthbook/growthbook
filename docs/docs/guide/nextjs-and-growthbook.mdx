@@ -4,6 +4,8 @@ description: This guide walks you through using GrowthBook with Next.js Pages Ro
 slug: nextjs-and-growthbook
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # GrowthBook and Next.js (Pages Router)
 
 Note: If you are using the newer Next.js App Router, check out [our dedicated App Router guide](/guide/nextjs-app-router) instead.
@@ -17,9 +19,10 @@ Here is a video version similar to the steps below:
   height="360"
   src="https://www.youtube.com/embed/J8tyS4j3DtA"
   title="Feature flagging and A/B testing with Next.js and GrowthBook"
-  frameborder="0"
+  frameBorder="0"
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowfullscreen
+  allowFullScreen
+  style={{ width: "100%", height: "auto", aspectRatio: "16/9" }}
 ></iframe>
 
 ## 1. Create your Next.js App
@@ -48,26 +51,22 @@ You will need a GrowthBook account. You can either run GrowthBook locally or usi
 ```bash
 git clone https://github.com/growthbook/growthbook.git
 cd growthbook
-docker-compose up -d
+docker compose up -d
 ```
 
 After that, visit `http://localhost:3000` and create your first user account.
 
-<img
-  src="/images/guides/nextjs-1-growthbook-signup-screen.jpeg"
-  alt="GrowthBook Signup Screen"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![GrowthBook Signup Screen](/images/guides/nextjs-1-growthbook-signup-screen.jpeg)
+</MaxWidthImage>
 
 ## 3. Integrate the GrowthBook React SDK into our Next.js app
 
 GrowthBook will generate some integration code for you, including a unique SDK Client Key to load your features from.
 
-<img
-  src="/images/guides/nextjs-2-feature-flag-key.png"
-  alt="GrowthBook Integration Code"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={700}>
+  ![GrowthBook Integration Code](/images/guides/nextjs-2-feature-flag-key.png)
+</MaxWidthImage>
 
 Create the file `.env.local` if it doesn't exist yet and add your generated key there:
 
@@ -109,7 +108,7 @@ growthbook.init();
 export default function MyApp({ Component, pageProps, router }) {
   // Refresh features and targeting attributes on navigation
   useEffect(() => {
-    gb.setURL(window.location.href);
+    growthbook.setURL(window.location.href);
     growthbook.setAttributes({
       id: "123",
       loggedIn: true,
@@ -136,11 +135,9 @@ In a real application, you would pull some of the targeting attributes from your
 
 Back in the GrowthBook application, we can create a new feature. For this tutorial, we'll make a simple on/off feature flag that determines whether or not we show a welcome banner on our site.
 
-<img
-  src="/images/guides/nextjs-3-create-feature.png"
-  alt="GrowthBook Create Feature"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![GrowthBook Create Feature](/images/guides/nextjs-3-create-feature.png)
+</MaxWidthImage>
 
 The key we chose (welcome-message) is what we will reference when using the GrowthBook SDK.
 
@@ -168,19 +165,15 @@ Now we can add rules to the feature to turn it on for specific groups of users.
 
 In the hard-coded targeting attributes we set in pages/\_app.js, we designated ourselves as an internal employee. Let's use this attribute to turn on the feature for the whole internal team:
 
-<img
-  src="/images/guides/nextjs-4-employee-rule.png"
-  alt="GrowthBook Targeting Rule"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600}>
+  ![GrowthBook Targeting Rule](/images/guides/nextjs-4-employee-rule.png)
+</MaxWidthImage>
 
 Refresh your Next.js app and you should now see the welcome message appearing! (Note: it might take up to 30 seconds for the API cache to refresh).
 
-<img
-  src="/images/guides/nextjs-5-nextjs-title.png"
-  alt="Next.js app with feature"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500} border>
+  ![Next.js app with feature](/images/guides/nextjs-5-nextjs-title.png)
+</MaxWidthImage>
 
 If you change employee to false in pages/\_app.js, you should see the welcome message disappear.
 
@@ -192,11 +185,9 @@ After you test the new feature within your team, you probably want to start roll
 
 We can do that with another rule in GrowthBook:
 
-<img
-  src="/images/guides/nextjs-6-rollout-rule.png"
-  alt="GrowthBook Rollout Rule"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500} border>
+  ![GrowthBook Rollout Rule](/images/guides/nextjs-6-rollout-rule.png)
+</MaxWidthImage>
 
 In the targeting attributes in pages/\_app.js, make sure employee is set to false. That will ensure you skip the first rule we made and fall into the second rollout rule.
 

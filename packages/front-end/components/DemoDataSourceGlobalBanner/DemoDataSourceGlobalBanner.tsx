@@ -13,11 +13,9 @@ type DemoDataSourceGlobalBannerProps = {
   onDemoPage?: boolean;
 };
 
-export const DemoDataSourceGlobalBanner: FC<DemoDataSourceGlobalBannerProps> = ({
-  ready,
-  currentProjectIsDemo,
-  onDemoPage,
-}) => {
+export const DemoDataSourceGlobalBanner: FC<
+  DemoDataSourceGlobalBannerProps
+> = ({ ready, currentProjectIsDemo, onDemoPage }) => {
   if (!ready || !currentProjectIsDemo) {
     return null;
   }

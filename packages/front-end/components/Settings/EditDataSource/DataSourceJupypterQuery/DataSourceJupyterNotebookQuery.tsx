@@ -5,15 +5,13 @@ import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/Edit
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
-  onSave,
-  dataSource,
-  canEdit = true,
-}) => {
+export const DataSourceJupyterNotebookQuery: FC<
+  DataSourceJupyterNotebookQueryProps
+> = ({ onSave, dataSource, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);

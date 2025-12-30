@@ -14,9 +14,8 @@ import {
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
-import { Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import router from "next/router";
-import clsx from "clsx";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -24,7 +23,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -40,12 +39,10 @@ import Avatar from "@/components/Avatar/Avatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import useGlobalMenu from "@/services/useGlobalMenu";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -57,10 +54,9 @@ const TopNav: FC<{
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [
-    enableCelebrations,
-    setEnableCelebrations,
-  ] = useCelebrationLocalStorage();
+  const [enableCelebrations, setEnableCelebrations] =
+    useCelebrationLocalStorage();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
 
@@ -81,7 +77,6 @@ const TopNav: FC<{
 
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -154,6 +149,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         key="edit-profile"
         onClick={() => {
+          setDropdownOpen(false);
           setEditUserOpen(true);
         }}
       >
@@ -184,6 +180,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/account/personal-access-tokens");
         }}
       >
@@ -199,6 +196,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/reports");
         }}
       >
@@ -214,6 +212,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/activity");
         }}
       >
@@ -235,6 +234,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="system"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("system");
           }}
         >
@@ -247,6 +247,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="light"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("light");
           }}
         >
@@ -259,6 +260,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="dark"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("dark");
           }}
         >
@@ -273,82 +275,71 @@ const TopNav: FC<{
   const renderOrganizationDropDown = () => {
     if (organizations && organizations.length === 1) {
       return (
-        <div className="top-nav-org-menu mr-2">
-          <PiBuildingFill className="text-muted mr-1" />
+        <Flex direction="row" align="center" gap="1" mr="2">
+          <PiBuildingFill className="text-muted" />
           <span className="d-none d-lg-inline">{orgName}</span>
-        </div>
+        </Flex>
       );
     }
 
     if (organizations && organizations.length > 1) {
       return (
-        <div className="dropdown top-nav-org-menu">
-          <div
-            className={`nav-link dropdown-toggle`}
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgDropdownOpen(!orgDropdownOpen);
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <PiBuildingFill className="text-muted mr-1" />
-            <span className="d-none d-lg-inline">
-              <OverflowText maxWidth={200}>{orgName}</OverflowText>
-            </span>
-          </div>
-          <div
-            className={clsx("dropdown-menu dropdown-menu-right", {
-              show: orgDropdownOpen,
-            })}
-          >
-            <div className="dropdown-header">Organization</div>
-            {organizations.map((o) => (
-              <a
-                className={clsx("dropdown-item", {
-                  active: o.id === orgId,
-                })}
-                key={o.id}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (setOrgId) {
-                    setOrgId(o.id);
-                  }
+        <DropdownMenu
+          open={orgDropdownOpen}
+          onOpenChange={(open) => {
+            setOrgDropdownOpen(open);
+          }}
+          trigger={
+            <Flex direction="row" align="center" gap="1" mr="2">
+              <PiBuildingFill className="text-muted" />
+              <span className="d-none d-lg-inline">
+                <OverflowText maxWidth={200}>{orgName}</OverflowText>
+              </span>
+              <PiCaretDownFill />
+            </Flex>
+          }
+        >
+          <DropdownMenuLabel>Organization</DropdownMenuLabel>
+          {organizations.map((o) => (
+            <DropdownMenuItem
+              key={o.id}
+              onClick={() => {
+                if (setOrgId) {
+                  setOrgId(o.id);
 
                   try {
                     localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
                   } catch (e) {
-                    console.warn("Cannot set gb-last-picked-org");
+                    // eslint-disable-next-line no-console
+                    console.warn("Unable to save last org in localStorage");
                   }
+                }
 
-                  setOrgDropdownOpen(false);
-                }}
-              >
-                <span className="status"></span>
-                {o.name}
-              </a>
-            ))}
-            {!isCloud() &&
-              isMultiOrg() &&
-              (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-                <div className={styles["add-organization"]}>
-                  <hr />
-                  <div>
-                    <Link
-                      href="/settings/organizations"
-                      className="dropdown-item px-1"
-                      onClick={() => {
-                        setOrgDropdownOpen(false);
-                      }}
-                    >
-                      <PiPlusBold />
-                      Add Organization
-                    </Link>
-                  </div>
-                </div>
-              )}
-          </div>
-        </div>
+                setOrgDropdownOpen(false);
+              }}
+            >
+              {o.name}
+            </DropdownMenuItem>
+          ))}
+          {!isCloud() &&
+            isMultiOrg() &&
+            (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOrgDropdownOpen(false);
+                    router.push("/settings/organizations");
+                  }}
+                >
+                  <Flex align="center" gap="1">
+                    <PiPlusBold />
+                    Add Organization
+                  </Flex>
+                </DropdownMenuItem>
+              </>
+            )}
+        </DropdownMenu>
       );
     }
   };
@@ -381,7 +372,12 @@ const TopNav: FC<{
   const renderChangePassword = () => {
     if (!usingSSO()) {
       return (
-        <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+        <DropdownMenuItem
+          onClick={() => {
+            setDropdownOpen(false);
+            setChangePasswordOpen(true);
+          }}
+        >
           Change Password
         </DropdownMenuItem>
       );
@@ -391,7 +387,7 @@ const TopNav: FC<{
   return (
     <>
       <Head>
-        <title>GrowthBook &gt; {pageTitle}</title>
+        <title>{pageTitle ? `${pageTitle} | GrowthBook` : "GrowthBook"}</title>
       </Head>
       {editUserOpen && (
         <Modal
@@ -402,17 +398,10 @@ const TopNav: FC<{
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          <label className="mr-3">
-            Allow Celebrations{" "}
-            <Tooltip
-              body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
-              }
-            />
-          </label>
-          <Toggle
+          <Checkbox
             id="allowCelebration"
             label="Allow celebration"
+            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -465,6 +454,10 @@ const TopNav: FC<{
           {renderOrganizationDropDown()}
           <DropdownMenu
             variant="solid"
+            open={dropdownOpen}
+            onOpenChange={(o) => {
+              setDropdownOpen(!!o);
+            }}
             trigger={
               <div className="nav-link d-flex">
                 <Avatar
@@ -477,9 +470,9 @@ const TopNav: FC<{
                   <OverflowText maxWidth={200}>
                     <Text weight={"bold"} style={{ fontSize: 14 }}>
                       {email}
-                    </Text>{" "}
-                    <PiCaretDownFill />
-                  </OverflowText>
+                    </Text>
+                  </OverflowText>{" "}
+                  <PiCaretDownFill />
                 </span>
               </div>
             }

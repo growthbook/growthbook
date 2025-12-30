@@ -1,0 +1,88 @@
+---
+title: Official Resources
+description: Learn about official Resources in GrowthBook
+sidebar_label: Official Resources
+slug: /official-resources
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+
+Official Resources are protected resources that **can only be modified by users with appropriate permissions**. These resources have a checkmark badge in the app to indicate their protected status. This feature is useful for resources that are externally managed or need to remain consistent across teams.
+
+<MaxWidthImage border>
+![Example of an official metric](/images/metrics/official-metric.png)
+</MaxWidthImage>
+
+## Use Cases
+
+Official Resources are particularly useful for:
+
+- **Governance**: Organizations want to prevent unauthorized changes to critical resources
+- **External System Management**: Resources are managed by external systems (like a version control system)
+- **Cross-Project Consistency**: Resources need to be identical across multiple projects
+- **Compliance**: Resources must be managed through specific, auditable processes
+
+## Official Resource Types
+
+- Fact Tables
+- Fact Metrics
+- Fact Filters
+- Segments
+- Dimensions
+
+## 3 Ways to Create Official Resources
+
+### 1. GrowthBook UI
+
+Create Official Resources in-app by marking them as "Official" during creation. Only users with the `ManageOfficialResources` policy can apply this designation.
+
+### 2. REST API
+
+When creating resources via the REST API, use the optional `managedBy` property:
+
+- **`managedBy: "api"`**: The resource is not editable in the app but can be modified via the REST API. This is ideal for resources managed by external repositories or systems.
+- **`managedBy: "admin"`**: The resource can be modified in the app or via the REST API, but only by users with the `ManageOfficialResources` policy.
+
+:::note Official Resources only available on Enterprise plans
+
+Create Official Resources via the UI (or via the REST API while setting `managedBy: "admin"`) is only available to Enterprise organizations.
+
+:::
+
+###3. config.yml
+
+When resources are created via the `config.yml` file, they are automatically marked as "Official" and are not editable in the app. To make changes to these resources, you must update the `config.yml` file.
+
+:::note Restrictions on creating Official Resources
+
+Currently only Segments, and Dimensions can be created via the `config.yml` file, Fact Tables, Fact Metrics, and Fact Filters can only be created via the UI or REST API.
+
+:::
+
+[Learn more about updating metrics with `config.yml`](/self-host/config)
+
+## Managing Official Resources
+
+### Marking Existing Resources as Official
+
+Users with the `ManageOfficialResources` policy can mark existing resources as Official in the app, which prevents other users from modifying these resources.
+
+### Unmarking Resources as Official
+
+Removing the "Official" status from a resource is possible for users with the `ManageOfficialResources` policy, but the process depends on how the resource was created.
+
+- If a resource was created via the `config.yml` file, it cannot be unmarked as "Official." Instead, you must remove the resource from the `config.yml` file, and then create a new version of the resource in the app or via the API.
+- If a resource was created via the REST API and has `managedBy: "api"`, you will need to update the resource via the REST API and remove the `managedBy` property.
+- If a resource was created in the app or via the REST API (and has `managedBy: "admin"`), it can be unmarked as "Official" in the app or via the REST API.
+
+:::note Limited support for marking Official Resources
+
+At this time, only `Fact Metrics`, and `Fact Tables` can be marked or unmarked as "Official" in the app. We are actively working on adding this feature to other resource types.
+
+:::
+
+### Required Permissions
+
+To manage Official Resources, users need the `ManageOfficialResources` policy. By default, this policy is only available to users with the `admin` role. However, Enterprise organizations can create custom roles and assign the `ManageOfficialResources` policy to them.
+
+For more information about roles and permissions, see [User Permissions](/account/user-permissions).

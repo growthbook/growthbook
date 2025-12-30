@@ -1,47 +1,198 @@
 ---
-title: Chrome Extension
-description: GrowthBook's Chrome Extension
-sidebar_label: Chrome Extension
+title: GrowthBook DevTools - Browser Extension for Feature Flags & A/B Testing
+description: Learn how to use GrowthBook DevTools, a browser extension (Chrome and Firefox) for inspecting, debugging, and modifying feature flags and A/B tests in real time. Improve experiment workflows effortlessly.
+sidebar_label: DevTools Browser Extension
 slug: chrome-extension
 ---
 
-import ExternalLink from '@site/src/components/ExternalLink'
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-GrowthBook has a Chrome Extension that integrates with the JavaScript SDK's.
+GrowthBook DevTools is a browser extension for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) that helps you inspect, debug, and modify feature flags and experiments in real time. Whether you're troubleshooting an experiment or tweaking a feature flag, DevTools gives you full visibility and control—right in your browser.
 
-The Chrome devtools can be used for easy QA. You can use it to debug feature flags and experiments from GrowthBook's JavaScript SDK's. See what features and experiments are enabled, easily toggle states or experiment variants, and adjust attributes used. The Chome DevTools also includes the visual experiment editor.
+<video autoPlay loop muted style={{width: '100%', height: "auto", aspectRatio: 16/9, border: "1px solid var(--color-border)"}} width={1920} height={1080}>
+    <source src="/videos/devtools-demo.mp4" type="video/mp4" />
+</video>
 
-You can [download it from the Chrome Web Store <ExternalLink />](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia).
+## Requirements
 
-## Setup
+GrowthBook DevTools is compatible with Chrome (including Edge, Arc, and most other browsers that enable Chrome extensions) and Firefox.
 
-When you first install the GrowthBook Chrome devtools, you'll be asked to add the API host and API secret. You can do
-so from the settings -> API Keys page if you haven't made one already. For Cloud users, the API host will be
-`https://api.growthbook.io`.
+It works with most GrowthBook client SDKs, including the HTML Script Tag, JavaScript SDK, and React SDK (client-rendered).
 
-## Use
+Before using DevTools, ensure your SDK is configured with:
 
-The Chrome extension can be viewed from the 'GrowthBook' tab once you open the devtools in Chrome.
+```bash
+enableDevMode: true
+```
 
-![GrowthBook DevTools Tab](/images/chrome-devtools-tab.png)
+This allows DevTools to connect and display feature flags, experiments, and attributes.
 
-### Features
+## Installation
 
-At the top of the GrowthBook DevTools, you'll see a list of features. Click on any feature to view its state and toggle
-its value. You'll also see any targeting conditions used for that feature.
+The GrowthBook DevTools browser extension is available for both Chrome and Firefox.
 
-![GrowthBook DevTools Features](/images/chrome-devtools-features.png)
+GrowthBook DevTools is available for Chrome on the [Chrome Web Store](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and for Firefox on [addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/). To install:
 
-### Attributes
+- Click **Add to Chrome** / **Add to Firefox**
+- Confirm the installation when prompted
 
-Features and experiments rely on user attributes to do the assignment. The attributes used are listed at the bottom of
-the DevTools window. You can click on the pencil icon to edit the attributes and then see how it would change your
-assignment.
+Once installed, GrowthBook DevTools automatically detects and connects to the GrowthBook SDK whenever it’s active on a website ✨
 
-![GrowthBook DevTools Attributes](/images/chrome-devtools-attributes.png)
+## Accessing GrowthBook DevTools
+
+GrowthBook DevTools is accessible in two ways. Use whichever best fits your workflow:
+
+### 1. Quick Access
+
+A lightweight view for quick flag and experiment testing.
+
+- Pin the extension to your toolbar (click the puzzle piece 🧩, then pin GrowthBook).
+- Click the GrowthBook icon to open the popup.
+
+:::tip A green dot on the GrowthBook icon means DevTools are successfully connected.
+:::
+
+![Quick access devtools](/images/devtools-quickaccess.webp)
+
+### 2. Developer Tools Panel
+
+Ideal for when you need more space or want to inspect feature flags alongside other browser developer tools.
+
+- Open the Developer Tools with `Cmd` + `Option` + `I` (Mac) or `Ctrl` + `Shift` + `I` (Windows/Linux).
+- Click the **GrowthBook** tab in the Developer Tools panel. (If it’s hidden, check the overflow menu ».)
+
+![Chrome devtools panel](/images/devtools-panel.webp)
+
+## Essential Features
+
+GrowthBook DevTools provides powerful debugging and testing tools, including:
+
+- A real-time view of active **feature flags** and **experiments**
+- The ability to **override flags and experiment variations**
+- A detailed **debug log** explaining how and why flags were evaluated
+- Insights into **attributes** affecting feature rollouts
+- Syncing **attributes and Archetypes** directly from GrowthBook
+
+### Feature Flags & Overrides
+
+The **Features** tab provides an overview of your feature flags, including their current values and associated experiments (indicated by the flask icon). Click on a feature to open its detail view, where you can:
+
+- Override the current value (flip a boolean, change a string, etc.).
+- See why the flag was evaluated the way it was under **Rules and Values**.
+
+:::tip An orange dot means an override is active.
+:::
+
+<MaxWidthImage>
+![Feature flags and overrides](/images/devtools-features.png)
+</MaxWidthImage>
+
+<video autoPlay loop muted style={{width: '100%', height: "auto", aspectRatio: 16/9, marginBlockEnd: "1.5rem", border: "1px solid var(--color-border)"}} width={1920} height={1080}>
+    <source src="/videos/devtools-feature-override.mp4" type="video/mp4" />
+</video>
+
+:::note Hiding inactive feature flags
+All feature flags are shown, even if they weren’t evaluated on the page. Use the **Hide inactive** toggle to hide these flags.
+:::
+
+**Feature flag data table**
+
+| Field                   | Description                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| Current value           | The feature flag’s current value. Click or type to override.                             |
+| Rules and Values        | All the rules for the flag. Defaults to showing the rule that defines the current value. |
+| Debug log               | The reason why the flag was evaluated as such.                                           |
+| Full feature definition | The complete JSON definition of the feature flag.                                        |
 
 ### Experiments
 
-Visual experiments and experiments added as feature rules will be shown under the features on the DevTools. You can
-click on any variant to switch what variant you're seeing. Click on the small circle arrow to reset the variant you're
-seeing to the one assigned based on your attributes.
+The **Experiments** tab gives a complete overview of your A/B tests, including how they’re implemented (feature flag, URL redirect, visual editor) and their current values. Click on an experiment to open its detail view, where you can:
+
+- See additional experiment data.
+- Override the assigned variation to test different experiences.
+
+<MaxWidthImage>
+![Experiments overview](/images/devtools-experiments-overview.png)
+</MaxWidthImage>
+
+**Experiment data table**
+
+| Field                      | Description                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| Enrollment Status          | Whether the user is included in the experiment (irrespective of control/variant). |
+| Current variation          | Which the user is assigned to. Click another variation to override it.            |
+| Results log                | The experiment result object.                                                     |
+| Current value              | The value associated with the current variation.                                  |
+| Implementation             | How the experiment is implemented: feature flag, visual editor, URL redirect      |
+| Targeting and Traffic      | Targeting conditions, traffic/enrollment settings, and URL rules if applicable.   |
+| Debug log                  | The reason why the experiment was evaluated as such.                              |
+| Full experiment definition | The complete JSON definition of the experiment.                                   |
+
+## Attributes
+
+Experiments and feature flags often depend on **user attributes** (e.g., location, subscription tier). The **Attributes** tab lets you:
+
+- View and edit the attributes the GrowthBook SDK is using.
+- Override attributes to test different scenarios (e.g., simulate a Pro user vs. Free user).
+- Use **JSON input** for more complex setups.
+
+<MaxWidthImage>
+![Attributes overview](/images/devtools-attr.webp)
+</MaxWidthImage>
+
+## Event Logs
+
+When configured in the SDK, Event logs show 3 types of data:
+
+- Feature result logs via [`onFeatureUsage`](https://docs.growthbook.io/lib/js#feature-usage-callback).
+- Experiment tracking callbacks via [`trackingCallback`](https://docs.growthbook.io/lib/js#feature-flag-experiments).
+- Metric events sent via `eventLogger`.
+
+## SDK
+
+The SDK tab provides helpful data about your SDK, including its connection status, along with debug info and resource links if you encounter an issue. Click on each property for additional details and a short description of its function.
+
+Two particularly useful fields for debugging:
+
+1. **Sticky Bucketing** detail shows all sticky buckets for the current user.
+2. **SDK Payload** shows the actual payload the SDK is using.
+
+<MaxWidthImage>
+![SDK overview](/images/devtools-sdk-status.webp)
+</MaxWidthImage>
+
+## Advanced Features
+
+GrowthBook DevTools works great out of the box, but if you want even more power, enable advanced features with an Access Token:
+
+- Synced attributes: Brings in all possible attributes and their types from GrowthBook.
+- [Archetypes](https://docs.growthbook.io/features/rules#archetype): Toggle between preset user attributes defined in GrowthBook.
+- Feature revisions and drafts: Preview how feature drafts or previous revisions would behave on your site.
+
+To enable these features:
+
+- Click on the cog icon ⚙️
+- Add a Personal Access Token. (Use the **Access Token** link to create a token in GrowthBook.)
+- If self-hosting, uncheck **GrowthBook Cloud** and enter your API details.
+- Click **Save**.
+
+![DevTools Access Token](/images/devtools-pat.webp)
+
+Once saved, open the **Current User** dropdown to apply archetypes to feature flags and experiments. For example, use a **Pro user** archetype to test how your site behaves with premium features unlocked, or a **New user** archetype to see the experience for first-time visitors.
+
+## Back End Debugging
+
+DevTools supports back end debugging. This includes:
+
+1. Applying feature, experiment, and attribute overrides to a back-end SDK, and
+2. Displaying back-end evaluation results within DevTools
+
+![Back-end evaluation logging with DevTools](/images/devtools-back-end-evaluation.png)
+
+While much of the communication is automatically handled (mediated by cookies and datalayer-like events), some manual configuration is required to enable back end debugging. In the JavaScript SDK, we provide several environment-specific SDK plugins and helper functions to make back-end debugging simpler.
+
+See the Node.js [DevTools for back-end](/lib/node#devtools-for-back-end) guide for integration instructions. Similar approaches will work for non-JS SDKs, but they must be manually implemented.
+
+## Visual Editor
+
+GrowthBook DevTools also powers our Visual Editor, which enables designing A/B tests without writing code. The Visual Editor requires the Access Token mentioned in the previous section. See the docs [on the Visual Editor.](https://docs.growthbook.io/app/visual)

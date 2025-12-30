@@ -9,10 +9,12 @@ import {
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -35,9 +37,13 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { DocLink } from "@/components/DocLink";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
+import { isCloud } from "@/services/env";
+import { useUser } from "@/services/UserContext";
+import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import Badge from "@/ui/Badge";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 
@@ -67,12 +73,15 @@ const NewDataSourceForm: FC<{
   showBackButton = true,
 }) => {
   const {
+    datasources,
     projects: allProjects,
     project,
     mutateDefinitions,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
+  const { license } = useUser();
+  const gb = useGrowthBook();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -99,6 +108,15 @@ const NewDataSourceForm: FC<{
     ...initial,
   });
 
+  // Cloud, no managed warehouse yet, and is either free OR on a usage-based paid plan
+  const showManagedWarehouse =
+    isCloud() &&
+    !datasources.some((d) => d.type === "growthbook_clickhouse") &&
+    (!license || !!license?.orbSubscription) &&
+    gb.isOn("inbuilt-data-warehouse");
+
+  const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
+
   // Form data for the schema options screen
   const schemaOptionsForm = useForm<Record<string, string | number>>({
     defaultValues: {},
@@ -109,14 +127,12 @@ const NewDataSourceForm: FC<{
   const [creatingResources, setCreatingResources] = useState(false);
 
   // Holds the final data source object
-  const [
-    createdDatasource,
-    setCreatedDatasource,
-  ] = useState<DataSourceInterfaceWithParams | null>(null);
+  const [createdDatasource, setCreatedDatasource] =
+    useState<DataSourceInterfaceWithParams | null>(null);
 
   const possibleSchemas = eventSchemas
     .filter(
-      (s) => connectionInfo.type && s.types?.includes(connectionInfo.type)
+      (s) => connectionInfo.type && s.types?.includes(connectionInfo.type),
     )
     .map((s) => s.value);
 
@@ -146,7 +162,7 @@ const NewDataSourceForm: FC<{
         schemaOptionsForm.reset({});
       }
     },
-    [schemaOptionsForm, source]
+    [schemaOptionsForm, source],
   );
 
   useEffect(() => {
@@ -154,7 +170,7 @@ const NewDataSourceForm: FC<{
       if (
         initial.type !== "mixpanel" &&
         eventSchemas.some(
-          (s) => initial.type && s.types?.includes(initial.type)
+          (s) => initial.type && s.types?.includes(initial.type),
         )
       ) {
         setStep("eventTracker");
@@ -165,7 +181,7 @@ const NewDataSourceForm: FC<{
   }, [initial?.type]);
 
   const selectedSchema: eventSchema = schemasMap.get(
-    eventTracker || "custom"
+    eventTracker || "custom",
   ) || {
     label: "Custom",
     value: "custom",
@@ -177,7 +193,7 @@ const NewDataSourceForm: FC<{
       !isDemoDatasourceProject({
         projectId: p.id,
         organizationId: orgId || "",
-      })
+      }),
   );
   const projectOptions = useProjectOptions(
     (project) =>
@@ -185,7 +201,7 @@ const NewDataSourceForm: FC<{
         projects: [project],
         type: undefined,
       }),
-    []
+    [],
   );
 
   let ctaEnabled = true;
@@ -195,79 +211,80 @@ const NewDataSourceForm: FC<{
     disabledMessage = "You don't have permission to create data sources.";
   }
 
-  const saveConnectionInfo = async (): Promise<DataSourceInterfaceWithParams> => {
-    setLastError("");
+  const saveConnectionInfo =
+    async (): Promise<DataSourceInterfaceWithParams> => {
+      setLastError("");
 
-    try {
-      if (!connectionInfo.type || !connectionInfo.params) {
-        throw new Error("Please select a data source type");
-      }
+      try {
+        if (!connectionInfo.type || !connectionInfo.params) {
+          throw new Error("Please select a data source type");
+        }
 
-      if (connectionInfo.settings && eventTracker) {
-        connectionInfo.settings.schemaFormat = eventTracker;
-      }
+        if (connectionInfo.settings && eventTracker) {
+          connectionInfo.settings.schemaFormat = eventTracker;
+        }
 
-      // Update
-      // Used if someone goes back to this step after already submitting
-      if (createdDatasource) {
-        const res = await apiCall<{
-          datasource: DataSourceInterfaceWithParams;
-        }>(`/datasource/${createdDatasource.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
+        // Update
+        // Used if someone goes back to this step after already submitting
+        if (createdDatasource) {
+          const res = await apiCall<{
+            datasource: DataSourceInterfaceWithParams;
+          }>(`/datasource/${createdDatasource.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              ...connectionInfo,
+            }),
+          });
+          track("Updating Datasource Form", {
+            source,
+            type: connectionInfo.type,
+            schema: eventTracker,
+            newDatasourceForm: true,
+          });
+
+          setCreatedDatasource(res.datasource);
+          return res.datasource;
+        }
+        // Create
+        else {
+          const data: Partial<DataSourceInterfaceWithParams> = {
             ...connectionInfo,
-          }),
-        });
-        track("Updating Datasource Form", {
+            settings: {
+              ...getInitialSettings(
+                selectedSchema.value,
+                connectionInfo.params,
+                {},
+              ),
+              ...(connectionInfo.settings || {}),
+            },
+          };
+          const res = await apiCall<{
+            datasource: DataSourceInterfaceWithParams;
+          }>(`/datasources`, {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+          track("Submit Datasource Form", {
+            source,
+            type: connectionInfo.type,
+            schema: eventTracker,
+            newDatasourceForm: true,
+          });
+
+          setCreatedDatasource(res.datasource);
+          return res.datasource;
+        }
+      } catch (e) {
+        track("Data Source Form Error", {
           source,
           type: connectionInfo.type,
-          schema: eventTracker,
+          error: e.message.substr(0, 32) + "...",
           newDatasourceForm: true,
         });
-
-        setCreatedDatasource(res.datasource);
-        return res.datasource;
+        setLastError(e.message);
+        throw e;
       }
-      // Create
-      else {
-        const data: Partial<DataSourceInterfaceWithParams> = {
-          ...connectionInfo,
-          settings: {
-            ...getInitialSettings(
-              selectedSchema.value,
-              connectionInfo.params,
-              {}
-            ),
-            ...(connectionInfo.settings || {}),
-          },
-        };
-        const res = await apiCall<{
-          datasource: DataSourceInterfaceWithParams;
-        }>(`/datasources`, {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-        track("Submit Datasource Form", {
-          source,
-          type: connectionInfo.type,
-          schema: eventTracker,
-          newDatasourceForm: true,
-        });
-
-        setCreatedDatasource(res.datasource);
-        return res.datasource;
-      }
-    } catch (e) {
-      track("Data Source Form Error", {
-        source,
-        type: connectionInfo.type,
-        error: e.message.substr(0, 32) + "...",
-        newDatasourceForm: true,
-      });
-      setLastError(e.message);
-      throw e;
-    }
-  };
+    };
 
   const saveSchemaOptions = async (values: Record<string, string | number>) => {
     if (!createdDatasource) {
@@ -278,7 +295,7 @@ const NewDataSourceForm: FC<{
     const settings = getInitialSettings(
       selectedSchema.value,
       createdDatasource.params,
-      values
+      values,
     );
 
     const updates: Pick<DataSourceInterfaceWithParams, "settings"> = {
@@ -293,7 +310,7 @@ const NewDataSourceForm: FC<{
       {
         method: "PUT",
         body: JSON.stringify(updates),
-      }
+      },
     );
     track("Saving Datasource Query Settings", {
       source,
@@ -306,7 +323,7 @@ const NewDataSourceForm: FC<{
   };
 
   const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
-    e
+    e,
   ) => {
     setConnectionInfo({
       ...connectionInfo,
@@ -371,43 +388,42 @@ const NewDataSourceForm: FC<{
           }
         }
       : step === "eventTracker"
-      ? async () => {
-          setStep("connection");
-        }
-      : step === "connection"
-      ? async () => {
-          const ds = await saveConnectionInfo();
-          mutateDefinitions();
-
-          // If the selected schema supports options, go to that step
-          // Otherwise, skip to end
-          if (selectedSchema.options) {
-            setStep("schemaOptions");
-          } else {
-            createResources(ds);
-            setStep("done");
+        ? async () => {
+            setStep("connection");
           }
-        }
-      : step === "schemaOptions"
-      ? schemaOptionsForm.handleSubmit(async (values) => {
-          await saveSchemaOptions(values);
-          createdDatasource && createResources(createdDatasource);
-          setStep("done");
-        })
-      : async () => {
-          // Done
-          await onSuccess(createdDatasource?.id || "");
-          onCancel && onCancel();
-        };
+        : step === "connection"
+          ? async () => {
+              const ds = await saveConnectionInfo();
+              mutateDefinitions();
+
+              // If the selected schema supports options, go to that step
+              // Otherwise, skip to end
+              if (selectedSchema.options) {
+                setStep("schemaOptions");
+              } else {
+                createResources(ds);
+                setStep("done");
+              }
+            }
+          : step === "schemaOptions"
+            ? schemaOptionsForm.handleSubmit(async (values) => {
+                await saveSchemaOptions(values);
+                createdDatasource && createResources(createdDatasource);
+                setStep("done");
+              })
+            : async () => {
+                // Done
+                await onSuccess(createdDatasource?.id || "");
+                onCancel && onCancel();
+              };
 
   let stepContents: ReactNode = null;
   if (step === "initial") {
     stepContents = (
       <div>
         <p className="mb-4">
-          GrowthBook is <strong>Warehouse Native</strong>, which means we sit on
-          top of your existing data instead of storing our own copy. This
-          approach is cheaper, more secure, and more flexible.
+          GrowthBook is <strong>Warehouse Native</strong>, which means we can
+          sit on top of any SQL data without storing our own copy.
         </p>
         <div>
           <label>Where do you store your analytics data?</label>
@@ -416,7 +432,7 @@ const NewDataSourceForm: FC<{
             value={connectionInfo.type || ""}
             setValue={(value) => {
               const option = dataSourceConnections.find(
-                (o) => o.type === value
+                (o) => o.type === value,
               );
               if (!option) return;
 
@@ -443,14 +459,32 @@ const NewDataSourceForm: FC<{
               }
             }}
           />
-
-          <Callout status="info" mt="3">
-            Don&apos;t have a data warehouse yet? We recommend using BigQuery
-            with Google Analytics.{" "}
-            <DocLink docSection="ga4BigQuery">
-              Learn more <FaExternalLinkAlt />
-            </DocLink>
-          </Callout>
+          {showManagedWarehouse ? (
+            <Callout status="info" mt="3" icon={null}>
+              <Badge label="New!" color="violet" variant="solid" mr="3" />
+              <Text mr="3">
+                GrowthBook Cloud now offers a fully managed data warehouse
+                option.
+              </Text>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setManagedWarehouseOpen(true);
+                }}
+              >
+                Try it now
+              </a>
+            </Callout>
+          ) : (
+            <Callout status="info" mt="3">
+              Don&apos;t have a data warehouse yet? We recommend using BigQuery
+              with Google Analytics.{" "}
+              <DocLink docSection="ga4BigQuery">
+                Learn more <FaExternalLinkAlt />
+              </DocLink>
+            </Callout>
+          )}
         </div>
       </div>
     );
@@ -497,7 +531,7 @@ const NewDataSourceForm: FC<{
     );
   } else if (step === "connection") {
     const datasourceInfo = dataSourceConnections.find(
-      (d) => d.type === connectionInfo.type
+      (d) => d.type === connectionInfo.type,
     );
 
     const headerParts: string[] = [
@@ -701,6 +735,12 @@ const NewDataSourceForm: FC<{
 
   if (step === "initial" && !connectionInfo.type) {
     ctaEnabled = false;
+  }
+
+  if (managedWarehouseOpen) {
+    return (
+      <ManagedWarehouseModal close={() => setManagedWarehouseOpen(false)} />
+    );
   }
 
   return (

@@ -2,11 +2,11 @@ import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+} from "shared/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -65,6 +65,11 @@ const BanditExperimentPage = (): ReactElement => {
     if (!data.experiment?.type || data.experiment.type === "standard") {
       router.replace(window.location.href.replace("bandit/", "experiment/"));
     }
+    if (data?.experiment?.type === "holdout") {
+      let url = window.location.href.replace(/(.*)\/bandit\/.*/, "$1/holdout/");
+      url += data?.experiment?.holdoutId;
+      router.replace(url);
+    }
   }, [data, router]);
 
   if (error) {
@@ -116,7 +121,7 @@ const BanditExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (
@@ -141,6 +146,7 @@ const BanditExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={false}
           mutate={mutate}
           source="bid"
         />
@@ -162,7 +168,7 @@ const BanditExperimentPage = (): ReactElement => {
                 dateStarted: new Date().toISOString(),
                 dateEnded: undefined,
                 variationWeights: p.variationWeights.map(
-                  () => 1 / (p.variationWeights.length || 2)
+                  () => 1 / (p.variationWeights.length || 2),
                 ),
                 banditEvents: undefined,
               };

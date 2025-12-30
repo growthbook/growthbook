@@ -1,9 +1,9 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ReqContext } from "back-end/types/organization";
-import { GeneratedHypothesisInterface } from "back-end/types/generated-hypothesis";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
 import { upsertWatch } from "./WatchModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
@@ -30,17 +30,17 @@ generatedHypothesisSchema.index({ weblensUuid: 1 }, { unique: false });
 
 const GeneratedHypothesisModel = mongoose.model<GeneratedHypothesisDocument>(
   "GeneratedHypothesis",
-  generatedHypothesisSchema
+  generatedHypothesisSchema,
 );
 
 const toInterface = (
-  doc: GeneratedHypothesisDocument
+  doc: GeneratedHypothesisDocument,
 ): GeneratedHypothesisInterface =>
   omit(doc.toJSON<GeneratedHypothesisDocument>(), ["__v", "_id"]);
 
 export const findOrCreateGeneratedHypothesis = async (
   context: ReqContext,
-  uuid: string
+  uuid: string,
 ): Promise<GeneratedHypothesisInterface> => {
   const { org, userId } = context;
   const existing = await GeneratedHypothesisModel.findOne({
@@ -57,7 +57,7 @@ export const findOrCreateGeneratedHypothesis = async (
       headers: {
         apikey: process.env.SUPABASE_ANON_KEY, // public-facing key
       },
-    }
+    },
   );
 
   const rows = await res.json();

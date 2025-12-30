@@ -3,15 +3,12 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
-import {
-  FeaturePrerequisite,
-  SavedGroupTargeting,
-} from "back-end/types/feature";
+import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import {
   BsCheckCircle,
   BsExclamationCircle,
@@ -64,7 +61,7 @@ export default function ReleaseChangesForm({
         data: formValues,
         stickyBucketing: usingStickyBucketing,
       }),
-    [experiment, formValues, usingStickyBucketing]
+    [experiment, formValues, usingStickyBucketing],
   );
 
   // set the release plan selector to the recommended value
@@ -195,10 +192,10 @@ export default function ReleaseChangesForm({
               ? `New phase${!isBandit ? ", new randomization seed." : "."}`
               : `New phase${!isBandit ? ", same randomization seed." : "."}`
             : form.watch("reseed")
-            ? `Same phase${!isBandit ? ", new randomization seed." : "."}`
-            : `Same phase${
-                !isBandit ? ", same randomization seed." : "."
-              }`}{" "}
+              ? `Same phase${!isBandit ? ", new randomization seed." : "."}`
+              : `Same phase${
+                  !isBandit ? ", same randomization seed." : "."
+                }`}{" "}
           {isBandit &&
             form.watch("newPhase") &&
             "Variation weights will be reset. "}
@@ -207,9 +204,9 @@ export default function ReleaseChangesForm({
               (experiment.bucketVersion ?? 0)
               ? "Sticky Bucketed users will keep their assigned bucket."
               : (form.watch("minBucketVersion") ?? 0) <=
-                (experiment.minBucketVersion ?? 0)
-              ? "Sticky Bucketed users will be reassigned."
-              : "Sticky Bucketed users will be excluded from the experiment."
+                  (experiment.minBucketVersion ?? 0)
+                ? "Sticky Bucketed users will be reassigned."
+                : "Sticky Bucketed users will be excluded from the experiment."
             : "No sticky bucketing."}
           {form.watch("newPhase") && isBandit && (
             <div className="alert alert-warning text-danger mt-2">
@@ -220,8 +217,8 @@ export default function ReleaseChangesForm({
                   i < 3
                     ? formatPercent(1 / (experiment.variations.length ?? 2))
                     : i === 3
-                    ? "..."
-                    : null
+                      ? "..."
+                      : null,
                 )
                 .filter(Boolean)
                 .join(", ")}
@@ -448,12 +445,14 @@ function ImpactTooltips({
           </div>
         )}
 
-        {!isBandit && variationHopping && releasePlan !== "same-phase-sticky" && (
-          <div className="alert mt-2 mb-0 alert-info">
-            <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
-            variation hopping.
-          </div>
-        )}
+        {!isBandit &&
+          variationHopping &&
+          releasePlan !== "same-phase-sticky" && (
+            <div className="alert mt-2 mb-0 alert-info">
+              <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
+              variation hopping.
+            </div>
+          )}
       </div>
 
       {!isBandit &&
@@ -554,12 +553,12 @@ function getRecommendedRolloutData({
   }
   const savedGroupsRestrictiveness = compareSavedGroups(
     data.savedGroups || [],
-    lastPhase.savedGroups || []
+    lastPhase.savedGroups || [],
   );
 
   const prerequisiteRestrictiveness = comparePrerequisites(
     data.prerequisites || [],
-    lastPhase.prerequisites || []
+    lastPhase.prerequisites || [],
   );
 
   // 1. More restrictive targeting (saved groups & prerequisites)?
@@ -807,7 +806,7 @@ function getRecommendedRolloutData({
 
 function compareSavedGroups(
   current: SavedGroupTargeting[],
-  last: SavedGroupTargeting[]
+  last: SavedGroupTargeting[],
 ): "more" | "less" | "other" | null {
   if (last.length === 0 && current.length > 0) return "more";
   if (last.length > 0 && current.length === 0) return "less";
@@ -862,7 +861,7 @@ function compareSavedGroups(
 
     const addedIds = new Set([...currentIds].filter((id) => !lastIds.has(id)));
     const removedIds = new Set(
-      [...lastIds].filter((id) => !currentIds.has(id))
+      [...lastIds].filter((id) => !currentIds.has(id)),
     );
 
     if (addedIds.size > 0) {
@@ -881,7 +880,7 @@ function compareSavedGroups(
 
 function comparePrerequisites(
   current: FeaturePrerequisite[],
-  last: FeaturePrerequisite[]
+  last: FeaturePrerequisite[],
 ): "more" | "less" | "other" | null {
   if (last.length === 0 && current.length > 0) return "more";
   if (last.length > 0 && current.length === 0) return "less";
@@ -891,7 +890,7 @@ function comparePrerequisites(
     for (const currentPrereq of current) {
       const lastPrereq = last.find(
         (p) =>
-          p.id === currentPrereq.id && p.condition === currentPrereq.condition
+          p.id === currentPrereq.id && p.condition === currentPrereq.condition,
       );
       if (!lastPrereq) return "other";
     }

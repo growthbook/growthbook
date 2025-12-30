@@ -1,12 +1,15 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
-import { PiPencilSimple, PiPlay, PiXCircle } from "react-icons/pi";
+} from "shared/types/experiment";
+import React from "react";
+import { Box, Flex, Heading } from "@radix-ui/themes";
+import { PiCheckCircleFill, PiWarningFill } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -23,102 +26,135 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
     <LinkedChange
       changeType={"flag"}
       feature={info.feature}
+      state={info.state}
       additionalBadge={
-        info.state === "draft" ? (
-          <span className="rounded-pill px-2 badge-secondary ml-3">
-            <PiPencilSimple /> Draft
-          </span>
+        info.state === "live" ? (
+          <Badge label="Live" radius="full" color="teal" />
+        ) : info.state === "draft" ? (
+          <Badge label="Draft" radius="full" color="indigo" />
         ) : info.state === "locked" ? (
-          <span className="rounded-pill px-2 badge-danger ml-3">
-            <PiXCircle /> Removed
-          </span>
-        ) : info.state === "live" ? (
-          <span className="rounded-pill px-2 badge-success ml-3">
-            <PiPlay /> Live
-          </span>
+          <Badge label="Locked" radius="full" color="gray" />
+        ) : info.state === "discarded" ? (
+          <Badge label="Discarded" radius="full" color="red" />
         ) : null
       }
       open={open ?? experiment.status === "draft"}
     >
-      <div className="mt-2 pb-1 px-3">
-        {info.state !== "locked" && (
-          <div className="mb-3">
-            <div className="font-weight-bold">Environments</div>
-            {Object.entries(info.environmentStates || {}).map(
-              ([env, state]) => (
-                <Tooltip
-                  body={
-                    state === "active"
-                      ? "The experiment is active in this environment"
-                      : state === "disabled-env"
-                      ? "The environment is disabled for this feature, so the experiment is not active"
-                      : state === "disabled-rule"
-                      ? "The experiment is disabled in this environment and is not active"
-                      : "The experiment is not present in this environment"
-                  }
-                  key={env}
-                >
-                  <span
-                    className={`badge ${
-                      state === "missing"
-                        ? "badge-secondary"
-                        : state === "active"
-                        ? "badge-primary"
-                        : "badge-warning"
-                    } mr-2`}
+      <Box mt="2">
+        <Flex width="100%" gap="4">
+          {info.state !== "locked" && info.state !== "discarded" && (
+            <Box width="33%">
+              <Heading weight="bold" as="h4" size="3">
+                Environments
+              </Heading>
+              <Flex direction="column" gap="2">
+                {Object.entries(info.environmentStates || {}).map(
+                  ([env, state]) => (
+                    <Box key={env}>
+                      <Tooltip
+                        body={
+                          state === "active"
+                            ? "The experiment is active in this environment"
+                            : state === "disabled-env"
+                              ? "The environment is disabled for this feature, so the experiment is not active"
+                              : state === "disabled-rule"
+                                ? "The experiment is disabled in this environment and is not active"
+                                : "The experiment is not present in this environment"
+                        }
+                      >
+                        <Flex gap="3" display="inline-flex">
+                          <Box
+                            style={{
+                              color:
+                                state === "active"
+                                  ? "var(--green-11)"
+                                  : "var(--amber-11)",
+                            }}
+                          >
+                            {state === "active" ? (
+                              <PiCheckCircleFill />
+                            ) : (
+                              <PiWarningFill />
+                            )}
+                          </Box>
+                          <Box>{env}</Box>
+                        </Flex>
+                      </Tooltip>
+                    </Box>
+                  ),
+                )}
+              </Flex>
+            </Box>
+          )}
+          {info.state !== "discarded" && (
+            <Box flexGrow="1">
+              <Heading weight="bold" as="h4" size="3">
+                Feature values
+              </Heading>
+              <Box>
+                {orderedValues.map((v, j) => (
+                  <Flex
+                    justify="between"
+                    width="100%"
+                    key={j}
+                    gap="4"
+                    py="2"
+                    my="2"
+                    style={{ borderBottom: "1px solid var(--slate-a4)" }}
                   >
-                    {state === "active" ? (
-                      <FaCheck />
-                    ) : (
-                      <FaExclamationTriangle />
-                    )}{" "}
-                    {env}
-                  </span>
-                </Tooltip>
-              )
-            )}
-          </div>
-        )}
+                    <Flex
+                      align="center"
+                      gap="2"
+                      flexBasis="30%"
+                      flexShrink="0"
+                      className={`variation with-variation-label border-right-0 variation${j}`}
+                    >
+                      <span className="label" style={{ width: 20, height: 20 }}>
+                        {j}
+                      </span>
+                      <span
+                        className="d-inline-block text-ellipsis"
+                        title={experiment.variations[j]?.name}
+                      >
+                        {experiment.variations[j]?.name}
+                      </span>
+                    </Flex>
+                    <Box flexGrow="1">
+                      <ForceSummary value={v} feature={info.feature} />
+                    </Box>
+                  </Flex>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </Flex>
 
-        <div className="font-weight-bold mb-2">Feature values</div>
-        <table className="table table-sm table-bordered w-auto">
-          <tbody>
-            {orderedValues.map((v, j) => (
-              <tr key={j}>
-                <td
-                  className={`px-3 variation with-variation-label with-variation-right-shadow border-right-0 variation${j}`}
-                >
-                  <span className="name font-weight-bold">
-                    {j}: {experiment.variations[j]?.name}
-                  </span>
-                </td>
-                <td className="px-3 border-left-0">
-                  <ForceSummary value={v} feature={info.feature} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {info.state === "discarded" && (
+          <Callout status="info">
+            This experiment was linked to this feature in the past, but is no
+            longer live.
+          </Callout>
+        )}
 
         {(info.state === "live" || info.state === "draft") && (
           <>
             {info.inconsistentValues && (
-              <div className="alert alert-warning mt-2">
+              <Callout status="warning" mt="4">
                 <strong>Warning:</strong> This experiment is included multiple
                 times with different values. The values above are from the first
                 matching experiment in <strong>{info.valuesFrom}</strong>.
-              </div>
+              </Callout>
             )}
 
             {info.rulesAbove && (
-              <div className="alert alert-info mt-2">
+              <Callout status="info" mt="4">
                 <strong>Notice:</strong> There are feature rules above this
                 experiment so some users might not be included.
-              </div>
+              </Callout>
             )}
           </>
         )}
-      </div>
+      </Box>
     </LinkedChange>
   );
 }

@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
+import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import HostWarning from "./HostWarning";
 
 const ClickHouseForm: FC<{

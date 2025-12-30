@@ -4,6 +4,11 @@
       "source": "/app/fact-tables",
       "destination": "/app/metrics",
       "permanent": false
+    },
+    {
+      "source": "/GrowthBookStatsEngine.pdf",
+      "destination": "/statistics/overview#bayesian-statistics",
+      "permanent": false
     }
   ]
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { IdeaInterface } from "back-end/types/idea";
-import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
+import { IdeaInterface } from "shared/types/idea";
+import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
@@ -31,7 +31,7 @@ const ImpactModal: FC<{
 
   const possibleMetrics = metrics.filter(
     // TODO: support non-binomial and manual metrics
-    (m) => m.type === "binomial" && m.datasource
+    (m) => m.type === "binomial" && m.datasource,
   );
 
   const metric = getMetricById(form.watch("metric"));
@@ -61,14 +61,14 @@ const ImpactModal: FC<{
                 segment: value.segment || null,
                 ideaId: idea.id || null,
               }),
-            }
+            },
           );
           est = res.estimate;
         }
 
         if (!est) {
           throw new Error(
-            "Failed to get user and page data from the data source"
+            "Failed to get user and page data from the data source",
           );
         }
 
@@ -92,6 +92,7 @@ const ImpactModal: FC<{
           experimentLength,
           estimateParams: {
             estimate: est.id,
+            segment: est?.segment || "",
             improvement: value.improvement,
             numVariations: value.numVariations,
             userAdjustment: value.userAdjustment,

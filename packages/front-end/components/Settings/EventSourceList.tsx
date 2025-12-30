@@ -1,11 +1,11 @@
-import { SchemaFormat } from "back-end/types/datasource";
+import { SchemaFormat } from "shared/types/datasource";
 import React from "react";
 import { FaGear } from "react-icons/fa6";
 import { SiMixpanel } from "react-icons/si";
 import { eventSchema, eventSchemas } from "@/services/eventSchema";
 import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
-import RadioCards from "@/components/Radix/RadioCards";
-import Avatar from "@/components/Radix/Avatar";
+import RadioCards from "@/ui/RadioCards";
+import Avatar from "@/ui/Avatar";
 
 export interface Props {
   selected?: SchemaFormat;
@@ -42,7 +42,8 @@ export default function EventSourceList({
     ),
   });
 
-  const columns = options.length > 12 || options.length % 4 === 0 ? "4" : "3";
+  const columns =
+    options.length % 3 === 0 ? "3" : options.length % 4 === 0 ? "4" : "3";
 
   return (
     <RadioCards
@@ -63,6 +64,7 @@ export default function EventSourceList({
       }}
       columns={columns}
       align="center"
+      width="100%"
     />
   );
 }

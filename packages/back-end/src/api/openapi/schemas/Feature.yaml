@@ -48,16 +48,9 @@ properties:
       $ref: "./FeatureEnvironment.yaml"
   prerequisites:
     type: array
+    description: "Feature IDs. Each feature must evaluate to `true`"
     items:
-      type: object
-      required:
-        - parentId
-        - parentCondition
-      properties:
-        parentId:
-          type: string
-        parentCondition:
-          type: string
+      type: string
   revision:
     type: object
     required:
@@ -75,3 +68,6 @@ properties:
         format: date-time
       publishedBy:
         type: string
+  customFields:
+    type: object
+    additionalProperties: true

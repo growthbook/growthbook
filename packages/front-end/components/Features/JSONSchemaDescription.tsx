@@ -7,12 +7,11 @@ export default function JSONSchemaDescription({
 }: {
   jsonSchema: unknown;
 }) {
-  const { jsonSchemaDescription, jsonSchemaFields } = getJSONSchemaSummary(
-    jsonSchema
-  );
+  const { jsonSchemaDescription, jsonSchemaFields } =
+    getJSONSchemaSummary(jsonSchema);
 
   return (
-    <div className="mt-3 border-top pt-3 d-flex align-items-center">
+    <div className="d-flex align-items-center">
       {jsonSchemaDescription ? (
         <div className="mr-2">{jsonSchemaDescription}</div>
       ) : null}
@@ -168,7 +167,7 @@ function getJSONSchemaSummary(jsonSchema: unknown) {
       const required = new Set(
         "required" in jsonSchema && Array.isArray(jsonSchema.required)
           ? jsonSchema.required
-          : []
+          : [],
       );
       Object.entries(jsonSchema.properties).forEach(([key, value]) => {
         jsonSchemaFields.push({
@@ -193,7 +192,7 @@ function getJSONSchemaSummary(jsonSchema: unknown) {
           "required" in jsonSchema.items &&
           Array.isArray(jsonSchema.items.required)
             ? jsonSchema.items.required
-            : []
+            : [],
         );
         Object.entries(jsonSchema.items.properties).forEach(([key, value]) => {
           jsonSchemaFields.push({

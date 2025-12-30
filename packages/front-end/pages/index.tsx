@@ -4,8 +4,11 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import { useFeaturesList } from "@/services/features";
+import GetStartedAndHomePage from "@/components/GetStarted";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { AppFeatures } from "@/types/app-features";
+import { isCloud } from "@/services/env";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
@@ -23,7 +26,7 @@ export default function Home(): React.ReactElement {
 
   const { organization } = useUser();
 
-  const gb = useGrowthBook();
+  const gb = useGrowthBook<AppFeatures>();
 
   useEffect(() => {
     if (!organization) return;
@@ -32,18 +35,25 @@ export default function Home(): React.ReactElement {
     }
 
     const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-      organization.id || ""
+      organization.id || "",
     );
 
+    // has features and experiments that are not demo projects
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
-
-    if (hasFeatures) {
-      router.replace("/features");
-    } else if (hasExperiments) {
-      router.replace("/experiments");
-    } else {
-      if (gb.isOn("use-new-setup-flow-2")) {
+    const hasFeatureOrExperiment = hasFeatures || hasExperiments;
+    const intentToExperiment =
+      organization?.demographicData?.ownerUsageIntents?.includes(
+        "experiments",
+      ) ||
+      organization?.demographicData?.ownerUsageIntents?.length === 0 ||
+      !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
+    if (!hasFeatureOrExperiment) {
+      const useNewOnboarding =
+        intentToExperiment &&
+        isCloud() &&
+        gb.isOn("experimentation-focused-onboarding");
+      if (!organization.isVercelIntegration && !useNewOnboarding) {
         router.replace("/setup");
       } else {
         router.replace("/getstarted");
@@ -66,6 +76,9 @@ export default function Home(): React.ReactElement {
       </div>
     );
   }
-
-  return <LoadingOverlay />;
+  return featuresLoading || experimentsLoading ? (
+    <LoadingOverlay />
+  ) : (
+    <GetStartedAndHomePage />
+  );
 }

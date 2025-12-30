@@ -1,7 +1,8 @@
 import type { Response } from "express";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
-import { orgHasPremiumFeature } from "enterprise";
-import { TeamInterface } from "back-end/types/team";
+import { TeamInterface } from "shared/types/team";
+import { MemberRoleWithProjects } from "shared/types/organization";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   createTeam,
   deleteTeam,
@@ -20,7 +21,6 @@ import {
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { MemberRoleWithProjects } from "back-end/types/organization";
 
 // region POST /teams
 
@@ -28,6 +28,7 @@ type CreateTeamRequest = AuthRequest<{
   name: string;
   description: string;
   permissions: MemberRoleWithProjects;
+  defaultProject: string;
 }>;
 
 type CreateTeamResponse = {
@@ -44,11 +45,11 @@ type CreateTeamResponse = {
  */
 export const postTeam = async (
   req: CreateTeamRequest,
-  res: Response<CreateTeamResponse>
+  res: Response<CreateTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org, userName } = context;
-  const { name, description, permissions } = req.body;
+  const { name, description, permissions, defaultProject } = req.body;
 
   if (!orgHasPremiumFeature(org, "teams")) {
     throw new Error("Must have a commercial License Key to create a team.");
@@ -83,6 +84,7 @@ export const postTeam = async (
     name,
     createdBy: userName,
     description,
+    defaultProject,
     organization: org.id,
     managedByIdp: false,
     ...permissions,
@@ -113,6 +115,7 @@ type PutTeamRequest = AuthRequest<
     name: string;
     description: string;
     permissions: MemberRoleWithProjects;
+    defaultProject: string;
     members?: string[];
   },
   { id: string }
@@ -131,11 +134,11 @@ type PutTeamResponse = {
  */
 export const updateTeam = async (
   req: PutTeamRequest,
-  res: Response<PutTeamResponse>
+  res: Response<PutTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, description, permissions } = req.body;
+  const { name, description, permissions, defaultProject } = req.body;
   const { id } = req.params;
 
   if (!context.permissions.canManageTeam()) {
@@ -155,6 +158,7 @@ export const updateTeam = async (
     name,
     description,
     projectRoles: [],
+    defaultProject,
     ...permissions,
     managedByIdp: team.managedByIdp,
   });
@@ -202,7 +206,7 @@ type DeleteTeamResponse = {
  */
 export const deleteTeamById = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<DeleteTeamResponse>
+  res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -260,7 +264,7 @@ export const deleteTeamById = async (
  */
 export const addTeamMembers = async (
   req: AuthRequest<{ members: string[] }, { id: string }>,
-  res: Response<DeleteTeamResponse>
+  res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -287,7 +291,7 @@ export const addTeamMembers = async (
   });
 
   const teamMembers = org.members.filter((member) =>
-    member.teams?.includes(id)
+    member.teams?.includes(id),
   );
 
   await req.audit({
@@ -319,7 +323,7 @@ export const addTeamMembers = async (
  */
 export const deleteTeamMember = async (
   req: AuthRequest<null, { id: string; memberId: string }>,
-  res: Response<DeleteTeamResponse>
+  res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -339,7 +343,7 @@ export const deleteTeamMember = async (
   }
 
   const member = org.members.find(
-    (member) => member.teams?.includes(id) && member.id === memberId
+    (member) => member.teams?.includes(id) && member.id === memberId,
   );
 
   if (!member) {

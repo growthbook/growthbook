@@ -1,12 +1,12 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawSavedGroupController from "./saved-group.controller";
+import { z } from "zod";
 import {
   postSavedGroupBodyValidator,
   putSavedGroupBodyValidator,
-} from "./saved-group.validators";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as rawSavedGroupController from "./saved-group.controller";
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ router.get(
       })
       .strict(),
   }),
-  savedGroupController.getSavedGroup
+  savedGroupController.getSavedGroup,
 );
 
 router.post(
@@ -29,7 +29,7 @@ router.post(
   validateRequestMiddleware({
     body: postSavedGroupBodyValidator,
   }),
-  savedGroupController.postSavedGroup
+  savedGroupController.postSavedGroup,
 );
 
 router.post(
@@ -46,7 +46,7 @@ router.post(
       })
       .strict(),
   }),
-  savedGroupController.postSavedGroupAddItems
+  savedGroupController.postSavedGroupAddItems,
 );
 
 router.post(
@@ -63,7 +63,7 @@ router.post(
       })
       .strict(),
   }),
-  savedGroupController.postSavedGroupRemoveItems
+  savedGroupController.postSavedGroupRemoveItems,
 );
 
 router.put(
@@ -76,7 +76,7 @@ router.put(
       .strict(),
     body: putSavedGroupBodyValidator,
   }),
-  savedGroupController.putSavedGroup
+  savedGroupController.putSavedGroup,
 );
 
 router.delete(
@@ -88,7 +88,7 @@ router.delete(
       })
       .strict(),
   }),
-  savedGroupController.deleteSavedGroup
+  savedGroupController.deleteSavedGroup,
 );
 
 export { router as savedGroupRouter };

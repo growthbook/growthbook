@@ -1,12 +1,13 @@
 import { FC, ReactNode, useState } from "react";
 import clsx from "clsx";
 import { FaDatabase } from "react-icons/fa";
-import { QueryStatus } from "back-end/types/query";
+import { QueryStatus } from "shared/types/query";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AsyncQueriesModal from "./AsyncQueriesModal";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
+  savedQueries?: string[];
   error?: string;
   display?: string | JSX.Element | null;
   color?: string;
@@ -19,6 +20,7 @@ const ViewAsyncQueriesButton: FC<{
   hideQueryCount?: boolean;
 }> = ({
   queries,
+  savedQueries = [],
   display = "View Queries",
   color = "link",
   error,
@@ -31,6 +33,7 @@ const ViewAsyncQueriesButton: FC<{
   hideQueryCount,
 }) => {
   const [open, setOpen] = useState(false);
+  const totalQueries = queries.length + savedQueries.length;
 
   if (!className)
     className = condensed ? `btn btn-${color} border-0` : `btn btn-${color}`;
@@ -39,47 +42,48 @@ const ViewAsyncQueriesButton: FC<{
     <>
       {ctaComponent ? (
         ctaComponent(() => {
-          if (!queries.length) return;
+          if (totalQueries === 0) return;
           setOpen(!open);
         })
       ) : (
         <Tooltip
           body={
-            queries.length > 0
+            totalQueries > 0
               ? status
                 ? status === "running"
                   ? "View running queries"
                   : status === "failed"
-                  ? "View failed queries"
-                  : status === "partially-succeeded"
-                  ? "View failed queries"
-                  : ""
+                    ? "View failed queries"
+                    : status === "partially-succeeded"
+                      ? "View failed queries"
+                      : ""
                 : ""
               : "No queries were run"
           }
           shouldDisplay={["running", "failed", "partially-succeeded"].includes(
-            status ?? ""
+            status ?? "",
           )}
         >
           <button
             className={clsx("position-relative", className, {
-              disabled: queries.length === 0,
+              disabled: totalQueries === 0,
               "d-flex align-items-center": condensed,
             })}
             style={{
-              ...(queries.length === 0 ? { cursor: "not-allowed" } : {}),
+              ...(totalQueries === 0 ? { cursor: "not-allowed" } : {}),
             }}
             type="button"
             onClick={(e) => {
               e.preventDefault();
-              if (!queries.length) return;
+              if (totalQueries === 0) return;
               setOpen(!open);
             }}
           >
             {icon !== null && (
               <span
                 className={clsx("h4", {
-                  "position-relative d-flex m-0 d-inline-block align-top": condensed,
+                  "position-relative d-flex m-0 d-inline-block align-top":
+                    condensed,
                   "pr-2": !hideQueryCount,
                 })}
               >
@@ -89,7 +93,7 @@ const ViewAsyncQueriesButton: FC<{
             {display}
             {!hideQueryCount ? (
               <>
-                {queries.length > 0 ? (
+                {totalQueries > 0 ? (
                   condensed ? (
                     <div
                       className="d-inline-block position-absolute"
@@ -98,12 +102,10 @@ const ViewAsyncQueriesButton: FC<{
                         top: -1,
                       }}
                     >
-                      {queries.length}
+                      {totalQueries}
                     </div>
                   ) : (
-                    <div className="d-inline-block ml-1">
-                      ({queries.length})
-                    </div>
+                    <div className="d-inline-block ml-1">({totalQueries})</div>
                   )
                 ) : null}
               </>
@@ -111,10 +113,11 @@ const ViewAsyncQueriesButton: FC<{
           </button>
         </Tooltip>
       )}
-      {open && queries.length > 0 && (
+      {open && totalQueries > 0 && (
         <AsyncQueriesModal
           close={() => setOpen(false)}
           queries={queries}
+          savedQueries={savedQueries}
           error={error}
           inline={inline}
         />

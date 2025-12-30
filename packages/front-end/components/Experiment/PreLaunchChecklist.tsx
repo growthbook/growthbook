@@ -1,13 +1,13 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+} from "shared/types/experiment";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import track from "@/services/track";
@@ -19,9 +19,9 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Frame from "@/ui/Frame";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -65,7 +65,7 @@ export function getChecklistItems({
     // Some items we check completion for automatically, others require users to manually check an item as complete
     type: "auto" | "manual",
     key: string,
-    customFieldId?: string
+    customFieldId?: string,
   ): boolean {
     if (type === "auto") {
       if (!key) return false;
@@ -86,6 +86,11 @@ export function getChecklistItems({
             return !!expField;
           }
           return false;
+        case "prerequisiteTargeting": {
+          const prerequisites =
+            experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
+          return !!prerequisites && prerequisites.length > 0;
+        }
       }
     }
 
@@ -104,7 +109,7 @@ export function getChecklistItems({
   if (checkLinkedChanges) {
     const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
       experiment,
-      linkedFeatures
+      linkedFeatures,
     );
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
@@ -117,7 +122,7 @@ export function getChecklistItems({
           {openSetupTab &&
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
-            <a className="a" role="button" onClick={openSetupTab}>
+            <a className="a link-purple" role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
           ) : (
@@ -140,7 +145,7 @@ export function getChecklistItems({
           <>
             {setAnalysisModal ? (
               <a
-                className="a"
+                className="a link-purple"
                 role="button"
                 onClick={() => setAnalysisModal(true)}
               >
@@ -165,8 +170,8 @@ export function getChecklistItems({
           f.state === "draft" ||
           (f.state === "live" &&
             !Object.values(f.environmentStates || {}).some(
-              (s) => s === "active"
-            ))
+              (s) => s === "active",
+            )),
       );
       items.push({
         status: hasFeatureFlagsErrors ? "incomplete" : "complete",
@@ -175,7 +180,7 @@ export function getChecklistItems({
           <>
             Publish and enable all{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Linked Feature
               </a>
             ) : (
@@ -191,14 +196,14 @@ export function getChecklistItems({
     // No empty visual changesets
     if (visualChangesets.length > 0) {
       const hasSomeVisualChanges = visualChangesets.some((vc) =>
-        hasVisualChanges(vc.visualChanges)
+        hasVisualChanges(vc.visualChanges),
       );
       items.push({
         display: (
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Visual Editor
               </a>
             ) : (
@@ -222,7 +227,7 @@ export function getChecklistItems({
       <>
         {editTargeting ? (
           <a
-            className="a"
+            className="a link-purple"
             role="button"
             onClick={() => {
               editTargeting();
@@ -253,7 +258,11 @@ export function getChecklistItems({
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
-          <a className="a" role="button" onClick={() => setShowSdkForm(true)}>
+          <a
+            className="a link-purple"
+            role="button"
+            onClick={() => setShowSdkForm(true)}
+          >
             Add SDK Connection
           </a>
         ) : null}
@@ -280,36 +289,6 @@ export function getChecklistItems({
     });
   }
 
-  /*
-    items.push({
-      type: "manual",
-      key: "sdk-connection",
-      status: isChecklistItemComplete("manual", "sdk-connection")
-        ? "complete"
-        : "incomplete",
-      display: (
-        <>
-          Verify your app is passing both
-          <strong> attributes </strong>
-          and a <strong> trackingCallback </strong>into the GrowthBook SDK.
-        </>
-      ),
-    });
-    items.push({
-      type: "manual",
-      key: "metrics-tracked",
-      status: isChecklistItemComplete("manual", "metrics-tracked")
-        ? "complete"
-        : "incomplete",
-      display: (
-        <>
-          Verify your app is tracking events for all of the metrics that you
-          plan to include in the analysis.
-        </>
-      ),
-    });
-    */
-
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
       if (item.completionType === "manual") {
@@ -331,12 +310,15 @@ export function getChecklistItems({
       }
 
       if (item.completionType === "auto" && item.propertyKey) {
+        if (isBandit && item.propertyKey === "hypothesis") {
+          return;
+        }
         items.push({
           display: <>{item.task}</>,
           status: isChecklistItemComplete(
             "auto",
             item.propertyKey,
-            item.customFieldId
+            item.customFieldId,
           )
             ? "complete"
             : "incomplete",
@@ -387,20 +369,20 @@ export function PreLaunchChecklistUI({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
+    `/experiment/${experiment.id}/launch-checklist`,
   );
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
     setUpdatingChecklist(true);
     const updatedManualChecklistStatus = Array.isArray(
-      experiment.manualLaunchChecklist
+      experiment.manualLaunchChecklist,
     )
       ? [...experiment.manualLaunchChecklist]
       : [];
 
     const index = updatedManualChecklistStatus.findIndex(
-      (task) => task.key === key
+      (task) => task.key === key,
     );
     if (index === -1) {
       updatedManualChecklistStatus.push({
@@ -431,7 +413,7 @@ export function PreLaunchChecklistUI({
   useEffect(() => {
     if (data && checklist.length > 0) {
       setChecklistItemsRemaining(
-        checklist.filter((item) => item.status === "incomplete").length
+        checklist.filter((item) => item.status === "incomplete").length,
       );
     }
   }, [checklist, data, setChecklistItemsRemaining]);
@@ -441,7 +423,7 @@ export function PreLaunchChecklistUI({
   const contents = !data ? (
     <LoadingSpinner />
   ) : (
-    <div>
+    <div className="pt-2">
       {checklist.map((item, i) => (
         <div key={i} className="mb-2">
           <Checkbox
@@ -474,8 +456,8 @@ export function PreLaunchChecklistUI({
               item.status === "incomplete" && item.type === "auto"
                 ? "GrowthBook will mark this as completed automatically when you finish the task."
                 : item.status === "incomplete"
-                ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-                : undefined
+                  ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+                  : undefined
             }
             error={item.warning}
             errorLevel="warning"
@@ -487,7 +469,7 @@ export function PreLaunchChecklistUI({
 
   const header = (
     <div className="d-flex flex-row align-items-center justify-content-between text-dark">
-      <h4>
+      <h4 className="mb-0">
         {title}{" "}
         {data && checklistItemsRemaining !== null ? (
           <span
@@ -536,7 +518,7 @@ export function PreLaunchChecklistUI({
       {collapsible ? (
         <Frame>
           <Collapsible
-            open={true}
+            open={!!checklistItemsRemaining}
             transitionTime={100}
             trigger={<div className="">{header}</div>}
           >
@@ -565,7 +547,7 @@ export function PreLaunchChecklistFeatureExpRule({
   envs: string[];
 }) {
   const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required
+    (item) => item.status === "incomplete" && item.required,
   );
 
   return (
@@ -624,7 +606,7 @@ export function PreLaunchChecklist({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
+    `/experiment/${experiment.id}/launch-checklist`,
   );
 
   const [showSdkForm, setShowSdkForm] = useState(false);

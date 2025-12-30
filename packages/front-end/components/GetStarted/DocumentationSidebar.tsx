@@ -1,36 +1,36 @@
 import { PiSealQuestion } from "react-icons/pi";
 import { Card, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
-import Link from "@/components/Radix/Link";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaidFeatureBadge from "./PaidFeatureBadge";
 
 interface Props {
   setUpgradeModal: (open: boolean) => void;
-  type: "get-started" | "features" | "experiments" | "imports";
+  type: "get-started" | "features" | "experiments" | "imports" | "data-source";
 }
 
 const DocumentationSidebar = ({
   setUpgradeModal,
   type,
 }: Props): React.ReactElement => {
-  const { accountPlan } = useUser();
+  const { accountPlan, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
   const canUpgrade =
-    accountPlan !== "enterprise" && permissionsUtil.canManageBilling();
+    accountPlan !== "enterprise" &&
+    permissionsUtil.canManageBilling() &&
+    !organization.isVercelIntegration;
 
   return (
     <Card style={{ padding: "var(--space-5)" }}>
       <SidebarHeading>FEATURED DOCS</SidebarHeading>
       <Flex direction="column" gapY="3">
-        {getLinksFor(type)}
+        {getLinksFor(type, organization.isVercelIntegration)}
       </Flex>
-
       <Separator size="4" my="5" />
-
       <SidebarHeading>QUESTIONS?</SidebarHeading>
       <Flex direction="column" gapY="3">
         <LinkItem href="https://slack.growthbook.io/?ref=getstarted">
@@ -40,7 +40,7 @@ const DocumentationSidebar = ({
             style={{ width: "18px", height: "18px" }}
           />
           <Text ml="1" style={{ verticalAlign: "middle" }}>
-            GrowthBook Slack
+            Community
           </Text>
         </LinkItem>
 
@@ -77,7 +77,7 @@ function SidebarHeading({ children }: { children: string }) {
 }
 
 function LinkItem(
-  props: React.ComponentProps<typeof Link>
+  props: React.ComponentProps<typeof Link>,
 ): React.ReactElement {
   return (
     <Link
@@ -93,18 +93,33 @@ function LinkItem(
   );
 }
 
-function getLinksFor(type: Props["type"]): JSX.Element {
+function getLinksFor(
+  type: Props["type"],
+  isVercelIntegration?: boolean,
+): JSX.Element {
   switch (type) {
     case "get-started":
+    case "data-source":
+      if (isVercelIntegration) {
+        return (
+          <>
+            <LinkItem href="https://docs.growthbook.io/integrations/vercel">
+              Vercel Integration Docs
+            </LinkItem>
+            <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+            <LinkItem href="https://www.growthbook.io/pricing">
+              Premium Features
+            </LinkItem>
+          </>
+        );
+      }
+
       return (
         <>
-          <LinkItem href="https://docs.growthbook.io/quick-start">
-            QuickStart Guide
+          <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+          <LinkItem href="https://www.growthbook.io/pricing">
+            Premium Features
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/overview">
-            How it Works
-          </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/lib/">SDK Docs</LinkItem>
         </>
       );
 
@@ -134,15 +149,15 @@ function getLinksFor(type: Props["type"]): JSX.Element {
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/sticky-bucketing">
             Sticky Bucketing
-            <PaidFeatureBadge commercialFeature="sticky-bucketing" />
+            <PaidFeatureBadge commercialFeature="sticky-bucketing" mx="2" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/visual">
             Visual Editor
-            <PaidFeatureBadge commercialFeature="visual-editor" />
+            <PaidFeatureBadge commercialFeature="visual-editor" mx="2" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/url-redirects">
             URL Redirects
-            <PaidFeatureBadge commercialFeature="redirects" />
+            <PaidFeatureBadge commercialFeature="redirects" mx="2" />
           </LinkItem>
         </>
       );
@@ -158,7 +173,7 @@ function getLinksFor(type: Props["type"]): JSX.Element {
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/data-pipeline">
             Data Pipeline Mode
-            <PaidFeatureBadge commercialFeature="pipeline-mode" />
+            <PaidFeatureBadge commercialFeature="pipeline-mode" mx="2" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/experiment-results">
             Experiment Results

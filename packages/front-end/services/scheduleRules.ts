@@ -1,7 +1,7 @@
-import { FeatureRule, ScheduleRule } from "back-end/types/feature";
+import { FeatureRule, ScheduleRule } from "shared/types/feature";
 
 export function getUpcomingScheduleRule(
-  rule: FeatureRule
+  rule: FeatureRule,
 ): ScheduleRule | null {
   if (!rule.scheduleRules || !rule.scheduleRules.length) {
     return null;
@@ -11,7 +11,7 @@ export function getUpcomingScheduleRule(
   const nextRuleIndex = rule.scheduleRules.findIndex(
     (rule) =>
       rule.timestamp !== null &&
-      new Date(rule.timestamp).valueOf() > currentDate
+      new Date(rule.timestamp).valueOf() > currentDate,
   );
 
   // If there was a rule with a timestamp greater than currentDate, return that rule

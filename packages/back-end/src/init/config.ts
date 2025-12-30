@@ -2,6 +2,15 @@ import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
+import { SegmentInterface } from "shared/types/segment";
+import {
+  DataSourceInterface,
+  DataSourceInterfaceWithParams,
+} from "shared/types/datasource";
+import { MetricInterface } from "shared/types/metric";
+import { DimensionInterface } from "shared/types/dimension";
+import { OrganizationSettings } from "shared/types/organization";
+import { encryptParams } from "back-end/src/services/datasource";
 import {
   EMAIL_ENABLED,
   ENVIRONMENT,
@@ -12,20 +21,12 @@ import {
   EMAIL_HOST_USER,
   EMAIL_PORT,
 } from "back-end/src/util/secrets";
-import {
-  DataSourceInterface,
-  DataSourceInterfaceWithParams,
-} from "back-end/types/datasource";
-import { MetricInterface } from "back-end/types/metric";
-import { DimensionInterface } from "back-end/types/dimension";
-import { encryptParams } from "back-end/src/services/datasource";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   upgradeMetricDoc,
   upgradeDatasourceObject,
 } from "back-end/src/util/migrations";
 import { logger } from "back-end/src/util/logger";
-import { SegmentInterface } from "back-end/types/segment";
 import { ApiReqContext } from "back-end/types/api";
 
 export type ConfigFile = {
@@ -71,7 +72,7 @@ const CONFIG_FILE = path.join(
   "..",
   "..",
   "config",
-  "config.yml"
+  "config.yml",
 );
 
 let configFileTime: number;
@@ -103,7 +104,7 @@ function loadConfig(initial = false) {
     config = null;
     if (initial) {
       logger.info(
-        "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
+        "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions.",
       );
     }
   }
@@ -111,23 +112,23 @@ function loadConfig(initial = false) {
   if (EMAIL_ENABLED) {
     if (!EMAIL_HOST)
       logger.error(
-        "Email is enabled, but missing required EMAIL_HOST env variable"
+        "Email is enabled, but missing required EMAIL_HOST env variable",
       );
     if (!EMAIL_PORT)
       logger.error(
-        "Email is enabled, but missing required EMAIL_PORT env variable"
+        "Email is enabled, but missing required EMAIL_PORT env variable",
       );
     if (!EMAIL_HOST_USER)
       logger.error(
-        "Email is enabled, but missing required EMAIL_HOST_USER env variable"
+        "Email is enabled, but missing required EMAIL_HOST_USER env variable",
       );
     if (!EMAIL_HOST_PASSWORD)
       logger.error(
-        "Email is enabled, but missing required EMAIL_HOST_PASSWORD env variable"
+        "Email is enabled, but missing required EMAIL_HOST_PASSWORD env variable",
       );
     if (!EMAIL_FROM)
       logger.error(
-        "Email is enabled, but missing required EMAIL_FROM env variable"
+        "Email is enabled, but missing required EMAIL_FROM env variable",
       );
   }
 }
@@ -147,7 +148,7 @@ export function usingFileConfig(): boolean {
 }
 
 export function getConfigDatasources(
-  organization: string
+  organization: string,
 ): DataSourceInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.datasources) return [];
@@ -171,7 +172,7 @@ export function getConfigDatasources(
 }
 
 export function getConfigMetrics(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ): MetricInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.metrics) return [];
@@ -198,7 +199,7 @@ export function getConfigMetrics(
 }
 
 export function getConfigDimensions(
-  organization: string
+  organization: string,
 ): DimensionInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.dimensions) return [];
@@ -213,6 +214,7 @@ export function getConfigDimensions(
       organization,
       dateCreated: null,
       dateUpdated: null,
+      managedBy: "config",
     };
   });
 }
@@ -236,6 +238,7 @@ export function getConfigSegments(organization: string): SegmentInterface[] {
       organization,
       dateCreated: new Date(),
       dateUpdated: new Date(),
+      managedBy: "config",
     };
   });
 }

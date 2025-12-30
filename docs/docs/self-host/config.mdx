@@ -7,11 +7,11 @@ slug: config
 
 # Config.yml
 
-In order to use GrowthBook, you need to connect to a data source and define metrics (and optionally dimensions and segments). There are two ways to do this.
+In order to use GrowthBook for experimentation, you need to connect to a data source. There are two main ways to configure GrowthBook: via the UI, or via a `config.yml` file.
 
 The default way to define these is by filling out forms in the GrowthBook UI, which persists them to MongoDB.
 
-The other option is to create a `config.yml` file. In the Docker container, this file must be placed at `/usr/local/src/app/config/config.yml`. Below is an example file:
+The other option is to create a `config.yml` file, which allows for version control and easier management of your configuration. In the Docker container, this file must be placed at `/usr/local/src/app/config/config.yml`. Below is an example file:
 
 ```yml
 datasources:
@@ -51,28 +51,6 @@ datasources:
         identityJoins:
           - ids: ["user_id", "anonymous_id"]
             query: SELECT user_id, anonymous_id FROM identifies
-metrics:
-  signups:
-    type: binomial
-    name: Sign Ups
-    userIdType: user_id
-    datasource: warehouse
-    sql: SELECT user_id, anonymous_id, received_at as timestamp FROM signups
-dimensions:
-  country:
-    name: Country
-    userIdType: user_id
-    datasource: warehouse
-    sql: SELECT user_id, country as value from users
-segments:
-  visitors:
-    name: Visitors in the US
-    datasource: warehouse
-    sql: |-
-      SELECT userid as user_id, timestamp as date
-      FROM users
-      WHERE country='US'
-    userIdType: user_id
 ```
 
 ### Data Source Connection Params
@@ -198,29 +176,9 @@ params:
   workGroup: primary
 ```
 
-#### Mixpanel
-
-Mixpanel access requires a service account.
-
-```yml
-type: mixpanel
-params:
-  username: growthbook
-  secret: abc123
-  projectId: my-project
-```
-
-#### Google Analytics
-
-Unfortunately at this time there is no way to connect to Google Analytics in `config.yml`. You must connect via the GrowthBook UI, where we use OAuth and a browser redirect.
-
 ### Data Source Settings
 
-The settings tell GrowthBook how to query your data.
-
-#### SQL Data Sources
-
-For data sources that support SQL, there are a couple queries you need to define plus an optional Python script to run queries from inside a Jupyter notebook:
+The settings tell GrowthBook how to query your data. There are a couple queries you need to define plus an optional Python script to run queries from inside a Jupyter notebook:
 
 ```yml
 type: postgres
@@ -273,25 +231,86 @@ settings:
       return pd.read_sql(text(sql), dbConnection)
 ```
 
-#### Mixpanel
+### Organization Settings
 
-Mixpanel does not support SQL, so we query the data using JQL instead. In order to do this, we just need to know a few event names and properties:
+Some organization settings can also be controlled from `config.yml`.
+
+Below are all of the currently supported settings:
 
 ```yml
-type: mixpanel
-params: ...
-settings:
-  events:
-    experimentEvent: Viewed Experiment
-    experimentIdProperty: experiment_id
-    variationIdProperty: variation_id
+organization:
+  settings:
+    # Minimum experiment length (in days) when importing past experiments. Default `6`
+    pastExperimentsMinLength: 3
+    # Number of days of historical data to use when analyzing metrics
+    # (must be between 1 and 400, default `90`)
+    metricAnalysisDays: 90
+    # The min percent of users exposed to multiple variations in an
+    # experiment before we start warning you (between 0 and 1, defaults to `0.01`)
+    multipleExposureMinPercent: 0.01
+    # Whether Regression Adjustment (CUPED) should be on or off by default how many
+    # days to use. Can be overridden in your metric definitions if you wish.
+    regressionAdjustmentEnabled: true
+    regressionAdjustmentDays: 14
+    # When we should auto-update experiment results
+    updateSchedule:
+      type: stale
+      hours: 6
 ```
 
-### Metrics
+The `updateSchedule` setting has 3 types of values:
 
-Metrics are what your experiments are trying to improve (or at least not hurt).
+- Never update automatically
+  ```yml
+  updateSchedule:
+    type: never
+  ```
+- Update if data is X hours stale
+  ```yml
+  updateSchedule:
+    type: stale
+    hours: 6
+  ```
+- Update on a fixed Cron schedule
+  ```yml
+  updateSchedule:
+    type: cron
+    cron: "0 */6 * * *"
+  ```
 
-Below is an example of all the possible settings with comments:
+### Unit Dimensions
+
+Unit Dimensions let you join additional tables in order to drill down into your experiment results.
+
+Dimensions only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the identifier type and `value`.
+
+Example:
+
+```yml
+name: Country
+# Must match one of the datasources defined in config.yml
+datasource: warehouse
+userIdType: user_id
+sql: SELECT user_id, country as value FROM users
+```
+
+By default, when using `config.yml`, it's not possible to create dimensions via the GrowthBook UI. Everything must be done directly in the `config.yml` file.
+
+There is an optional environment variable you can specify to change this behavior:
+
+```sh
+ALLOW_CREATE_DIMENSIONS=true
+```
+
+This will let you create new dimensions via the UI. Dimensions defined in `config.yml` will be marked as "Official" and not editable, while ones defined via the UI will be editable.
+
+### Metrics (Deprecated)
+
+Legacy metrics can be defined in the `config.yml` file as well, although this behavior is deprecated.
+
+If you want to version control metrics, the recommended approach is to integrate your version control system with our API instead. [See a guide here for doing this with GitHub](/integrations/github-metrics).
+
+Below is an example of all the possible settings with comments for legacy metrics defined in `config.yml`:
 
 ```yml
 name: Revenue per User
@@ -354,11 +373,9 @@ tags:
   - core
 ```
 
-In addition to all of those settings, you also need to tell GrowthBook how to query the metric.
+In addition to all of those settings, you also need to tell GrowthBook how to query the metric with SQL.
 
-#### SQL Data Sources
-
-For SQL data sources, you just need to specify a single query. Depending on the other settings, the columns you need to select may differ slightly:
+Depending on the other settings, the columns you need to select may differ slightly:
 
 - `timestamp` - always required
 - `value` - required unless type is set to "binomial"
@@ -407,65 +424,9 @@ sql: >
 aggregation: MAX(value) # use MAX instead of the default SUM
 ```
 
-#### Mixpanel
-
-For Mixpanel, instead of SQL we just need some info about what events and properties to use.
-
-Here's a simple binomial metric:
-
-```yml
-type: binomial
-# The event name
-table: Purchased
-```
-
-Any metric can have optional conditions as well:
-
-```yml
-type: binomial
-# The event name
-table: Purchased
-# Only include events which pass these conditions
-conditions:
-  - column: category # property
-    operator: "=" # "=", "!=", ">", "<", "<=", ">=", "~", "!~"
-    value: clothing
-```
-
-For count, duration, and revenue metrics, it will count the number of events per user by default:
-
-```yml
-type: count
-# Event name to count
-table: Page views
-```
-
-You can instead specify a javascript expression for the value of the event. By default, it will sum these values for each user:
-
-```yml
-# A "Revenue per user" metric
-type: revenue
-# The event name
-table: Purchases
-# The metric value that will be summed
-column: event.properties.grand_total
-```
-
-If you don't want to sum, you can also provide a custom aggregation method that reduces an array of `values` into a single number (or null). For example, here's a metric that counts the number of unique files downloaded per user
-
-```yml
-type: count
-# The event name
-table: PDF Downloads
-# The "value" of the metric (the file name)
-column: event.properties.filename
-# The aggregation operation (number of unique values)
-aggregation: new Set(values).size
-```
-
 #### Allow Creating Metrics in the UI
 
-By default, when using `config.yml`, it's not possible to create metrics via the GrowthBook UI. Everything must be done directly in the `config.yml` file.
+By default, when using `config.yml`, it's not possible to create legacy metrics via the GrowthBook UI. Everything must be done directly in the `config.yml` file.
 
 There is an optional environment variable you can specify to change this behavior:
 
@@ -474,87 +435,3 @@ ALLOW_CREATE_METRICS=true
 ```
 
 This will let you create new metrics via the UI. Metrics defined in `config.yml` will be marked as "Official" and not editable, while ones defined via the UI will be editable.
-
-### Dimensions
-
-Dimensions let you drill down into your experiment results. They are currently only supported for SQL data sources.
-
-Dimensions only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the identifier type and `value`.
-
-Example:
-
-```yml
-name: Country
-# Must match one of the datasources defined in config.yml
-datasource: warehouse
-userIdType: user_id
-sql: SELECT user_id, country as value FROM users
-```
-
-### Segments
-
-Segments define important groups of users - for example, "annual subscribers" or "left-handed people from France." They are currently only supported for SQL data sources.
-
-Segments only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the identifier type and `date`.
-
-Example:
-
-```yml
-name: US Page Visitors
-# Must match one of the datasources defined in config.yml
-datasource: warehouse
-userIdType: user_id
-sql: SELECT user_id, timestamp as date FROM pages WHERE country='US'
-```
-
-Segment support for the config.yml was added in February 2023. If you are using the config.yml file and have previously created segments stored in MongoDB, in order to access,
-you will need to add the environment variable `STORE_SEGMENTS_IN_MONGO` or update your config.yml file to include these segments.
-
-### Organization Settings
-
-In addition to the above, you can also control some organization settings from `config.yml`.
-
-Below are all of the currently supported settings:
-
-```yml
-organization:
-  settings:
-    # Enable creating experiments using the Visual Editor (beta).  Default `false`
-    visualEditorEnabled: true
-    # Minimum experiment length (in days) when importing past experiments. Default `6`
-    pastExperimentsMinLength: 3
-    # Number of days of historical data to use when analyzing metrics
-    # (must be between 1 and 400, default `90`)
-    metricAnalysisDays: 90
-    # The min percent of users exposed to multiple variations in an
-    # experiment before we start warning you (between 0 and 1, defaults to `0.01`)
-    multipleExposureMinPercent: 0.01
-    # Whether Regression Adjustment (CUPED) should be on or off by default how many
-    # days to use. Can be overridden in your metric definitions if you wish.
-    regressionAdjustmentEnabled: true
-    regressionAdjustmentDays: 14
-    # When we should auto-update experiment results
-    updateSchedule:
-      type: stale
-      hours: 6
-```
-
-The `updateSchedule` setting has 3 types of values:
-
-- Never update automatically
-  ```yml
-  updateSchedule:
-    type: never
-  ```
-- Update if data is X hours stale
-  ```yml
-  updateSchedule:
-    type: stale
-    hours: 6
-  ```
-- Update on a fixed Cron schedule
-  ```yml
-  updateSchedule:
-    type: cron
-    cron: "0 */6 * * *"
-  ```

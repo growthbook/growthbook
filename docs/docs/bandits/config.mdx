@@ -3,6 +3,8 @@ title: Setting up a Bandit
 slug: /bandits/config
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 Bandits are run similarly to Experiments in GrowthBook. There are three key differences:
 
 1. We require you use **Sticky Bucketing** in your SDK to ensure consistent user assignment
@@ -13,11 +15,7 @@ Bandits are run similarly to Experiments in GrowthBook. There are three key diff
 
 All GrowthBook Bandits (at least while in Beta) require you to enable [Sticky Bucketing](/app/sticky-bucketing). This ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
 
-:::note
-
 Furthermore, you should set up your Sticky Bucketing service to store variations in the same place that you store and track your user identities. For example, if you plan on running a bandit using cookie-based identifiers, we strongly recommend using a cookie-based Sticky Bucketing approach to ensure that both the hash attribute and the sticky bucketing identifiers are kept in sync.
-
-:::
 
 Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide to set up Sticky Bucketing in your SDK and enable it in GrowthBook.
 
@@ -27,7 +25,7 @@ Bandits optimize towards winning variations by making frequent changes to variat
 
 While each SDK's default cache settings, namely the `maxAge` or `TTL` fields, are generally compatible with most bandit configurations, you should double-check your own configuration. If variation weights do not update in the SDK significantly more quickly than your bandit's [update cadence](#update-cadence), then you may experience slower bandit performance and even [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm).
 
-:::tip
+:::tip Cache max-age recommendations
 
 As a rule of thumb, try to aim for a cache `maxAge` or `TTL` that is at least _5 times faster_ than your **update cadence**.
 
@@ -35,7 +33,7 @@ For a bandit with a daily update cadence, use an SDK cache max-age of 4-5 hours.
 
 :::
 
-- If you are using the [HTML Script Tag](https://docs.growthbook.io/lib/script-tag), variation weights have a maximum staleness of 4 hours, which is sufficient for most scenarios.
+- If you are using the [HTML Script Tag](/lib/script-tag), variation weights have a maximum staleness of 4 hours, which is sufficient for most scenarios.
 - Similarly, most of our SDKs have an internal cache with a default `maxAge` or `TTL` of 4 hours.
 - If you are applying any sort of network-level payload caching (such as a custom CDN or caching proxy), please ensure appropriate cache TTL and/or ejection policies are in place.
 
@@ -45,11 +43,9 @@ Once Sticky Bucketing is enabled, you can now create a new Bandit from the Bandi
 
 ### 1. Selecting an Assignment Attribute
 
-<img
-  src="/images/bandits/bandit-config-1.png"
-  alt="Configuring Bandit Hash Attributes and Number of Variations"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+![Configuring Bandit Hash Attributes and Number of Variations](/images/bandits/bandit-config-1.png)
+</MaxWidthImage>
 
 First, select the assignment Attribute used to randomize users into variations and that maps to the metrics you will use to track user behavior.
 
@@ -66,11 +62,9 @@ An ideal decision metric has the following properties:
 - It has a **short conversion window** and can be observed in a relatively short time frame. Short conversion windows allow the bandit to update with accurate information; a metric that takes longer to be observed will slow the Bandit down.
 - If it is a proportion metric, the conversion rate should not be super low or super high. These extreme conversion rates can result in Bandits that are very slow to converge as a lot of data is needed to adequately separate the Bandit variations.
 
-<img
-  src="/images/bandits/bandit-config-2.png"
-  alt="Configuring Bandit Decision Metric and Exploration Window"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Configuring Bandit Decision Metric and Exploration Window](/images/bandits/bandit-config-2.png)
+</MaxWidthImage>
 
 ### 4. Set the exploration window and update cadence
 
@@ -101,8 +95,6 @@ After you create your bandit, you'll be able to configure the different variatio
 
 Use either Feature Flags, the Visual Editor, or URL Redirects to set up your different variations. You can also use the API to set up your variations.
 
-<img
-  src="/images/bandits/bandit-config-3.png"
-  alt="Linking Bandit Changes"
-  style={{ width: 650, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Linking Bandit Changes](/images/bandits/bandit-config-3.png)
+</MaxWidthImage>

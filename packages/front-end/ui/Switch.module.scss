@@ -1,0 +1,23 @@
+.switchRoot {
+  --border-color: var(--gray-a5);
+  --checked-background-color: var(--accent-track);
+
+  [data-state="warning"] & {
+    --border-color: var(--amber-8);
+    --checked-background-color: var(--amber-9);
+  }
+
+  [data-state="error"] & {
+    --border-color: var(--red-8);
+    --checked-background-color: var(--red-9);
+  }
+
+  &::before {
+    box-shadow: inset 0 0 0 1px var(--border-color);
+    background-image: linear-gradient(
+      to right,
+      var(--checked-background-color) 40%,
+      transparent 60%
+    );
+  }
+}

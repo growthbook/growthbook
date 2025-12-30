@@ -22,13 +22,24 @@ jobs:
       id-token: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Configure AWS credentials for ECR
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Install Depot CLI
         uses: depot/setup-action@v1
@@ -42,65 +53,90 @@ jobs:
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
           echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      - name: Build, tag, and push image to Docker Hub
+      - name: Build, tag, and push image to Docker Hub and ECR
         uses: depot/build-push-action@v1
         with:
           push: true
           context: .
           project: vmp2ssvj9r
+          build-args: |
+            DD_GIT_COMMIT_SHA=${{ github.sha }}
+            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
+            DD_VERSION=${{ github.sha }}
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
+            ${{ steps.login-ecr.outputs.registry }}/growthbook:latest
+            ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
 
-  # Deploy the back-end for GrowthBook Cloud
+  # Deploy GrowthBook Cloud
   prod:
     runs-on: ubuntu-latest
     needs: [docker]
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Login to Amazon ECR
+        id: login-ecr-prod
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Extract static assets from Docker image and upload to S3
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr-prod.outputs.registry }}
         run: |
-          docker pull growthbook/growthbook:latest
-          docker create --name temp-container growthbook/growthbook:latest
+          docker pull ${ECR_REGISTRY}/growthbook:latest
+          docker create --name temp-container ${ECR_REGISTRY}/growthbook:latest
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
           # This is for the sentry source maps task below.
           docker cp temp-container:/usr/local/src/app/packages/back-end/dist ./back-end-dist
+          docker cp temp-container:/usr/local/src/app/packages/front-end/.next ./front-end-dist
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Create Sentry api release
+        uses: getsentry/action-release@v3
         with:
-          node-version: '20'
-
-      - name: Generate sentry sourcemaps
-        run: |
-          npm install -g @sentry/cli
-          npm exec sentry-cli -- sourcemaps inject ./back-end-dist
-
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - name: Create Sentry release
-        uses: getsentry/action-release@v1
-        with:
-          environment: 'production'
-          sourcemaps: './back-end-dist'
-          version: ${{ github.sha }}
+          environment: "production"
+          sourcemaps: "./back-end-dist"
+          release: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
           SENTRY_PROJECT: api
 
+      - name: Create Sentry app release
+        uses: getsentry/action-release@v3
+        with:
+          environment: "production"
+          sourcemaps: "./front-end-dist"
+          release: ${{ github.sha }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: growthbook
+          SENTRY_PROJECT: app
+
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
+
+      - name: Deploy docker image to ECS for GrowthBook Cloud Jobs
+        run: aws ecs update-service --cluster prod-api-jobs --service prod-api-jobs --force-new-deployment --region us-east-1
+
+      - name: Deploy docker image to ECS for GrowthBook Cloud Python
+        run: aws ecs update-service --cluster prod-api-python --service prod-api-python --force-new-deployment --region us-east-1

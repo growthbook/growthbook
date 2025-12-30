@@ -35,7 +35,7 @@ const Avatar: FC<{
     <div
       className={clsx(
         "align-items-center justify-content-center border rounded-circle d-flex",
-        className
+        className,
       )}
       title={title}
       style={{

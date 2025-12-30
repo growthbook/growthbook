@@ -1,8 +1,8 @@
-import { PutEnvironmentResponse } from "back-end/types/openapi";
+import { PutEnvironmentResponse } from "shared/types/openapi";
+import { putEnvironmentValidator } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { putEnvironmentValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 
@@ -25,7 +25,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     if (
       !req.context.permissions.canUpdateEnvironment(
         environment,
-        updatedEnvironment
+        updatedEnvironment,
       )
     )
       req.context.permissions.throwPermissionError();
@@ -34,7 +34,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       settings: {
         ...org.settings,
         environments: environments.map((env) =>
-          env.id === id ? updatedEnvironment : env
+          env.id === id ? updatedEnvironment : env,
         ),
       },
     };
@@ -53,5 +53,5 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     return {
       environment: updatedEnvironment,
     };
-  }
+  },
 );

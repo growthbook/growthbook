@@ -72,12 +72,11 @@ We have found this tends to lead to more accurate interpretations. For example, 
 just reading the above as _"it’s 17% better"_, people tend to factor in the error bars (_"it’s
 about 17% better, but there’s a lot of uncertainty still"_).
 
-**Risk** (or expected loss) can be interpreted as _“If I stop the test now and choose X and it’s actually worse, how
-much am I expected to lose?”_. This is shown as a relative percent change - so if your baseline metric value is \$5/user,
-a 10% risk equates to losing \$0.50/user. You can specify your risk tolerance thresholds on a per-metric basis within GrowthBook.
+**Risk** (or expected loss) can be interpreted as, "If I stop the test now and choose variation X, under the scenarios where variation X is worse, how much am I expected to lose?"
+This is shown as a relative percent change - so if your baseline metric value is \$5/user, a 10% risk equates to losing \$0.50/user.
+You can specify your risk tolerance thresholds on a per-metric basis.
 
-GrowthBook gives the human decision maker everything they need to weigh the results against
-external factors to determine when to stop an experiment and which variation to declare the winner.
+GrowthBook gives the human decision maker everything they need to weigh the results against external factors to determine when to stop an experiment and which variation to declare the winner.
 
 ## Frequentist Statistics
 
@@ -105,7 +104,7 @@ We currently run a number of checks and plan to add even more in the future.
 5.  **Variation Id Mismatch** which can detect missing or improperly-tagged rows in your data warehouse
 6.  **Suspicious Uplift Detection** which alerts you when a metric changes by too much in a single experiment, indicating a likely bug
 
-Many of these checks are customizeable at a per-metric level.
+Many of these checks are customizable at a per-metric level.
 So you can, for example, have stricter quality checks for revenue than you have for less important metrics.
 
 ## Dimensional Analysis

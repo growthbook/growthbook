@@ -3,7 +3,10 @@ title: Power Analysis Technical Details
 description: Technical details of power analysis
 sidebar_label: Power Technical
 slug: power-technical
+unlisted: true
 ---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 # Technical power details
 
@@ -133,7 +136,7 @@ $$
 
 The discriminant reduces to
 
-$$k^{2} * \frac{\sigma^{2}}{N} \left(2 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}\right).$$
+$$k^{2} * \frac{\sigma^{2}}{N} \left(1 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}\right).$$
 
 so a solution for $\mu_{B}$ exists if and only if
 
@@ -303,13 +306,9 @@ This is why in practice we frame our Bayesian MDE as, ``given our prior beliefs 
 
 Another subtlety is that for a fixed sample size, Equation 11 can be decreasing in effect size, illustrated by Figure 1.
 
-Figure 1
-
-<img
-  src="/images/statistics/power-decreasing.png"
-  alt="Metric Icon showing CUPED Disabled Reason"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage caption="Figure 1" maxWidth={500} border>
+![Metric Icon showing CUPED Disabled Reason](/images/statistics/power-decreasing.png)
+</MaxWidthImage>
 
 Figure 1 shows the case where the group sample sizes are 1500, the data mean is 0.1, the data variance is 0.5, the specified prior mean $\mu_{prior} = 0.1$, the specified prior variance $\sigma_{prior}^{2}$ is 0.3, and the variance of the data generating process $\sigma_{\star}^{2}$ is 0.
 Nominal 80% power occurs at 1.65, continues to increase in effect size until the effect size is about 3, and then begins decreasing.

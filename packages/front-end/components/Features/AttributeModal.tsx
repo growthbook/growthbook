@@ -3,7 +3,7 @@ import {
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useAttributeSchema } from "@/services/features";
@@ -12,13 +12,13 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Checkbox from "@/ui/Checkbox";
 import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {
@@ -52,9 +52,12 @@ export default function AttributeModal({ close, attribute }: Props) {
       description: current?.description || "",
       datatype: current?.datatype || "string",
       projects: attribute ? current?.projects || [] : project ? [project] : [],
-      format: current?.format || "",
+      format: ((current?.format as unknown) !== "none"
+        ? current?.format || ""
+        : "") as SDKAttributeFormat,
       enum: current?.enum || "",
       hashAttribute: !!current?.hashAttribute,
+      disableEqualityConditions: current?.disableEqualityConditions || false,
     },
   });
 
@@ -76,7 +79,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const projectOptions = useProjectOptions(
     permissionRequired,
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
 
   return (
@@ -89,6 +92,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       submit={form.handleSubmit(async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
+          value.disableEqualityConditions = false;
         }
         if (value.datatype !== "enum") {
           value.enum = "";
@@ -97,12 +101,16 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.hashAttribute = false;
         }
 
+        if (value.format) {
+          value.disableEqualityConditions = false;
+        }
+
         if (
           (!attribute || (attribute && value.property !== attribute)) &&
           schema.some((s) => s.property === value.property)
         ) {
           throw new Error(
-            "That attribute name is already being used. Please choose another one."
+            "That attribute name is already being used. Please choose another one.",
           );
         }
 
@@ -114,6 +122,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           format: value.format,
           enum: value.enum,
           hashAttribute: value.hashAttribute,
+          disableEqualityConditions: value.disableEqualityConditions,
         };
 
         // If the attribute name is changed, we need to pass in the original name
@@ -255,12 +264,12 @@ export default function AttributeModal({ close, attribute }: Props) {
         <>
           <SelectField
             label="String Format"
-            value={form.watch(`format`) || "none"}
+            value={form.watch(`format`) || ""}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
             initialOption="None"
             options={[
               { value: "version", label: "Version string" },
-              { value: "date", label: "Date string" },
+              { value: "date", label: "Date string (ISO)" },
               { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
             ]}
             sort={false}
@@ -279,6 +288,18 @@ export default function AttributeModal({ close, attribute }: Props) {
               it will break any filtering based on the attribute.
             </div>
           )}
+
+          {!form.watch("format") && (
+            <Checkbox
+              label="Disable Equality Comparisons"
+              description="This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII."
+              value={!!form.watch(`disableEqualityConditions`)}
+              setValue={(value) =>
+                form.setValue(`disableEqualityConditions`, value)
+              }
+              mb="4"
+            />
+          )}
         </>
       )}
       {datatype === "enum" && (
@@ -292,26 +313,12 @@ export default function AttributeModal({ close, attribute }: Props) {
         />
       )}
       {hashAttributeDataTypes.includes(datatype) && (
-        <div className="form-group">
-          <label>Unique Identifier</label>
-          <div className="row align-items-center">
-            <div className="col-auto">
-              <Toggle
-                id={"hashAttributeToggle"}
-                value={!!form.watch(`hashAttribute`)}
-                setValue={(value) => {
-                  form.setValue(`hashAttribute`, value);
-                }}
-              />
-            </div>
-            <div className="col px-0 text-muted" style={{ lineHeight: "1rem" }}>
-              <div>Attribute can be used for user assignment</div>
-              <small>
-                For example, <code>email</code> or <code>id</code>
-              </small>
-            </div>
-          </div>
-        </div>
+        <Checkbox
+          label="Unique Identifier"
+          description="Allow attribute to be used for experiment assignment."
+          value={!!form.watch(`hashAttribute`)}
+          setValue={(value) => form.setValue(`hashAttribute`, value)}
+        />
       )}
     </Modal>
   );

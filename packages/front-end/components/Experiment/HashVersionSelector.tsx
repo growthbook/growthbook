@@ -1,11 +1,11 @@
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Callout from "@/components/Radix/Callout";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (
@@ -37,7 +37,7 @@ export default function HashVersionSelector({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   return (
@@ -74,7 +74,7 @@ export default function HashVersionSelector({
 
 export function allConnectionsSupportBucketingV2(
   connections?: SDKConnectionInterface[],
-  project?: string
+  project?: string,
 ) {
   if (!connections?.length) {
     // Don't warn if they haven't set up their SDK Connections yet

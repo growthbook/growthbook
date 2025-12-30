@@ -73,7 +73,8 @@
     "@typescript-eslint/no-unused-vars": [
       "warn",
       {
-        "argsIgnorePattern": "^_"
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
       }
     ],
     "no-console": ["warn"],
@@ -120,7 +121,7 @@
     },
     {
       "files": ["./packages/front-end/**/*.ts*"],
-      "excludedFiles": ["./packages/front-end/components/Radix/**/*.ts*"],
+      "excludedFiles": ["./packages/front-end/ui/**/*.ts*"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -128,7 +129,7 @@
             "paths": [
               {
                 "name": "@radix-ui/themes",
-                "message": "Use the component from @/components/Radix/ instead.",
+                "message": "Don't import Radix directly. Use our design system wrappers from @/ui/ instead.",
                 "importNames": [
                   "Avatar",
                   "Badge",
@@ -141,6 +142,8 @@
                   "RadioCards",
                   "RadioGroup",
                   "Select",
+                  "Switch",
+                  "Table",
                   "Tabs"
                 ]
               }
@@ -172,7 +175,6 @@
         "./packages/front-end/components/Share/ShareModal.tsx",
         "./packages/front-end/components/Tabs/ControlledTabs.tsx",
         "./packages/front-end/components/TempMessage.tsx",
-        "./packages/front-end/hooks/useStripeSubscription.ts",
         "./packages/front-end/pages/experiments/index.tsx",
         "./packages/front-end/pages/idea/*iid*.tsx",
         "./packages/front-end/pages/index.tsx",
@@ -205,6 +207,93 @@
         "./packages/back-end/src/scripts/**/*",
         "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
       ]
+    },
+    {
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node-fetch",
+                "message": "Use `import { fetch } from \"back-end/src/util/http.util\";` instead.",
+                "importNames": ["default"]
+              }
+            ]
+          }
+        ]
+      },
+      "files": ["./packages/back-end/**/*"],
+      "excludedFiles": [
+        "./packages/back-end/src/util/http.util.ts",
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+      ]
+    },
+    // #region Ensure packages import from shared mostly
+    {
+      "files": ["./packages/front-end/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "**/sdk-{js,react}*"],
+                "message": "front-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/back-end/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*front-end*", "**/sdk-{js,react}*"],
+                "message": "back-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/shared/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*"],
+                "message": "shared cannot import from back-end or front-end."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/sdk-{js,react}/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*", "**/shared*"],
+                "message": "SDK packages cannot import from internal packages."
+              }
+            ]
+          }
+        ]
+      }
     }
+    // #endregion
   ]
 }

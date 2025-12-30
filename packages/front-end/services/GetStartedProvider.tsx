@@ -8,9 +8,10 @@ import {
 } from "react";
 
 type GetStartedChecklistSource =
-  | "features"
-  | "experiments"
-  | "importedExperiments";
+  | "featureFlagGuide"
+  | "experimentGuide"
+  | "importedExperimentGuide"
+  | "dataSourceGuide";
 
 type GetStartedValue = {
   currentStep: string;
@@ -33,9 +34,10 @@ type GetStartedValue = {
 };
 
 const routes: Record<GetStartedChecklistSource, string> = {
-  features: "/getstarted/feature-flag-guide",
-  experiments: "/getstarted/experiment-guide",
-  importedExperiments: "/getstarted/imported-experiment-guide",
+  featureFlagGuide: "/getstarted/feature-flag-guide",
+  experimentGuide: "/getstarted/experiment-guide",
+  importedExperimentGuide: "/getstarted/imported-experiment-guide",
+  dataSourceGuide: "/getstarted/data-source-guide",
 };
 
 const GetStartedContext = createContext<GetStartedValue>({

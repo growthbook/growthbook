@@ -12,6 +12,8 @@ router.post("/", sdkConnectionController.postSDKConnection);
 
 router.put("/:id", sdkConnectionController.putSDKConnection);
 
+router.get("/webhooks", sdkConnectionController.getSDKConnectionsWebhooks);
+
 router.get("/:id/webhooks", sdkConnectionController.getSDKConnectionWebhooks);
 
 router.post("/:id/webhooks", sdkConnectionController.postSDKConnectionWebhook);
@@ -20,7 +22,7 @@ router.delete("/:id", sdkConnectionController.deleteSDKConnection);
 
 router.post(
   "/:id/check-proxy",
-  sdkConnectionController.checkSDKConnectionProxyStatus
+  sdkConnectionController.checkSDKConnectionProxyStatus,
 );
 
 export { router as sdkConnectionRouter };

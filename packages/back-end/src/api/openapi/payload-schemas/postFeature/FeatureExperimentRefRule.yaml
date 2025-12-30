@@ -17,6 +17,46 @@ properties:
       - experiment-ref
   condition:
     type: string
+  savedGroupTargeting:
+    type: array
+    items:
+      type: object
+      required:
+        - matchType
+        - savedGroups
+      properties:
+        matchType:
+          type: string
+          enum:
+            - "all"
+            - "any"
+            - "none"
+        savedGroups:
+          type: array
+          items:
+            type: string
+  prerequisites:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - condition
+      properties:
+        id:
+          type: string
+          description: "Feature ID"
+        condition:
+          type: string
+  scheduleRules:
+    type: array
+    items:
+      $ref: "../../schemas/ScheduleRule.yaml"
+    example:
+      - enabled: true
+        timestamp: null
+      - enabled: false
+        timestamp: "2025-06-23T16:09:37.769Z"
   variations:
     type: array
     items:

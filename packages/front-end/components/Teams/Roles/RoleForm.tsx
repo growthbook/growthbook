@@ -5,7 +5,7 @@ import {
   RESERVED_ROLE_IDS,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
-import { Role } from "back-end/types/organization";
+import { Role } from "shared/types/organization";
 import router from "next/router";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
@@ -26,7 +26,7 @@ export default function RoleForm({
   const [error, setError] = useState<string | null>(null);
   const { refreshOrganization } = useUser();
   const [status, setStatus] = useState<"editing" | "viewing" | "creating">(
-    action
+    action,
   );
 
   const validateInputs = (input: {
@@ -173,9 +173,8 @@ export default function RoleForm({
                               if (!checked) {
                                 currentPolicies.push(policy);
                               } else {
-                                const indexToRemove = currentPolicies.indexOf(
-                                  policy
-                                );
+                                const indexToRemove =
+                                  currentPolicies.indexOf(policy);
                                 currentPolicies.splice(indexToRemove, 1);
                               }
                               form.setValue("policies", currentPolicies);

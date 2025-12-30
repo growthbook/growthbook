@@ -5,6 +5,8 @@ sidebar_label: Dimensions
 slug: /app/dimensions
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Dimensions
 
 Dimensions let you drill down into experiment results. For example, if you define a `browser` dimension, you can
@@ -48,13 +50,11 @@ The first 4 columns are standard, but `browser` is a custom one that can be used
 
 #### Configuring Experiment Dimensions
 
-To power the health tab and future automatic dimension results analysis (coming in 2024), you need to configure your Experiment Dimensions. You can do this by clicking the "Configure Dimensions" button in the kebab menu next to the exposure query where the Experiment Dimensions are defined:
+To power the health tab and pre-computed dimension results, you need to configure your Experiment Dimensions. You can do this by clicking the "Configure Dimensions" button in the kebab menu next to the exposure query where the Experiment Dimensions are defined:
 
-<img
-  src="/images/configure-dimensions.png"
-  alt="Configure Dimensions Option"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Configure Dimensions Option](/images/configure-dimensions.png)
+</MaxWidthImage>
 
 In the modal that pops up, you can run a query to find the top 20 dimension slices for your Experiment Dimensions and save them for use on the health tab.
 
@@ -106,7 +106,7 @@ FROM
   users
 ```
 
-:::tip
+:::tip SQL template variables
 
 You can use SQL template variables in dimension queries just like you can with metrics. See the [Date Partitioning](/app/metrics#date-partitioning) page for more details.
 

@@ -2,9 +2,8 @@ import { cloneDeep } from "lodash";
 import {
   ALL_PERMISSIONS,
   ENV_SCOPED_PERMISSIONS,
-  getPermissionsObjectByPolicies,
-  getRoleById,
   roleSupportsEnvLimit,
+  roleToPermissionMap,
 } from "shared/permissions";
 import {
   OrganizationInterface,
@@ -13,13 +12,13 @@ import {
   ProjectMemberRole,
   UserPermission,
   UserPermissions,
-} from "back-end/types/organization";
-import { TeamInterface } from "back-end/types/team";
+} from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
-    (permission) => permission
+    (permission) => permission,
   );
 
   for (const permission of envLimitedPermissions) {
@@ -52,22 +51,13 @@ export function getEnvironments(org: OrganizationInterface) {
   return org.settings.environments;
 }
 
-export function roleToPermissionMap(
-  roleId: string,
-  org: OrganizationInterface
-): PermissionsObject {
-  const role = getRoleById(roleId || "readonly", org);
-  const policies = role?.policies || [];
-  return getPermissionsObjectByPolicies(policies);
-}
-
 function isValidPermission(permission: string): permission is Permission {
   return ALL_PERMISSIONS.includes(permission as Permission);
 }
 
 function mergePermissions(
   existingPermissions: PermissionsObject,
-  newPermissions: PermissionsObject
+  newPermissions: PermissionsObject,
 ): PermissionsObject {
   const updatedPermissions: PermissionsObject = { ...existingPermissions };
 
@@ -83,13 +73,13 @@ function mergePermissions(
 function mergeEnvironmentLimits(
   existingPermissions: UserPermission,
   newPermissions: UserPermission,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): UserPermission {
   const existingRoleSupportsEnvLimits = hasEnvScopedPermissions(
-    existingPermissions.permissions
+    existingPermissions.permissions,
   );
   const newRoleSupportsEnvLimits = hasEnvScopedPermissions(
-    newPermissions.permissions
+    newPermissions.permissions,
   );
 
   if (!existingRoleSupportsEnvLimits && !newRoleSupportsEnvLimits) {
@@ -111,13 +101,13 @@ function mergeEnvironmentLimits(
     ) {
       updatedPermissions.environments = [
         ...new Set(
-          updatedPermissions.environments.concat(newPermissions.environments)
+          updatedPermissions.environments.concat(newPermissions.environments),
         ),
       ];
       updatedPermissions.limitAccessByEnvironment = getLimitAccessByEnvironment(
         updatedPermissions.environments,
         updatedPermissions.limitAccessByEnvironment,
-        org
+        org,
       );
     } else {
       // otherwise, 1 role doesn't have limited access by environment, so it overrides the other
@@ -130,7 +120,7 @@ function mergeEnvironmentLimits(
       updatedPermissions.limitAccessByEnvironment = getLimitAccessByEnvironment(
         newPermissions.environments,
         newPermissions.limitAccessByEnvironment,
-        org
+        org,
       );
 
       updatedPermissions.environments = newPermissions.environments;
@@ -142,18 +132,18 @@ function mergeEnvironmentLimits(
 function mergeUserPermissionObj(
   userPermission1: UserPermission,
   userPermission2: UserPermission,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): UserPermission {
   let updatedUserPermissionObj = userPermission1;
 
   updatedUserPermissionObj = mergeEnvironmentLimits(
     updatedUserPermissionObj,
     userPermission2,
-    org
+    org,
   );
   updatedUserPermissionObj.permissions = mergePermissions(
     updatedUserPermissionObj.permissions,
-    userPermission2.permissions
+    userPermission2.permissions,
   );
 
   return updatedUserPermissionObj;
@@ -162,7 +152,7 @@ function mergeUserPermissionObj(
 function mergeUserAndTeamPermissions(
   userPermissions: UserPermissions,
   teamPermissions: UserPermissions,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ) {
   // Build a list of all projects
   const allProjects = new Set([
@@ -185,7 +175,7 @@ function mergeUserAndTeamPermissions(
         environments: teamPermissions.global.environments,
         permissions: teamPermissions.global.permissions,
       },
-      org
+      org,
     );
   });
 
@@ -193,14 +183,14 @@ function mergeUserAndTeamPermissions(
   userPermissions.global = mergeUserPermissionObj(
     userPermissions.global,
     teamPermissions.global,
-    org
+    org,
   );
 }
 
 function getLimitAccessByEnvironment(
   environments: string[],
   limitAccessByEnvironment: boolean,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): boolean {
   // If all environments are selected, treat that the same as not limiting by environment
   const validEnvs = org.settings?.environments?.map((e) => e.id) || [];
@@ -220,7 +210,7 @@ function getUserPermission(
     limitAccessByEnvironment?: boolean;
     role: string;
   },
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): UserPermission {
   let limitAccessByEnvironment = !!info.limitAccessByEnvironment;
 
@@ -235,7 +225,7 @@ function getUserPermission(
     limitAccessByEnvironment: getLimitAccessByEnvironment(
       info.environments || [],
       limitAccessByEnvironment,
-      org
+      org,
     ),
     permissions: roleToPermissionMap(info.role, org),
   };
@@ -244,7 +234,7 @@ function getUserPermission(
 export function getUserPermissions(
   user: { id: string; superAdmin?: boolean },
   org: OrganizationInterface,
-  teams: TeamInterface[]
+  teams: TeamInterface[],
 ): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === user.id);
 
@@ -269,7 +259,7 @@ export function getUserPermissions(
   memberInfo.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
     userPermissions.projects[projectRole.project] = getUserPermission(
       projectRole,
-      org
+      org,
     );
   });
 
@@ -286,7 +276,7 @@ export function getUserPermissions(
           for (const teamProject of teamData.projectRoles) {
             teamPermissions.projects[teamProject.project] = getUserPermission(
               teamProject,
-              org
+              org,
             );
           }
         }
@@ -297,14 +287,3 @@ export function getUserPermissions(
 
   return userPermissions;
 }
-
-export const attributeDataTypes = [
-  "boolean",
-  "string",
-  "number",
-  "secureString",
-  "enum",
-  "string[]",
-  "number[]",
-  "secureString[]",
-] as const;

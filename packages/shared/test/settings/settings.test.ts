@@ -1,8 +1,8 @@
 import {
   OrganizationInterface,
   OrganizationSettings,
-} from "back-end/types/organization";
-import { ProjectInterface } from "back-end/types/project";
+} from "shared/types/organization";
+import { ProjectInterface } from "shared/types/project";
 import { DEFAULT_STATS_ENGINE } from "../../src/constants";
 import { getScopedSettings } from "../../src/settings";
 import { experiments, metrics } from "./test-objects";
@@ -44,7 +44,7 @@ describe("settings", () => {
       });
 
       expect(newSettings.pValueThreshold.value).toEqual(
-        settings.pValueThreshold
+        settings.pValueThreshold,
       );
     });
 
@@ -66,7 +66,7 @@ describe("settings", () => {
       });
 
       expect(newSettings.statsEngine.value).toEqual(
-        projectWithPValueOverride.settings.statsEngine
+        projectWithPValueOverride.settings.statsEngine,
       );
     });
 
@@ -85,10 +85,10 @@ describe("settings", () => {
           });
 
           expect(
-            metricSettings_signups.regressionAdjustmentEnabled.value
+            metricSettings_signups.regressionAdjustmentEnabled.value,
           ).toEqual(true);
           expect(metricSettings_signups.statsEngine.value).toEqual(
-            "frequentist"
+            "frequentist",
           );
         });
 
@@ -107,14 +107,14 @@ describe("settings", () => {
           expect(metricSettings_revenue.delayHours.value).toEqual(2.5);
           expect(metricSettings_revenue.windowHours.value).toEqual(72);
           expect(
-            metricSettings_revenue.regressionAdjustmentEnabled.value
+            metricSettings_revenue.regressionAdjustmentEnabled.value,
           ).toEqual(false);
           expect(
-            metricSettings_revenue.regressionAdjustmentEnabled.meta.reason
+            metricSettings_revenue.regressionAdjustmentEnabled.meta.reason,
           ).toEqual("disabled by metric override");
 
           expect(metricSettings_revenue.regressionAdjustmentDays.value).toEqual(
-            0
+            0,
           );
           expect(metricSettings_revenue.winRisk.value).toEqual(0.0025);
           expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
@@ -129,13 +129,13 @@ describe("settings", () => {
           expect(metricSettings_testvar.delayHours.value).toEqual(0);
           expect(metricSettings_testvar.windowHours.value).toEqual(72);
           expect(
-            metricSettings_testvar.regressionAdjustmentEnabled.value
+            metricSettings_testvar.regressionAdjustmentEnabled.value,
           ).toEqual(false);
           expect(
-            metricSettings_testvar.regressionAdjustmentEnabled.meta.reason
+            metricSettings_testvar.regressionAdjustmentEnabled.meta.reason,
           ).toEqual("custom aggregation");
           expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(
-            0
+            0,
           );
           expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
           expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
@@ -155,11 +155,13 @@ describe("settings", () => {
             experiment: experiments.exp1,
           });
           expect(
-            metricSettings_testvar_2.regressionAdjustmentEnabled.value
+            metricSettings_testvar_2.regressionAdjustmentEnabled.value,
           ).toEqual(false);
           expect(
-            metricSettings_testvar_2.regressionAdjustmentEnabled.meta.reason
-          ).toEqual("denominator is count");
+            metricSettings_testvar_2.regressionAdjustmentEnabled.meta.reason,
+          ).toEqual(
+            "denominator is count. CUPED available for ratio metrics only if based on fact tables.",
+          );
         });
       });
     });
@@ -179,10 +181,10 @@ describe("settings", () => {
 
       // org level:
       expect(settings_revenue_1.regressionAdjustmentEnabled.value).toEqual(
-        true // no longer false since CUPED override allowed for bayesian now
+        true, // no longer false since CUPED override allowed for bayesian now
       );
       expect(
-        settings_revenue_1.regressionAdjustmentEnabled.meta.reason
+        settings_revenue_1.regressionAdjustmentEnabled.meta.reason,
       ).toEqual("experiment-level metric override applied");
       // TODO
       // expect(settings_revenue_1.pValueThreshold.meta.warning).toEqual(
@@ -205,7 +207,7 @@ describe("settings", () => {
 
       // org level:
       expect(settings_revenue_2.regressionAdjustmentEnabled.value).toEqual(
-        true
+        true,
       );
       expect(settings_revenue_2.pValueThreshold.value).toEqual(0.05);
       // TODO

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { UserInterface } from "shared/types/user";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -26,8 +27,7 @@ import {
 } from "back-end/src/services/organizations";
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
-import { UserInterface } from "back-end/types/user";
+import { _dangerousGetSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
 import {
   resetMinTokenDate,
   getEmailFromUserId,
@@ -93,7 +93,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
     const { idToken, refreshToken, expiresIn } = await auth.processCallback(
       req,
       res,
-      null
+      null,
     );
 
     if (!idToken) {
@@ -115,17 +115,17 @@ export async function postOAuthCallback(req: Request, res: Response) {
   }
 }
 
-async function sendLocalSuccessResponse(
+export async function setResponseCookies(
   req: Request,
   res: Response,
   user: UserInterface,
-  projectId?: string
 ) {
   const { idToken, refreshToken, expiresIn } = await auth.processCallback(
     req,
     res,
-    user
+    user,
   );
+
   if (!idToken) {
     return res.status(400).json({
       status: 400,
@@ -133,8 +133,24 @@ async function sendLocalSuccessResponse(
     });
   }
 
-  IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
+  IdTokenCookie.setValue(
+    idToken,
+    req,
+    res,
+    Math.max(10 * 60 * 1000, expiresIn),
+  );
   RefreshTokenCookie.setValue(refreshToken, req, res);
+
+  return idToken;
+}
+
+export async function sendLocalSuccessResponse(
+  req: Request,
+  res: Response,
+  user: UserInterface,
+  projectId?: string,
+) {
+  const idToken = await setResponseCookies(req, res, user);
 
   res.status(200).json({
     status: 200,
@@ -161,7 +177,7 @@ export async function postLogout(req: Request, res: Response) {
 export async function postLogin(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown; password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email, password } = req.body;
 
@@ -195,7 +211,7 @@ export async function postLogin(
 export async function postRegister(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown; name: unknown; password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email, name, password } = req.body;
 
@@ -243,13 +259,13 @@ export async function postFirstTimeRegister(
       companyname: unknown;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   // Only allow this API endpoint when it's a brand-new installation with no users yet
   const newInstallation = await isNewInstallation();
   if (!newInstallation) {
     throw new Error(
-      "An organization is already configured. Please refresh the page and try again."
+      "An organization is already configured. Please refresh the page and try again.",
     );
   }
 
@@ -298,7 +314,7 @@ export async function postFirstTimeRegister(
 export async function postForgotPassword(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email } = req.body;
   if (!email || typeof email !== "string") {
@@ -314,7 +330,7 @@ export async function postForgotPassword(
 
 export async function getResetPassword(
   req: Request<{ token: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { token } = req.params;
   if (!token || typeof token !== "string") {
@@ -341,7 +357,7 @@ export async function getResetPassword(
 export async function getSSOConnectionFromDomain(req: Request, res: Response) {
   const { domain } = req.body;
 
-  const sso = await getSSOConnectionByEmailDomain(domain as string);
+  const sso = await _dangerousGetSSOConnectionByEmailDomain(domain as string);
 
   if (!sso?.id) {
     throw new Error(`Unknown SSO Connection for *@${domain}`);
@@ -357,7 +373,7 @@ export async function getSSOConnectionFromDomain(req: Request, res: Response) {
 export async function postResetPassword(
   // eslint-disable-next-line
   req: Request<{ token: unknown }, any, { password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { token } = req.params;
   const { password } = req.body;
@@ -401,7 +417,7 @@ export async function postChangePassword(
     currentPassword: string;
     newPassword: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const { currentPassword, newPassword } = req.body;
   const { userId } = getContextFromReq(req);

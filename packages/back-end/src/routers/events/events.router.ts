@@ -1,5 +1,5 @@
 import express from "express";
-import z from "zod";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEventsController from "./events.controller";
@@ -22,7 +22,7 @@ router.get(
       })
       .strict(),
   }),
-  eventsController.getEvents
+  eventsController.getEvents,
 );
 
 // get the total count of events
@@ -37,7 +37,7 @@ router.get(
       })
       .strict(),
   }),
-  eventsController.getEventsCount
+  eventsController.getEventsCount,
 );
 
 router.get(
@@ -49,7 +49,7 @@ router.get(
       })
       .strict(),
   }),
-  eventsController.getEventById
+  eventsController.getEventById,
 );
 
 export { router as eventsRouter };

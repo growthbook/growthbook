@@ -9,7 +9,7 @@ import {
 import clsx from "clsx";
 import { PiTrashFill } from "react-icons/pi";
 import Modal from "@/components/Modal";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const DeleteButton: FC<{
   onClick: () => void | Promise<void>;
@@ -28,6 +28,7 @@ const DeleteButton: FC<{
   getConfirmationContent?: () => Promise<string | ReactElement | null>;
   canDelete?: boolean;
   disabled?: boolean;
+  stopPropagation?: boolean;
 }> = ({
   onClick,
   className,
@@ -45,6 +46,7 @@ const DeleteButton: FC<{
   getConfirmationContent,
   canDelete = true,
   disabled = false,
+  stopPropagation = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [dynamicContent, setDynamicContent] = useState<
@@ -70,6 +72,7 @@ const DeleteButton: FC<{
           submitColor="danger"
           submit={onClick}
           ctaEnabled={canDelete}
+          increasedElevation={true}
         >
           {dynamicContent ? (
             dynamicContent
@@ -94,6 +97,7 @@ const DeleteButton: FC<{
           variant="ghost"
           color="red"
           title={title}
+          stopPropagation={stopPropagation}
         >
           {text}
         </Button>
@@ -103,7 +107,7 @@ const DeleteButton: FC<{
             link
               ? "text-danger"
               : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
-            className
+            className,
           )}
           title={title}
           href="#"

@@ -1,4 +1,4 @@
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";

@@ -1,6 +1,6 @@
 import { Response } from "express";
+import { DiscussionParentType } from "shared/types/discussion";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { DiscussionParentType } from "back-end/types/discussion";
 import {
   addComment,
   getDiscussionByParent,
@@ -14,7 +14,7 @@ export async function postDiscussions(
     { comment: string },
     { parentId: string; parentType: DiscussionParentType }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId, email, userName } = context;
@@ -33,7 +33,7 @@ export async function postDiscussions(
       parentType,
       parentId,
       { id: userId, email: email, name: userName },
-      comment
+      comment,
     );
     res.status(200).json({
       status: 200,
@@ -55,7 +55,7 @@ export async function deleteComment(
       index: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -73,7 +73,7 @@ export async function deleteComment(
     const discussion = await getDiscussionByParent(
       org.id,
       parentType,
-      parentId
+      parentId,
     );
     if (!discussion) {
       return res.status(404).json({
@@ -114,7 +114,7 @@ export async function putComment(
       index: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -133,7 +133,7 @@ export async function putComment(
     const discussion = await getDiscussionByParent(
       org.id,
       parentType,
-      parentId
+      parentId,
     );
     if (!discussion || !discussion.comments[i]) {
       return res.status(404).json({
@@ -173,7 +173,7 @@ export async function getDiscussion(
     null,
     { parentId: string; parentType: DiscussionParentType }
   >,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { parentId, parentType } = req.params;
@@ -182,7 +182,7 @@ export async function getDiscussion(
     const discussion = await getDiscussionByParent(
       org.id,
       parentType,
-      parentId
+      parentId,
     );
     res.status(200).json({
       status: 200,
@@ -198,7 +198,7 @@ export async function getDiscussion(
 
 export async function getRecentDiscussions(
   req: AuthRequest<null, { num: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { num } = req.params;

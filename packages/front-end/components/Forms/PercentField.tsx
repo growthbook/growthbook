@@ -24,7 +24,7 @@ export default function PercentField({
   ...fieldProps
 }: Props) {
   const [actualValue, setActualValue] = useState<number | undefined>(
-    validateAndFormatValue(value)
+    validateAndFormatValue(value),
   );
 
   useEffect(() => {

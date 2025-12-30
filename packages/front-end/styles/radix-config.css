@@ -7,9 +7,8 @@
   --font-weight-bold: 600;
 }
 
-:root,
-.light,
-.light-theme {
+.light-theme :root,
+.light-theme .radix-themes {
   --color-background: var(--accent-2);
   --color-panel-solid: #ffffff;
   --color-panel-translucent: rgba(255, 255, 255, 0.7);
@@ -24,8 +23,8 @@
   --color-popup: var(--slate-12);
 }
 
-.dark,
-.dark-theme {
+.dark-theme :root,
+.dark-theme .radix-themes {
   --color-background: #10172e;
   --color-panel-solid: #1c2339;
   --color-panel-translucent: var(--slate-a2);

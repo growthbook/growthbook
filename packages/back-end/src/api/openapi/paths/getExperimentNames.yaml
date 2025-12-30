@@ -1,0 +1,32 @@
+summary: Get a list of experiments with names and ids
+tags:
+  - experiments
+parameters:
+  - $ref: "../parameters.yaml#/projectId"
+operationId: getExperimentNames
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/experiment-names?projectId=prj_5l652 \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - experiments
+          properties:
+            experiments:
+              type: array
+              items:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string

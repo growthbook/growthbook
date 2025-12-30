@@ -137,7 +137,24 @@ We make the following assumptions:
 For a 2-sided test (all GrowthBook tests are 2-sided), power is the probability of rejecting the null hypothesis of no effect, given that a nonzero effect exists.  
 Mathematically, **frequentist power** equals
 
-$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right) + \Phi(Z_{\alpha/2} - \frac{\Delta}{\hat{\sigma}_{\Delta}})$$.
+$$
+\begin{align}
+\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right) + \Phi(Z_{\alpha/2} - \frac{\Delta}{\hat{\sigma}_{\Delta}}).
+\end{align}
+$$
+
+Let $HW$ be the interval halfwidth.
+We can write the above equation as
+
+$$
+\begin{align}
+\pi = 1 -  \Phi\left(
+\frac{HW-\Delta}{\hat{\sigma}_{\Delta}}
+\right) + \Phi\left(
+\frac{-HW-\Delta}{\hat{\sigma}_{\Delta}}
+\right)
+\end{align}
+$$
 
 The MDE is the smallest effect size for which nominal power (i.e., 80%) is achieved.
 In the 2-sided case there is no closed form solution.

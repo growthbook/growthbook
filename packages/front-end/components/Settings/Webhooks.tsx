@@ -1,5 +1,5 @@
 import React, { FC, Fragment } from "react";
-import { WebhookInterface } from "back-end/types/webhook";
+import { WebhookInterface } from "shared/types/webhook";
 import { FaCheck } from "react-icons/fa";
 import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -13,7 +13,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/legacy-sdk-webhooks"
+    "/legacy-sdk-webhooks",
   );
   const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();

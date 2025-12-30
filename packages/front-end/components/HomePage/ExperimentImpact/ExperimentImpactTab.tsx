@@ -18,7 +18,7 @@ interface Props {
   experimentImpactType: ExperimentImpactType;
   formatter: (
     value: number,
-    options?: Intl.NumberFormatOptions | undefined
+    options?: Intl.NumberFormatOptions | undefined,
   ) => string;
   formatterOptions: Intl.NumberFormatOptions;
 }
@@ -59,7 +59,7 @@ export default function ExperimentImpactTab({
             >
               {v.name}
             </span>
-          </div>
+          </div>,
         );
         impactsScaled.push(
           <div
@@ -70,7 +70,7 @@ export default function ExperimentImpactTab({
               formatImpact(
                 impact?.scaledImpact ?? 0,
                 formatter,
-                formatterOptions
+                formatterOptions,
               )
             ) : (
               <span className="text-muted">N/A</span>
@@ -83,12 +83,12 @@ export default function ExperimentImpactTab({
                   maximumFractionDigits: 3,
                 }).format(
                   (impact.scaledImpactAdjusted ?? 0) /
-                    (impact.scaledImpact ?? 0)
+                    (impact.scaledImpact ?? 0),
                 )}{" "}
                 &times; 365{" "}
               </span>
             )}
-          </div>
+          </div>,
         );
         impactsTotal.push(
           <div
@@ -99,7 +99,7 @@ export default function ExperimentImpactTab({
               formatImpact(
                 (impact?.scaledImpactAdjusted ?? 0) * 365,
                 formatter,
-                formatterOptions
+                formatterOptions,
               )
             ) : (
               <span className="text-muted">N/A</span>
@@ -109,7 +109,7 @@ export default function ExperimentImpactTab({
                 ± {formatter(impact.se * 1.96 * 365, formatterOptions)}
               </span>
             )}
-          </div>
+          </div>,
         );
       });
     }
@@ -130,7 +130,7 @@ export default function ExperimentImpactTab({
             {e.experiment.status === "stopped" ? (
               date(
                 e.experiment.phases?.[e.experiment.phases.length - 1]
-                  ?.dateEnded ?? ""
+                  ?.dateEnded ?? "",
               )
             ) : (
               <span className="text-muted">N/A</span>
@@ -167,7 +167,7 @@ export default function ExperimentImpactTab({
             <td className="impact-results">{impactsTotal}</td>
           </>
         )}
-      </tr>
+      </tr>,
     );
   });
   return (
@@ -186,7 +186,7 @@ export default function ExperimentImpactTab({
                 {formatImpact(
                   experimentImpactData.totalAdjustedImpact * 365,
                   formatter,
-                  formatterOptions
+                  formatterOptions,
                 )}
                 {` per year is the summed impact ${
                   experimentImpactType === "winner"
@@ -198,7 +198,7 @@ export default function ExperimentImpactTab({
           ) : null}
 
           <div className="mt-4" style={{ maxHeight: 500, overflowY: "auto" }}>
-            <table className="table bg-white border">
+            <table className="table border">
               <thead className="bg-light">
                 <tr>
                   <th>
@@ -214,8 +214,8 @@ export default function ExperimentImpactTab({
                     {experimentImpactType === "winner"
                       ? "Winning Variation"
                       : experimentImpactType === "loser"
-                      ? "Worst Variation"
-                      : "Variation"}
+                        ? "Worst Variation"
+                        : "Variation"}
                   </th>
                   <th>
                     Scaled Impact{" "}
@@ -257,18 +257,18 @@ export default function ExperimentImpactTab({
                         {formatImpact(
                           experimentImpactData.totalAdjustedImpact * 365,
                           formatter,
-                          formatterOptions
+                          formatterOptions,
                         )}
                         {experimentImpactData.totalAdjustedImpactVariance ? (
                           <span className="plusminus ml-1">
                             ±{" "}
                             {formatter(
                               Math.sqrt(
-                                experimentImpactData.totalAdjustedImpactVariance
+                                experimentImpactData.totalAdjustedImpactVariance,
                               ) *
                                 1.96 *
                                 365,
-                              formatterOptions
+                              formatterOptions,
                             )}
                           </span>
                         ) : null}

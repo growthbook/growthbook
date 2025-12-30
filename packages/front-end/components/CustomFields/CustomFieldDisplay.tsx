@@ -1,8 +1,8 @@
 import React, { FC, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
-import { FeatureInterface } from "back-end/types/feature";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -13,9 +13,9 @@ import {
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
-import DataList, { DataListItem } from "@/components/Radix/DataList";
-import Button from "@/components/Radix/Button";
-import Frame from "@/components/Radix/Frame";
+import DataList, { DataListItem } from "@/ui/DataList";
+import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
@@ -37,7 +37,7 @@ const CustomFieldDisplay: FC<{
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     section,
-    target.project
+    target.project,
   );
   const customFieldsMap = new Map();
   const defaultFields: Record<string, string> = {};
@@ -47,8 +47,8 @@ const CustomFieldDisplay: FC<{
         v.type === "boolean"
           ? JSON.stringify(!!v.defaultValue)
           : v.type === "multiselect"
-          ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
-          : "" + (v?.defaultValue ? v.defaultValue : "");
+            ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
+            : "" + (v?.defaultValue ? v.defaultValue : "");
       customFieldsMap.set(v.id, v);
     });
   }
@@ -87,7 +87,7 @@ const CustomFieldDisplay: FC<{
     Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
       fid,
       cValue ?? "",
-    ])
+    ]),
   );
   const getMultiSelectValue = (value: string) => {
     try {

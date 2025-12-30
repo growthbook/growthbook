@@ -19,14 +19,14 @@ import CodeTabsExperimentResultCallbackPartial from '@site/src/partials/java/_co
 import CodeTabsExperimentResultSubscribeMultipleCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-multiple.mdx'
 import CodeTabsFeaturesRepository from '@site/src/partials/java/_code-tabs-gbfeatures-repository.mdx'
 import CodeTabsFeatureUsageCallback from '@site/src/partials/java/_code-tabs-feature-usage-callback.mdx'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
 
 This supports Java applications using Java version 1.8 and higher.
 
-:::success New
-
-The GrowthBook Java SDK is a brand new feature. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-sdk-java/issues).
-
-:::
+<SdkResources sdk="java" />
 
 ## Installation
 
@@ -63,7 +63,86 @@ Next, add the dependency with the latest version to your project's dependencies:
 
 ## Usage
 
-There are 2 steps to initializing the GrowthBook SDK:
+There are two main approaches to using the GrowthBook Java SDK:
+
+1. **Enhanced Client (Recommended)** - For better performance with multi-context support
+2. **Traditional per-request approach** - Create a new context and SDK instance per request
+
+### Enhanced Client (Recommended)
+
+**Available starting in version 0.9.0**
+
+For improved performance and better resource management, especially in web applications, use the enhanced client pattern. This approach allows you to reuse a single client instance across multiple requests while providing different user contexts for each evaluation while calling the feature methods like `isOn()`.
+
+This `GrowthBookClient` instance is decoupled from the `GBContext`, creates a singleton featureRepository based on your refreshStrategy and uses the latest features at the time of
+evaluation, all managed internally.
+
+#### Basic Enhanced Client Usage
+
+```java
+// build options to configure your Growthbook instance
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .build();
+
+// Create growthbook instance using the options you need
+GrowthBookClient gb = new GrowthBookClient(options);
+
+// call the init method to load features
+gb.initialize();
+
+gb.isOn("featureKey", UserContext.builder()
+    .attributesJson("{\"id\" : \"123\"}").build()
+);
+```
+
+#### Using the Enhanced Client with Different User Contexts
+
+```java
+// build options to configure your Growthbook instance
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .build();
+
+// Create growthbook instance using the options you need
+GrowthBookClient gb = new GrowthBookClient(options);
+
+// call the init method to load features
+gb.initialize();
+
+// Use the same client instance with different user contexts
+// User 1 context
+UserContext user1Context = UserContext.builder()
+    .attributesJson("{\"id\":\"user_123\",\"country\":\"US\",\"premium\":true}")
+    .build();
+
+boolean showNewFeature = gb.isOn("new-homepage", user1Context);
+String buttonColor = gb.getFeatureValue("button-color", "blue", user1Context);
+
+// User 2 context - same client, different context
+UserContext user2Context = UserContext.builder()
+    .attributesJson("{\"id\":\"user_456\",\"country\":\"CA\",\"premium\":false}")
+    .build();
+
+boolean showFeatureForUser2 = gb.isOn("new-homepage", user2Context);
+String colorForUser2 = gb.getFeatureValue("button-color", "blue", user2Context);
+```
+
+#### Thread Safety Note
+
+While the enhanced client is designed for concurrent use, full concurrency support is still being refined. For high-concurrency applications, consider:
+
+- Using connection pooling for database-backed sticky bucket services
+- Implementing proper synchronization for custom tracking callbacks
+- Testing thoroughly under expected load conditions
+
+### Traditional Usage
+
+**For new projects, we recommend using the [Enhanced Client](#enhanced-client-recommended) instead for better performance.**
+
+There are 2 steps to initializing the traditional GrowthBook SDK:
 
 1. Create a GrowthBook context `GBContext` with the features JSON and the user attributes
 2. Create the `GrowthBook` SDK class with the context
@@ -89,7 +168,7 @@ The builder is the easiest to use way to construct a `GBContext`, allowing you t
 
 <CodeTabsGBContextBuilderPartial />
 
-:::info Note
+:::info HttpClient recommendation
 The above example uses `java.net.http.HttpClient` which, depending on your web framework, may not be the best option, in which case it is recommended to use a networking library more suitable for your implementation.
 :::
 
@@ -116,19 +195,135 @@ Attributes are a JSON string. You can specify attributes about the current user 
 
 If you need to set or update attributes asynchronously, you can do so with `Context#attributesJson` or `GrowthBook#setAttributes`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
 
-#### Tracking Callback
+#### Secure Attributes
 
-Any time an experiment is run to determine the value of a feature, we may call this callback so you can record the assigned value in your event tracking or analytics system of choice.
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
 
-**The tracking callback is only called when the user is in the experiment**. If they are not in the experiment, this will not be called. If you'd like to subscribe to all evaluations, regardless of experiment result, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback).
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
 
-<CodeTabsTrackingCallbackPartial />
+To hash an attribute, use a cryptographic library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
 
-#### Feature usage callback
+```mdx-code-block
+<Tabs>
+  <TabItem value="enhanced" label="Enhanced Client">
+```
 
-Any time a feature is viewed, this callback is called with the feature key and result.
+```java
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
-<CodeTabsFeatureUsageCallback />
+// Your secure attribute salt (set in Organization Settings)
+String salt = "f09jq3fij";
+
+// Create and initialize the enhanced client once
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .build();
+
+GrowthBookClient gb = new GrowthBookClient(options);
+gb.initialize();
+
+// Helper method to hash secure attributes
+private String hashSecureAttribute(String value, String salt) {
+    try {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest((salt + value).getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(hash);
+    } catch (NoSuchAlgorithmException e) {
+        throw new RuntimeException("SHA-256 not available", e);
+    }
+}
+
+// Hash secure attributes for each user evaluation
+String userEmail = user.getEmail();
+String hashedEmail = hashSecureAttribute(userEmail, salt);
+
+List<String> userTags = user.getTags();
+List<String> hashedTags = userTags.stream()
+    .map(tag -> hashSecureAttribute(tag, salt))
+    .collect(Collectors.toList());
+
+// Create user context with hashed attributes
+UserContext userContext = UserContext.builder()
+    .attributesJson(String.format(
+        "{\"id\":\"%s\",\"loggedIn\":true,\"email\":\"%s\",\"tags\":%s}",
+        user.getId(),
+        hashedEmail,
+        new Gson().toJson(hashedTags)
+    ))
+    .build();
+
+// Use the enhanced client with hashed attributes
+boolean hasFeature = gb.isOn("premium-feature", userContext);
+String theme = gb.getFeatureValue("theme", "light", userContext);
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="traditional" label="Traditional Client">
+```
+
+```java
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+
+// Your secure attribute salt (set in Organization Settings)
+String salt = "f09jq3fij";
+
+// Hashing a secureString attribute
+String userEmail = user.getEmail();
+String hashedEmail = "";
+
+try {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    byte[] hash = digest.digest((salt + userEmail).getBytes(StandardCharsets.UTF_8));
+    hashedEmail = Base64.getEncoder().encodeToString(hash);
+} catch (NoSuchAlgorithmException e) {
+    // Handle exception
+}
+
+// Hashing a secureString[] attribute
+List<String> userTags = user.getTags();
+List<String> hashedTags = new ArrayList<>();
+
+try {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    for (String tag : userTags) {
+        byte[] hash = digest.digest((salt + tag).getBytes(StandardCharsets.UTF_8));
+        hashedTags.add(Base64.getEncoder().encodeToString(hash));
+    }
+} catch (NoSuchAlgorithmException e) {
+    // Handle exception
+}
+
+// Create attributes JSON with hashed values
+String attributesJson = String.format(
+    "{\"id\":\"%s\",\"loggedIn\":true,\"email\":\"%s\",\"tags\":%s}",
+    user.getId(),
+    hashedEmail,
+    Arrays.toString(hashedTags.toArray())
+);
+
+// Use the hashed attributes when creating your GrowthBook instance
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(attributesJson)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
 
 ### Using Features
 
@@ -143,7 +338,86 @@ There are 4 main methods for evaluating features.
 | **`getFeatureValue(String)`** | generic `T` (nullable) | Returns the value cast to the generic type. Type is inferred based on the `defaultValue` argument provided.               |
 | **`evalFeature(String)`**     | `FeatureResult<T>`     | Returns a feature result with a value of generic type `T`. The value type needs to be specified in the generic parameter. |
 
-<CodeTabsUsingFeaturesPartial />
+```mdx-code-block
+<Tabs>
+  <TabItem value="enhanced" label="Enhanced Client">
+```
+
+```java
+// Create enhanced client
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .build();
+
+GrowthBookClient gb = new GrowthBookClient(options);
+gb.initialize();
+
+// Create user context for evaluations
+UserContext userContext = UserContext.builder()
+    .attributesJson("{\"id\":\"user_123\",\"premium\":true}")
+    .build();
+
+// Boolean feature checks
+if (gb.isOn("dark_mode", userContext)) {
+    // value is truthy
+}
+
+if (gb.isOff("dark_mode", userContext)) {
+    // value is falsy
+}
+
+// Get feature values with defaults
+Float donutPrice = gb.getFeatureValue("donut_price", 5.0f, userContext);
+String theme = gb.getFeatureValue("theme", "light", userContext);
+Integer maxItems = gb.getFeatureValue("max_items", 10, userContext);
+
+// Get detailed feature result
+FeatureResult<Float> priceResult = gb.evalFeature("donut_price", userContext);
+Float price = priceResult.getValue();
+String source = priceResult.getSource().toString();
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="traditional" label="Traditional Client">
+```
+
+```java
+// Create traditional client
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson("{\"id\":\"user_123\",\"premium\":true}")
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+
+// Boolean feature checks
+if (growthBook.isOn("dark_mode")) {
+    // value is truthy
+}
+
+if (growthBook.isOff("dark_mode")) {
+    // value is falsy
+}
+
+// Get feature values with defaults
+Float donutPrice = growthBook.getFeatureValue("donut_price", 5.0f);
+String theme = growthBook.getFeatureValue("theme", "light");
+Integer maxItems = growthBook.getFeatureValue("max_items", 10);
+
+// Get detailed feature result
+FeatureResult<Float> priceResult = growthBook.<Float>evalFeature("donut_price");
+Float price = priceResult.getValue();
+String source = priceResult.getSource().toString();
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
 
 #### isOn() / isOff()
 
@@ -200,7 +474,108 @@ As expected in Kotlin, you can access these getters using property accessors.
 
 Instead of declaring all features up-front in the context and referencing them by IDs in your code, you can also just run an experiment directly. This is done with the `growthbook.run(Experiment<T>)` method.
 
-<CodeTabsRunExperimentPartial />
+```mdx-code-block
+<Tabs>
+  <TabItem value="enhanced" label="Enhanced Client">
+```
+
+```java
+// Create enhanced client
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .build();
+
+GrowthBookClient gb = new GrowthBookClient(options);
+gb.initialize();
+
+// Create user context
+UserContext userContext = UserContext.builder()
+    .attributesJson("{\"id\":\"user_123\",\"employee\":true}")
+    .build();
+
+// Create and run inline experiment
+Experiment<Float> donutPriceExperiment = Experiment
+    .<Float>builder()
+    .key("donut-price-test")
+    .variations(Arrays.asList(2.50f, 3.00f, 3.50f))
+    .weights(Arrays.asList(0.33f, 0.33f, 0.34f))
+    .conditionJson("{\"employee\": true}")
+    .build();
+
+ExperimentResult<Float> result = gb.run(donutPriceExperiment, userContext);
+Float donutPrice = result.getValue();
+
+// Check if user was included in experiment
+if (result.getInExperiment()) {
+    System.out.println("User is in experiment, variation: " + result.getVariationId());
+    System.out.println("Donut price: $" + donutPrice);
+} else {
+    System.out.println("User not in experiment");
+}
+
+// String experiment example
+Experiment<String> buttonColorExperiment = Experiment
+    .<String>builder()
+    .key("button-color")
+    .variations(Arrays.asList("blue", "red", "green"))
+    .build();
+
+ExperimentResult<String> colorResult = gb.run(buttonColorExperiment, userContext);
+String buttonColor = colorResult.getValue();
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="traditional" label="Traditional Client">
+```
+
+```java
+// Create traditional client
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson("{\"id\":\"user_123\",\"employee\":true}")
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+
+// Create and run inline experiment
+Experiment<Float> donutPriceExperiment = Experiment
+    .<Float>builder()
+    .key("donut-price-test")
+    .variations(Arrays.asList(2.50f, 3.00f, 3.50f))
+    .weights(Arrays.asList(0.33f, 0.33f, 0.34f))
+    .conditionJson("{\"employee\": true}")
+    .build();
+
+ExperimentResult<Float> result = growthBook.run(donutPriceExperiment);
+Float donutPrice = result.getValue();
+
+// Check if user was included in experiment
+if (result.getInExperiment()) {
+    System.out.println("User is in experiment, variation: " + result.getVariationId());
+    System.out.println("Donut price: $" + donutPrice);
+} else {
+    System.out.println("User not in experiment");
+}
+
+// String experiment example
+Experiment<String> buttonColorExperiment = Experiment
+    .<String>builder()
+    .key("button-color")
+    .variations(Arrays.asList("blue", "red", "green"))
+    .build();
+
+ExperimentResult<String> colorResult = growthBook.run(buttonColorExperiment);
+String buttonColor = colorResult.getValue();
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
 
 #### Inline experiment return value ExperimentResult
 
@@ -222,25 +597,344 @@ As expected in Kotlin, you can access these getters using property accessors.
 
 ### Tracking feature usage and experiment impressions
 
-#### Subscribing to experiment runs with the ExperimentRunCallback
+This section covers how to track and monitor feature usage and experiment impressions in your application. There are several types of callbacks and events you can subscribe to:
 
-You can subscribe to experiment run evaluations using the `ExperimentRunCallback`.
+1. **Tracking Callback** - Called when a user is included in an experiment
+2. **Feature Usage Callback** - Called every time a feature is evaluated
+3. **Experiment Run Callback** - Called for every experiment evaluation (regardless of inclusion)
 
-<CodeTabsExperimentResultCallbackPartial />
+#### Tracking Callback
 
-Every time an experiment is evaluated when calling `growthBook.run(Experiment)`, the callbacks will be called.
+Any time an experiment is run to determine the value of a feature, we may call this callback so you can record the assigned value in your event tracking or analytics system of choice.
 
-You can subscribe with as many callbacks as you like:
+**The tracking callback is only called when the user is in the experiment**. If they are not in the experiment, this will not be called.
 
-<CodeTabsExperimentResultSubscribeMultipleCallbackPartial />
+```mdx-code-block
+<Tabs>
+  <TabItem value="enhanced" label="Enhanced Client">
+```
 
-**The experiment run callback is called for every experiment run, regardless of experiment result**. If you would like to subscribe only to evaluations where the user falls into an experiment, see [TrackingCallback](#tracking-callback).
+```java
+// Create tracking callback
+TrackingCallback trackingCallback = new TrackingCallback() {
+    @Override
+    public <ValueType> void onTrack(
+        Experiment<ValueType> experiment,
+        ExperimentResult<ValueType> experimentResult
+    ) {
+        // Send to your analytics system
+        analytics.track("experiment_viewed", Map.of(
+            "experiment_id", experiment.getKey(),
+            "variation_id", experimentResult.getVariationId(),
+            "user_id", experimentResult.getHashAttribute()
+        ));
+    }
+};
 
-#### Subscribing to feature usage events with the FeatureUsageCallback
+// Create enhanced client with tracking
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .trackingCallback(trackingCallback)
+        .build();
 
-You can subscribe to feature usage events by providing an implementation of the `FeatureUsageCallback` interface to the `GBContext`.
+GrowthBookClient gb = new GrowthBookClient(options);
+gb.initialize();
 
-<CodeTabsFeatureUsageCallback />
+// Use features - tracking callback will be called automatically when user is in experiment
+UserContext userContext = UserContext.builder()
+    .attributesJson("{\"id\":\"user_123\",\"employee\":true}")
+    .build();
+
+boolean newFeature = gb.isOn("new-checkout-flow", userContext);
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="traditional" label="Traditional Client">
+```
+
+```java
+// Create tracking callback
+TrackingCallback trackingCallback = new TrackingCallback() {
+    @Override
+    public <ValueType> void onTrack(
+        Experiment<ValueType> experiment,
+        ExperimentResult<ValueType> experimentResult
+    ) {
+        // Send to your analytics system
+        System.out.println("Experiment tracked: " + experiment.getKey());
+        System.out.println("Variation: " + experimentResult.getVariationId());
+    }
+};
+
+// Create context with tracking callback
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .trackingCallback(trackingCallback)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+
+// Use features - tracking callback will be called when user is in experiment
+boolean newFeature = growthBook.isOn("new-checkout-flow");
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
+
+#### Feature Usage Callback
+
+Any time a feature is evaluated (regardless of experiment participation), this callback is called with the feature key and result.
+
+```mdx-code-block
+<Tabs>
+  <TabItem value="enhanced" label="Enhanced Client">
+```
+
+```java
+// Create feature usage callback
+FeatureUsageCallback featureUsageCallback = new FeatureUsageCallback() {
+    @Override
+    public <ValueType> void onFeatureUsage(
+        String featureKey,
+        FeatureResult<ValueType> featureResult
+    ) {
+        // Log feature usage
+        logger.info("Feature '{}' evaluated with value: {}",
+                   featureKey, featureResult.getValue());
+
+        // Send to analytics
+        analytics.track("feature_used", Map.of(
+            "feature_key", featureKey,
+            "feature_value", featureResult.getValue(),
+            "source", featureResult.getSource().toString()
+        ));
+    }
+};
+
+// Create enhanced client with feature usage tracking
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .featureUsageCallback(featureUsageCallback)
+        .build();
+
+GrowthBookClient gb = new GrowthBookClient(options);
+gb.initialize();
+
+// Feature usage callback will be called for every feature evaluation
+UserContext userContext = UserContext.builder()
+    .attributesJson("{\"id\":\"user_123\"}")
+    .build();
+
+String theme = gb.getFeatureValue("theme", "light", userContext);
+boolean darkMode = gb.isOn("dark_mode", userContext);
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="traditional" label="Traditional Client">
+```
+
+```java
+// Create feature usage callback
+FeatureUsageCallback featureUsageCallback = new FeatureUsageCallback() {
+    @Override
+    public <ValueType> void onFeatureUsage(
+        String featureKey,
+        FeatureResult<ValueType> featureResult
+    ) {
+        // Log feature usage
+        System.out.println("Feature used: " + featureKey +
+                          " = " + featureResult.getValue());
+    }
+};
+
+// Create context with feature usage callback
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .featureUsageCallback(featureUsageCallback)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+
+// Feature usage callback will be called for every feature evaluation
+String theme = growthBook.getFeatureValue("theme", "light");
+boolean darkMode = growthBook.isOn("dark_mode");
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
+
+#### Experiment Run Callback
+
+You can subscribe to experiment run evaluations using the `ExperimentRunCallback`. **This callback is called for every experiment evaluation, regardless of whether the user is included in the experiment**.
+
+```mdx-code-block
+<Tabs>
+  <TabItem value="enhanced" label="Enhanced Client">
+```
+
+```java
+// Create experiment run callback
+ExperimentRunCallback experimentRunCallback = new ExperimentRunCallback() {
+    @Override
+    public <ValueType> void onExperimentRun(
+        Experiment<ValueType> experiment,
+        ExperimentResult<ValueType> experimentResult
+    ) {
+        // Track all experiment evaluations (included and excluded users)
+        analytics.track("experiment_evaluated", Map.of(
+            "experiment_id", experiment.getKey(),
+            "user_in_experiment", experimentResult.getInExperiment(),
+            "variation_id", experimentResult.getVariationId(),
+            "hash_used", experimentResult.getHashUsed()
+        ));
+    }
+};
+
+// Enhanced client doesn't directly support ExperimentRunCallback
+// Use inline experiments with the callback
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .build();
+
+GrowthBookClient gb = new GrowthBookClient(options);
+gb.initialize();
+
+// Subscribe to experiment runs (you can subscribe multiple callbacks)
+gb.subscribe(experimentRunCallback);
+
+// Run inline experiments - callback will be triggered
+UserContext userContext = UserContext.builder()
+    .attributesJson("{\"id\":\"user_123\",\"employee\":true}")
+    .build();
+
+Experiment<String> buttonColorExperiment = Experiment
+    .<String>builder()
+    .key("button-color")
+    .variations(Arrays.asList("blue", "red", "green"))
+    .build();
+
+ExperimentResult<String> result = gb.run(buttonColorExperiment, userContext);
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="traditional" label="Traditional Client">
+```
+
+```java
+// Create experiment run callback
+ExperimentRunCallback experimentRunCallback = new ExperimentRunCallback() {
+    @Override
+    public <ValueType> void onExperimentRun(
+        Experiment<ValueType> experiment,
+        ExperimentResult<ValueType> experimentResult
+    ) {
+        // Track all experiment evaluations
+        System.out.println("Experiment evaluated: " + experiment.getKey());
+        System.out.println("User in experiment: " + experimentResult.getInExperiment());
+    }
+};
+
+// Create GrowthBook instance
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+
+// Subscribe to experiment runs (you can subscribe multiple callbacks)
+growthBook.subscribe(experimentRunCallback);
+
+// Run inline experiments - callback will be triggered
+Experiment<String> buttonColorExperiment = Experiment
+    .<String>builder()
+    .key("button-color")
+    .variations(Arrays.asList("blue", "red", "green"))
+    .build();
+
+ExperimentResult<String> result = growthBook.run(buttonColorExperiment);
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
+
+#### Multiple Callback Subscriptions
+
+You can subscribe to multiple experiment run callbacks:
+
+```mdx-code-block
+<Tabs>
+  <TabItem value="enhanced" label="Enhanced Client">
+```
+
+```java
+// Multiple callbacks for different purposes
+ExperimentRunCallback analyticsCallback = (experiment, result) -> {
+    // Send to analytics
+    analytics.track("experiment_run", Map.of(
+        "experiment", experiment.getKey(),
+        "included", result.getInExperiment()
+    ));
+};
+
+ExperimentRunCallback loggingCallback = (experiment, result) -> {
+    // Log for debugging
+    logger.debug("Experiment {} evaluated for user {}",
+                experiment.getKey(), result.getHashAttribute());
+};
+
+// Subscribe multiple callbacks
+gb.subscribe(analyticsCallback);
+gb.subscribe(loggingCallback);
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="traditional" label="Traditional Client">
+```
+
+```java
+// Multiple callbacks for different purposes
+ExperimentRunCallback analyticsCallback = (experiment, result) -> {
+    // Send to analytics
+    System.out.println("Analytics: " + experiment.getKey());
+};
+
+ExperimentRunCallback loggingCallback = (experiment, result) -> {
+    // Log for debugging
+    System.out.println("Debug: " + experiment.getKey());
+};
+
+// Subscribe multiple callbacks
+growthBook.subscribe(analyticsCallback);
+growthBook.subscribe(loggingCallback);
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
 
 ### Working with Encrypted features
 
@@ -250,16 +944,16 @@ The main difference is you create a `GBContext` by passing an encryption key (`.
 
 <CodeTabsGBContextBuilderEncryptedPartial />
 
-### Fetching, Cacheing, and Refreshing features with GBFeaturesRepository
+### Fetching, Caching, and Refreshing features with GBFeaturesRepository
 
 As of version 0.4.0, the Java SDK provides an optional `GBFeaturesRepository` class which will manage networking for you in the following ways:
 
 - Fetching features from the SDK endpoint when `initialize()` is called
 - Decrypting encrypted features when provided with the client key, e.g. `.builder().encryptionKey(clientKey)`
-- Cacheing features (in-memory)
+- Caching features (in-memory)
 - Refreshing features
 
-If you wish to manage fetching, refreshing, and cacheing features on your own, you can choose to not implement this class.
+If you wish to manage fetching, refreshing, and caching features on your own, you can choose to not implement this class.
 
 :::info Recommendation
 This class should be implemented as a singleton class as it includes caching and refreshing functionality.
@@ -277,7 +971,7 @@ Then, you would call `myGbFeaturesRepositoryInstance.initialize()` in order to m
 
 For more references, see the [Examples](#code-examples) below.
 
-#### Cacheing and refreshing behaviour
+#### Caching and refreshing behavior
 
 As of version 0.9.0, there are 2 refresh strategies available.
 
@@ -352,6 +1046,92 @@ You will need to add the following to your `proguard-rules.pro` file to ensure t
 
 ## Code Examples
 
+### Web Framework Integration with Spring RestController
+
+```java
+@RestController
+public class FeatureController {
+
+    // Singleton enhanced client instance
+    private final GrowthBookClient growthBookClient;
+
+    @Autowired
+    public FeatureController() {
+        // build options to configure your Growthbook instance
+        Options options = Options.builder()
+                .apiHost("https://cdn.growthbook.io")
+                .clientKey("sdk-abc123")
+                .build();
+
+        // Create growthbook instance using the options you need
+        this.growthBookClient = new GrowthBookClient(options);
+
+        // Initialize features once
+        this.growthBookClient.initialize();
+    }
+
+    @GetMapping("/api/features")
+    public ResponseEntity<Map<String, Object>> getFeatures(HttpServletRequest request) {
+        // Create user context per request
+        UserContext userContext = createUserContext(request);
+
+        // Evaluate features using shared client
+        Map<String, Object> features = new HashMap<>();
+        features.put("darkMode", growthBookClient.isOn("dark-mode", userContext));
+        features.put("maxItems", growthBookClient.getFeatureValue("max-items", 10, userContext));
+        features.put("newLayout", growthBookClient.isOn("new-layout", userContext));
+
+        return ResponseEntity.ok(features);
+    }
+
+    @GetMapping("/api/user/{userId}/features")
+    public ResponseEntity<Map<String, Object>> getUserFeatures(@PathVariable String userId) {
+        // Create user-specific context
+        UserContext userContext = UserContext.builder()
+            .attributesJson(String.format("{\"id\":\"%s\",\"loggedIn\":true}", userId))
+            .build();
+
+        // Evaluate features for specific user
+        Map<String, Object> features = new HashMap<>();
+        features.put("premiumFeature", growthBookClient.isOn("premium-feature", userContext));
+        features.put("theme", growthBookClient.getFeatureValue("theme", "light", userContext));
+
+        return ResponseEntity.ok(features);
+    }
+
+    private UserContext createUserContext(HttpServletRequest request) {
+        // Extract user attributes from request
+        String userId = getUserIdFromSession(request);
+        String userAgent = request.getHeader("User-Agent");
+        String country = getCountryFromRequest(request);
+
+        // Build attributes JSON
+        String attributesJson = String.format(
+            "{\"id\":\"%s\",\"userAgent\":\"%s\",\"country\":\"%s\",\"loggedIn\":%s}",
+            userId, userAgent, country, userId != null
+        );
+
+        return UserContext.builder()
+            .attributesJson(attributesJson)
+            .build();
+    }
+
+    private String getUserIdFromSession(HttpServletRequest request) {
+        // Your implementation to extract user ID from session/JWT/etc
+        return request.getSession().getAttribute("userId") != null
+            ? request.getSession().getAttribute("userId").toString()
+            : null;
+    }
+
+    private String getCountryFromRequest(HttpServletRequest request) {
+        // Your implementation to determine user's country
+        return request.getHeader("CF-IPCountry"); // Example using Cloudflare header
+    }
+}
+```
+
+### Additional Examples
+
 - [JVM with Spring Web example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-spring-web)
 - [JVM example in Kotlin with Ktor <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example)
 - [Android Java example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/android-example)
@@ -359,3 +1139,7 @@ You will need to add the following to your `proguard-rules.pro` file to ensure t
 ## Further Reading
 
 - [JavaDoc class documentation <ExternalLink/>](https://growthbook.github.io/growthbook-sdk-java/)
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="java" />

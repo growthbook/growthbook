@@ -1,12 +1,12 @@
 import { PiPaperPlaneTiltFill } from "react-icons/pi";
 import { useState } from "react";
-import { SchemaFormat } from "back-end/types/datasource";
+import { SchemaFormat } from "shared/types/datasource";
 import DataSourceLogo, {
   eventTrackerMapping,
 } from "@/components/DataSources/DataSourceLogo";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 
 interface Props {
@@ -85,7 +85,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
                       showLabel={true}
                     />
                   </div>
-                )
+                ),
               )}
             </div>
           </div>

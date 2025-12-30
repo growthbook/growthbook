@@ -2,10 +2,11 @@ type: object
 properties:
   managedBy:
     type: string
-    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only. Please note that we have deprecated support for setting the managedBy property to "admin". Your existing Legacy Metrics with this value will continue to work, but we suggest migrating to Fact Metrics instead.
     enum:
       - ""
       - api
+      - admin
   owner:
     type: string
     description: Name of the person who owns this metric
@@ -166,6 +167,10 @@ properties:
         minimum: 0
       minSampleSize:
         type: number
+        minimum: 0
+      targetMDE:
+        type: number
+        description: The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.
         minimum: 0
   sql:
     type: object

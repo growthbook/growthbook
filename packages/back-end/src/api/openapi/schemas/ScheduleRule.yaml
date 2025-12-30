@@ -1,0 +1,22 @@
+type: object
+description: "An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule."
+minItems: 2
+maxItems: 2
+required:
+  - enabled
+  - timestamp
+properties:
+  enabled:
+    type: boolean
+    description: "Whether the rule should be enabled or disabled at the specified timestamp."
+  timestamp:
+    type: string
+    format: date-time
+    nullable: true
+    description: "ISO timestamp when the rule should activate."
+    example: "2025-06-23T16:09:37.769Z"
+example:
+  - enabled: true
+    timestamp: null
+  - enabled: false
+    timestamp: "2025-06-23T16:09:37.769Z"

@@ -4,8 +4,8 @@ import uniqid from "uniqid";
 import {
   PastExperiment,
   PastExperimentsInterface,
-} from "back-end/types/past-experiments";
-import { Queries } from "back-end/types/query";
+} from "shared/types/past-experiments";
+import { Queries } from "shared/types/query";
 import { queriesSchema } from "./QueryModel";
 
 const pastExperimentsSchema = new mongoose.Schema({
@@ -48,7 +48,7 @@ type PastExperimentsDocument = mongoose.Document & PastExperimentsInterface;
 
 const PastExperimentsModel = mongoose.model<PastExperimentsInterface>(
   "PastExperiments",
-  pastExperimentsSchema
+  pastExperimentsSchema,
 );
 
 function toInterface(doc: PastExperimentsDocument): PastExperimentsInterface {
@@ -64,7 +64,7 @@ export async function getPastExperimentsById(organization: string, id: string) {
 
 export async function getPastExperimentsModelByDatasource(
   organization: string,
-  datasource: string
+  datasource: string,
 ) {
   const doc = await PastExperimentsModel.findOne({ organization, datasource });
 
@@ -73,7 +73,7 @@ export async function getPastExperimentsModelByDatasource(
 
 export async function findRunningPastExperimentsByQueryId(
   orgIds: string[],
-  ids: string[]
+  ids: string[],
 ) {
   const docs = await PastExperimentsModel.find({
     organization: { $in: orgIds },
@@ -85,7 +85,7 @@ export async function findRunningPastExperimentsByQueryId(
 
 export async function updatePastExperiments(
   pastExperiments: PastExperimentsInterface,
-  changes: Partial<PastExperimentsInterface>
+  changes: Partial<PastExperimentsInterface>,
 ) {
   const dateUpdated = new Date();
   await PastExperimentsModel.updateOne(
@@ -95,7 +95,7 @@ export async function updatePastExperiments(
     },
     {
       $set: { ...changes, dateUpdated },
-    }
+    },
   );
 
   return {

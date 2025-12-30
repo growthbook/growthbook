@@ -20,14 +20,24 @@ const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
 
 export default function StringArrayField({
   value,
-  onChange,
+  onChange: origOnChange,
   autoFocus,
   disabled,
   delimiters = DEFAULT_DELIMITERS,
   placeholder,
+  pattern,
   ...otherProps
 }: Props) {
   const [inputValue, setInputValue] = useState("");
+
+  const onChange = (val: string[]) => {
+    // If pattern is specified, filter out invalid entries
+    if (pattern) {
+      const regex = new RegExp(pattern);
+      val = val.filter((v) => regex.test(v));
+    }
+    origOnChange(val);
+  };
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
@@ -54,6 +64,7 @@ export default function StringArrayField({
             components={components}
             inputValue={inputValue}
             isClearable
+            classNamePrefix="gb-select"
             isMulti
             menuIsOpen={false}
             autoFocus={autoFocus}
@@ -66,6 +77,10 @@ export default function StringArrayField({
               if (!inputValue) return;
               onChange([...value, inputValue]);
               setInputValue("");
+            }}
+            isValidNewOption={(value) => {
+              if (!pattern) return !!value;
+              return new RegExp(pattern).test(value);
             }}
             placeholder={placeholder}
             value={value}

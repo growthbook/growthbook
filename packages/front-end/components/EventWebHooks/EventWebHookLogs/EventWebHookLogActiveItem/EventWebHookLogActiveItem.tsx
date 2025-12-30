@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
+import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
 import { datetime } from "shared/dates";
 import { useIconForState } from "@/components/EventWebHooks/utils";
 import Code from "@/components/SyntaxHighlighting/Code";

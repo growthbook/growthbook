@@ -54,6 +54,8 @@ properties:
     type: boolean
   includeRedirectExperiments:
     type: boolean
+  includeRuleIds:
+    type: boolean
   key:
     type: string
   proxyEnabled:

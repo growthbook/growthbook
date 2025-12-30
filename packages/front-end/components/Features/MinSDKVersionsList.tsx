@@ -12,7 +12,7 @@ export default function MinSDKVersionsList({
   const minVersions = getMinSupportedSDKVersions(capability);
 
   const hasNoCode = minVersions.some(({ language }) =>
-    language.startsWith("nocode")
+    language.startsWith("nocode"),
   );
 
   return (

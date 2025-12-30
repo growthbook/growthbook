@@ -1,0 +1,39 @@
+diff --git a/node_modules/presto-client/lib/presto-client/index.js b/node_modules/presto-client/lib/presto-client/index.js
+index f84c6cf..ab0d5cf 100644
+--- a/node_modules/presto-client/lib/presto-client/index.js
++++ b/node_modules/presto-client/lib/presto-client/index.js
+@@ -102,12 +102,31 @@ Client.prototype.request = function(opts, callback) {
+ 
+     opts.headers[client.headers.USER_AGENT] = this.userAgent;
+ 
+-    if (client.authorization)
+-        opts.headers[client.headers.AUTHORIZATION] = this.authorization;
+-
+     if (opts.body)
+         contentBody = opts.body;
+ 
++    if (typeof client.authorization === 'function') {
++        var authResponse = client.authorization();
++        if (authResponse && typeof authResponse.then === 'function') {
++            return authResponse.then(function(authHeader) {
++                opts.headers[client.headers.AUTHORIZATION] = authHeader;
++                return client._executeRequest(opts, contentBody, callback, adapter);
++            }).catch(function(error) {
++                callback(error);
++            });
++        } else {
++            opts.headers[client.headers.AUTHORIZATION] = authResponse;
++        }
++    } else if (client.authorization) {
++        opts.headers[client.headers.AUTHORIZATION] = this.authorization;
++    }
++
++    return client._executeRequest(opts, contentBody, callback, adapter);
++};
++
++Client.prototype._executeRequest = function(opts, contentBody, callback, adapter) {
++    var client = this;
++
+     // `agents` is a custom property that follow-redirects supports, where
+     // it's similar to setting `agent`, but allows for setting it per protocol,
+     // so that if we redirect from http -> https (or vice versa) we use the right

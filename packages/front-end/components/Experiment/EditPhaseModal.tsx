@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { datetime } from "shared/dates";
@@ -32,10 +32,10 @@ export default function EditPhaseModal({
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       ...experiment.phases[i],
-      seed: experiment.phases[i].seed ?? experiment.trackingKey,
-      dateStarted: (experiment.phases[i].dateStarted ?? "").substr(0, 16),
-      dateEnded: experiment.phases[i].dateEnded
-        ? (experiment.phases[i].dateEnded ?? "").substr(0, 16)
+      seed: experiment.phases[i]?.seed ?? experiment.trackingKey,
+      dateStarted: (experiment.phases[i]?.dateStarted ?? "").substr(0, 16),
+      dateEnded: experiment.phases[i]?.dateEnded
+        ? (experiment.phases[i]?.dateEnded ?? "").substr(0, 16)
         : "",
     },
   });
@@ -45,6 +45,7 @@ export default function EditPhaseModal({
 
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <Modal
@@ -111,7 +112,7 @@ export default function EditPhaseModal({
         </>
       ) : null}
 
-      {!isDraft && (
+      {!isHoldout && !isDraft ? (
         <div className="alert alert-info mt-4">
           Trying to change targeting rules, traffic allocation, or start a new
           phase? Use the{" "}
@@ -127,32 +128,36 @@ export default function EditPhaseModal({
           </a>{" "}
           button instead.
         </div>
-      )}
+      ) : null}
 
-      {advancedOptionsOpen && (
-        //edit seed
-        <Field
-          label="Seed"
-          type="input"
-          {...form.register("seed")}
-          helpText={
-            <>
-              <strong className="text-danger">Warning:</strong> Changing this
-              will re-randomize experiment traffic.
-            </>
-          }
-        />
-      )}
-      <span
-        className="ml-auto link-purple cursor-pointer"
-        onClick={(e) => {
-          e.preventDefault();
-          setAdvancedOptionsOpen(!advancedOptionsOpen);
-        }}
-      >
-        Advanced Options{" "}
-        {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
-      </span>
+      {!isHoldout ? (
+        <>
+          {advancedOptionsOpen && (
+            //edit seed
+            <Field
+              label="Seed"
+              type="input"
+              {...form.register("seed")}
+              helpText={
+                <>
+                  <strong className="text-danger">Warning:</strong> Changing
+                  this will re-randomize experiment traffic.
+                </>
+              }
+            />
+          )}
+          <span
+            className="ml-auto link-purple cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvancedOptionsOpen(!advancedOptionsOpen);
+            }}
+          >
+            Advanced Options{" "}
+            {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+          </span>
+        </>
+      ) : null}
     </Modal>
   );
 }

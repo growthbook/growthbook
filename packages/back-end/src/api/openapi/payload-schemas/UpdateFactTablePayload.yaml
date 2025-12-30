@@ -26,9 +26,24 @@ properties:
   sql:
     type: string
     description: The SQL query for this fact table
+  eventName:
+    type: string
+    description: The event name used in SQL template variables
+  columns:
+    type: array
+    items:
+      $ref: "../schemas/FactTableColumn.yaml"
+    description: "Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license."
+  columnsError:
+    type: string
+    nullable: true
+    description: Error message if there was an issue parsing the SQL schema
   managedBy:
     type: string
     description: Set this to "api" to disable editing in the GrowthBook UI
     enum:
       - ""
       - api
+      - admin
+  archived:
+    type: boolean

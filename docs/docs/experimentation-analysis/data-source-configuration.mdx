@@ -37,7 +37,7 @@ If you do not use any of those you choose [Custom Data Source](/event-trackers/c
 
 ## Configuration Settings
 
-Once you have chosen your event tracker and data source type and successfully connected, you will be given an opportunity to modify your configuration settings. For many applications Growthbook will have choosen the correct configuration settings straight out of the box based upon which event tracker you choose. In some instances, you may need to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
+Once you have chosen your event tracker and data source type and successfully connected, you will be given an opportunity to modify your configuration settings. For many applications Growthbook will have chosen the correct configuration settings straight out of the box based upon which event tracker you choose. In some instances, you may need to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
 
 ### Identifier Types
 
@@ -49,7 +49,7 @@ There are some cases where a single database column isn't enough to uniquely ide
 
 An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example, one from your email system and one from your back-end.
 
-:::tip
+:::note Queries used to generate experiment results
 
 Assignment queries are one-half of the queries that are used to generate experiment results, the other being metric queries. Assignment queries can be edited from the `Metrics and Data` → `Data Sources` page.
 
@@ -102,65 +102,9 @@ SELECT user_id, device_id FROM logins
 
 #### SQL Templates
 
-We use \{\{[Handlebars](https://handlebarsjs.com/guide/#language-features)\}\} to compile the assignment sql, identity queries, etc. into what is actually called to your database.
+GrowthBook uses [Handlebars](https://handlebarsjs.com/guide/#language-features) to compile our SQL queries and we expose several variables and helper functions to make your SQL dynamic and reusable. This applies to experiment assignment queries, fact tables, and metrics.
 
-You can use any of the in-built variables that Growthbook automatically sets:
-
-- **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
-- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date startDateISO "yyyyMMdd"}}`)
-- **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
-- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date endDateISO "yyyyMMdd"}}`)
-- **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
-
-You can also use any of the in-built helper functions:
-
-- **camelcase [str]** - ex. `{{camelcase "My database"}}` compiles to `myDatabase`.
-- **dotcase [str]** - ex. `{{dotcase "My database"}}` compiles to `my.database`.
-- **kebabcase [str]** - ex. `{{kebabcase "My database"}}` compiles to `my-database`.
-- **lowercase [str]** - ex. `{{lowercase "My database"}}` compiles to `my database`.
-- **pascalcase [str]** - ex. `{{pascalcase "My database"}}` compiles to `MyDatabase`.
-- **replace [str]&nbsp;[pattern]&nbsp;[replacement]** - Replace all occurences of a regular expression with something else. ex. `{{replace "My%%%Database!" "\[^a-zA-Z\]" ""}}` compiles to `MyDatabase`
-- **snakecase [str]** - ex. `{{pascalcase "My database"}}` compiles to `my_database`.
-- **uppercase [str]** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
-  <Anchor id="dateformat"/>
-- **date [date]&nbsp;[format]** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "yyyyMMdd"}}` might compile to `20230130`. The most common codes are:
-
-<ul>
-
-| code | meaning   |
-| ---- | --------- |
-| yyyy | year      |
-| MM   | month     |
-| dd   | day       |
-| HH   | hour      |
-| mm   | minutes   |
-| ss   | seconds   |
-| t    | timestamp |
-
-</ul>
-
-For example:
-
-```sql
-SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  experiment_id,
-  variation_id
-FROM
-  events_*
-WHERE
-  _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
-  AND event_name = 'experiment_viewed'
-  AND experiment_id LIKE '{{ experimentId }}'
-```
-
-:::note
-
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `{{ 'startDate' }}` instead of `{{ startDate }}`).
-
-:::
+Read more about [SQL Templates](/app/sql-templates) and the different variables that are available.
 
 ### Jupyter Notebook Query Runner
 
@@ -208,6 +152,8 @@ Below are the data sources that currently support the Schema Browser:
 - Redshift
 - Snowflake
 
-:::note
+:::note Generating the schema manually
+
 If you added a supported data source prior to GrowthBook v2.0, you can generate the schema manually by clicking "Data Sources" on the left-nav, selecting the data source, and then clicking the "View Schema Browser" button and following the on-screen prompt.
+
 :::

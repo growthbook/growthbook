@@ -1,5 +1,5 @@
 import express from "express";
-import z from "zod";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import {
@@ -18,7 +18,7 @@ router.get(
   validateRequestMiddleware({
     params: z.object({ orgId: z.string() }).strict(),
   }),
-  metricGroupController.getMetricGroups
+  metricGroupController.getMetricGroups,
 );
 
 router.post(
@@ -26,7 +26,7 @@ router.post(
   validateRequestMiddleware({
     body: createMetricGroupPropsValidator,
   }),
-  metricGroupController.postMetricGroup
+  metricGroupController.postMetricGroup,
 );
 
 router.put(
@@ -35,7 +35,7 @@ router.put(
     params: z.object({ id: z.string() }),
     body: updateMetricGroupPropsValidator,
   }),
-  metricGroupController.putMetricGroup
+  metricGroupController.putMetricGroup,
 );
 
 router.delete(
@@ -43,7 +43,7 @@ router.delete(
   validateRequestMiddleware({
     params: z.object({ id: z.string() }),
   }),
-  metricGroupController.deleteMetricGroup
+  metricGroupController.deleteMetricGroup,
 );
 
 router.put(
@@ -52,7 +52,7 @@ router.put(
     params: z.object({ id: z.string() }),
     body: updateOrderValidator,
   }),
-  metricGroupController.putMetricGroupReorder
+  metricGroupController.putMetricGroupReorder,
 );
 
 router.delete(
@@ -60,7 +60,7 @@ router.delete(
   validateRequestMiddleware({
     params: z.object({ id: z.string(), metricId: z.string() }).strict(),
   }),
-  metricGroupController.removeMetricFromGroup
+  metricGroupController.removeMetricFromGroup,
 );
 
 export { router as metricGroupRouter };

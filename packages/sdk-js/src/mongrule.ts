@@ -18,7 +18,7 @@ export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface,
   // Must be included for `condition` to correctly evaluate group Operators
-  savedGroups?: SavedGroupsValues
+  savedGroups?: SavedGroupsValues,
 ): boolean {
   savedGroups = savedGroups || {};
   // Condition is an object, keys are either specific operators or object paths
@@ -71,7 +71,7 @@ function getRegex(regex: string): RegExp {
 function evalConditionValue(
   condition: ConditionValue,
   value: any,
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
 ) {
   // Simple equality comparisons
   if (typeof condition === "string") {
@@ -81,7 +81,7 @@ function evalConditionValue(
     return value * 1 === condition;
   }
   if (typeof condition === "boolean") {
-    return !!value === condition;
+    return value !== null && !!value === condition;
   }
 
   if (condition === null) {
@@ -99,7 +99,7 @@ function evalConditionValue(
         op as Operator,
         value,
         condition[op as keyof OperatorConditionValue],
-        savedGroups
+        savedGroups,
       )
     ) {
       return false;
@@ -154,7 +154,7 @@ function evalOperatorCondition(
   operator: Operator,
   actual: any,
   expected: any,
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
 ): boolean {
   switch (operator) {
     case "$veq":
@@ -232,7 +232,7 @@ function evalOperatorCondition(
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
@@ -247,7 +247,7 @@ function evalOr(
 function evalAnd(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
     if (!evalCondition(obj, conditions[i], savedGroups)) {

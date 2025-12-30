@@ -1,0 +1,10 @@
+{{- if .Values.volumeClaim.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ printf "%s-%s" (include "server.fullname" .) .Values.volumeClaim.name }}
+  labels:
+    {{- include "server.labels" . | nindent 4 }}
+spec:
+  {{- toYaml .Values.volumeClaim.spec | nindent 2 }}
+{{- end }}

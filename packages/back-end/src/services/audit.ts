@@ -1,14 +1,15 @@
+import { EntityType } from "shared/types/audit";
+import { entityTypes } from "shared/constants";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
-import { EntityType } from "back-end/src/types/Audit";
 
 export function isValidAuditEntityType(type: string): type is EntityType {
-  return EntityType.includes(type as EntityType);
+  return entityTypes.includes(type as EntityType);
 }
 
 export async function getRecentWatchedAudits(
   userId: string,
-  organization: string
+  organization: string,
 ) {
   const userWatches = await getWatchedByUser(organization, userId);
 
@@ -51,14 +52,14 @@ export async function getRecentWatchedAudits(
     organization,
     "experiment",
     userWatches.experiments,
-    experimentsFilter
+    experimentsFilter,
   );
 
   const features = await findAuditByEntityList(
     organization,
     "feature",
     userWatches.features,
-    featuresFilter
+    featuresFilter,
   );
 
   const all = experiments
@@ -69,7 +70,7 @@ export async function getRecentWatchedAudits(
 
 export function auditDetailsCreate<T>(
   post: T,
-  context: Record<string, unknown> = {}
+  context: Record<string, unknown> = {},
 ): string {
   return JSON.stringify({
     post,
@@ -79,7 +80,7 @@ export function auditDetailsCreate<T>(
 export function auditDetailsUpdate<T>(
   pre: T,
   post: T,
-  context: Record<string, unknown> = {}
+  context: Record<string, unknown> = {},
 ): string {
   return JSON.stringify({
     pre,
@@ -90,7 +91,7 @@ export function auditDetailsUpdate<T>(
 
 export function auditDetailsDelete<T>(
   pre: T,
-  context: Record<string, unknown> = {}
+  context: Record<string, unknown> = {},
 ): string {
   return JSON.stringify({
     pre,

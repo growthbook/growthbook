@@ -1,8 +1,8 @@
 import express from "express";
 import { z } from "zod";
+import { attributeDataTypes } from "shared/constants";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { attributeDataTypes } from "back-end/src/util/organization.util";
 import * as rawAttributesController from "./attributes.controller";
 
 const router = express.Router();
@@ -17,12 +17,12 @@ router.post(
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()),
-      format: z.string(),
-      enum: z.string(),
+      format: z.string().optional(),
+      enum: z.string().optional(),
       hashAttribute: z.boolean().optional(),
     }),
   }),
-  AttributeController.postAttribute
+  AttributeController.postAttribute,
 );
 
 router.put(
@@ -33,14 +33,14 @@ router.put(
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()).optional(),
-      format: z.string(),
-      enum: z.string(),
+      format: z.string().optional(),
+      enum: z.string().optional(),
       hashAttribute: z.boolean().optional(),
       archived: z.boolean().optional(),
       previousName: z.string().optional(),
     }),
   }),
-  AttributeController.putAttribute
+  AttributeController.putAttribute,
 );
 
 router.delete(
@@ -50,7 +50,7 @@ router.delete(
       id: z.string(),
     }),
   }),
-  AttributeController.deleteAttribute
+  AttributeController.deleteAttribute,
 );
 
 export { router as AttributeRouter };

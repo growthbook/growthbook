@@ -1,16 +1,47 @@
 # Changelog
 
-## **1.4.0** - Unreleased
+## **1.6.2** - Oct 30, 2025
+
+- Fix bug where `getAllResults` always returned an empty map
+- Add options to `destroy()` method to optionally destroy all open SSE streams
+- Fix bug with sticky bucketing not blocking old experiment versions properly
+- Update to latest Babel and Rollup versions. Slightly different output in bundled files, but no functional changes.
+
+## **1.6.1** - Aug 6, 2025
+
+- Fix incorrect `version` property on GrowthBook instances (was still set to 1.5.1)
+
+## **1.6.0** - Jun 16, 2025
+
+- Fix plugin importing when using Typescript moduleResolution `node`
+
+## **1.5.1** - May 1, 2025
+
+- Fix broken minification in the bundled file `auto.min.js` caused by a Babel update
+
+## **1.5.0** - Apr 30, 2025
+
+- New `StickyBucketServiceSync` class for synchronous sticky bucketing implementations
+- New `devtools` plugin to integrate back-end code with the GrowthBook Dev Tools browser extension
+- Ability to pass user-specific plugins into `createScopedInstance()`
+- In user-scoped instances (returned from `createScopedInstance()`), de-dupe all tracking calls and feature usage callbacks. Technically this is a breaking change, but it should not affect the vast majority of users.
+
+## **1.4.1** - Feb 20, 2025
+
+- In `auto.min.js`, enable dev mode by default. Without this, the GrowthBook DevTools Chrome extension will only partially work.
+
+## **1.4.0** - Feb 19, 2025
 
 - Fixed edge case with pre-requisites that caused some feature rules to be skipped
 - New methods for dealing with destroyed GrowthBook instances - `isDestroyed()` and `onDestroy(callback)`
 - New `plugins` option to extend GrowthBook functionality, plus several built-in plugins
 - New `eventLogger` option and `logEvent` method to track arbitrary analytics events
+- Fix bug in targeting condition when checking if non-existent attribute is equal to `false`
 
 ## **1.3.1** - Dec 3, 2024
 
 - Renamed `GrowthBookMultiUser` to `GrowthBookClient`
-- New `GrowthBookClient.getScopedInstance()` method to make it easier to use in express-like back-end frameworks and client-side environments.
+- New `GrowthBookClient.createScopedInstance()` method to make it easier to use in express-like back-end frameworks and client-side environments.
 
 ## **1.3.0** - Nov 20, 2024
 

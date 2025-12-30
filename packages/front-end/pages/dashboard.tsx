@@ -1,5 +1,4 @@
 import React from "react";
-import Head from "next/head";
 import { useExperiments } from "@/hooks/useExperiments";
 import Dashboard from "@/components/HomePage/Dashboard";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -32,11 +31,6 @@ export default function Analysis(): React.ReactElement {
 
   return (
     <>
-      <Head>
-        <title>GrowthBook</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
       <div className="container pagecontents position-relative">
         {hasExperiments ? (
           <Dashboard experiments={experiments} />

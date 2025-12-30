@@ -41,6 +41,15 @@ properties:
     description: A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.
     additionalProperties:
       $ref: "./postFeature/FeatureEnvironment.yaml"
+  prerequisites:
+    type: array
+    description: "Feature IDs. Each feature must evaluate to `true`"
+    items:
+      type: string
   jsonSchema:
     type: string
     description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+  customFields:
+    type: object
+    additionalProperties:
+      type: string

@@ -1,0 +1,72 @@
+.sdk-supported-features {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sdk-supported-feature {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  background-color: var(--ifm-breadcrumb-item-background-active);
+  border-radius: 1000px;
+  padding: 4px 12px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ifm-font-color-base);
+  height: 28px;
+  line-height: 1;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+}
+
+.sdk-feature-tooltip {
+  position: relative;
+  cursor: pointer;
+
+  .sdk-feature-tooltip-content {
+    visibility: hidden;
+    opacity: 0;
+    width: max-content;
+    max-width: 220px;
+    background-color: var(--ifm-color-content-secondary);
+    color: var(--ifm-color-content-inverse);
+    text-align: center;
+    border-radius: 4px;
+    padding: 6px 10px;
+    position: absolute;
+    z-index: 10;
+    bottom: 125%; // Show above the label
+    left: 50%;
+    transform: translateX(-50%);
+    transition: opacity 0.2s;
+    font-size: 13px;
+    pointer-events: none;
+    box-shadow: 0 2px 8px var(--ifm-shadow);
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px;
+      border-style: solid;
+      border-color: var(--ifm-color-content-secondary) transparent transparent
+        transparent;
+    }
+  }
+
+  &:hover .sdk-feature-tooltip-content,
+  &:focus .sdk-feature-tooltip-content {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

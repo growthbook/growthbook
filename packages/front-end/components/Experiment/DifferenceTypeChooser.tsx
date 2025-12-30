@@ -3,9 +3,9 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { FaCheck } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";
@@ -18,10 +18,10 @@ export async function analysisUpdate(
   snapshot: ExperimentSnapshotInterface,
   apiCall: <T>(
     url: string | null,
-    options?: RequestInit | undefined
+    options?: RequestInit | undefined,
   ) => Promise<T>,
   setPostLoading: (value: SetStateAction<boolean>) => void,
-  phase?: number
+  phase?: number,
 ): Promise<"success" | "fail" | "abort"> {
   if (!analysis || !snapshot) return "abort";
   let status: "success" | "fail" | "abort" = "fail";
@@ -61,7 +61,7 @@ export interface Props {
   phase: number;
   analysis?: ExperimentSnapshotAnalysis;
   setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   mutate: () => void;
   disabled?: boolean;
@@ -81,9 +81,8 @@ export default function DifferenceTypeChooser({
 
   const [postLoading, setPostLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [desiredDifferenceType, setDesiredDifferenceType] = useState(
-    differenceType
-  );
+  const [desiredDifferenceType, setDesiredDifferenceType] =
+    useState(differenceType);
   const differenceTypeMap = new Map<DifferenceType, string>([
     ["relative", "Relative"],
     ["absolute", "Absolute"],
@@ -146,7 +145,7 @@ export default function DifferenceTypeChooser({
               snapshot,
               apiCall,
               setPostLoading,
-              phase
+              phase,
             ).then((status) => {
               if (status === "success") {
                 setDifferenceType(newDifferenceType);

@@ -63,7 +63,7 @@ const EditProjectForm: FC<{
         onChange={(v) => form.setValue("project", v)}
         options={useProjectOptions(
           permissionRequired,
-          current ? [current] : []
+          current ? [current] : [],
         )}
         initialOption={initialOption}
         autoFocus={true}

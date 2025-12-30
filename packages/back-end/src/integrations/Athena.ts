@@ -1,23 +1,19 @@
+import { FormatDialect } from "shared/types/sql";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   cancelAthenaQuery,
   runAthenaQuery,
 } from "back-end/src/services/athena";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-} from "back-end/src/types/Integration";
-import { AthenaConnectionParams } from "back-end/types/integrations/athena";
-import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
   params!: AthenaConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<AthenaConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "trino";
@@ -30,7 +26,7 @@ export default class Athena extends SqlIntegration {
   }
   runQuery(
     sql: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<QueryResponse> {
     return runAthenaQuery(this.params, sql, setExternalId);
   }
@@ -41,7 +37,7 @@ export default class Athena extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }

@@ -1,9 +1,9 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
+import { DimensionInterface } from "shared/types/dimension";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { DimensionInterface } from "back-end/types/dimension";
 import {
   createDimension,
   deleteDimensionById,
@@ -30,7 +30,7 @@ type GetDimensionsResponse = {
  */
 export const getDimensions = async (
   req: GetDimensionsRequest,
-  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>
+  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>,
 ) => {
   const { org } = getContextFromReq(req);
   const dimensions = await findDimensionsByOrganization(org.id);
@@ -65,7 +65,7 @@ type CreateDimensionResponse = {
  */
 export const postDimension = async (
   req: CreateDimensionRequest,
-  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>
+  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -91,6 +91,7 @@ export const postDimension = async (
     dateUpdated: new Date(),
     organization: org.id,
     description,
+    managedBy: "",
   });
 
   res.status(200).json({
@@ -128,7 +129,7 @@ type PutDimensionResponse = {
  */
 export const putDimension = async (
   req: PutDimensionRequest,
-  res: Response<PutDimensionResponse>
+  res: Response<PutDimensionResponse>,
 ) => {
   const context = getContextFromReq(req);
   if (!context.permissions.canUpdateDimension()) {
@@ -149,13 +150,14 @@ export const putDimension = async (
     throw new Error("Invalid data source");
   }
 
-  await updateDimension(id, org.id, {
+  await updateDimension(context, dimension, {
     datasource,
     userIdType,
     name,
     sql,
     owner,
     description,
+    managedBy: "",
     dateUpdated: new Date(),
   });
 
@@ -182,7 +184,7 @@ type DeleteDimensionResponse = {
  */
 export const deleteDimension = async (
   req: DeleteDimensionRequest,
-  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>
+  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -196,7 +198,7 @@ export const deleteDimension = async (
     throw new Error("Could not find dimension");
   }
   try {
-    await deleteDimensionById(id, org.id);
+    await deleteDimensionById(context, dimension);
   } catch (e) {
     return res.status(400).json({
       status: 400,

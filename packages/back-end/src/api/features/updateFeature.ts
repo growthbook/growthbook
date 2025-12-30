@@ -1,8 +1,14 @@
-import { featureRequiresReview, validateFeatureValue } from "shared/util";
+import {
+  featureRequiresReview,
+  validateFeatureValue,
+  validateScheduleRules,
+} from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "back-end/types/openapi";
+import { UpdateFeatureResponse } from "shared/types/openapi";
+import { updateFeatureValidator, RevisionRules } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateFeatureValidator } from "back-end/src/validators/openapi";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
@@ -14,7 +20,6 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { FeatureInterface } from "back-end/types/feature";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -22,9 +27,9 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
+import { validateCustomFields } from "./validation";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -33,23 +38,34 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
-    const { owner, archived, description, project, tags } = req.body;
+    const { owner, archived, description, project, tags, customFields } =
+      req.body;
 
-    const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
+    const effectiveProject =
+      typeof project === "undefined" ? feature.project : project;
+
+    const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
     if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
       req.context.permissions.throwPermissionError();
+    }
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      feature.project &&
+      (effectiveProject == null || effectiveProject === "")
+    ) {
+      throw new Error("Must specify a project");
     }
 
     if (project != null) {
       if (
         !req.context.permissions.canPublishFeature(
           feature,
-          Array.from(getEnabledEnvironments(feature, orgEnvs))
+          Array.from(getEnabledEnvironments(feature, orgEnvs)),
         ) ||
         !req.context.permissions.canPublishFeature(
           { project },
-          Array.from(getEnabledEnvironments(feature, orgEnvs))
+          Array.from(getEnabledEnvironments(feature, orgEnvs)),
         )
       ) {
         req.context.permissions.throwPermissionError();
@@ -61,14 +77,48 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       const projects = await req.context.getProjects();
       if (!projects.some((p) => p.id === req.body.project)) {
         throw new Error(
-          `Project id ${req.body.project} is not a valid project.`
+          `Project id ${req.body.project} is not a valid project.`,
         );
       }
+    }
+
+    // check if the custom fields are valid
+    if (customFields) {
+      await validateCustomFields(customFields, req.context, req.body.project);
     }
 
     // ensure environment keys are valid
     if (req.body.environments != null) {
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
+    }
+
+    // Validate scheduleRules before processing environment settings
+    if (req.body.environments) {
+      Object.entries(req.body.environments).forEach(
+        ([envName, envSettings]) => {
+          if (envSettings.rules) {
+            envSettings.rules.forEach((rule, ruleIndex) => {
+              if (rule.scheduleRules) {
+                // Validate that the org has access to schedule rules
+                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
+                  throw new Error(
+                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
+                  );
+                }
+                try {
+                  validateScheduleRules(rule.scheduleRules);
+                } catch (error) {
+                  throw new Error(
+                    `Invalid scheduleRules in environment "${envName}", rule ${
+                      ruleIndex + 1
+                    }: ${error.message}`,
+                  );
+                }
+              }
+            });
+          }
+        },
+      );
     }
 
     // ensure default value matches value type
@@ -81,8 +131,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.body.environments != null
         ? updateInterfaceEnvSettingsFromApiEnvSettings(
             feature,
-            req.body.environments
+            req.body.environments,
           )
+        : null;
+
+    const prerequisites =
+      req.body.prerequisites != null
+        ? req.body.prerequisites?.map((p) => ({
+            id: p,
+            condition: `{"value": true}`,
+          }))
         : null;
 
     const jsonSchema =
@@ -98,7 +156,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
       ...(environmentSettings != null ? { environmentSettings } : {}),
+      ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
+      ...(customFields != null ? { customFields } : {}),
     };
 
     if (
@@ -109,16 +169,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     ) {
       if (
         !req.context.permissions.canPublishFeature(
-          updates,
+          { project: effectiveProject },
           Array.from(
             getEnabledEnvironments(
               {
                 ...feature,
                 ...updates,
               },
-              orgEnvs
-            )
-          )
+              orgEnvs,
+            ),
+          ),
         )
       ) {
         req.context.permissions.throwPermissionError();
@@ -131,6 +191,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const changedEnvironments: string[] = [];
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
+      const revisedRules: RevisionRules = {};
+
+      // Copy over current envSettings to revision as this endpoint support partial updates
+      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+        revisedRules[env] = settings.rules;
+      });
 
       let hasChanges = false;
       if (
@@ -147,29 +213,31 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             if (
               !isEqual(
                 settings.rules,
-                feature.environmentSettings?.[env]?.rules || []
+                feature.environmentSettings?.[env]?.rules || [],
               )
             ) {
               hasChanges = true;
               changedEnvironments.push(env);
-              revisionChanges.rules = revisionChanges.rules || {};
-              revisionChanges.rules[env] = settings.rules;
+              // if the rule is different from the current feature value, update revisionChanges
+              revisedRules[env] = settings.rules;
             }
-          }
+          },
         );
       }
+
+      revisionChanges.rules = revisedRules;
 
       if (hasChanges) {
         const reviewRequired = featureRequiresReview(
           feature,
           changedEnvironments,
           defaultValueChanged,
-          req.organization.settings
+          req.organization.settings,
         );
         if (reviewRequired) {
           if (!req.context.permissions.canBypassApprovalChecks(feature)) {
             throw new Error(
-              "This feature requires a review and the API key being used does not have permission to bypass reviews."
+              "This feature requires a review and the API key being used does not have permission to bypass reviews.",
             );
           }
         }
@@ -193,13 +261,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const updatedFeature = await updateFeatureToDb(
       req.context,
       feature,
-      updates
+      updates,
     );
 
     await addTagsDiff(
-      req.organization.id,
+      req.context.org.id,
       feature.tags || [],
-      updates.tags || []
+      updates.tags || [],
     );
 
     await req.audit({
@@ -215,7 +283,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,
-      feature.id
+      feature.id,
     );
     const revision = await getRevision({
       context: req.context,
@@ -223,6 +291,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       featureId: updatedFeature.id,
       version: updatedFeature.version,
     });
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
@@ -230,7 +300,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         groupMap,
         experimentMap,
         revision,
+        safeRolloutMap,
       }),
     };
-  }
+  },
 );

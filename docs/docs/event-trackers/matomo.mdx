@@ -5,6 +5,8 @@ sidebar_label: Matomo
 slug: /guide/matomo
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Configuring GrowthBook to work with Matomo
 
 GrowthBook makes it easy to do A/B testing using Matomo as an event source. This guide shows you how to set up GrowthBook to work with self-hosted Matomo and the MySQL/MariaDB that it runs on.
@@ -17,8 +19,7 @@ specifically for Matomo. For this guide, we'll use Javascript (Next.js).
 Matomo lets you track custom events, and you can adjust the `Event Category`, `Event Action`, `Event Name`, and
 `Event Value`. You can read more about the custom tracking call at [Matomo's documentation site](https://matomo.org/faq/reports/implement-event-tracking-with-matomo/).
 
-:::note
-There are a few caveats with Matomo's event schema that it is important to be aware of.
+:::caution Caveats with Matomo's event schema
 
   <ul>
     <li>
@@ -55,7 +56,7 @@ const growthbook = new GrowthBook({
 });
 ```
 
-:::note
+:::info Event Name prefix for Matomo
 We use the string prefix on the Event Name so that it is saved correctly, as `0`
 saves as `null`, but `v0` works correctly. This prefix is stripped with the SQL
 exposure query in step two.
@@ -124,35 +125,27 @@ export default function MyApp({ Component, pageProps }) {
 
 From within the GrowthBook application, navigate to the `Data Sources` page from within the `Analysis` section. Click on `add data source` and select `Matomo` from the list of event sources.
 
-<img
-  src="/images/new-data-sources-modal.png"
-  alt="Add Matomo data source"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Add Matomo data source](/images/new-data-sources-modal.png)
+</MaxWidthImage>
 
 After you select Matomo, you will be prompted to connect to your MySQL/Maria database.
 
-<img
-    src="/images/guides/matomo-2-connect-to-db.png"
-    alt="Add MySQL/MariaDB data source"
-    style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Add MySQL/MariaDB data source](/images/guides/matomo-2-connect-to-db.png)
+</MaxWidthImage>
 
 Once you've completed the connection GrowthBook will and then you can adjust some settings specific to your instance and how you implemented the Matomo tracking code.
 
-<img
-  src="/images/guides/matomo-3-matomo-options.png"
-  alt="Setting Matomo options"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Setting Matomo options](/images/guides/matomo-3-matomo-options.png)
+</MaxWidthImage>
 
 When you save, you'll have the experiment exposure queries for anonymous and user_id set for you.
 
-<img
-  src="/images/guides/matomo-4-matomo-anon.png"
-  alt="Default Matomo experiment exposure query"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage>
+  ![Default Matomo experiment exposure query](/images/guides/matomo-4-matomo-anon.png)
+</MaxWidthImage>
 
 You can test running this query directly against your database. It should return a list of experiments exposure events.
 

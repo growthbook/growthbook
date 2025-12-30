@@ -1,10 +1,12 @@
 import React from "react";
-import { SchemaFormat } from "back-end/types/datasource";
+import { SchemaFormat } from "shared/types/datasource";
 import clsx from "clsx";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 export type LanguageLogo = {
   logo?: string;
   label: string;
+  invertDark?: boolean;
 };
 
 export const eventTrackerMapping: Record<
@@ -34,6 +36,7 @@ export const eventTrackerMapping: Record<
   fullstory: {
     logo: "/images/3rd-party-logos/datasource-logos/fullstory.png",
     label: "Fullstory",
+    invertDark: true,
   },
   matomo: {
     logo: "/images/3rd-party-logos/datasource-logos/matomo.svg",
@@ -54,6 +57,7 @@ export const eventTrackerMapping: Record<
   mparticle: {
     logo: "/images/3rd-party-logos/datasource-logos/mparticle.svg",
     label: "mparticle",
+    invertDark: true,
   },
   firebase: {
     logo: "/images/3rd-party-logos/datasource-logos/firebase.svg",
@@ -83,10 +87,11 @@ export default function DataSourceLogo({
   size?: number;
   titlePrefix?: string;
 }) {
+  const { theme } = useAppearanceUITheme();
   if (!Object.keys(eventTrackerMapping).includes(eventTracker)) {
     return null;
   }
-  const { logo, label } = eventTrackerMapping[eventTracker];
+  const { logo, label, invertDark } = eventTrackerMapping[eventTracker];
 
   return (
     <span
@@ -97,7 +102,12 @@ export default function DataSourceLogo({
       {logo && (
         <img
           src={logo}
-          style={{ height: size, fontSize: size, lineHeight: size }}
+          style={{
+            height: size,
+            fontSize: size,
+            lineHeight: size,
+            filter: theme === "dark" && invertDark ? "invert(1)" : undefined,
+          }}
           className="m-0"
           title={titlePrefix + label}
         />

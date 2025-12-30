@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
 import {
@@ -26,12 +26,8 @@ export function useBanditSummaryTooltip({
   probabilities: number[];
   regressionAdjustmentEnabled?: boolean;
 }) {
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-    tooltipData,
-  } = useTooltip<TooltipData>();
+  const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
+    useTooltip<TooltipData>();
 
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
@@ -39,7 +35,7 @@ export function useBanditSummaryTooltip({
   });
 
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
-    null
+    null,
   );
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
@@ -59,7 +55,7 @@ export function useBanditSummaryTooltip({
   const hoverRow = (
     variationRow: number,
     event: React.PointerEvent<HTMLElement>,
-    settings?: TooltipHoverSettings
+    settings?: TooltipHoverSettings,
   ) => {
     if (hoveredVariationRow !== null && hoveredVariationRow !== variationRow) {
       closeTooltip();
@@ -77,10 +73,10 @@ export function useBanditSummaryTooltip({
     const offsetY = settings?.offsetY ?? 3;
     const el = event.target as HTMLElement;
     const target = settings?.targetClassName
-      ? (el.classList.contains(settings.targetClassName)
+      ? ((el.classList.contains(settings.targetClassName)
           ? el
-          : el.closest(`.${settings.targetClassName}`)) ?? el
-      : (el.tagName === "td" ? el : el.closest("td")) ?? el;
+          : el.closest(`.${settings.targetClassName}`)) ?? el)
+      : ((el.tagName === "td" ? el : el.closest("td")) ?? el);
 
     let yAlign: YAlign = "top";
     let targetTop: number =
@@ -95,13 +91,13 @@ export function useBanditSummaryTooltip({
       (layoutX === "element-left"
         ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 25
         : layoutX === "element-right"
-        ? (target.getBoundingClientRect()?.right ?? 0) - 25
-        : layoutX === "element-center"
-        ? ((target.getBoundingClientRect()?.left ?? 0) +
-            (target.getBoundingClientRect()?.right ?? 0)) /
-            2 -
-          TOOLTIP_WIDTH / 2
-        : event.clientX + 10) + offsetX;
+          ? (target.getBoundingClientRect()?.right ?? 0) - 25
+          : layoutX === "element-center"
+            ? ((target.getBoundingClientRect()?.left ?? 0) +
+                (target.getBoundingClientRect()?.right ?? 0)) /
+                2 -
+              TOOLTIP_WIDTH / 2
+            : event.clientX + 10) + offsetX;
 
     // Prevent tooltip from going off the screen (x-axis)
     if (targetLeft < 10) {

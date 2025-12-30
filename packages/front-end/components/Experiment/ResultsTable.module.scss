@@ -1,0 +1,26 @@
+.timeSeriesCell {
+  padding: 0;
+  padding-bottom: 0.75rem;
+  box-shadow:
+    rgba(102, 102, 102, 0.01) 0 1px inset,
+    rgba(102, 102, 102, 0.01) 0 -1px inset,
+    0 6px 6px -6px var(--slate-a3) inset;
+}
+
+.expandAnimation {
+  overflow: hidden;
+  display: block;
+  animation: expandHeight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  width: 100%;
+}
+
+@keyframes expandHeight {
+  0% {
+    max-height: 0;
+    overflow: hidden;
+  }
+  100% {
+    max-height: 350px;
+    overflow: visible;
+  }
+}

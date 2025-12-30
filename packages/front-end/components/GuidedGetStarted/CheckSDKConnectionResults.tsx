@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import clsx from "clsx";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaCheck } from "react-icons/fa";
@@ -32,7 +32,7 @@ export default function TestConnectionResults({
             <FaCheck
               className={clsx(
                 "align-self-center mb-4 p-3",
-                styles.connectedBubble
+                styles.connectedBubble,
               )}
             />
           </div>

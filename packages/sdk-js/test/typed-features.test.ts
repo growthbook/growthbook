@@ -75,10 +75,10 @@ describe("typed features", () => {
       const growthbook = new GrowthBook(context);
 
       expect(growthbook.getFeatureValue("greeting", "??")).toEqual(
-        "¡Bienvenidos y bienvenidas a Donas Acme!"
+        "¡Bienvenidos y bienvenidas a Donas Acme!",
       );
       expect(growthbook.getFeatureValue<string>("greeting", "??")).toEqual(
-        "¡Bienvenidos y bienvenidas a Donas Acme!"
+        "¡Bienvenidos y bienvenidas a Donas Acme!",
       );
       expect(growthbook.getFeatureValue("unknown_key", "??")).toEqual("??");
       expect(growthbook.isOn("unknown_key")).toEqual(false);
@@ -99,7 +99,7 @@ describe("typed features", () => {
       const growthbook = new GrowthBook(context);
 
       expect(growthbook.evalFeature("greeting").value).toEqual(
-        "Bienvenue au Beignets Acme !"
+        "Bienvenue au Beignets Acme !",
       );
       expect(growthbook.evalFeature("unknown_key").value).toEqual(null);
     });
@@ -127,7 +127,7 @@ describe("typed features", () => {
       const growthbook = new GrowthBook(context);
 
       expect(growthbook.feature("greeting").value).toEqual(
-        "Bienvenue au Beignets Acme !"
+        "Bienvenue au Beignets Acme !",
       );
       expect(growthbook.feature("unknown_key").value).toEqual(null);
     });

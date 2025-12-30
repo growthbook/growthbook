@@ -1,8 +1,8 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "back-end/types/feature-revision";
+} from "shared/types/feature-revision";
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { ago, date } from "shared/dates";
@@ -112,10 +112,10 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
 
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
   { feature, revision },
-  ref
+  ref,
 ) => {
   const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
-    `/feature/${feature.id}/${revision.version}/log`
+    `/feature/${feature.id}/${revision.version}/log`,
   );
   useImperativeHandle(ref, () => ({
     async mutateLog() {
@@ -127,9 +127,9 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
     if (!data) return [];
     const logs = [...data.log];
     logs.sort((a, b) =>
-      ((b.timestamp as unknown) as string).localeCompare(
-        (a.timestamp as unknown) as string
-      )
+      (b.timestamp as unknown as string).localeCompare(
+        a.timestamp as unknown as string,
+      ),
     );
 
     const byDate: Record<string, RevisionLog[]> = {};

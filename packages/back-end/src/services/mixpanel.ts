@@ -1,6 +1,6 @@
 import { URLSearchParams } from "url";
-import fetch from "node-fetch";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import { fetch } from "back-end/src/util/http.util";
 
 const encodedParams = new URLSearchParams();
 
@@ -36,7 +36,7 @@ function indentJs(js: string) {
 export function formatQuery(
   js: string,
   params?: Record<string, unknown>,
-  extraJs?: string
+  extraJs?: string,
 ) {
   return indentJs(`
     ${params ? `var params = ${JSON.stringify(params, null, 2)};` : ""}
@@ -49,7 +49,7 @@ export function formatQuery(
 
 export async function runQuery<T extends MixpanelResultRow>(
   conn: MixpanelConnectionParams,
-  query: string
+  query: string,
 ): Promise<T> {
   encodedParams.set("script", query);
   encodedParams.set("project_id", conn.projectId);
@@ -66,7 +66,7 @@ export async function runQuery<T extends MixpanelResultRow>(
       "Content-Type": "application/x-www-form-urlencoded",
       "X-Mixpanel-Integration-ID": "growthbook",
       Authorization: `Basic ${Buffer.from(
-        `${conn.username}:${conn.secret}`
+        `${conn.username}:${conn.secret}`,
       ).toString("base64")}`,
     },
     body: encodedParams,

@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { evaluatePrerequisiteState } from "shared/util";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { generateFeaturesPayload } from "back-end/src/services/features";
 
 describe("Prerequisite reduction in SDK Payload", () => {
@@ -372,18 +372,22 @@ describe("Prerequisite reduction in SDK Payload", () => {
       {
         condition: { country: "US-1" },
         force: true,
+        id: "1",
       },
       {
         condition: { country: "US-3" },
         force: true,
+        id: "3",
       },
       {
         condition: { country: "US-4" },
         force: true,
+        id: "4",
       },
       {
         condition: { country: "US-7" },
         force: true,
+        id: "7",
       },
     ]);
   });
@@ -553,7 +557,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
     const parent1State = evaluatePrerequisiteState(
       features[1],
       featuresMap,
-      "production"
+      "production",
     );
     expect(parent1State.state).toEqual("conditional");
 
@@ -570,6 +574,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           country: "US-1",
         },
         force: true,
+        id: "1",
       },
       {
         condition: {
@@ -584,6 +589,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           },
         ],
         force: true,
+        id: "2",
       },
       {
         condition: {
@@ -598,6 +604,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           },
         ],
         force: true,
+        id: "3",
       },
       {
         condition: {
@@ -614,6 +621,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           },
         ],
         force: true,
+        id: "4",
       },
       {
         condition: {
@@ -630,6 +638,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           },
         ],
         force: true,
+        id: "5",
       },
       {
         condition: {
@@ -652,6 +661,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           },
         ],
         force: true,
+        id: "6",
       },
       {
         condition: {
@@ -668,6 +678,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           },
         ],
         force: true,
+        id: "7",
       },
       {
         condition: {
@@ -684,6 +695,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
           },
         ],
         force: true,
+        id: "8",
       },
     ]);
   });

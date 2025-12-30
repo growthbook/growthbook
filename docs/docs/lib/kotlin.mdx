@@ -5,146 +5,994 @@ sidebar_label: Kotlin (Android)
 slug: kotlin
 ---
 
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
 # Kotlin (Android)
 
 This SDK supports both Java and Kotlin Android apps using Android SDK 21 and above.
 
+:::info Server/Backend Development?
+If you're building JVM backend applications (servers, CLIs, workers), see the [Kotlin (JVM)](/lib/kotlin-jvm) documentation instead, which provides JVM-optimized guidance without Android-specific dependencies.
+:::
+
+<SdkResources sdk="kotlin" />
+
 ## Installation
 
-```
+<Tabs>
+<TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
+
+```kotlin
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.1.60'
-    implementation 'io.growthbook.sdk:NetworkDispatcherKtor:1.0.2'
+    implementation("io.growthbook.sdk:GrowthBook:6.1.1")
+
+    // Choose ONE network dispatcher:
+    implementation("io.growthbook.sdk:NetworkDispatcherKtor:1.0.6")
+    // OR
+    implementation("io.growthbook.sdk:NetworkDispatcherOkHttp:1.0.2")
+
+    // Optional: JSON serialization helpers
+    implementation("io.growthbook.sdk:GrowthBookKotlinxSerialization:1.0.0")
 }
 ```
 
-`NetworkDispatcherKtor` artifact provides `NetworkDispatcher` implementation based on `ktor` network client. If you want to use implementation based on `OkHttp` network client you can use `NetworkDispatcherOkHttp` artifact.
+</TabItem>
+<TabItem value="gradle-groovy" label="Gradle (Groovy DSL)">
 
-## Quick Usage
+```groovy
+repositories {
+    mavenCentral()
+}
 
-To create a GrowthBook SDK instance, use `GBSDKBuilder`. Then, you can evaluate feature flags or run experiments.
+dependencies {
+    implementation 'io.growthbook.sdk:GrowthBook:6.1.1'
 
-```kotlin
-// User attributes for targeting and assigning users to experiment variations
-val attrs = HashMap<String, Any>()
-attrs.put("id", "123")
-attrs.put("env", "dev")
-attrs.put("betaUser", true)
+    // Choose ONE network dispatcher:
+    implementation 'io.growthbook.sdk:NetworkDispatcherKtor:1.0.6'
+    // OR
+    implementation 'io.growthbook.sdk:NetworkDispatcherOkHttp:1.0.2'
 
-val gb = GBSDKBuilder(
-  // Fetch and cache feature definitions from GrowthBook API
-  // If self-hosting, we recommend using a CDN in production
-  apiKey = "key_123abc",
-  hostURL = "https://cdn.growthbook.io/",
-  attributes = attrs,
-  trackingCallback = { gbExperiment, gbExperimentResult ->
-    // TODO: track in your analytics system
-    print("Viewed Experiment")
-    print("Experiment Id: " + gbExperiment.key)
-    print("Variation Id: " + gbExperimentResult.variationId)
-  },
-  networkDispatcher = GBNetworkDispatcherKtor(),
-  encryptionKey = "insert_your_encription_key_if_you_are_using_encryption",
-).initialize()
+    // Optional: JSON serialization helpers
+    implementation 'io.growthbook.sdk:GrowthBookKotlinxSerialization:1.0.0'
+}
 ```
 
-If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+</TabItem>
+</Tabs>
 
-If you are accessing features the first time there will be no features right after `initialize()` method call because features are not got from Backend yet. If you need to access features as soon as possible, you need to use `GBCacheRefreshHandler`. You can pass your implementation of `GBCacheRefreshHandler` through `setRefreshHandler()` method. Code snippet:
+### Network Dispatchers
+
+The SDK requires a network dispatcher for fetching feature definitions:
+
+- **NetworkDispatcherKtor** - Based on Ktor network client (Android engine)
+- **NetworkDispatcherOkHttp** - Based on OkHttp network client (recommended for most Android apps)
+
+## Quick Start
+
+To create a GrowthBook SDK instance, use `GBSDKBuilder`. The SDK uses coroutines, so initialize it from a coroutine scope.
 
 ```kotlin
-class ForExampleMainActivity {
-    var growthBookSDK: GrowthBookSDK? = null
+import com.sdk.growthbook.GBSDKBuilder
+import com.sdk.growthbook.network.NetworkDispatcherKtor
+import kotlinx.coroutines.launch
 
-    fun someInitMethodForExampleOnStart() {
-        val gbSdkBuilder = GBSDKBuilder(
-            ....
+class MainActivity : AppCompatActivity() {
+    private lateinit var growthBook: GrowthBookSDK
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // User attributes for targeting and assigning users to experiment variations
+        val attributes = mapOf(
+            "id" to "user-123".toGbString(),
+            "deviceType" to "Android".toGbString(),
+            "appVersion" to "1.2.0".toGbString(),
+            "isPremium" to true.toGbBoolean()
         )
 
-        gbSdkBuilder.setRefreshHandler { isRefreshed, gbError ->
-            // access your features
-            growthBookSDK?.feature("your_feature_key").on
+        lifecycleScope.launch {
+            growthBook = GBSDKBuilder(
+                // Fetch and cache feature definitions from GrowthBook API
+                apiKey = "sdk_abc123",
+                apiHost = "https://cdn.growthbook.io/",
+                attributes = attributes,
+                trackingCallback = { experiment, result ->
+                    // Track experiment views in your analytics system
+                    analytics.track("experiment_viewed", mapOf(
+                        "experiment_id" to experiment.key,
+                        "variation_id" to result.variationId
+                    ))
+                },
+                networkDispatcher = NetworkDispatcherKtor(),
+                // Optional: encryption key if using encrypted features
+                encryptionKey = "your_encryption_key_here"
+            ).initialize()
         }
-
-        growthBookSDK = gbSdkBuilder.initialize()
     }
 }
 ```
 
-## Using Features
+### Configuration Options
 
-The `feature` method takes a String feature name and returns a `FeatureResult` object with a few useful properties:
+The `GBSDKBuilder` accepts several configuration options:
 
-- **value** (`Any`) - The assigned value of the feature
-- **on** (`Boolean`) - The value cast to a boolean
-- **off** (`Boolean`) - The value cast to a boolean and then negated
-- **source** (`String`) - Why the value was assigned to the user. One of "unknownFeature", "defaultValue", "force", or "experiment"
+- **apiKey** (`String`, required) - Your GrowthBook API key
+- **apiHost** (`String`, required) - API host URL (typically `https://cdn.growthbook.io/`)
+- **streamingHost** (`String`, optional) - Streaming host URL for SSE updates
+- **attributes** (`Map<String, Any>`) - User attributes for targeting
+- **trackingCallback** (`(GBExperiment, GBExperimentResult) -> Unit`) - Analytics tracking callback
+- **networkDispatcher** (`NetworkDispatcher`, required) - Network implementation
+- **encryptionKey** (`String`, optional) - Decryption key for encrypted features
+- **enabled** (`Boolean`, default: true) - Enable/disable all experiments
+- **qaMode** (`Boolean`, default: false) - Disable randomization for testing
+- **forcedVariations** (`Map<String, Int>`, optional) - Force specific variations for QA
 
-When the source is "experiment", there are 2 additional properties that tell you which experiment was used and more details about the result of the experiment:
+### Updating User Attributes
 
-- **experiment** (`GBExperiment`)
-- **experimentResult** (`GBExperimentResult`)
-
-Here are some examples:
+You can update user attributes at any time using `setAttributes()`. This completely replaces the attributes object:
 
 ```kotlin
-val feature = gb.feature("my-feature")
+// Update attributes when user logs in
+growthBook.setAttributes(mapOf(
+    "id" to userId.toGbString(),
+    "isPremium" to true.toGbBoolean(),
+    "country" to "US".toGbString(),
+))
+```
 
-// Do something if feature is truthy
-if (feature.on) { }
+:::warning Attribute Changes
+Be aware that changing attributes may change the assigned feature values, which can be disorienting to users if not handled carefully.
+:::
 
-// Do something if feature is falsy
-if (feature.off) { }
+### Feature Refresh Handler
 
-// Print the actual value of the feature
-// (depending on the feature, might be a string, number, boolean, etc.)
-println(feature.value)
+To access features as soon as they're loaded from the backend, use `setRefreshHandler()`:
 
-// Print the experiment id used to assign the feature value
-if (feature.source == "experiment") {
-  println(feature.experiment.key)
+```kotlin
+class MainActivity : AppCompatActivity() {
+    private var growthBookSDK: GrowthBookSDK? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        lifecycleScope.launch {
+            val builder = GBSDKBuilder(
+                apiKey = "sdk_abc123",
+                apiHost = "https://cdn.growthbook.io/",
+                attributes = mapOf("id" to userId),
+                networkDispatcher = NetworkDispatcherKtor()
+            )
+
+            builder.setRefreshHandler { isRefreshed, error ->
+                if (isRefreshed) {
+                    // Features are now loaded and ready to use
+                    val feature = growthBookSDK?.feature("new-checkout-flow")
+                    if (feature?.on == true) {
+                        // Show new checkout flow
+                    }
+                } else {
+                    Log.e("GrowthBook", "Failed to refresh features", error)
+                }
+            }
+
+            growthBookSDK = builder.initialize()
+        }
+    }
+}
+```
+
+## Evaluating Features
+
+### Feature Result
+
+The `feature()` method takes a feature key and returns a `GBFeatureResult` object with the following properties:
+
+- **gbValue** (`GBValue`) - The assigned value of the feature (typed wrapper)
+- **value** (`Any?`) - The raw value for backward compatibility
+- **on** (`Boolean`) - The value cast to a boolean
+- **off** (`Boolean`) - The value cast to a boolean and then negated
+- **source** (`GBFeatureSource`) - Why the value was assigned: `unknownFeature`, `defaultValue`, `force`, or `experiment`
+
+When the source is `experiment`, there are additional properties:
+
+- **experiment** (`GBExperiment`) - The experiment configuration
+- **experimentResult** (`GBExperimentResult`) - The experiment evaluation result
+
+### Basic Usage
+
+```kotlin
+// Boolean feature flag
+val newCheckoutEnabled = growthBook.feature("new-checkout-flow").on
+if (newCheckoutEnabled) {
+    showNewCheckout()
+} else {
+    showLegacyCheckout()
+}
+
+// String feature
+val buttonColor = growthBook.feature("button-color").gbValue as? GBString
+
+// Numeric feature
+val maxRetries = growthBook.feature("max-retries").gbValue as? GBNumber
+
+// Complex JSON feature
+val config = growthBook.feature("service-config").gbValue as? GBJson
+```
+
+### Working with GBValue
+
+Starting with version 2.0.0, feature values use the `GBValue` type for better type safety:
+
+```kotlin
+val featureResult = growthBook.feature("my-feature")
+
+// Access the typed value
+when (val gbValue = featureResult.gbValue) {
+    is GBBoolean -> {
+        val boolValue = gbValue.value
+        println("Boolean: $boolValue")
+    }
+    is GBString -> {
+        val stringValue = gbValue.value
+        println("String: $stringValue")
+    }
+    is GBNumber -> {
+        val numberValue = gbValue.value // Double
+        println("Number: $numberValue")
+    }
+    is GBArray -> {
+        println("GbArray: $gbValue")
+    }
+    is GBJson -> {
+        println("JSON: $gbValue")
+    }
+    is GBNull -> {
+        println("Null value")
+    }
+    is GBValue.Unknown -> {
+        println("GBValue.Unknown")
+    }
+}
+```
+
+### Typed Feature Access
+
+For convenience, you can directly get a typed feature value (available in version 2.0.0+):
+
+```kotlin
+// Get feature value with inferred type
+val maxRetries: Int? = growthBook.feature<Int>("max-retries")
+val buttonColor: String? = growthBook.feature<String>("button-color")
+val isEnabled: Boolean? = growthBook.feature<Boolean>("new-feature-enabled")
+
+// Use with default values
+val timeout = growthBook.feature<Long>("api-timeout") ?: 5000L
+```
+
+### Feature Source and Experiments
+
+Check why a feature value was assigned and access experiment details:
+
+```kotlin
+val feature = growthBook.feature("premium-feature")
+
+println("Feature value: ${feature.gbValue}")
+println("Is on: ${feature.on}")
+println("Source: ${feature.source}")
+
+// If the feature value came from an experiment
+if (feature.source == GBFeatureSource.experiment) {
+    val experiment = feature.experiment
+    val result = feature.experimentResult
+
+    println("Experiment key: ${experiment?.key}")
+    println("Variation ID: ${result?.variationId}")
+    println("In experiment: ${result?.inExperiment}")
 }
 ```
 
 ## Running Inline Experiments
 
-Instead of just using features defined in the GrowthBook API, you can also just run an experiment directly. This is done with the `run` method which takes a `GBExperiment` object as an argument and returns a `GBExperimentResult` object:
+You can run experiments directly without defining them in the GrowthBook API. This is useful for programmatic experiments:
 
 ```kotlin
-cal exp = GBExperiment()
-exp.key = "my-experiment"
-exp.variations = arrayOf("control", "variation")
+val experiment = GBExperiment(
+    key = "button-color-test"
+    variations = listOf(
+        "blue", "red", "green"
+    ).map { it.toGbString() },
+    weights = listOf(0.5f, 0.3f, 0.2f),
+)
 
-val result = gb.run(exp)
+val result = growthBook.run(experiment)
 
-// Either "control" or "variation"
-println(result.value)
+// Get the assigned variation
+val color = result.value as GBString // "blue", "red", or "green"
+println("Assigned color: $color")
+
+if (result.inExperiment) {
+    // User is in the experiment
+    applyButtonColor(color)
+}
 ```
 
-The `GBExperiment` class has two required properties - `key` and `variations`. There are also a number of optional properties:
+### Experiment Configuration
+
+The `GBExperiment` class accepts the following properties:
+
+**Required:**
 
 - **key** (`String`) - The unique identifier for this experiment
-- **variations** (`Any[]`) - Array of variations to decide between
-- **weights** (`Float[]`) - How to weight traffic between variations. Must add to 1.
-- **active** (`Boolean`) - If set to false, always return the control (first variation)
-- **coverage** (`Float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
-- **condition** (`GBCondition`) - Optional targeting condition
-- **namespace** (`[String, Int, Int]`) - Adds the experiment to a namespace
-- **force** (`Int`) - All users included in the experiment will be forced into the specific variation index
-- **hashAttribute** (`String`) - What user attribute should be used to assign variations (defaults to `id`)
+- **variations** (`Array<Any>`) - Array of variations to choose between
 
-The `GBExperimentResult` object returns the following properties:
+**Optional:**
 
-- **inExperiment** (`Boolean`)
-- **variationId** (`Int`) - The array index of the assigned variation
+- **weights** (`FloatArray`) - Traffic distribution across variations (must sum to 1.0)
+- **active** (`Boolean`, default: true) - If false, always return control (first variation)
+- **coverage** (`Float`, default: 1.0) - Percentage of users to include (0.0 to 1.0)
+- **condition** (`GBCondition`) - Targeting conditions for the experiment
+- **namespace** (`GBNamespace`) - Namespace for experiment isolation
+- **force** (`Int`) - Force all users to a specific variation index (for QA)
+- **hashAttribute** (`String`, default: "id") - User attribute for variation assignment
+
+### Experiment Result
+
+The `GBExperimentResult` object contains:
+
+- **inExperiment** (`Boolean`) - Whether the user is in the experiment
+- **variationId** (`Int`) - The index of the assigned variation
 - **value** (`Any`) - The value of the assigned variation
-- **hashAttribute** (`String`) - The user attribute used to assign a variation
-- **hashValue** (`String`) - The value of the attribute used to assign a variation
+- **hashAttribute** (`String`) - The attribute used for hashing
+- **hashValue** (`String`) - The value of the hash attribute
+- **key** (`String`) - The experiment key
+- **bucket** (`Float`) - The hash bucket value (0.0 to 1.0)
+- **stickyBucketUsed** (`Boolean`) - Whether sticky bucketing was used
 
-## More Documentation
+### Advanced Experiment Example
 
-The GitHub repo for this SDK has more detailed class and method documentation - https://github.com/growthbook/growthbook-kotlin
+```kotlin
+// Complex experiment with targeting and custom weights
+val pricingExperiment = GBExperiment(
+    key = "pricing-test",
+    variations = listOf(9.99, 14.99, 19.99)
+        .map { it.toGbNumber() },
+    hashAttribute = "userId" // Use custom attribute for hashing
+).apply {
+    weights = listOf(0.5f, 0.3f, 0.2f)
+    coverage = 0.8f // Only 80% of users
+
+    // Only target premium users in the US
+    condition = JsonObject(mapOf(
+        "country" to JsonPrimitive("US"),
+        "plan" to JsonPrimitive("premium"),
+    ))
+}
+
+val result = growthBook.run(pricingExperiment)
+
+if (result.inExperiment) {
+    val price = result.value as GBNumber
+    displayPrice(price)
+
+    // Track the experiment view
+    analytics.track("pricing_experiment_viewed", mapOf(
+        "price" to price,
+        "variation_id" to result.variationId
+    ))
+}
+```
+
+## Sticky Bucketing
+
+Sticky Bucketing ensures users see consistent experiment variations even when targeting conditions or user attributes change. This prevents jarring user experiences from switching variations mid-experiment.
+
+### How It Works
+
+When sticky bucketing is enabled, the SDK persists experiment assignments in local storage. The next time the user is evaluated for that experiment, they'll get the same variation they saw before.
+
+### Implementation
+
+Implement the `GBStickyBucketService` interface to enable sticky bucketing:
+
+```kotlin
+import com.sdk.growthbook.stickyBucketing.GBStickyBucketService
+import com.sdk.growthbook.stickyBucketing.GBStickyAssignmentsDocument
+import android.content.SharedPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+
+class StickyBucketServiceImpl(
+    override val coroutineScope: CoroutineScope,
+    private val preferences: SharedPreferences,
+    private val prefix: String = "gb_sticky_"
+) : GBStickyBucketService {
+
+    override suspend fun getAssignments(
+        attributeName: String,
+        attributeValue: String
+    ): GBStickyAssignmentsDocument? {
+        val key = "$prefix${attributeName}||$attributeValue"
+        val json = preferences.getString(key, null) ?: return null
+
+        return try {
+            Json.decodeFromString<GBStickyAssignmentsDocument>(json)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun saveAssignments(doc: GBStickyAssignmentsDocument) {
+        val key = "$prefix${doc.attributeName}||${doc.attributeValue}"
+        val json = Json.encodeToString(doc)
+
+        preferences.edit()
+            .putString(key, json)
+            .apply()
+    }
+
+    override suspend fun getAllAssignments(
+        attributes: Map<String, String>
+    ): Map<String, GBStickyAssignmentsDocument> {
+        val docs = mutableMapOf<String, GBStickyAssignmentsDocument>()
+
+        attributes.forEach { (attrName, attrValue) ->
+            getAssignments(attrName, attrValue)?.let { doc ->
+                val docKey = "${doc.attributeName}||${doc.attributeValue}"
+                docs[docKey] = doc
+            }
+        }
+
+        return docs
+    }
+}
+```
+
+### Using Sticky Bucketing
+
+Pass your sticky bucket service implementation when building the SDK:
+
+```kotlin
+val preferences = context.getSharedPreferences("growthbook_prefs", Context.MODE_PRIVATE)
+
+val stickyBucketService = StickyBucketServiceImpl(
+    coroutineScope = lifecycleScope,
+    preferences = preferences
+)
+
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = mapOf("id" to userId),
+    networkDispatcher = NetworkDispatcherKtor(),
+    stickyBucketService = stickyBucketService
+).initialize()
+```
+
+:::info Sticky Bucket Documents
+Each sticky bucket document contains:
+
+- `attributeName` - The attribute used to identify the user (e.g., "id", "deviceId")
+- `attributeValue` - The value of that attribute (e.g., "user-123")
+- `assignments` - A map of experiment assignments (e.g., `{"exp1__0": "control"}`)
+  :::
+
+## Automatic Features Refresh
+
+The GrowthBook SDK supports automatic feature refresh through multiple mechanisms to ensure your app always has the latest feature definitions.
+
+### Server-Sent Events (SSE)
+
+Server-Sent Events provide real-time feature updates without polling. When enabled, the SDK maintains a persistent connection to receive live updates whenever features change.
+
+```kotlin
+val growthBook = gbSdkBuilder.initialize()
+val flow = growthBook.autoRefreshFeatures()
+flow.launchIn(lifecycleScope)
+```
+
+### Manual Refresh
+
+You can manually trigger feature refresh at any time:
+
+```kotlin
+lifecycleScope.launch {
+    val success = growthBook.refreshCache()
+    if (success) {
+        Log.d("GrowthBook", "Features refreshed successfully")
+    } else {
+        Log.w("GrowthBook", "Feature refresh failed, using cached features")
+    }
+}
+```
+
+### Cache Configuration
+
+Configure caching behavior for optimal performance:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    // ... other config
+    cacheTimeout = 300_000L, // 5 minutes cache TTL
+    enableSSE = true, // Enable real-time updates
+    onFeatureRefresh = { success, error ->
+        // Handle refresh events
+    }
+).initialize()
+
+// Check cache status
+val cacheInfo = growthBook.getCacheInfo()
+Log.d("GrowthBook", "Cache age: ${cacheInfo.ageMs}ms")
+Log.d("GrowthBook", "Feature count: ${cacheInfo.featureCount}")
+```
+
+:::info SSE Support
+SSE is automatically enabled when the server supports it (indicated by the `x-sse-support: enabled` header). The SDK will fall back to periodic polling if SSE is not available.
+:::
+
+## Experiment Tracking and Feature Usage Callbacks
+
+The SDK provides comprehensive tracking capabilities for experiments and feature usage.
+
+### Experiment Tracking Callback
+
+The tracking callback is called whenever a user is included in an experiment. This is essential for analytics and experiment analysis.
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = mapOf("id" to userId),
+    networkDispatcher = NetworkDispatcherKtor(),
+
+    // Experiment tracking callback
+    trackingCallback = { experiment, result ->
+        // Send to your analytics system
+        analytics.track("experiment_viewed", mapOf(
+            "experiment_id" to experiment.key,
+            "variation_id" to result.variationId,
+            "variation_value" to result.value,
+            "user_id" to userId,
+            "in_experiment" to result.inExperiment,
+            "hash_used" to result.hashUsed
+        ))
+
+        // Optional: Track in your own analytics
+        firebaseAnalytics.logEvent("experiment_viewed") {
+            param("experiment_id", experiment.key)
+            param("variation_id", result.variationId.toString())
+        }
+    }
+).initialize()
+```
+
+:::info Tracking Timing
+The tracking callback is only called when the user is actually included in the experiment. If they're not in the experiment, this callback won't be triggered.
+:::
+
+### Feature Usage Callback
+
+The feature usage callback is called every time a feature is evaluated, regardless of whether it's part of an experiment or not.
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = mapOf("id" to userId),
+    networkDispatcher = NetworkDispatcherKtor(),
+
+    // Feature usage callback
+    featureUsageCallback = { featureKey, result ->
+        // Track feature usage for monitoring and debugging
+        Log.d("GrowthBook", "Feature evaluated: $featureKey = ${result.value}")
+
+        // Send to monitoring systems
+        monitoring.trackFeatureUsage(featureKey, result.value)
+
+        // Optional: Track in analytics
+        analytics.track("feature_used", mapOf(
+            "feature_key" to featureKey,
+            "feature_value" to result.value.toString(),
+            "source" to result.source.name,
+            "user_id" to userId
+        ))
+    }
+).initialize()
+```
+
+### Advanced Tracking Example
+
+Combine both callbacks for comprehensive tracking:
+
+```kotlin
+class GrowthBookManager {
+    private val analytics: AnalyticsService
+    private val monitoring: MonitoringService
+
+    fun initializeGrowthBook(userId: String): GrowthBookSDK {
+        return GBSDKBuilder(
+            apiKey = "sdk_abc123",
+            apiHost = "https://cdn.growthbook.io/",
+            attributes = mapOf("id" to userId),
+            networkDispatcher = NetworkDispatcherKtor(),
+
+            // Experiment tracking
+            trackingCallback = { experiment, result ->
+                trackExperiment(experiment, result, userId)
+            },
+
+            // Feature usage tracking
+            featureUsageCallback = { featureKey, result ->
+                trackFeatureUsage(featureKey, result, userId)
+            }
+        ).initialize()
+    }
+
+    private fun trackExperiment(experiment: GBExperiment, result: GBExperimentResult, userId: String) {
+        // Send to multiple analytics platforms
+        analytics.track("experiment_viewed", mapOf(
+            "experiment_id" to experiment.key,
+            "variation_id" to result.variationId,
+            "user_id" to userId
+        ))
+
+        // Track in monitoring for alerting
+        monitoring.recordExperimentView(experiment.key, result.variationId)
+    }
+
+    private fun trackFeatureUsage(featureKey: String, result: GBFeatureResult, userId: String) {
+        // Monitor feature usage patterns
+        monitoring.recordFeatureUsage(featureKey, result.value)
+
+        // Track feature performance
+        if (result.source == GBFeatureSource.experiment) {
+            analytics.track("feature_experiment_used", mapOf(
+                "feature_key" to featureKey,
+                "experiment_id" to result.experiment?.key,
+                "user_id" to userId
+            ))
+        }
+    }
+}
+```
+
+## Encrypted Features and Secure Attributes
+
+GrowthBook supports encryption for sensitive feature definitions and secure attribute hashing for privacy protection.
+
+### Encrypted Features
+
+Encrypted features ensure that sensitive feature configurations never reach the client in plain text.
+
+#### Setup Encrypted Features
+
+1. **Enable encryption in GrowthBook**: Go to your SDK Connection settings and enable "Encrypt SDK Payload"
+2. **Get your encryption key**: Copy the encryption key from the SDK Connection settings
+3. **Configure the SDK**:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = mapOf("id" to userId),
+    networkDispatcher = NetworkDispatcherKtor(),
+
+    // Provide your encryption key
+    encryptionKey = "your_encryption_key_here"
+).initialize()
+```
+
+#### Working with Encrypted Features
+
+```kotlin
+// The SDK automatically decrypts features when evaluating
+val encryptedFeature = growthBook.feature("sensitive-feature")
+val value = encryptedFeature.value
+
+// You can check if encryption is working by looking at the source
+if (encryptedFeature.source == GBFeatureSource.defaultValue) {
+    Log.d("GrowthBook", "Feature decrypted successfully")
+}
+```
+
+:::warning Security Best Practices
+
+- Store encryption keys securely (use Android Keystore or environment variables)
+- Never commit encryption keys to version control
+- Rotate encryption keys regularly
+- Use different keys for different environments
+  :::
+
+### Secure Attributes
+
+Secure attributes allow you to target users based on sensitive information without exposing that information to the client.
+
+#### Setup Secure Attributes
+
+1. **Enable secure attribute hashing** in your SDK Connection settings
+2. **Hash sensitive attributes** before passing them to the SDK:
+
+```kotlin
+import java.security.MessageDigest
+import java.nio.charset.StandardCharsets
+
+class SecureAttributeManager {
+    private val salt = "your_organization_salt" // From Organization Settings
+
+    fun hashSecureAttribute(value: String): String {
+        val input = value + salt
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(input.toByteArray(StandardCharsets.UTF_8))
+        return hash.joinToString("") { "%02x".format(it) }
+    }
+
+    fun createSecureAttributes(user: User): Map<String, Any> {
+        return mapOf(
+            "id" to user.id,
+            "email" to hashSecureAttribute(user.email), // Hash sensitive email
+            "phone" to hashSecureAttribute(user.phone), // Hash sensitive phone
+            "country" to user.country, // Non-sensitive attributes remain plain
+            "plan" to user.plan
+        )
+    }
+}
+```
+
+#### Using Secure Attributes
+
+```kotlin
+val secureManager = SecureAttributeManager()
+
+// Hash sensitive attributes before setting them
+val secureAttributes = secureManager.createSecureAttributes(currentUser)
+
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = secureAttributes,
+    networkDispatcher = NetworkDispatcherKtor()
+).initialize()
+
+// The SDK will use hashed attributes for targeting
+val targetedFeature = growthBook.feature("premium-feature")
+```
+
+#### Advanced Secure Attribute Example
+
+```kotlin
+class UserAttributeManager {
+    private val salt = BuildConfig.GROWTHBOOK_SECURE_ATTRIBUTE_SALT
+
+    private fun sha256(input: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(input.toByteArray(StandardCharsets.UTF_8))
+        return hash.joinToString("") { "%02x".format(it) }
+    }
+
+    fun buildUserAttributes(user: User): Map<String, Any> {
+        val attributes = mutableMapOf<String, Any>()
+
+        // Non-sensitive attributes
+        attributes["id"] = user.id
+        attributes["country"] = user.country
+        attributes["plan"] = user.plan
+        attributes["signupDate"] = user.signupDate
+
+        // Hash sensitive attributes
+        if (user.email.isNotEmpty()) {
+            attributes["email"] = sha256(user.email + salt)
+        }
+        if (user.phone.isNotEmpty()) {
+            attributes["phone"] = sha256(user.phone + salt)
+        }
+
+        // Hash PII for targeting
+        attributes["userSegment"] = sha256("${user.id}_${user.plan}" + salt)
+
+        return attributes
+    }
+}
+
+// Usage in your app
+val attributeManager = UserAttributeManager()
+val attributes = attributeManager.buildUserAttributes(currentUser)
+
+growthBook.setAttributes(attributes)
+```
+
+### Custom Attributes
+
+You can define custom attributes for advanced targeting scenarios:
+
+```kotlin
+val customAttributes = mapOf(
+    // Standard attributes
+    "id" to userId,
+    "country" to "US",
+
+    // Custom business attributes
+    "lifetimeValue" to userLifetimeValue,
+    "lastPurchaseDate" to lastPurchaseTimestamp,
+    "preferredCategory" to userPreferences.category,
+    "deviceModel" to Build.MODEL,
+    "appVersion" to BuildConfig.VERSION_NAME,
+
+    // Computed attributes
+    "isHighValueCustomer" to (userLifetimeValue > 1000),
+    "daysSinceLastPurchase" to daysSinceLastPurchase,
+
+    // Array attributes for complex targeting
+    "purchasedCategories" to listOf("electronics", "books", "clothing"),
+    "subscriptionFeatures" to userSubscriptions.features
+)
+
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = customAttributes,
+    networkDispatcher = NetworkDispatcherKtor()
+).initialize()
+```
+
+## Remote Evaluation
+
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
+
+Remote Evaluation evaluates feature flags on a secure server instead of the client, ensuring sensitive targeting rules and unused variations never reach the client.
+
+### When to Use
+
+Use Remote Evaluation when you need to:
+
+- Keep targeting rules private
+- Hide unused feature variations
+- Prevent users from seeing all possible values
+- Add an extra layer of security
+
+:::warning Backend Required
+Remote Evaluation requires either:
+
+- GrowthBook Cloud with Remote Evaluation enabled
+- A self-hosted GrowthBook Proxy Server
+- A custom remote evaluation backend
+  :::
+
+### Setup
+
+Enable Remote Evaluation in your SDK Connection settings in GrowthBook, then configure the SDK:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = mapOf("id" to userId),
+    networkDispatcher = NetworkDispatcherKtor(),
+    remoteEval = true // Enable remote evaluation
+).initialize()
+```
+
+When Remote Evaluation is enabled, the SDK will make an API call to evaluate features whenever user attributes change.
+
+:::info Sticky Bucketing with Remote Evaluation
+If using Sticky Bucketing with Remote Evaluation, configure sticky bucketing on your remote evaluation backend. You don't need to provide a `StickyBucketService` to the client SDK.
+:::
+
+## Serialization Support
+
+The optional `GrowthBookKotlinxSerialization` module provides helpers for working with complex feature values using kotlinx.serialization.
+
+### Installation
+
+```kotlin
+dependencies {
+    implementation("io.growthbook.sdk:GrowthBookKotlinxSerialization:1.0.0")
+}
+```
+
+### Usage
+
+Define your data classes and use the serialization helpers:
+
+```kotlin
+import kotlinx.serialization.Serializable
+import com.sdk.growthbook.serialization.*
+
+@Serializable
+data class AppConfig(
+    val apiTimeout: Long,
+    val maxRetries: Int,
+    val enabledFeatures: List<String>,
+    val themeColors: Map<String, String>
+)
+
+// Get a complex feature value as a typed object
+val configFeature = growthBook.feature("app-config")
+val config: AppConfig? = configFeature.gbValue.decodeAs<AppConfig>()
+
+config?.let {
+    println("API Timeout: ${it.apiTimeout}")
+    println("Max Retries: ${it.maxRetries}")
+    println("Enabled Features: ${it.enabledFeatures.joinToString()}")
+
+    // Use the configuration in your app
+    setupApiClient(timeout = it.apiTimeout, retries = it.maxRetries)
+}
+```
+
+:::info When to Use
+You only need the serialization module if you work with complex JSON feature values and want type-safe deserialization. For simple boolean, string, and number features, you can skip this dependency.
+:::
+
+## ProGuard Configuration (Android)
+
+If you use ProGuard or R8 for code shrinking and obfuscation, add these rules to your `proguard-rules.pro`:
+
+```proguard
+# Core GrowthBook SDK
+-keep class com.sdk.growthbook.** { *; }
+
+# Kotlinx Serialization
+-keep class kotlinx.serialization.json.** { *; }
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.SerializationKt
+
+# Keep serializers
+-keep,includedescriptorclasses class com.sdk.growthbook.**$$serializer { *; }
+
+# Keep companion objects
+-keepclassmembers class com.sdk.growthbook.** {
+    *** Companion;
+}
+
+# Keep classes with KSerializer
+-keepclasseswithmembers class com.sdk.growthbook.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+```
+
+:::warning Important
+These are baseline rules. Depending on your app's configuration and the features you use, you may need additional rules. Test thoroughly with ProGuard enabled.
+:::
+
+## Version History and Breaking Changes
+
+The Kotlin SDK has undergone several major version updates with breaking changes:
+
+### Recent Versions
+
+- **v1.1.63** (2024-11-26) - Changed `value` field type to `kotlinx.serialization.json.JsonElement`
+- **v2.0.0** (2025-01-10) - Renamed `value` to `gbValue` with `GBValue` type; added typed `feature<T>()` method
+- **v3.0.0** (2025-01-27) - Changed user attributes to use `GBValue` types
+- **v4.0.0** (2025-03-03) - Changed `initialize()` to suspend method
+- **v5.0.0** (2025-05-22) - Moved GBValue to Core module
+- **v6.0.0** (2025-05-22) - Renamed `hostURL` to `apiHost`, added `streamingHost`
+- **v6.1.0** (2025-08-15) - Changed `GBStickyBucketService` methods to suspend, added `coroutineScope`
+
+### Migration Guidance
+
+When upgrading between major versions, review the changelog on the [GitHub repository](https://github.com/growthbook/growthbook-kotlin) for detailed migration instructions.
+
+## Further Reading
+
+The GitHub repository contains comprehensive documentation including:
+
+- Detailed API reference
+- Advanced usage examples
+- Integration guides
+- Contributing guidelines
+
+**GitHub Repository:** https://github.com/growthbook/growthbook-kotlin
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="kotlin" />

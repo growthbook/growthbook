@@ -1,0 +1,117 @@
+---
+title: SQL Templates
+description: Learn about using template variables and expressions to create dynamic SQL queries in GrowthBook
+sidebar_label: SQL Templates
+slug: /app/sql-templates
+---
+
+# SQL Templates
+
+SQL in GrowthBook is first run through a templating engine (Handlebars) to allow for dynamic SQL generation. This allows for several advanced use cases, outlined below.
+
+## Date Filters
+
+GrowthBook always includes a date filter in the SQL queries it generates, but because the queries are complex with multiple nested subqueries, database engines are not always able to fully take advantage of these filters for optimization.
+
+If you have a date-partitioned table, you can use template variables within the SQL you enter in GrowthBook to provide better hints to your database. This applies to metrics, fact tables, and experiment assignment queries.
+
+Here's an example of a simple Fact Table definition that uses template variables:
+
+```sql
+SELECT
+  timestamp,
+  user_id,
+  amount
+FROM purchases
+WHERE
+  timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+```
+
+The following variables are available:
+
+- **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
+- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format
+- **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
+- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format
+
+There is also a `date` helper you can use with the ISO variables to format the date exactly how you need it. For example `{{date endDateISO "yyyyMMdd"}}`
+
+| code | meaning   |
+| ---- | --------- |
+| yyyy | year      |
+| MM   | month     |
+| dd   | day       |
+| HH   | hour      |
+| mm   | minutes   |
+| ss   | seconds   |
+| t    | timestamp |
+
+Here's a full example of this being used:
+
+```sql
+SELECT
+  user_id as user_id,
+  received_at as timestamp
+FROM
+  orders
+WHERE
+  partition_key BETWEEN
+    '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
+```
+
+:::note
+
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of `{{ startDate }}`).
+
+:::
+
+## Phase Filters
+
+Experiments can have multiple phases. By default, we use date ranges to restrict data to the current phase, but this may be imprecise if your experiment configs are cached in your app or data is delayed.
+
+For more accurate filtering, we expose a `phase.index` template variable. This is a 0-based index of the current phase, so the first phase is `0`, the second phase is `1`, etc.
+
+Here is an example Experiment Assignment Query that is using a phase filter. The phase may not always be available (e.g. when fetching data for an entire experiment), so it must be wrapped in a conditional check:
+
+```sql
+SELECT
+  user_id,
+  timestamp,
+  experiment_id,
+  variation_id
+FROM experiment_assignments
+WHERE
+  timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+  {{#if phase.index}} AND phase_index = {{phase.index}} {{/if}}
+```
+
+:::note
+
+The filter will still be added above even when the phase index is `0`, despite that being a falsy value in most languages. The only time it will not be included is when there is no phase information at all (i.e. it is undefined).
+
+:::
+
+## Custom Field Filters
+
+Enterprise customers can define Custom Fields for experiments, which can then be used in SQL templates to add additional filtering logic. For example, if you have a Custom Field called `region`, you can use that in your Fact Table definition to filter data based on the region for a specific experiment.
+
+Like phases, Custom Fields are not always defined, so you must wrap them in a conditional block. Here's an example:
+
+```sql
+SELECT
+  user_id,
+  timestamp,
+  event_type
+FROM events
+WHERE
+  1=1
+  {{#if customFields.region}} AND region = '{{customFields.region}}' {{/if}}
+```
+
+The `1=1` part is a common SQL trick to make appending additional `AND` conditions easier. When the Custom Field is unavailable, the WHERE clause will simple be `WHERE 1=1`, which is always true and does not filter out any data.
+
+:::note
+
+Similar to dates, you must add surrounding quotes yourself when using string Custom Fields (e.g. use `'{{customFields.region}}'` instead of `{{customFields.region}}`).
+
+:::

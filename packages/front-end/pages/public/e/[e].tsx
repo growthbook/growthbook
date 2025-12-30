@@ -1,20 +1,20 @@
 import {
   ExperimentReportSSRData,
-} from "back-end/types/report";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+} from "shared/types/report";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
-import {ExperimentInterfaceStringDates, ExperimentPhaseStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
+import {ExperimentInterfaceStringDates, ExperimentPhaseStringDates, LinkedFeatureInfo} from "shared/types/experiment";
 import { truncateString } from "shared/util";
 import {date, daysBetween} from "shared/dates";
 import React, {useEffect, useRef, useState} from "react";
 import clsx from "clsx";
-import {VisualChangesetInterface} from "back-end/types/visual-changeset";
-import {URLRedirectInterface} from "back-end/types/url-redirect";
+import {VisualChangesetInterface} from "shared/types/visual-changeset";
+import {URLRedirectInterface} from "shared/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
-import {Tabs, TabsList, TabsTrigger} from "@/components/Radix/Tabs";
+import {Tabs, TabsList, TabsTrigger} from "@/ui/Tabs";
 import {useScrollPosition} from "@/hooks/useScrollPosition";
 import {useLocalStorage} from "@/hooks/useLocalStorage";
 import {ExperimentTab} from "@/components/Experiment/TabbedPage";
@@ -106,17 +106,17 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     | undefined
     | ExperimentPhaseStringDates;
   const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted)
+    ? date(phases[0].dateStarted, "UTC")
     : null;
   const endDate =
     phases.length > 0
       ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded ?? "")
+        ? date(lastPhase.dateEnded, "UTC")
         : "now"
       : date(new Date());
   const dateRangeLabel = startDate
-    ? `${date(startDate)} — ${
-      endDate ? date(endDate) : "now"
+    ? `${startDate} — ${
+      endDate ? endDate : "now"
     }`
     : "";
 
@@ -128,12 +128,12 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
-    <div className={`container-fluid public ${isBandit ? "bandit" : "experiment"}`}>
+    <div className={`public pb-2 ${isBandit ? "bandit" : "experiment"}`}>
       <Head>
-        <title>{experiment?.name || "Experiment not found"}</title>
+        <title>{experiment?.name ? `${experiment.name} | GrowthBook` : "Experiment not found | GrowthBook"}</title>
         <meta
           property="og:title"
-          content={experiment?.name ? (`${isBandit ? "Bandit" : "Experiment"}: ${experiment?.name}`) : "Experiment not found"}
+          content={experiment?.name ? (`${isBandit ? "Bandit" : "Experiment"}: ${experiment?.name} | GrowthBook`) : "Experiment not found | GrowthBook"}
         />
         <meta
           property="og:description"
@@ -178,7 +178,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
                 onValueChange={(t: ExperimentTab) => setTab(t)}
                 style={{ width: "100%" }}
               >
-                <TabsList size="3">
+                <TabsList size="3" className="px-3">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="results">Results</TabsTrigger>
                   {isBandit ? (
@@ -187,7 +187,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
                 </TabsList>
               </Tabs>
 
-              <div className="col-auto experiment-date-range">
+              <div className="col-auto experiment-date-range pr-3">
                 {startDate && (
                   <span>
                     {startDate} — {endDate}{" "}
@@ -203,7 +203,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
       )}
 
       {experiment ? (
-        <div className="mt-3 container-fluid pagecontents">
+        <div className="mt-3 container-fluid pagecontents px-3">
           <div
             className={clsx(
               "pt-3",

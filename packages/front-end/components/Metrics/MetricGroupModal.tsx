@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
@@ -36,7 +36,7 @@ const MetricGroupModal: FC<{
 
   const projectOptions = useProjectOptions(
     () => permissionsUtil.canCreateMetricGroup(),
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
 
   return (
@@ -58,11 +58,11 @@ const MetricGroupModal: FC<{
                 projects: value.projects,
                 metrics: value.metrics,
               }),
-            }
+            },
           );
           if (!results) {
             throw new Error(
-              "Failed to create or update metric group. Please try again."
+              "Failed to create or update metric group. Please try again.",
             );
           }
         } else {
@@ -78,11 +78,11 @@ const MetricGroupModal: FC<{
                 projects: value.projects,
                 metrics: value.metrics,
               }),
-            }
+            },
           );
           if (!results || !results.metricGroup) {
             throw new Error(
-              "Failed to create or update metric group. Please try again."
+              "Failed to create or update metric group. Please try again.",
             );
           }
         }

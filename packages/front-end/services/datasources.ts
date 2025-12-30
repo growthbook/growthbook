@@ -5,8 +5,8 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
-} from "back-end/types/datasource";
-import { MetricType } from "back-end/types/metric";
+} from "shared/types/datasource";
+import { MetricType } from "shared/types/metric";
 
 function camelToUnderscore(orig: string) {
   return orig
@@ -67,15 +67,15 @@ WHERE
     type === "revenue"
       ? ",\n  event_value_in_usd as value"
       : type === "binomial"
-      ? ""
-      : `,\n  value_param.value.${
-          type === "count" ? "int" : "float"
-        }_value as value`
+        ? ""
+        : `,\n  value_param.value.${
+            type === "count" ? "int" : "float"
+          }_value as value`
   }
 FROM
   ${tablePrefix}\`events_*\`${
-      joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
-    }
+    joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
+  }
 WHERE
   event_name = '{{eventName}}'${
     joinValueParams ? `\n  AND value_param.key = 'value'` : ""
@@ -129,10 +129,10 @@ WHERE
     type === "revenue"
       ? ",\n  tr_total as value"
       : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  se_value as value`
+        ? ""
+        : type === "count"
+          ? ",\n  1 as value"
+          : `,\n  se_value as value`
   }
 FROM
   ${tablePrefix}events
@@ -168,8 +168,8 @@ FROM
     type === "revenue"
       ? ",\n  revenue as value"
       : type === "binomial"
-      ? ""
-      : `,\n  {{valueColumn}} as value`
+        ? ""
+        : `,\n  {{valueColumn}} as value`
   }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
@@ -211,10 +211,10 @@ WHERE
     type === "revenue"
       ? ",\n  event_properties:revenue as value"
       : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  event_properties:value as value`
+        ? ""
+        : type === "count"
+          ? ",\n  1 as value"
+          : `,\n  event_properties:value as value`
   }
 FROM
   ${tablePrefix}EVENTS_AMPLITUDE_PROJECT_ID
@@ -583,7 +583,7 @@ export function getTablePrefix(params: DataSourceParams) {
 export function getInitialSettings(
   type: SchemaFormat,
   params: DataSourceParams,
-  options?: Record<string, string | number>
+  options?: Record<string, string | number>,
 ) {
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
@@ -596,8 +596,8 @@ export function getInitialSettings(
           type === "user_id"
             ? "Logged-in user id"
             : type === "anonymous_id"
-            ? "Anonymous visitor id"
-            : "",
+              ? "Anonymous visitor id"
+              : "",
       };
     }),
     queries: {
@@ -609,8 +609,8 @@ export function getInitialSettings(
           id === "user_id"
             ? "Logged-in Users"
             : id === "anonymous_id"
-            ? "Anonymous Visitors"
-            : id,
+              ? "Anonymous Visitors"
+              : id,
         description: "",
         query: schema.getExperimentSQL(getTablePrefix(params), id, options),
       })),
@@ -622,7 +622,7 @@ export function getInitialSettings(
 export function getExposureQuery(
   settings?: DataSourceSettings,
   exposureQueryId?: string,
-  userIdType?: string
+  userIdType?: string,
 ): ExposureQuery | null {
   const queries = settings?.queries?.exposure || [];
 
@@ -634,7 +634,7 @@ export function getExposureQuery(
 
 export function getInitialMetricQuery(
   datasource: DataSourceInterfaceWithParams,
-  type: MetricType
+  type: MetricType,
 ): [string[], string] {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
@@ -653,19 +653,19 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
 
   if (sql.match(/;(\s|\n)*$/)) {
     throw new Error(
-      "Don't end your SQL statements with semicolons since it will break our generated queries"
+      "Don't end your SQL statements with semicolons since it will break our generated queries",
     );
   }
 
   const missingCols = requiredColumns.filter(
-    (col) => !sql.toLowerCase().includes(col.toLowerCase())
+    (col) => !sql.toLowerCase().includes(col.toLowerCase()),
   );
 
   if (missingCols.length > 0) {
     throw new Error(
       `Missing the following required columns: ${missingCols
         .map((col) => '"' + col + '"')
-        .join(", ")}`
+        .join(", ")}`,
     );
   }
 }
