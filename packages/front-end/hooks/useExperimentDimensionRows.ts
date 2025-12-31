@@ -111,19 +111,47 @@ export function useExperimentDimensionRows({
         });
 
         // Filter metrics by group or allowed metric IDs
+        // For groups, expand them first and check if any expanded metric matches
         filteredGoalMetrics = goalMetrics.filter((id) => {
           if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
+          // If it's a group, expand it and check if any metric matches
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              return group.metrics.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+          }
           return false;
         });
         filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
           if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
+          // If it's a group, expand it and check if any metric matches
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              return group.metrics.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+          }
           return false;
         });
         filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
           if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
+          // If it's a group, expand it and check if any metric matches
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              return group.metrics.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+          }
           return false;
         });
       }
