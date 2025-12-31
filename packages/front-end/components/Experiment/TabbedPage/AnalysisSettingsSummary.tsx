@@ -574,56 +574,15 @@ export default function AnalysisSettingsSummary({
   const shouldRenderMetricFilter = hasActiveFilters || hasAnyAvailableFilter;
 
   return (
-    <Box px="3" pt="3" mb="2">
-      <Flex align="center" justify="between" gap="6" pr="1">
-        <Flex align="center">
-          {setDimension && (
-            <DimensionChooser
-              value={dimension ?? ""}
-              setValue={setDimension}
-              precomputedDimensions={precomputedDimensions}
-              activationMetric={!!experiment.activationMetric}
-              datasourceId={experiment.datasource}
-              exposureQueryId={experiment.exposureQueryId}
-              userIdType={userIdType as "user" | "anonymous" | undefined}
-              analysis={analysis}
-              snapshot={snapshot}
-              mutate={mutateSnapshot}
-              setAnalysisSettings={setAnalysisSettings}
-              setSnapshotDimension={setSnapshotDimension}
+    <Box px="3" pt="3" mb="3">
+      <Flex align="center" justify="between" gapX="6" gapY="2" pr="1" wrap="wrap-reverse">
+        <Box style={{ flex: "1 0 auto", display: "flex", justifyContent: "flex-end", whiteSpace: "nowrap" }}>
+          <Flex align="center" gap="4">
+            <Metadata
+              label={unitDisplayName}
+              value={numberFormatter.format(totalUnits ?? 0)}
+              style={{ whiteSpace: "nowrap" }}
             />
-          )}
-          {shouldRenderMetricFilter && (
-            <>
-              {setDimension && (
-                <Separator orientation="vertical" ml="5" mr="2" />
-              )}
-              <ResultsMetricFilter
-                availableMetricTags={availableMetricTags}
-                metricTagFilter={metricTagFilter}
-                setMetricTagFilter={setMetricTagFilter}
-                availableMetricsFilters={availableMetricsFilters}
-                metricsFilter={metricsFilter}
-                setMetricsFilter={setMetricsFilter}
-                availableSliceTags={availableSliceTags}
-                sliceTagsFilter={sliceTagsFilter}
-                setSliceTagsFilter={setSliceTagsFilter}
-                showMetricFilter={showMetricFilter}
-                setShowMetricFilter={setShowMetricFilter}
-                dimension={dimension}
-              />
-            </>
-          )}
-        </Flex>
-
-        <Box style={{ flex: 1 }} />
-
-        <Metadata
-          label={unitDisplayName}
-          value={numberFormatter.format(totalUnits ?? 0)}
-        />
-
-        <Flex align="center" gap="4">
           {hasData && (
             <Flex align="center" gap="2">
               <QueriesLastRun
@@ -698,88 +657,131 @@ export default function AnalysisSettingsSummary({
               />
             )}
 
-          <ResultMoreMenu
-            experiment={experiment}
-            datasource={datasource}
-            forceRefresh={
-              allMetrics.length > 0
-                ? async () => {
-                    await apiCall<{
-                      snapshot: ExperimentSnapshotInterface;
-                    }>(`/experiment/${experiment.id}/snapshot?force=true`, {
-                      method: "POST",
-                      body: JSON.stringify({
-                        phase,
-                        dimension,
-                      }),
-                    })
-                      .then((res) => {
-                        setAnalysisSettings(null);
-                        if (baselineRow !== 0) {
-                          setBaselineRow?.(0);
-                          setVariationFilter?.([]);
-                        }
-                        setDifferenceType("relative");
-                        trackSnapshot(
-                          "create",
-                          "ForceRerunQueriesButton",
-                          datasource?.type || null,
-                          res.snapshot,
-                        );
-                        mutateSnapshot();
-                        mutate();
-                        setRefreshError("");
+            <ResultMoreMenu
+              experiment={experiment}
+              datasource={datasource}
+              forceRefresh={
+                allMetrics.length > 0
+                  ? async () => {
+                      await apiCall<{
+                        snapshot: ExperimentSnapshotInterface;
+                      }>(`/experiment/${experiment.id}/snapshot?force=true`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          phase,
+                          dimension,
+                        }),
                       })
-                      .catch((e) => {
-                        console.error(e);
-                        setRefreshError(e.message);
-                      });
-                  }
-                : undefined
-            }
-            editMetrics={editMetrics}
-            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
-            notebookFilename={experiment.trackingKey}
-            queries={
-              latest && latest.status !== "error" && latest.queries
-                ? latest.queries
-                : snapshot?.queries
-            }
-            queryError={snapshot?.error}
-            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-            hasData={hasData}
-            metrics={useMemo(() => {
-              const metricMap = new Map<string, ExperimentMetricInterface>();
-              const allBaseMetrics = [...metrics, ...factMetrics];
-              allBaseMetrics.forEach((metric) =>
-                metricMap.set(metric.id, metric),
-              );
-              const factTableMap = new Map(
-                factTables.map((table) => [table.id, table]),
-              );
+                        .then((res) => {
+                          setAnalysisSettings(null);
+                          if (baselineRow !== 0) {
+                            setBaselineRow?.(0);
+                            setVariationFilter?.([]);
+                          }
+                          setDifferenceType("relative");
+                          trackSnapshot(
+                            "create",
+                            "ForceRerunQueriesButton",
+                            datasource?.type || null,
+                            res.snapshot,
+                          );
+                          mutateSnapshot();
+                          mutate();
+                          setRefreshError("");
+                        })
+                        .catch((e) => {
+                          console.error(e);
+                          setRefreshError(e.message);
+                        });
+                    }
+                  : undefined
+              }
+              editMetrics={editMetrics}
+              notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+              notebookFilename={experiment.trackingKey}
+              queries={
+                latest && latest.status !== "error" && latest.queries
+                  ? latest.queries
+                  : snapshot?.queries
+              }
+              queryError={snapshot?.error}
+              supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+              hasData={hasData}
+              metrics={useMemo(() => {
+                const metricMap = new Map<string, ExperimentMetricInterface>();
+                const allBaseMetrics = [...metrics, ...factMetrics];
+                allBaseMetrics.forEach((metric) =>
+                  metricMap.set(metric.id, metric),
+                );
+                const factTableMap = new Map(
+                  factTables.map((table) => [table.id, table]),
+                );
 
-              // Expand slice metrics and add them to the map
-              expandAllSliceMetricsInMap({
-                metricMap,
-                factTableMap,
-                experiment,
-                metricGroups,
-              });
+                // Expand slice metrics and add them to the map
+                expandAllSliceMetricsInMap({
+                  metricMap,
+                  factTableMap,
+                  experiment,
+                  metricGroups,
+                });
 
-              return getAllExpandedMetricIdsFromExperiment({
-                exp: experiment,
-                expandedMetricMap: metricMap,
-                includeActivationMetric: false,
-                metricGroups,
-              });
-            }, [experiment, metrics, factMetrics, factTables, metricGroups])}
-            results={analysis?.results}
-            variations={variations}
-            trackingKey={experiment.trackingKey}
-            dimension={dimension}
-            project={experiment.project}
-          />
-        </Flex>
+                return getAllExpandedMetricIdsFromExperiment({
+                  exp: experiment,
+                  expandedMetricMap: metricMap,
+                  includeActivationMetric: false,
+                  metricGroups,
+                });
+              }, [experiment, metrics, factMetrics, factTables, metricGroups])}
+              results={analysis?.results}
+              variations={variations}
+              trackingKey={experiment.trackingKey}
+              dimension={dimension}
+              project={experiment.project}
+            />
+          </Flex>
+        </Box>
+
+        <Box style={{ flex: "1 0 auto", order: -1, whiteSpace: "nowrap" }}>
+          <Flex align="center">
+            {setDimension && (
+              <DimensionChooser
+                value={dimension ?? ""}
+                setValue={setDimension}
+                precomputedDimensions={precomputedDimensions}
+                activationMetric={!!experiment.activationMetric}
+                datasourceId={experiment.datasource}
+                exposureQueryId={experiment.exposureQueryId}
+                userIdType={userIdType as "user" | "anonymous" | undefined}
+                analysis={analysis}
+                snapshot={snapshot}
+                mutate={mutateSnapshot}
+                setAnalysisSettings={setAnalysisSettings}
+                setSnapshotDimension={setSnapshotDimension}
+              />
+            )}
+            {shouldRenderMetricFilter && (
+              <>
+                {setDimension && (
+                  <Separator orientation="vertical" ml="5" mr="2" />
+                )}
+                <ResultsMetricFilter
+                  availableMetricTags={availableMetricTags}
+                  metricTagFilter={metricTagFilter}
+                  setMetricTagFilter={setMetricTagFilter}
+                  availableMetricsFilters={availableMetricsFilters}
+                  metricsFilter={metricsFilter}
+                  setMetricsFilter={setMetricsFilter}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                  dimension={dimension}
+                />
+              </>
+            )}
+          </Flex>
+        </Box>
       </Flex>
 
       {filteredMetrics.length < allMetrics.length && (
