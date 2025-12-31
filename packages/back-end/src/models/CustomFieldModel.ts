@@ -26,33 +26,19 @@ export class CustomFieldModel extends BaseClass {
   }
 
   protected canCreate(): boolean {
-    if (!this.context.hasPremiumFeature("custom-metadata")) {
-      throw new Error(
-        "Your organization's plan does not include the custom fields feature.",
-      );
-    }
-
-    if (!this.context.permissions.canManageCustomFields()) {
-      throw this.context.permissions.throwPermissionError();
-    }
-
-    return true;
+    return this.context.permissions.canManageCustomFields();
   }
 
   protected canUpdate(): boolean {
-    if (!this.context.permissions.canManageCustomFields()) {
-      throw this.context.permissions.throwPermissionError();
-    }
-
-    return true;
+    return this.context.permissions.canManageCustomFields();
   }
 
   protected canDelete(): boolean {
-    if (!this.context.permissions.canManageCustomFields()) {
-      throw this.context.permissions.throwPermissionError();
-    }
+    return this.context.permissions.canManageCustomFields();
+  }
 
-    return true;
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("custom-metadata");
   }
 
   public async getCustomFields() {

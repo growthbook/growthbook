@@ -19,16 +19,7 @@ const BaseClass = MakeModelClass({
 export class HoldoutModel extends BaseClass {
   // CRUD permission checks
   protected canCreate(doc: HoldoutInterface): boolean {
-    if (!this.context.hasPremiumFeature("holdouts")) {
-      throw new Error(
-        "Your organization's plan does not include the holdouts feature.",
-      );
-    }
-    if (!this.context.permissions.canCreateHoldout(doc)) {
-      throw this.context.permissions.throwPermissionError();
-    }
-
-    return true;
+    return this.context.permissions.canCreateHoldout(doc);
   }
   protected canRead(doc: HoldoutInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
@@ -37,16 +28,14 @@ export class HoldoutModel extends BaseClass {
     existing: HoldoutInterface,
     updates: HoldoutInterface,
   ): boolean {
-    if (!this.context.permissions.canUpdateHoldout(existing, updates)) {
-      throw this.context.permissions.throwPermissionError();
-    }
-    return true;
+    return this.context.permissions.canUpdateHoldout(existing, updates);
   }
   protected canDelete(doc: HoldoutInterface): boolean {
-    if (!this.context.permissions.canDeleteHoldout(doc)) {
-      throw this.context.permissions.throwPermissionError();
-    }
-    return true;
+    return this.context.permissions.canDeleteHoldout(doc);
+  }
+
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("holdouts");
   }
 
   public async getAllPayloadHoldouts(
