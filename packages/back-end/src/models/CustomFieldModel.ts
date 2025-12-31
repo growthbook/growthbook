@@ -98,6 +98,14 @@ export class CustomFieldModel extends BaseClass {
     });
   }
 
+  protected async beforeCreate(): Promise<void> {
+    if (!this.context.hasPremiumFeature("custom-metadata")) {
+      throw new Error(
+        "Your organization's plan does not include the custom fields feature.",
+      );
+    }
+  }
+
   /**
    * Because each organization should only have one set of custom fields,
    * this method will either create a new set of custom fields or update

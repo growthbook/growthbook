@@ -34,6 +34,14 @@ export class HoldoutModel extends BaseClass {
     return this.context.permissions.canDeleteHoldout(doc);
   }
 
+  protected async beforeCreate(): Promise<void> {
+    if (!this.context.hasPremiumFeature("holdouts")) {
+      throw new Error(
+        "Your organization's plan does not include the holdouts feature.",
+      );
+    }
+  }
+
   public async getAllPayloadHoldouts(
     environment?: string,
   ): Promise<

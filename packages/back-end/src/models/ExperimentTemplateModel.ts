@@ -38,6 +38,14 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
 
+  protected async beforeCreate(): Promise<void> {
+    if (!this.context.hasPremiumFeature("templates")) {
+      throw new Error(
+        "Your organization's plan does not include the experiment templates feature.",
+      );
+    }
+  }
+
   // TODO: Implement this for OpenAPI
   //   public toApiInterface(project: ProjectInterface): ApiProject {
   //     return {
