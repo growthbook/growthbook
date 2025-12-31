@@ -142,16 +142,34 @@ export function useExperimentTableRows({
         filteredGoalMetrics = goalMetrics.filter((id) => {
           if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            return group?.metrics?.some((metricId) =>
+              allowedMetricIds.has(metricId),
+            );
+          }
           return false;
         });
         filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
           if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            return group?.metrics?.some((metricId) =>
+              allowedMetricIds.has(metricId),
+            );
+          }
           return false;
         });
         filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
           if (metricsFilter.includes(id)) return true;
           if (allowedMetricIds.has(id)) return true;
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            return group?.metrics?.some((metricId) =>
+              allowedMetricIds.has(metricId),
+            );
+          }
           return false;
         });
       }
