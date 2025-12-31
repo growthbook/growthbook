@@ -140,6 +140,33 @@ export default function ResultsMetricFilter({
     return options;
   }, [availableSliceTags]);
 
+  const isSliceCoveredBySelectAll = useCallback(
+    (sliceId: string, selectedSliceTags: string[]): boolean => {
+      // "Select all" options themselves should never be considered covered
+      if (sliceId.startsWith("dim:") && !sliceId.includes("=")) {
+        return false;
+      }
+
+      // Get all "select all" tags from selected filters (format: dim:column)
+      const selectAllTags = selectedSliceTags.filter(
+        (tag) => tag.startsWith("dim:") && !tag.includes("="),
+      );
+
+      if (selectAllTags.length === 0) return false;
+
+      // Parse the slice ID to get its columns
+      const sliceLevels = parseSliceQueryString(sliceId);
+      const sliceColumns = sliceLevels.map((sl) => sl.column);
+
+      // Check if any of the slice's columns has a "select all" filter
+      return sliceColumns.some((column) => {
+        const selectAllTag = `dim:${encodeURIComponent(column)}`;
+        return selectAllTags.includes(selectAllTag);
+      });
+    },
+    [],
+  );
+
   const formatSliceOptionLabel = useCallback(
     (
       option: { value: string; parsedChunks: SliceChunk[] },
@@ -153,7 +180,6 @@ export default function ResultsMetricFilter({
         );
       }
 
-      // Select all options always have exactly one chunk with isSelectAll=true
       if (option.parsedChunks[0]?.isSelectAll) {
         const chunk = option.parsedChunks[0];
         return (
@@ -163,9 +189,17 @@ export default function ResultsMetricFilter({
         );
       }
 
+      const isCoveredBySelectAll = isSliceCoveredBySelectAll(
+        option.value,
+        sliceTagsFilter,
+      );
+
       // Regular slices: all chunks are non-select-all
       return (
-        <span className={clsx(meta?.context === "menu" && "pl-3")}>
+        <span
+          className={clsx(meta?.context === "menu" && "pl-3")}
+          style={{ opacity: isCoveredBySelectAll ? 0.3 : 1 }}
+        >
           {option.parsedChunks.map((chunk, index) => (
             <React.Fragment key={index}>
               {index > 0 && ", "}
@@ -189,7 +223,32 @@ export default function ResultsMetricFilter({
         </span>
       );
     },
-    [],
+    [sliceTagsFilter, isSliceCoveredBySelectAll],
+  );
+
+  const formatMetricOptionLabel = useCallback(
+    (option: { value: string; label: string }) => {
+      const isGroup = isMetricGroupId(option.value);
+      const metrics = isGroup
+        ? (() => {
+            const group = getMetricGroupById(option.value);
+            if (!group) return undefined;
+            return group.metrics.map((metricId) => {
+              const metric = getExperimentMetricById(metricId);
+              return { metric, joinable: true };
+            });
+          })()
+        : undefined;
+      return (
+        <MetricName
+          id={option.value}
+          isGroup={isGroup}
+          metrics={metrics}
+          officialBadgePosition="left"
+        />
+      );
+    },
+    [getExperimentMetricById, getMetricGroupById],
   );
 
   return (
@@ -345,28 +404,9 @@ export default function ResultsMetricFilter({
                           ]
                         : []),
                     ]}
-                    formatOptionLabel={(option) => {
-                      const isGroup = isMetricGroupId(option.value);
-                      const metrics = isGroup
-                        ? (() => {
-                            const group = getMetricGroupById(option.value);
-                            if (!group) return undefined;
-                            return group.metrics.map((metricId) => {
-                              const metric = getExperimentMetricById(metricId);
-                              return { metric, joinable: true };
-                            });
-                          })()
-                        : undefined;
-                      return (
-                        <MetricName
-                          id={option.value}
-                          showDescription={false}
-                          isGroup={isGroup}
-                          metrics={metrics}
-                          officialBadgePosition="left"
-                        />
-                      );
-                    }}
+                    formatOptionLabel={(option) =>
+                      formatMetricOptionLabel(option)
+                    }
                     formatGroupLabel={(group) => (
                       <div className="pb-1 pt-2">{group.label}</div>
                     )}
