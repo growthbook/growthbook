@@ -66,6 +66,8 @@ export default function ResultsMetricFilter({
     (metricsFilter?.length || 0) +
     (sliceTagsFilter?.length || 0);
 
+  console.log({ metricTagFilter, metricsFilter, sliceTagsFilter });
+
   type SliceChunk = {
     column: string;
     value: string | null;
@@ -75,16 +77,33 @@ export default function ResultsMetricFilter({
   };
 
   const sliceOptions = useMemo(() => {
-    const options = availableSliceTags.map((tag) => {
+    // Create a map of available tags by ID for quick lookup
+    const availableTagMap = new Map(
+      availableSliceTags.map((tag) => [tag.id, tag]),
+    );
+
+    // Get all unique tag IDs from both available and selected
+    const allTagIds = Array.from(
+      new Set([
+        ...availableSliceTags.map((tag) => tag.id),
+        ...(sliceTagsFilter || []),
+      ]),
+    );
+
+    const options = allTagIds.map((tagId) => {
+      const availableTag = availableTagMap.get(tagId);
+      const isOrphaned = !availableTag;
+
       // Handle "select all" format: dim:column (no equals sign)
-      if (tag.isSelectAll || !tag.id.includes("=")) {
-        // Extract column name from dim:column format
-        const columnMatch = tag.id.match(/^dim:(.+)$/);
+      if (!tagId.includes("=")) {
+        const columnMatch = tagId.match(/^dim:(.+)$/);
         if (columnMatch) {
           const column = decodeURIComponent(columnMatch[1]);
-          const datatype = tag.datatypes[column] || "string";
+          const datatype =
+            availableTag?.datatypes?.[column] ||
+            ("string" as FactTableColumnType);
           return {
-            value: tag.id,
+            value: tagId,
             parsedChunks: [
               {
                 column,
@@ -94,15 +113,19 @@ export default function ResultsMetricFilter({
                 isOther: false,
               },
             ],
+            isOrphaned,
           };
         }
       }
 
       // Parse regular slice tag using parseSliceQueryString
-      const sliceLevels = parseSliceQueryString(tag.id);
+      const sliceLevels = parseSliceQueryString(tagId);
       const parsedChunks: SliceChunk[] = sliceLevels.map((sl) => {
         const value = sl?.levels?.[0] || "";
-        const datatype = tag?.datatypes?.[sl?.column] || "string";
+        const datatype =
+          availableTag?.datatypes?.[sl?.column] ||
+          sl.datatype ||
+          ("string" as FactTableColumnType);
 
         return {
           column: sl.column,
@@ -113,13 +136,16 @@ export default function ResultsMetricFilter({
       });
 
       return {
-        value: tag.id,
+        value: tagId,
         parsedChunks,
+        isOrphaned,
       };
     });
 
-    // Add "overall" option at the top if there are any slices available
-    if (availableSliceTags.length > 0) {
+    // Add "overall" option at the top if there are any slices available or selected
+    const hasAnySlices =
+      availableSliceTags.length > 0 || (sliceTagsFilter?.length || 0) > 0;
+    if (hasAnySlices) {
       return [
         {
           value: "overall",
@@ -132,13 +158,14 @@ export default function ResultsMetricFilter({
               isOther: false,
             },
           ],
+          isOrphaned: false,
         },
         ...options,
       ];
     }
 
     return options;
-  }, [availableSliceTags]);
+  }, [availableSliceTags, sliceTagsFilter]);
 
   const isSliceCoveredBySelectAll = useCallback(
     (sliceId: string, selectedSliceTags: string[]): boolean => {
@@ -169,7 +196,11 @@ export default function ResultsMetricFilter({
 
   const formatSliceOptionLabel = useCallback(
     (
-      option: { value: string; parsedChunks: SliceChunk[] },
+      option: {
+        value: string;
+        parsedChunks: SliceChunk[];
+        isOrphaned?: boolean;
+      },
       meta: FormatOptionLabelMeta<SingleValue>,
     ) => {
       if (option.value === "overall") {
@@ -183,7 +214,11 @@ export default function ResultsMetricFilter({
       if (option.parsedChunks[0]?.isSelectAll) {
         const chunk = option.parsedChunks[0];
         return (
-          <span>
+          <span
+            style={
+              option.isOrphaned ? { textDecoration: "line-through" } : undefined
+            }
+          >
             {chunk.column} <span className="text-muted">(All Slices)</span>
           </span>
         );
@@ -198,7 +233,10 @@ export default function ResultsMetricFilter({
       return (
         <span
           className={clsx(meta?.context === "menu" && "pl-3")}
-          style={{ opacity: isCoveredBySelectAll ? 0.3 : 1 }}
+          style={{
+            opacity: isCoveredBySelectAll ? 0.3 : 1,
+            ...(option.isOrphaned && { textDecoration: "line-through" }),
+          }}
         >
           {option.parsedChunks.map((chunk, index) => (
             <React.Fragment key={index}>
@@ -226,8 +264,67 @@ export default function ResultsMetricFilter({
     [sliceTagsFilter, isSliceCoveredBySelectAll],
   );
 
+  const metricOptions = useMemo(() => {
+    const availableGroupIds = new Set(
+      availableMetricsFilters.groups.map((g) => g.id),
+    );
+    const availableMetricIds = new Set(
+      availableMetricsFilters.metrics.map((m) => m.id),
+    );
+
+    // Get all unique metric IDs from both available and selected
+    const allMetricIds = Array.from(
+      new Set([
+        ...availableMetricsFilters.groups.map((g) => g.id),
+        ...availableMetricsFilters.metrics.map((m) => m.id),
+        ...(metricsFilter || []),
+      ]),
+    );
+
+    const groups = allMetricIds
+      .filter((id) => isMetricGroupId(id))
+      .map((id) => {
+        const availableGroup = availableMetricsFilters.groups.find(
+          (g) => g.id === id,
+        );
+        return {
+          id,
+          name: availableGroup?.name || id,
+          isOrphaned: !availableGroupIds.has(id),
+        };
+      });
+
+    const metrics = allMetricIds
+      .filter((id) => !isMetricGroupId(id))
+      .map((id) => {
+        const availableMetric = availableMetricsFilters.metrics.find(
+          (m) => m.id === id,
+        );
+        return {
+          id,
+          name: availableMetric?.name || id,
+          isOrphaned: !availableMetricIds.has(id),
+        };
+      });
+
+    return { groups, metrics };
+  }, [availableMetricsFilters, metricsFilter]);
+
+  const metricTagOptions = useMemo(() => {
+    const availableTagSet = new Set(availableMetricTags);
+    const allTagIds = Array.from(
+      new Set([...availableMetricTags, ...(metricTagFilter || [])]),
+    );
+
+    return allTagIds.map((tag) => ({
+      value: tag,
+      label: tag,
+      isOrphaned: !availableTagSet.has(tag),
+    }));
+  }, [availableMetricTags, metricTagFilter]);
+
   const formatMetricOptionLabel = useCallback(
-    (option: { value: string; label: string }) => {
+    (option: { value: string; label: string; isOrphaned?: boolean }) => {
       const isGroup = isMetricGroupId(option.value);
       const metrics = isGroup
         ? (() => {
@@ -240,15 +337,36 @@ export default function ResultsMetricFilter({
           })()
         : undefined;
       return (
-        <MetricName
-          id={option.value}
-          isGroup={isGroup}
-          metrics={metrics}
-          officialBadgePosition="left"
-        />
+        <span
+          style={
+            option.isOrphaned ? { textDecoration: "line-through" } : undefined
+          }
+        >
+          <MetricName
+            id={option.value}
+            isGroup={isGroup}
+            metrics={metrics}
+            officialBadgePosition="left"
+          />
+        </span>
       );
     },
     [getExperimentMetricById, getMetricGroupById],
+  );
+
+  const formatMetricTagOptionLabel = useCallback(
+    (option: { value: string; label: string; isOrphaned?: boolean }) => {
+      return (
+        <span
+          style={
+            option.isOrphaned ? { textDecoration: "line-through" } : undefined
+          }
+        >
+          {option.label}
+        </span>
+      );
+    },
+    [],
   );
 
   return (
@@ -308,7 +426,7 @@ export default function ResultsMetricFilter({
                   </Link>
                 ) : null}
               </Flex>
-              {availableSliceTags.length > 0 && hasMetricSlicesFeature && (
+              {sliceOptions.length > 0 && hasMetricSlicesFeature && (
                 <Flex
                   gap="2"
                   p="3"
@@ -332,9 +450,10 @@ export default function ResultsMetricFilter({
                     containerClassName="w-100"
                     placeholder="Type to search..."
                     value={sliceTagsFilter || []}
-                    options={sliceOptions.map(({ value }) => ({
+                    options={sliceOptions.map(({ value, isOrphaned }) => ({
                       label: value,
                       value,
+                      isOrphaned,
                     }))}
                     formatOptionLabel={(option, meta) => {
                       const fullOption = sliceOptions.find(
@@ -353,8 +472,8 @@ export default function ResultsMetricFilter({
                   />
                 </Flex>
               )}
-              {(availableMetricsFilters.groups.length > 0 ||
-                availableMetricsFilters.metrics.length > 0) && (
+              {(metricOptions.groups.length > 0 ||
+                metricOptions.metrics.length > 0) && (
                 <Flex
                   gap="2"
                   p="3"
@@ -377,29 +496,27 @@ export default function ResultsMetricFilter({
                     value={metricsFilter || []}
                     options={[
                       ...(hasMetricGroupsFeature &&
-                      availableMetricsFilters.groups.length > 0
+                      metricOptions.groups.length > 0
                         ? [
                             {
                               label: "Metric Groups",
-                              options: availableMetricsFilters.groups.map(
-                                (group) => ({
-                                  label: group.name,
-                                  value: group.id,
-                                }),
-                              ),
+                              options: metricOptions.groups.map((group) => ({
+                                label: group.name,
+                                value: group.id,
+                                isOrphaned: group.isOrphaned,
+                              })),
                             },
                           ]
                         : []),
-                      ...(availableMetricsFilters.metrics.length > 0
+                      ...(metricOptions.metrics.length > 0
                         ? [
                             {
                               label: "Metrics",
-                              options: availableMetricsFilters.metrics.map(
-                                (metric) => ({
-                                  label: metric.name,
-                                  value: metric.id,
-                                }),
-                              ),
+                              options: metricOptions.metrics.map((metric) => ({
+                                label: metric.name,
+                                value: metric.id,
+                                isOrphaned: metric.isOrphaned,
+                              })),
                             },
                           ]
                         : []),
@@ -418,7 +535,7 @@ export default function ResultsMetricFilter({
                   />
                 </Flex>
               )}
-              {availableMetricTags.length > 0 && (
+              {metricTagOptions.length > 0 && (
                 <Flex
                   gap="2"
                   p="3"
@@ -439,10 +556,14 @@ export default function ResultsMetricFilter({
                     containerClassName="w-100"
                     placeholder="Type to search..."
                     value={metricTagFilter || []}
-                    options={availableMetricTags.map((tag) => ({
-                      label: tag,
-                      value: tag,
+                    options={metricTagOptions.map((tag) => ({
+                      label: tag.label,
+                      value: tag.value,
+                      isOrphaned: tag.isOrphaned,
                     }))}
+                    formatOptionLabel={(option) =>
+                      formatMetricTagOptionLabel(option)
+                    }
                     onChange={(v) => {
                       setMetricTagFilter?.(v);
                       return;

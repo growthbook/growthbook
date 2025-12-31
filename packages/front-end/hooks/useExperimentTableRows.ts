@@ -370,7 +370,9 @@ export function useExperimentTableRows({
   ]);
 
   const getChildRowCounts = (metricId: string) => {
-    const childRows = rows.filter((row) => row.parentRowId === metricId);
+    const childRows = rows.filter(
+      (row) => row.parentRowId === metricId && !row.isHiddenByFilter,
+    );
     const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
     return {
       total: childRows.length,

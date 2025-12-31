@@ -22,7 +22,7 @@ import {
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
 import {
-  PiCaretDown,
+  PiMinus,
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiPushPinFill,
@@ -795,9 +795,9 @@ export function getRenderLabelColumn({
                 }}
               >
                 <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
-                  {row?.labelOnly || sliceTagsFilter?.includes("overall") ? (
-                    <PiCaretDown size={16} />
-                  ) : (
+                  {hasSlices && (sliceTagsFilter?.length || 0) > 0 ? (
+                    <PiMinus size={16} />
+                  ) : hasSlices && !row?.labelOnly ? (
                     <Tooltip
                       body={
                         isExpanded
@@ -812,7 +812,7 @@ export function getRenderLabelColumn({
                         <PiCaretCircleRight size={16} />
                       )}
                     </Tooltip>
-                  )}
+                  ) : null}
                 </div>
                 <span
                   style={{
