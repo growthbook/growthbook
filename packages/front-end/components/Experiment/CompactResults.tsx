@@ -323,6 +323,26 @@ const CompactResults: FC<{
 
   const isBandit = experimentType === "multi-armed-bandit";
 
+  // Filter rows based on expansion state when there's no slice filter
+  const hasSliceFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
+  const filteredRows = useMemo(() => {
+    if (hasSliceFilter) {
+      // When filter is active, use isHiddenByFilter from the hook
+      return rows;
+    }
+    // When no filter, filter out slice rows that aren't expanded or pinned
+    return rows.filter((row) => {
+      if (!row.isSliceRow) return true; // Always include parent rows
+      if (row.isPinned) return true; // Always include pinned rows
+      // For slice rows, check if parent metric is expanded
+      if (row.parentRowId) {
+        const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
+        return !!expandedMetrics?.[expandedKey];
+      }
+      return true;
+    });
+  }, [rows, hasSliceFilter, expandedMetrics]);
+
   return (
     <>
       {!mainTableOnly && (
@@ -359,7 +379,7 @@ const CompactResults: FC<{
           variationFilter={variationFilter}
           setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
-          rows={rows.filter((r) => r.resultGroup === "goal")}
+          rows={filteredRows.filter((r) => r.resultGroup === "goal")}
           id={id}
           resultGroup="goal"
           tableRowAxis="metric"
@@ -427,7 +447,7 @@ const CompactResults: FC<{
             variationFilter={variationFilter}
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
-            rows={rows.filter((r) => r.resultGroup === "secondary")}
+            rows={filteredRows.filter((r) => r.resultGroup === "secondary")}
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
@@ -489,7 +509,7 @@ const CompactResults: FC<{
             variationFilter={variationFilter}
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
-            rows={rows.filter((r) => r.resultGroup === "guardrail")}
+            rows={filteredRows.filter((r) => r.resultGroup === "guardrail")}
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"
