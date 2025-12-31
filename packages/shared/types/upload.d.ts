@@ -8,6 +8,7 @@ export interface SignedUploadUrlResponse {
   fileUrl: string;
   filePath: string;
   expiresAt: string;
+  fields?: Record<string, string>; // For S3 POST form fields
 }
 
 export interface UploadResponse {
