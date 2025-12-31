@@ -66,8 +66,6 @@ export default function ResultsMetricFilter({
     (metricsFilter?.length || 0) +
     (sliceTagsFilter?.length || 0);
 
-  console.log({ metricTagFilter, metricsFilter, sliceTagsFilter });
-
   type SliceChunk = {
     column: string;
     value: string | null;
