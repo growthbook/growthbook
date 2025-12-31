@@ -26,15 +26,33 @@ export class CustomFieldModel extends BaseClass {
   }
 
   protected canCreate(): boolean {
-    return this.context.permissions.canManageCustomFields();
+    if (!this.context.hasPremiumFeature("custom-metadata")) {
+      throw new Error(
+        "Your organization's plan does not include the custom fields feature.",
+      );
+    }
+
+    if (!this.context.permissions.canManageCustomFields()) {
+      throw this.context.permissions.throwPermissionError();
+    }
+
+    return true;
   }
 
   protected canUpdate(): boolean {
-    return this.context.permissions.canManageCustomFields();
+    if (!this.context.permissions.canManageCustomFields()) {
+      throw this.context.permissions.throwPermissionError();
+    }
+
+    return true;
   }
 
   protected canDelete(): boolean {
-    return this.context.permissions.canManageCustomFields();
+    if (!this.context.permissions.canManageCustomFields()) {
+      throw this.context.permissions.throwPermissionError();
+    }
+
+    return true;
   }
 
   public async getCustomFields() {
@@ -96,14 +114,6 @@ export class CustomFieldModel extends BaseClass {
       }
       return true;
     });
-  }
-
-  protected async beforeCreate(): Promise<void> {
-    if (!this.context.hasPremiumFeature("custom-metadata")) {
-      throw new Error(
-        "Your organization's plan does not include the custom fields feature.",
-      );
-    }
   }
 
   /**

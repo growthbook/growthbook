@@ -20,7 +20,16 @@ const BaseClass = MakeModelClass({
 export class ExperimentTemplatesModel extends BaseClass {
   // CRUD permission checks
   protected canCreate(doc: ExperimentTemplateInterface): boolean {
-    return this.context.permissions.canCreateExperimentTemplate(doc);
+    if (!this.context.hasPremiumFeature("templates")) {
+      throw new Error(
+        "Your organization's plan does not include the experiment templates feature.",
+      );
+    }
+
+    if (!this.context.permissions.canCreateExperimentTemplate(doc)) {
+      throw this.context.permissions.throwPermissionError();
+    }
+    return true;
   }
   protected canRead(doc: ExperimentTemplateInterface): boolean {
     return this.context.hasPermission("readData", doc.project || "");
@@ -29,21 +38,20 @@ export class ExperimentTemplatesModel extends BaseClass {
     existing: ExperimentTemplateInterface,
     updates: ExperimentTemplateInterface,
   ): boolean {
-    return this.context.permissions.canUpdateExperimentTemplate(
-      existing,
-      updates,
-    );
+    if (
+      !this.context.permissions.canUpdateExperimentTemplate(existing, updates)
+    ) {
+      throw this.context.permissions.throwPermissionError();
+    }
+
+    return true;
   }
   protected canDelete(doc: ExperimentTemplateInterface): boolean {
-    return this.context.permissions.canDeleteExperimentTemplate(doc);
-  }
-
-  protected async beforeCreate(): Promise<void> {
-    if (!this.context.hasPremiumFeature("templates")) {
-      throw new Error(
-        "Your organization's plan does not include the experiment templates feature.",
-      );
+    if (!this.context.permissions.canDeleteExperimentTemplate(doc)) {
+      throw this.context.permissions.throwPermissionError();
     }
+
+    return true;
   }
 
   // TODO: Implement this for OpenAPI
