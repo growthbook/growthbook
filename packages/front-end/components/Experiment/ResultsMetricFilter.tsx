@@ -269,7 +269,7 @@ export default function ResultsMetricFilter({
                   variant="solid"
                   radius="full"
                   label={String(activeFilterCount)}
-                  style={{ minWidth: 18, height: 18 }}
+                  style={{ minWidth: 18, height: 18, marginTop: 1 }}
                 />
               )}
             </Flex>
