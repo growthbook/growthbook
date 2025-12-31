@@ -1,4 +1,6 @@
 import Stripe from "stripe";
+import { z } from "zod";
+import { TiktokenModel } from "@dqbd/tiktoken";
 import {
   OWNER_JOB_TITLES,
   USAGE_INTENTS,
@@ -10,14 +12,12 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
   Policy,
 } from "shared/permissions";
-import { z } from "zod";
 import {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { TiktokenModel } from "@dqbd/tiktoken";
 import { AgreementType, environment } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { ApiKeyInterface } from "shared/types/apikey";
