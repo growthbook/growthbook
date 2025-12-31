@@ -39,16 +39,40 @@ export async function uploadFile(
         },
       )) as SignedUploadUrlResponse;
 
-      const { signedUrl, fileUrl } = signedUrlResponse;
+      const { signedUrl, fileUrl, fields } = signedUrlResponse;
 
-      // Upload directly to cloud storage using signed URL
-      const uploadResponse = await fetch(signedUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-        },
-        body: file,
-      });
+      let uploadResponse: Response;
+
+      // Determine upload method based on URL and fields
+      const isS3Post = signedUrl.includes("s3.amazonaws.com");
+
+      if (isS3Post && fields) {
+        // S3 POST-based upload with policy enforcement
+        const formData = new FormData();
+
+        // Add all the fields from the presigned POST first
+        Object.entries(fields).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
+
+        // Add the file last (required by S3)
+        formData.append("file", file);
+
+        uploadResponse = await fetch(signedUrl, {
+          method: "POST",
+          body: formData,
+          // Don't set Content-Type header - browser will set it with boundary
+        });
+      } else {
+        // PUT-based upload (backward compatible)
+        uploadResponse = await fetch(signedUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type,
+          },
+          body: file,
+        });
+      }
 
       if (!uploadResponse.ok) {
         throw new Error(
