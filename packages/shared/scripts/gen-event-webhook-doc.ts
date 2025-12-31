@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import {
   notificationEvents,
   notificationEventPayload,
-} from "shared/src/validators/events";
-import { z } from "zod";
+} from "shared/validators";
 
-const basePath = path.resolve(path.dirname(process.argv[1]), "..");
+const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
 
 const TARGET = `${basePath}/src/partials/event-webhook/_event-webhook-list.md`;
 
