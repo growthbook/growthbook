@@ -575,87 +575,101 @@ export default function AnalysisSettingsSummary({
 
   return (
     <Box px="3" pt="3" mb="3">
-      <Flex align="center" justify="between" gapX="6" gapY="2" pr="1" wrap="wrap-reverse">
-        <Box style={{ flex: "1 0 auto", display: "flex", justifyContent: "flex-end", whiteSpace: "nowrap" }}>
+      <Flex
+        align="center"
+        justify="between"
+        gapX="6"
+        gapY="2"
+        pr="1"
+        wrap="wrap-reverse"
+      >
+        <Box
+          style={{
+            flex: "1 0 auto",
+            display: "flex",
+            justifyContent: "flex-end",
+            whiteSpace: "nowrap",
+          }}
+        >
           <Flex align="center" gap="4">
             <Metadata
               label={unitDisplayName}
               value={numberFormatter.format(totalUnits ?? 0)}
               style={{ whiteSpace: "nowrap" }}
             />
-          {hasData && (
-            <Flex align="center" gap="2">
-              <QueriesLastRun
-                status={status}
-                dateCreated={snapshot?.dateCreated}
-                latestQueryDate={latest?.dateCreated}
-                nextUpdate={experiment.nextSnapshotAttempt}
-                autoUpdateEnabled={experiment.autoSnapshots}
-                showAutoUpdateWidget={true}
-                queries={
-                  latest &&
-                  (status === "failed" || status === "partially-succeeded")
-                    ? latest.queries.map((q) => q.query)
-                    : undefined
-                }
-                onViewQueries={
-                  latest &&
-                  ds &&
-                  permissionsUtil.canRunExperimentQueries(ds) &&
-                  (status === "failed" || status === "partially-succeeded")
-                    ? () => setQueriesModalOpen(true)
-                    : undefined
-                }
-              />
-              {outdated && status !== "running" ? (
-                <OutdatedBadge
-                  label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
-                  reasons={reasons}
+            {hasData && (
+              <Flex align="center" gap="2">
+                <QueriesLastRun
+                  status={status}
+                  dateCreated={snapshot?.dateCreated}
+                  latestQueryDate={latest?.dateCreated}
+                  nextUpdate={experiment.nextSnapshotAttempt}
+                  autoUpdateEnabled={experiment.autoSnapshots}
+                  showAutoUpdateWidget={true}
+                  queries={
+                    latest &&
+                    (status === "failed" || status === "partially-succeeded")
+                      ? latest.queries.map((q) => q.query)
+                      : undefined
+                  }
+                  onViewQueries={
+                    latest &&
+                    ds &&
+                    permissionsUtil.canRunExperimentQueries(ds) &&
+                    (status === "failed" || status === "partially-succeeded")
+                      ? () => setQueriesModalOpen(true)
+                      : undefined
+                  }
                 />
-              ) : null}
-            </Flex>
-          )}
-
-          {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-            allMetrics.length > 0 && (
-              <RefreshResultsButton
-                entityType={
-                  experiment.type === "holdout" ? "holdout" : "experiment"
-                }
-                entityId={experiment.id}
-                datasourceId={experiment.datasource}
-                latest={latest}
-                onSubmitSuccess={(snapshot) => {
-                  trackSnapshot(
-                    "create",
-                    "RunQueriesButton",
-                    datasource?.type || null,
-                    snapshot,
-                  );
-                  setAnalysisSettings(null);
-                }}
-                mutate={mutateSnapshot}
-                mutateAdditional={mutate}
-                setRefreshError={setRefreshError}
-                resetFilters={async () => {
-                  if (baselineRow !== 0) {
-                    setBaselineRow?.(0);
-                    setVariationFilter?.([]);
-                  }
-                  setDifferenceType("relative");
-                  if (experiment.type === "multi-armed-bandit") {
-                    setSnapshotType?.("exploratory");
-                  } else {
-                    setSnapshotType?.(undefined);
-                  }
-                }}
-                experiment={experiment}
-                analysis={analysis}
-                phase={phase}
-                dimension={dimension}
-                setAnalysisSettings={setAnalysisSettings}
-              />
+                {outdated && status !== "running" ? (
+                  <OutdatedBadge
+                    label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
+                    reasons={reasons}
+                  />
+                ) : null}
+              </Flex>
             )}
+
+            {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
+              allMetrics.length > 0 && (
+                <RefreshResultsButton
+                  entityType={
+                    experiment.type === "holdout" ? "holdout" : "experiment"
+                  }
+                  entityId={experiment.id}
+                  datasourceId={experiment.datasource}
+                  latest={latest}
+                  onSubmitSuccess={(snapshot) => {
+                    trackSnapshot(
+                      "create",
+                      "RunQueriesButton",
+                      datasource?.type || null,
+                      snapshot,
+                    );
+                    setAnalysisSettings(null);
+                  }}
+                  mutate={mutateSnapshot}
+                  mutateAdditional={mutate}
+                  setRefreshError={setRefreshError}
+                  resetFilters={async () => {
+                    if (baselineRow !== 0) {
+                      setBaselineRow?.(0);
+                      setVariationFilter?.([]);
+                    }
+                    setDifferenceType("relative");
+                    if (experiment.type === "multi-armed-bandit") {
+                      setSnapshotType?.("exploratory");
+                    } else {
+                      setSnapshotType?.(undefined);
+                    }
+                  }}
+                  experiment={experiment}
+                  analysis={analysis}
+                  phase={phase}
+                  dimension={dimension}
+                  setAnalysisSettings={setAnalysisSettings}
+                />
+              )}
 
             <ResultMoreMenu
               experiment={experiment}
