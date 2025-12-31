@@ -594,7 +594,10 @@ export function generateRowsForMetric({
       }
 
       // Show if: (expanded or pinned) AND matches filter (no special treatment for pinned when filter is active)
-      const shouldShowLevel = (isExpanded || isPinned) && sliceMatches;
+      const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
+      const shouldShowLevel = hasFilter
+        ? (isExpanded || isPinned) && sliceMatches
+        : isExpanded || isPinned;
 
       const label = slice.sliceLevels
         .map((dl, _index) => {
@@ -641,7 +644,9 @@ export function generateRowsForMetric({
           levels: dl.levels,
         })),
         allSliceLevels: slice.allSliceLevels,
-        isHiddenByFilter: !shouldShowLevel, // Always add slice rows to the array, even if hidden by filter
+        // Only use isHiddenByFilter when there's actually a filter active
+        // When no filter, expansion state is handled by rendering logic
+        isHiddenByFilter: hasFilter ? !shouldShowLevel : false,
         isPinned: isPinned,
       };
 

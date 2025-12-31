@@ -188,9 +188,9 @@ export type ExperimentTableRow = {
     levels: string[];
   }>;
   allSliceLevels?: string[];
-  isHiddenByFilter?: boolean; // True if this row should be hidden due to slice level filtering
-  isPinned?: boolean; // True if this slice level row is pinned
-  labelOnly?: boolean; // True if this parent row should only show label (no stats) when slice filters are active
+  isHiddenByFilter?: boolean;
+  isPinned?: boolean;
+  labelOnly?: boolean;
 };
 
 export function getRisk(
