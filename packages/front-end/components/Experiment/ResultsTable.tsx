@@ -1284,12 +1284,7 @@ export default function ResultsTable({
           {noRows ? (
             <div className="text-muted ml-2 pl-1 py-2">
               {hasUnfilteredMetrics ? (
-                <>
-                  <em>No metrics</em>
-                  <div className="small">
-                    Some metrics are hidden by filters.
-                  </div>
-                </>
+                <em>Some metrics are hidden by filters.</em>
               ) : (
                 <>
                   <em>No metrics yet</em>
