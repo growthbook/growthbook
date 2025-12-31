@@ -1,5 +1,5 @@
 import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -797,27 +797,17 @@ export function getRenderLabelColumn({
                 : undefined
             }
           >
-            {hasSlices && toggleExpandedMetric ? (
-              <a
-                className={!row?.labelOnly ? "link-purple" : "text-muted"}
-                role="button"
-                onClick={
-                  row?.labelOnly || sliceTagsFilter?.includes("overall")
-                    ? undefined
-                    : () => toggleExpandedMetric(metric.id, location || "goal")
-                }
-                style={{
-                  textDecoration: "none",
-                  cursor:
-                    row?.labelOnly || sliceTagsFilter?.includes("overall")
-                      ? "default"
-                      : "pointer",
-                }}
-              >
-                <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
-                  {hasSlices && (sliceTagsFilter?.length || 0) > 0 ? (
+            {hasSlices ? (
+              <>
+                {(sliceTagsFilter?.length || 0) > 0 ? (
+                  <span
+                    className="text-muted"
+                    style={{ position: "absolute", left: 4, marginTop: -1 }}
+                  >
                     <PiMinus size={16} />
-                  ) : hasSlices && !row?.labelOnly ? (
+                  </span>
+                ) : toggleExpandedMetric && !row?.labelOnly ? (
+                  <div style={{ position: "absolute", left: 4, marginTop: 3 }}>
                     <Tooltip
                       body={
                         isExpanded
@@ -826,14 +816,32 @@ export function getRenderLabelColumn({
                       }
                       tipPosition="top"
                     >
-                      {isExpanded ? (
-                        <PiCaretCircleDown size={16} />
-                      ) : (
-                        <PiCaretCircleRight size={16} />
-                      )}
+                      <IconButton
+                        size="1"
+                        variant="ghost"
+                        radius="full"
+                        onClick={
+                          row?.labelOnly || sliceTagsFilter?.includes("overall")
+                            ? undefined
+                            : () =>
+                                toggleExpandedMetric(
+                                  metric.id,
+                                  location || "goal",
+                                )
+                        }
+                        disabled={
+                          row?.labelOnly || sliceTagsFilter?.includes("overall")
+                        }
+                      >
+                        {isExpanded ? (
+                          <PiCaretCircleDown size={16} />
+                        ) : (
+                          <PiCaretCircleRight size={16} />
+                        )}
+                      </IconButton>
                     </Tooltip>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
                 <span
                   style={{
                     lineHeight: "1.1em",
@@ -868,7 +876,7 @@ export function getRenderLabelColumn({
                     ) : null}
                   </Tooltip>
                 </span>
-              </a>
+              </>
             ) : (
               <Tooltip
                 body={
