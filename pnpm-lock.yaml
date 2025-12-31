@@ -82,6 +82,9 @@ importers:
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
+      rimraf:
+        specifier: ^3.0.2
+        version: 3.0.2
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -878,6 +881,9 @@ importers:
       identity-obj-proxy:
         specifier: ^3.0.0
         version: 3.0.0
+      rimraf:
+        specifier: ^3.0.2
+        version: 3.0.2
       sass:
         specifier: ^1.71.0
         version: 1.94.2

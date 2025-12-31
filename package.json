@@ -8,7 +8,7 @@
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx}",
     "type-check": "pnpm -r --workspace-concurrency=1 run type-check",
-    "clean": "pnpm -r run clean && rimraf node_modules && pnpm store prune",
+    "clean": "pnpm -r run clean && pnpm store prune && rimraf node_modules",
     "doc-gen": "cd docs && pnpm install && pnpm gen",
     "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
     "test": "pnpm -r --workspace-concurrency=1 run test",
@@ -53,6 +53,7 @@
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
     "prettier": "^3.6.2",
+    "rimraf": "^3.0.2",
     "typescript": "5.7.3"
   },
   "lint-staged": {
