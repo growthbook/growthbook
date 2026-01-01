@@ -421,7 +421,7 @@ export async function postGenerateSQL(
       if (!aiResultsTables || typeof aiResultsTables.table_names !== "object") {
         return res.status(400).json({
           status: 400,
-          message: "AI did not return the expected list of tables 0",
+          message: "AI did not return the expected list of tables",
         });
       }
       const tableNames = Array.isArray(aiResultsTables.table_names)
