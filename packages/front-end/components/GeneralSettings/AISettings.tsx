@@ -57,6 +57,7 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptDefaultValue: string;
   promptHelpText: string;
   overrideModel: string | undefined;
+  overrideModelHelpText?: string | undefined;
 }> {
   return [
     {
@@ -99,6 +100,22 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
       overrideModel: data.prompts.find((p) => p.type === "metric-description")
+        ?.overrideModel,
+    },
+    {
+      promptType: "generate-sql-query",
+      promptName: "Text to SQL Generation",
+      promptDescription:
+        "The prompt field below adds additional context when generating this SQL. Databases type, name and table structures are included automatically.",
+      promptValue:
+        data.prompts.find((p) => p.type === "generate-sql-query")?.prompt ||
+        AI_PROMPT_DEFAULTS["generate-sql-query"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["generate-sql-query"],
+      overrideModelHelpText:
+        "Some prompts are better than others at generating SQL.",
+      promptHelpText:
+        "Provide any additional guidance on how you would like SQL queries to be generated.",
+      overrideModel: data.prompts.find((p) => p.type === "generate-sql-query")
         ?.overrideModel,
     },
   ];
@@ -400,6 +417,7 @@ export default function AISettings({
                                   )
                                 }
                                 options={PROMPT_MODEL_LABELS}
+                                helpText={prompt?.overrideModelHelpText || ""}
                               />
                             </Box>
                           )}

@@ -87,5 +87,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
 
 // Prompt types that have default values and can be customized by users
 export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
-  (key) => AI_PROMPT_DEFAULTS[key as AIPromptType] !== "",
+  (key) =>
+    AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
+    key === "generate-sql-query",
 ) as AIPromptType[];

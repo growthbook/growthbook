@@ -329,7 +329,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       prompt: promptValues[type],
       overrideModel: promptValues[`${type}-model`] || undefined,
     }));
-
     await apiCall(`/ai/prompts`, {
       method: "POST",
       body: JSON.stringify({ prompts: formattedPrompts }),

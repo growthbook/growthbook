@@ -14,7 +14,6 @@ import {
   Column,
 } from "shared/types/integrations";
 import { DataSourceInterface } from "shared/types/datasource";
-import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
@@ -35,6 +34,7 @@ import {
 import { fetchTableData } from "back-end/src/services/informationSchema";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 /**
  * Ensures all dataVizConfig items have IDs. Adds IDs to any items that don't have them.
@@ -377,6 +377,9 @@ export async function postGenerateSQL(
 
   let filteredTablesInfo = tablesInfo;
   // if there are more than maxTables, lets do a two part search, asking the AI to give its best guess as to which tables to use.
+  const type = "generate-sql-query";
+  const { prompt: userAdditionalPrompt, overrideModel } =
+    await context.models.aiPrompts.getAIPrompt(type);
   if (filteredTablesInfo.length > maxTables) {
     const instructions =
       "You are a data analyst and SQL expert. " +
@@ -393,7 +396,8 @@ export async function postGenerateSQL(
             `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
         )
         .join(", ") +
-      "\nReturn at most 20 FQTN tables. Return only the FQTN without any additional text or explanations.";
+      "\nReturn at most 20 FQTN tables. Return only the FQTN without any additional text or explanations." +
+      (userAdditionalPrompt ? "\n" + userAdditionalPrompt : "");
 
     const zodObjectSchemaTables = z.object({
       table_names: z
@@ -408,7 +412,7 @@ export async function postGenerateSQL(
         instructions,
         prompt: input,
         type: "generate-sql-query",
-        overrideModel: "gpt-4o-mini",
+        overrideModel,
         isDefaultPrompt: true,
         zodObjectSchema: zodObjectSchemaTables,
         temperature: 0.1,
@@ -417,7 +421,7 @@ export async function postGenerateSQL(
       if (!aiResultsTables || typeof aiResultsTables.table_names !== "object") {
         return res.status(400).json({
           status: 400,
-          message: "AI did not return the expected list of tables",
+          message: "AI did not return the expected list of tables 0",
         });
       }
       const tableNames = Array.isArray(aiResultsTables.table_names)
@@ -434,10 +438,10 @@ export async function postGenerateSQL(
         ),
       );
     } catch (e) {
-      logger.error(e, "Error generating SQL from AI, first part");
       return res.status(400).json({
         status: 400,
-        message: "AI did not return a valid SQL query",
+        message:
+          "AI did not return a valid SQL query. " + !IS_CLOUD ? e.message : "",
       });
     }
 
@@ -516,9 +520,21 @@ export async function postGenerateSQL(
       "you're asked for a date range, you should use something like: " +
       "\n(_TABLE_SUFFIX BETWEEN 'yyyyMMdd' AND 'yyyyMMdd')" +
       "\nWhere yyyy is the full year, MM is the month, and dd is the day.\n when constructing the query " +
-      "to make sure it's fast and makes use of the sharding. If you use this code, be sure to replace the dates with the correct range.\n";
+      "to make sure it's fast and makes use of the sharding. If you use this code, be sure to replace the dates with the correct range.\n" +
+      "When generating BigQuery SQL, NEVER use TIMESTAMP_SUB or TIMESTAMP_ADD with date parts larger than DAY (such as MONTH, QUARTER, or YEAR), as this will cause an error.\n" +
+      "If you need to subtract months from a TIMESTAMP column, follow this pattern:\n" +
+      "\n" +
+      "    Cast the TIMESTAMP to a DATETIME.\n" +
+      "    Use DATETIME_SUB with the MONTH interval.\n" +
+      "    Cast the result back to a TIMESTAMP if required.\n" +
+      "\n" +
+      "Example Correct Logic:\n" +
+      "CAST(DATETIME_SUB(CAST(my_timestamp AS DATETIME), INTERVAL 1 MONTH) AS TIMESTAMP)";
   }
 
+  if (userAdditionalPrompt) {
+    instructions += "\n" + userAdditionalPrompt;
+  }
   const zodObjectSchema = z.object({
     sql_string: z
       .string()
@@ -535,7 +551,7 @@ export async function postGenerateSQL(
       isDefaultPrompt: true,
       zodObjectSchema,
       temperature: 0.1,
-      overrideModel: "gpt-4o-mini",
+      overrideModel,
     });
 
     if (!aiResults || typeof aiResults.sql_string !== "string") {
@@ -551,10 +567,10 @@ export async function postGenerateSQL(
       },
     });
   } catch (e) {
-    logger.error(e, "Error generating SQL from AI, second part");
     return res.status(400).json({
       status: 400,
-      message: "AI did not return a valid SQL query",
+      message:
+        "AI did not return a valid SQL query. " + (!IS_CLOUD ? e.message : ""),
     });
   }
 }
