@@ -48,7 +48,17 @@ const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
 ]);
 
-// create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
+const hasAPIforModel = (model: AIModel | string) => {
+  const provider = getProviderFromModel(model as AIModel);
+  if (provider === "openai") {
+    return hasOpenAIKey();
+  }
+  if (provider === "anthropic") {
+    return hasAnthropicKey();
+  }
+  return false;
+};
+
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
   promptName: string;
@@ -121,6 +131,23 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   ];
 }
 
+/**
+ * Small component to render a provider-specific API key warning
+ * if the given model's provider does not have a configured API key.
+ */
+const ApiKeyWarning: React.FC<{ model?: string }> = ({ model }) => {
+  if (!model) return null;
+  if (hasAPIforModel(model)) return null;
+  const provider = getProviderFromModel(model as AIModel);
+  return (
+    <Box mt="2">
+      <Callout status="warning">
+        This AI model requires an API key for {provider} that is not defined.
+      </Callout>
+    </Box>
+  );
+};
+
 export default function AISettings({
   promptForm,
 }: {
@@ -172,7 +199,6 @@ export default function AISettings({
     prompts: AIPromptInterface[];
   }>(`/ai/prompts`);
 
-  // Run the logic only once when `data` is loaded
   useEffect(() => {
     if (data) {
       const prompts = getPrompts(data);
@@ -250,6 +276,10 @@ export default function AISettings({
                       onChange={(v) => form.setValue("defaultAIModel", v)}
                       options={AI_MODEL_LABELS}
                     />
+                    {/* Use centralized warning component */}
+                    <ApiKeyWarning
+                      model={form.watch("defaultAIModel") || "gpt-4o-mini"}
+                    />
                   </Box>
                   <Box mb="6" width="100%">
                     <Text
@@ -275,7 +305,6 @@ export default function AISettings({
                       form.watch("defaultAIModel") || "gpt-4o-mini";
                     const defaultProvider = getProviderFromModel(defaultModel);
 
-                    // Check if any prompt overrides use Anthropic models
                     const promptUsesAnthropic = prompts.some((prompt) => {
                       const promptModel = promptForm.watch(
                         `${prompt.promptType}-model`,
@@ -362,7 +391,6 @@ export default function AISettings({
         </Flex>
       </Frame>
 
-      {/* Prompts Section */}
       {hasAISuggestions && form.watch("aiEnabled") && (
         <>
           <Frame>
@@ -419,6 +447,16 @@ export default function AISettings({
                                 options={PROMPT_MODEL_LABELS}
                                 helpText={prompt?.overrideModelHelpText || ""}
                               />
+                              {(() => {
+                                const modelToCheck =
+                                  promptForm.watch(
+                                    `${prompt.promptType}-model`,
+                                  ) || "";
+                                if (!modelToCheck) {
+                                  return null;
+                                }
+                                return <ApiKeyWarning model={modelToCheck} />;
+                              })()}
                             </Box>
                           )}
                           <Box mb="3">
