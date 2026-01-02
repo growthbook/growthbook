@@ -122,7 +122,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
     if (!writeOptions?.skipSDKRefresh) {
       const payloadKeys = getPayloadKeys(this.context, experiment);
-      await refreshSDKPayloadCache(this.context, payloadKeys);
+      await refreshSDKPayloadCache({ context: this.context, payloadKeys });
     }
   }
 
@@ -145,7 +145,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     // Important: pass the old `experiment` object before doing the update
     // The updated experiment has `hasURLRedirects: false`, which may stop the SDK from updating
     const payloadKeys = getPayloadKeys(this.context, experiment);
-    await refreshSDKPayloadCache(this.context, payloadKeys);
+    await refreshSDKPayloadCache({ context: this.context, payloadKeys });
   }
 
   // When an experiment adds/removes variations, we need to update

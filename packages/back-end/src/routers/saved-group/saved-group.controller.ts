@@ -277,7 +277,7 @@ export const postSavedGroupAddItems = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  savedGroupUpdated(context, savedGroup);
+  savedGroupUpdated(context);
 
   return res.status(200).json({
     status: 200,
@@ -376,7 +376,7 @@ export const postSavedGroupRemoveItems = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  savedGroupUpdated(context, updatedSavedGroup);
+  savedGroupUpdated(context);
 
   return res.status(200).json({
     status: 200,
@@ -521,7 +521,7 @@ export const putSavedGroup = async (
     fieldsToUpdate.values ||
     fieldsToUpdate.projects
   ) {
-    savedGroupUpdated(context, updatedSavedGroup).catch((e) => {
+    savedGroupUpdated(context).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on saved group update");
     });
   }

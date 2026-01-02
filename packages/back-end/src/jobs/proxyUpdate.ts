@@ -5,11 +5,9 @@ import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   clearProxyError,
   findSDKConnectionById,
-  findSDKConnectionsByOrganization,
   setProxyError,
 } from "back-end/src/models/SdkConnectionModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
@@ -182,28 +180,12 @@ export async function queueSingleProxyUpdate(
 
 export async function queueProxyUpdate(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[],
+  connections: SDKConnectionInterface[],
 ) {
-  if (!payloadKeys.length) return;
-
-  const connections = await findSDKConnectionsByOrganization(context);
-
-  if (!connections) return;
+  if (!connections.length) return;
 
   for (let i = 0; i < connections.length; i++) {
     const connection = connections[i];
-
-    // Skip if this SDK Connection isn't affected by the changes
-    if (
-      !payloadKeys.some(
-        (key) =>
-          key.environment === connection.environment &&
-          (!connection.projects.length ||
-            connection.projects.includes(key.project)),
-      )
-    ) {
-      continue;
-    }
 
     if (IS_CLOUD) {
       // Always fire webhook to GB Cloud Proxy for cloud users

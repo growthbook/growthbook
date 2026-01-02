@@ -431,10 +431,13 @@ export const editStatus = async (
       },
     });
 
-    await refreshSDKPayloadCache(
+    await refreshSDKPayloadCache({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+    });
   } else if (req.body.status === "running") {
     // check to see if already in analysis period
     if (!phases[0]) {
@@ -477,10 +480,13 @@ export const editStatus = async (
       changes: { phases, status: "running" },
     });
 
-    await refreshSDKPayloadCache(
+    await refreshSDKPayloadCache({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+    });
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
     phases[0].dateEnded = undefined;
@@ -493,10 +499,13 @@ export const editStatus = async (
       analysisStartDate: undefined,
     });
 
-    await refreshSDKPayloadCache(
+    await refreshSDKPayloadCache({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+    });
   }
 
   return res.status(200).json({ status: 200 });
@@ -567,10 +576,13 @@ export const deleteHoldout = async (
 
   await context.models.holdout.delete(holdout);
 
-  await refreshSDKPayloadCache(
+  await refreshSDKPayloadCache({
     context,
-    getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      holdout,
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+  });
 
   return res.status(200).json({ status: 200 });
 };

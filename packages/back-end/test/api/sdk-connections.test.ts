@@ -127,7 +127,7 @@ describe("sdk-connections API", () => {
 
     let created;
 
-    createSDKConnection.mockImplementation((v) => {
+    createSDKConnection.mockImplementation((c, v) => {
       created = sdkConnectionFactory.build(v);
       return created;
     });
