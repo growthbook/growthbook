@@ -74,6 +74,7 @@ import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
@@ -536,6 +537,7 @@ export async function refreshSDKPayloadCache({
     string,
     Record<string, FeatureDefinitionWithProjects>
   > = {};
+  const usedSavedGroupsByEnv: Record<string, SavedGroupInterface[]> = {};
 
   const promises: (() => Promise<void>)[] = [];
   for (const environment of allEnvironmentsToUpdate) {
@@ -568,12 +570,14 @@ export async function refreshSDKPayloadCache({
     });
     expDefinitionsByEnv[environment] = experimentsDefinitions;
 
-    const savedGroupsInUse = Object.keys(
-      filterUsedSavedGroups(
-        getSavedGroupsValuesFromGroupMap(groupMap),
-        featureDefinitions,
-        experimentsDefinitions,
-      ),
+    const savedGroupsInUse = filterUsedSavedGroups(
+      getSavedGroupsValuesFromGroupMap(groupMap),
+      featureDefinitions,
+      experimentsDefinitions,
+    );
+
+    usedSavedGroupsByEnv[environment] = savedGroups.filter(
+      (sg) => sg.id in savedGroupsInUse,
     );
 
     // If we need to generate a new env-level payload cache
@@ -589,7 +593,7 @@ export async function refreshSDKPayloadCache({
           featureDefinitions,
           holdoutFeatureDefinitions,
           experimentsDefinitions,
-          savedGroupsInUse,
+          savedGroupsInUse: Object.keys(savedGroupsInUse),
         });
       });
     }
@@ -618,6 +622,7 @@ export async function refreshSDKPayloadCache({
     const featureDefinitions = featureDefinitionsByEnv[env];
     const experimentsDefinitions = expDefinitionsByEnv[env];
     const holdoutFeatureDefinitions = holdoutFeatureDefinitionsByEnv[env];
+    const usedSavedGroups = usedSavedGroupsByEnv[env];
 
     let attributes: SDKAttributeSchema | undefined = undefined;
     let secureAttributeSalt: string | undefined = undefined;
@@ -636,30 +641,34 @@ export async function refreshSDKPayloadCache({
     connectionsUpdated.push(connection);
 
     promises.push(async () => {
-      const contents = await getFeatureDefinitionsResponse({
-        features: featureDefinitions,
-        experiments: experimentsDefinitions || [],
-        holdouts: holdoutFeatureDefinitions,
-        dateUpdated: new Date(),
-        encryptionKey: connection.encryptionKey,
-        includeVisualExperiments: connection.includeVisualExperiments,
-        includeDraftExperiments: connection.includeDraftExperiments,
-        includeExperimentNames: connection.includeExperimentNames,
-        includeRedirectExperiments: connection.includeRedirectExperiments,
-        includeRuleIds: connection.includeRuleIds,
-        attributes,
-        secureAttributeSalt,
-        projects: connection.projects || [],
-        capabilities: getConnectionSDKCapabilities(connection),
-        savedGroups,
-        savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-        organization: context.org,
-      });
+      try {
+        const contents = await getFeatureDefinitionsResponse({
+          features: featureDefinitions,
+          experiments: experimentsDefinitions || [],
+          holdouts: holdoutFeatureDefinitions || {},
+          dateUpdated: new Date(),
+          encryptionKey: connection.encryptionKey,
+          includeVisualExperiments: connection.includeVisualExperiments,
+          includeDraftExperiments: connection.includeDraftExperiments,
+          includeExperimentNames: connection.includeExperimentNames,
+          includeRedirectExperiments: connection.includeRedirectExperiments,
+          includeRuleIds: connection.includeRuleIds,
+          attributes,
+          secureAttributeSalt,
+          projects: connection.projects || [],
+          capabilities: getConnectionSDKCapabilities(connection),
+          usedSavedGroups: usedSavedGroups || [],
+          savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+          organization: context.org,
+        });
 
-      await context.models.sdkConnectionCache.upsert(
-        connection.key,
-        JSON.stringify(contents),
-      );
+        await context.models.sdkConnectionCache.upsert(
+          connection.key,
+          JSON.stringify(contents),
+        );
+      } catch (e) {
+        logger.error(e, "Error updating SDK connection cache");
+      }
     });
   });
 
