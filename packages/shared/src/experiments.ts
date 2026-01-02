@@ -1,7 +1,12 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import uniqid from "uniqid";
+import {
+  DEFAULT_GUARDRAIL_ALPHA,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared/constants";
 import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
@@ -40,11 +45,6 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { TemplateVariables } from "../types/sql";
 import { stringToBoolean } from "./util";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-} from "./constants";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 

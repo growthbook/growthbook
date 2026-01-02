@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
@@ -43,7 +43,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
         <Message>Something went wrong while displaying this graph.</Message>
       }
       onError={(error) => {
-        Sentry.captureException(error);
+        sentryCaptureException(error);
       }}
     >
       <ExperimentMetricTimeSeriesGraphWrapper {...props} />
